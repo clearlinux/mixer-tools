@@ -2,6 +2,7 @@ dist_bin_SCRIPTS = \
 	add-rpms.sh \
 	create-update.sh \
 	build-chroots.sh \
+	init-mix.sh \
 	init-versions.sh \
 	update-bundles.sh
 

@@ -4,6 +4,27 @@ BUILDERSCRIPT="bundle-chroot-builder.py"
 CLRVER=$(cat "$PWD/.clear-version")
 MIXVER=$(cat "$PWD/.mix-version")
 
+while [[ $# > 0 ]]
+do
+  key="$1"
+  case $key in
+    -c|--config)
+    BUILDERCONF="$2"
+    shift
+    ;;
+    -h|--help)
+    echo -e "Usage: mixer-build-chroots.sh\n"
+    echo -e "\t-c, --config Supply specific builder.conf\n"
+    exit
+    ;;
+    *)
+    echo -e "Invalid option\n"
+    exit
+    ;;
+esac
+shift
+done
+
 # FIXME: For now, only build chroots for the mix. In the future, when we run the
 # ABI checker and build_comp to catch additional problems compared to upstream
 # Clear, we will need to build vanilla Clear chroots as well.
@@ -38,11 +59,18 @@ if [ ! -e "$PWD/yum.conf.in" ]; then
   cp /usr/share/defaults/mixer/yum.conf.in .
 fi
 
+# Read values from builder.conf, either supplied or default
+if [[ ! -z $BUILDERCONF ]]; then
+  STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
+  YUM_CONF=$(grep YUM_CONF "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
+else
+  STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
+  YUM_CONF=$(grep YUM_CONF "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
+fi
+
 if [ "$BUILDTYPE" = "clear" ]; then
   m4 yum.conf.in > "$PWD/.yum-clear.conf"
-  SWUPD_YUM_CONF="$PWD/.yum-clear.conf"
   BUILDVER=$CLRVER
-  SWUPD_SERVER_STATE_DIR="$PWD/build/"
 elif [ "$BUILDTYPE" = "mix" ]; then
   if [ ! -f "$PWD/.mixer-repopath" ] ; then
     m4 yum.conf.in > "$PWD/.yum-mix.conf"
@@ -50,19 +78,20 @@ elif [ "$BUILDTYPE" = "mix" ]; then
     repopath=$(cat "$PWD/.mixer-repopath" | xargs realpath)
     m4 -D MIXER_REPO -D MIXER_REPOPATH="$repopath" yum.conf.in > "$PWD/.yum-mix.conf"
   fi
-  SWUPD_YUM_CONF="$PWD/.yum-mix.conf"
   BUILDVER=$MIXVER
-  SWUPD_SERVER_STATE_DIR="/var/lib/update/"
 fi
 
 # if BUILDVER already exists wipe it so it's a fresh build
-if [ -d $SWUPD_SERVER_STATE_DIR/image/$BUILDVER ] ; then
-  echo -e "Wiping away previous $BUILDVER...\n"
-  sudo -E rm -rf "$SWUPD_SERVER_STATE_DIR/www/$BUILDVER"
-  sudo -E rm -rf "$SWUPD_SERVER_STATE_DIR/image/$BUILDVER"
+if [ -d $STATE_DIR/image/$BUILDVER ] ; then
+  echo -e "Wiping away previous version $BUILDVER...\n"
+  sudo -E rm -rf "$STATE_DIR/www/$BUILDVER"
+  sudo -E rm -rf "$STATE_DIR/image/$BUILDVER"
 fi
 
 # if this is a mix, need to build with the Clear version, but publish the mix version
-sudo -E "$BUILDERSCRIPT" -m $BUILDVER $CLRVER
-
+if [[ ! -z $BUILDERCONF ]]; then
+  sudo -E "$BUILDERSCRIPT" -c "$BUILDERCONF" -m $BUILDVER $CLRVER
+else
+  sudo -E "$BUILDERSCRIPT" -m $BUILDVER $CLRVER
+fi
 # vi: ts=8 sw=2 sts=2 et tw=80

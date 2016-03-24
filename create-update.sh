@@ -25,6 +25,7 @@ do
     echo -e "Usage: mixer-create-update.sh\n"
     echo -e "\t-c, --config Supply specific builder.conf\n"
     echo -e "\t-f, --format Supply format to use\n"
+    echo -e "\t-p, --prefix Supply prefix for where the swupd binaries live\n"
     exit
     ;;
     *)

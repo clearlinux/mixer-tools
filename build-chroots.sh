@@ -63,6 +63,9 @@ fi
 if [[ ! -z $BUILDERCONF ]]; then
   STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
   YUM_CONF=$(grep YUM_CONF "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
+elif [ -e "/etc/bundle-chroot-builder/builder.conf" ]; then
+  STATE_DIR=$(grep STATE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
+  YUM_CONF=$(grep YUM_CONF "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
 else
   STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
   YUM_CONF=$(grep YUM_CONF "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')

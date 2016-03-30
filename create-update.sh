@@ -5,6 +5,11 @@ CLRVER=$(cat "$PWD/.clear-version")
 MIXVER=$(cat "$PWD/.mix-version")
 PREFIX=
 
+# Strip the trailing and leading whitespace on variables to sanitize them
+function strip_whitespace {
+    sed 's/ *$//' | sed 's/^ *//'
+}
+
 while [[ $# > 0 ]]
 do
   key="$1"
@@ -14,7 +19,7 @@ do
     shift
     ;;
     -f|--format)
-    FORMAT="$2"
+    FORMAT="$(echo $2 | strip_whitespace)"
     shift
     ;;
     -p|--prefix)
@@ -37,21 +42,33 @@ shift
 done
 
 if [ ! -z "$BUILDERCONF" ]; then
-  STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
-  BUNDLE_DIR=$(grep BUNDLE_DIR "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
+    STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
+    BUNDLE_DIR=$(grep BUNDLE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
+    if [ -z "$FORMAT" ]; then
+        FORMAT=$(grep FORMAT "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
+    fi
+elif [ -e "/etc/bundle-chroot-builder/builder.conf" ]; then
+    STATE_DIR=$(grep STATE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    BUNDLE_DIR=$(grep BUNDLE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    if [ -z "$FORMAT" ]; then
+            FORMAT=$(grep FORMAT "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    fi
 else
-  STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
-  BUNDLE_DIR=$(grep BUNDLE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
+    STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    BUNDLE_DIR=$(grep BUNDLE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    if [ -z "$FORMAT"]; then
+            FORMAT=$(grep FORMAT "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    fi
 fi
 
 if [ -z "$FORMAT" ]; then
-        FORMAT="staging"
+    FORMAT="staging"
 fi
 
 export BUNDLEREPO="$BUNDLE_DIR"
 
 if [ ! -d "$STATE_DIR/www/version/format$FORMAT" ]; then
-	sudo -E mkdir -p "$STATE_DIR/www/version/format$FORMAT/"
+    sudo -E mkdir -p "$STATE_DIR/www/version/format$FORMAT/"
 fi
 
 # step 1: create update content for current mix
@@ -71,4 +88,3 @@ sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/*
 # step 5: update latest version
 sudo cp "$PWD/.mix-version" "$STATE_DIR/image/latest.version"
 sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
-# vi: ts=8 sw=2 sts=2 et tw=80

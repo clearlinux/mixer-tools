@@ -98,8 +98,8 @@ fi
 
 # if this is a mix, need to build with the Clear version, but publish the mix version
 if [[ ! -z $BUILDERCONF ]]; then
-  sudo -E "$BUILDERSCRIPT" -c "$BUILDERCONF" -m $BUILDVER $CLRVER
+  sudo -E "LD_PRELOAD=/usr/lib64/nosync/nosync.so $BUILDERSCRIPT" -c "$BUILDERCONF" -m $BUILDVER $CLRVER
 else
-  sudo -E "$BUILDERSCRIPT" -m $BUILDVER $CLRVER
+  sudo -E "LD_PRELOAD=/usr/lib64/nosync/nosync.so $BUILDERSCRIPT" -m $BUILDVER $CLRVER
 fi
 # vi: ts=8 sw=2 sts=2 et tw=80

@@ -5,11 +5,36 @@ set -e
 if [ -e /usr/lib/os-release ]; then
         CLRVER=$(awk -F= '/^VERSION_ID/ { print $2 }' /usr/lib/os-release)
 fi
-if [[ ! -z $1 ]]; then
-        CLRVER=$1
-elif [[ -z $CLRVER ]]; then
-        echo -e "Please supply Clear version to use\n"
-        exit
+
+while [[ $# > 0 ]]
+do
+	key="$1"
+	case $key in
+		-c|--config)
+		BUILDERCONF="$2"
+		shift
+		;;
+		-b|--buildver)
+		CLRVER="$2"
+		shift
+		;;
+		-h|--help)
+		echo -e "Usage: mixer-init-mix.sh\n"
+		echo -e "\t-c, --config Supply specific builder.conf\n"
+		echo -e "\t-b, --buildver Supply specific Clear version to build against\n"
+		exit
+		;;
+		*)
+		echo -e "Invalid option\n"
+		exit
+		;;
+	esac
+	shift
+done
+
+if [ -z "$CLRVER" ]; then
+	echo -e "Please supply Clear version to use\n"
+	exit
 fi
 
 echo -e "Creating initial update version 10\n"
@@ -26,7 +51,8 @@ sudo -E git add .
 sudo -E git commit -s -m "Prune bundles for starting version 10"
 cd -
 
-sudo -E "mixer-build-chroots.sh"
-
-sudo -E "mixer-create-update.sh"
+if [[ ! -z $BUILDERCONF ]]; then
+	sudo -E sh -c "mixer-build-chroots.sh -c $BUILDERCONF"
+else
+	sudo -E "mixer-create-update.sh"
 # vi: ts=8 sw=2 sts=2 et tw=80

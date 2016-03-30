@@ -59,16 +59,21 @@ if [ ! -e "$PWD/yum.conf.in" ]; then
   cp /usr/share/defaults/mixer/yum.conf.in .
 fi
 
+# Strip the trailing and leading whitespace on variables to sanitize them
+function strip_whitespace {
+    sed 's/ *$//' | sed 's/^ *//'
+}
+
 # Read values from builder.conf, either supplied or default
 if [[ ! -z $BUILDERCONF ]]; then
-  STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
-  YUM_CONF=$(grep YUM_CONF "$BUILDERCONF" | cut -d "=" -f2 | sed 's/ *//')
+  STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
+  YUM_CONF=$(grep YUM_CONF "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
 elif [ -e "/etc/bundle-chroot-builder/builder.conf" ]; then
-  STATE_DIR=$(grep STATE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
-  YUM_CONF=$(grep YUM_CONF "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
+  STATE_DIR=$(grep STATE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+  YUM_CONF=$(grep YUM_CONF "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
 else
-  STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
-  YUM_CONF=$(grep YUM_CONF "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | sed 's/ *//')
+  STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+  YUM_CONF=$(grep YUM_CONF "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
 fi
 
 if [ "$BUILDTYPE" = "clear" ]; then

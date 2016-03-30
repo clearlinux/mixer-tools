@@ -4,6 +4,7 @@ set -e
 CLRVER=$(cat "$PWD/.clear-version")
 MIXVER=$(cat "$PWD/.mix-version")
 PREFIX=
+LOG_DIR="$PWD/logs"
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {
@@ -88,3 +89,7 @@ sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/*
 # step 5: update latest version
 sudo cp "$PWD/.mix-version" "$STATE_DIR/image/latest.version"
 sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
+
+# step 6: archive the swupd-server logs for this mix build
+mkdir -p "$LOG_DIR/$MIXVER"
+mv -f "$PWD"/swupd-*-$MIXVER.log "$LOG_DIR/$MIXVER/"

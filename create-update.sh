@@ -72,7 +72,7 @@ if [ ! -d "$STATE_DIR/www/version/format$FORMAT" ]; then
 fi
 
 # step 1: create update content for current mix
-sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" --osversion $MIXVER
+sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" -F "$FORMAT" --osversion $MIXVER
 
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER

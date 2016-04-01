@@ -39,20 +39,23 @@ fi
 
 echo -e "Creating initial update version 10\n"
 
-sudo -E sh -c "mixer-init-versions.sh -m 10 -c $CLRVER"
+mixer-init-versions.sh -m 10 -c $CLRVER
 
-sudo -E "mixer-update-bundles.sh"
+mixer-update-bundles.sh
 
 echo -e "Initializing mix with bundles:\n* os-core\n* os-core-update\n"
 cd bundles/
-sudo -E rm -rf *
-sudo -E git checkout os-core os-core-update
-sudo -E git add .
-sudo -E git commit -s -m "Prune bundles for starting version 10"
+rm -rf *
+git checkout os-core os-core-update
+git add .
+git commit -s -m "Prune bundles for starting version 10"
 cd -
 
 if [[ ! -z $BUILDERCONF ]]; then
-	sudo -E sh -c "mixer-build-chroots.sh -c $BUILDERCONF"
+        mixer-build-chroots.sh -c $BUILDERCONF
+        mixer-create-update.sh -c $BUILDERCONF
 else
-	sudo -E "mixer-create-update.sh"
+        mixer-build-chroots.sh
+        mixer-create-update.sh
+fi
 # vi: ts=8 sw=2 sts=2 et tw=80

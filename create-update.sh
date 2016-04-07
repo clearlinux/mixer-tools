@@ -79,8 +79,28 @@ sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" -F "$FORMAT" --osversion $M
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER
 
 # step 3: create zero/delta packs
-for bundle in $(ls "$BUNDLEREPO"); do
-	sudo -E "$PREFIX"swupd_make_pack -S "$STATE_DIR" 0 $MIXVER $bundle
+MOM="$STATE_DIR/www/$MIXVER/Manifest.MoM"
+if [ ! -e ${MOM} ]; then
+    error "no ${MOM}"
+fi
+BUNDLE_LIST=$(cat ${MOM} | awk -v V=${MIXVER} '$1 ~ /^M\./ && $3 == V { print $4 }')
+# NOTE: for signing, pass the --signcontent option to swupd_make_pack.
+# Signing is currently disabled until there are new test certs ready.
+for BUNDLE in $BUNDLE_LIST; do
+	sudo -E "$PREFIX"swupd_make_pack -S "$STATE_DIR" 0 $MIXVER $BUNDLE &
+done
+
+for job in $(jobs -p); do
+    wait ${job}
+    RET=$?
+    if [ "$RET" != "0" ]; then
+        error "zero pack subprocessor failed"
+    fi
+done
+
+# we only need the full chroot from this point on, so cleanup the others
+for BUNDLE in $(ls "$BUNDLEREPO" | grep -v "full"); do
+	sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
 done
 
 # step 4: hardlink relevant dirs

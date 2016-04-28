@@ -3,57 +3,54 @@
 set -e
 
 CLRVER=$(cat "$PWD/.clear-version")
-GITREPODIR="$PWD/.repos"
+GITREPODIR="$PWD/mix-bundles"
 
 update_repo() {
-  local repo="$1"
-  echo "Updating $repo repo..."
-  (
-  if [ ! -d "$repo" ]; then
-    git clone https://github.com/clearlinux/"$repo"
-  else
-    cd "$repo"
-    # to force the update of clr-bundles "latest" tag
-    git fetch --tags
-    git checkout master
-    git pull
-    cd -
-  fi
-  if [ "$repo" = "clr-bundles" ]; then
-    cd "$repo"
-    # make sure the correct tag is checked out
-    git checkout $CLRVER
-
-    # Store mixer bundle modifications in a branch so that users can make
-    # incremental changes over time. If rebasing on a new version of Clear, a
-    # new branch is created, but the old branches remain, making it easier to
-    # port bundle definitions.
-    local branch="${CLRVER}_mix"
+    local repo="$1"
+    (
+    if [ ! -d "$repo" ]; then
+        git clone https://github.com/clearlinux/"$repo.git"
+        cd "$repo"
+    else
+        cd "$repo"
+        # to force the update of clr-bundles "latest" tag
+        git fetch --tags
+        git checkout master
+        git pull
+    fi
+    # checkout the tag relating to the clear version used to build against
+    git checkout tags/"$CLRVER"
     set +e
+    local branch="${CLRVER}_mix"
     git rev-parse --verify "$branch"
     if [ $? -eq 0 ]; then
-      git checkout "$branch"
+        git checkout "$branch"
+        git pull
     else
-      git checkout -b "$branch"
+        git checkout -b "$branch"
     fi
     set -e
-    cd -
-  fi
-  ) &> /dev/null
+    cd ..
+    ) &> /dev/null
+    echo "$repo updated"
 }
 
+# Get the upstream clr-bundles
+update_repo clr-bundles
+
+# Set up mix bundle repo if it does not exist
 if [ ! -d "$GITREPODIR" ]; then
-  mkdir "$GITREPODIR"
+    echo "Creating initial $GITREPODIR"
+    mkdir "$GITREPODIR"
+    cd "$GITREPODIR"
+    (
+    git init .
+    cp ../clr-bundles/bundles/* .
+    git add .
+    git commit -s -m "Setup initial mixer bundles repo"
+    cd -
+    ) &> /dev/null
 fi
 
-cd "$GITREPODIR"
-update_repo clr-bundles.git
-cd - > /dev/null
-
-# For easy visibility of the available bundles, create a directory symlink to
-# the hidden repo location.
-ln -sf "$GITREPODIR"/clr-bundles/bundles bundles
-
 exit 0
-
-# vi: ts=8 sw=2 sts=2 et tw=80
+# vi: ts=8 sw=4 sts=4 et tw=80

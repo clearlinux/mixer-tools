@@ -5,6 +5,7 @@ CLRVER=$(cat "$PWD/.clear-version")
 MIXVER=$(cat "$PWD/.mix-version")
 PREFIX=
 LOG_DIR="$PWD/logs"
+NOPUBLISH=0
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {
@@ -13,33 +14,42 @@ function strip_whitespace {
 
 while [[ $# > 0 ]]
 do
-  key="$1"
-  case $key in
-    -c|--config)
-    BUILDERCONF="$2"
-    shift
-    ;;
-    -f|--format)
-    FORMAT="$(echo $2 | strip_whitespace)"
-    shift
-    ;;
-    -p|--prefix)
-    PREFIX="$2"
-    shift
-    ;;
-    -h|--help)
-    echo -e "Usage: mixer-create-update.sh\n"
-    echo -e "\t-c, --config Supply specific builder.conf\n"
-    echo -e "\t-f, --format Supply format to use\n"
-    echo -e "\t-p, --prefix Supply prefix for where the swupd binaries live\n"
-    exit
-    ;;
-    *)
-    echo -e "Invalid option\n"
-    exit
-    ;;
-esac
-shift
+	key="$1"
+	case $key in
+		-c|--config)
+		BUILDERCONF="$2"
+		shift
+		;;
+		-f|--format)
+		FORMAT="$(echo $2 | strip_whitespace)"
+		shift
+		;;
+		m|--minversion)
+		MINVERSION="$2"
+		shift
+		;;
+		-p|--prefix)
+		PREFIX="$2"
+		shift
+		;;
+		--no-publish)
+		NOPUBLISH=1
+		;;
+		-h|--help)
+		echo -e "Usage: mixer-create-update.sh\n"
+		echo -e "\t-c, --config Supply specific builder.conf\n"
+		echo -e "\t-f, --format Supply format to use\n"
+		echo -e "\t-m, --minversion supply minversion to build upate with\n"
+		echo -e "\t-p, --prefix Supply prefix for where the swupd binaries live\n"
+		echo -e "\t    --no-publish Do not update the latest version after update \n"
+		exit
+		;;
+		*)
+		echo -e "Invalid option\n"
+		exit
+		;;
+	esac
+	shift
 done
 
 if [ ! -z "$BUILDERCONF" ]; then
@@ -73,12 +83,12 @@ if [ ! -d "$STATE_DIR/www/version/format$FORMAT" ]; then
 fi
 
 # step 1: create update content for current mix
-sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" -F "$FORMAT" --osversion $MIXVER
+sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" --minversion "$MINVERSION" -F "$FORMAT" --osversion $MIXVER
 
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER
 
-# step 3: create zero/delta packs
+# step 3: create zero packs
 MOM="$STATE_DIR/www/$MIXVER/Manifest.MoM"
 if [ ! -e ${MOM} ]; then
     error "no ${MOM}"
@@ -107,8 +117,10 @@ done
 sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/*
 
 # step 5: update latest version
-sudo cp "$PWD/.mix-version" "$STATE_DIR/image/latest.version"
-sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
+if [ $NOPUBLISH -eq 0 ]; then
+	sudo cp "$PWD/.mix-version" "$STATE_DIR/image/latest.version"
+	sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
+fi
 
 # step 6: archive the swupd-server logs for this mix build
 mkdir -p "$LOG_DIR/$MIXVER"

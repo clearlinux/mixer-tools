@@ -1,8 +1,6 @@
 #!/bin/bash
 set -e
 
-CLRVER=$(cat "$PWD/.clear-version")
-MIXVER=$(cat "$PWD/.mix-version")
 PREFIX=
 LOG_DIR="$PWD/logs"
 NOPUBLISH=0
@@ -51,6 +49,9 @@ do
 	esac
 	shift
 done
+
+CLRVER=$(cat "$PWD/.clear-version")
+MIXVER=$(cat "$PWD/.mix-version")
 
 if [ ! -z "$BUILDERCONF" ]; then
     STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)

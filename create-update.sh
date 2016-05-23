@@ -22,7 +22,7 @@ do
 		FORMAT="$(echo $2 | strip_whitespace)"
 		shift
 		;;
-		m|--minversion)
+		-m|--minversion)
 		MINVERSION="$2"
 		shift
 		;;

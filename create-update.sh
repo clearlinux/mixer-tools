@@ -86,6 +86,11 @@ fi
 # step 1: create update content for current mix
 sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" --minversion "$MINVERSION" -F "$FORMAT" --osversion $MIXVER
 
+# we only need the full chroot from this point on, so cleanup the others
+for BUNDLE in $(ls "$BUNDLEREPO" | grep -v "^full"); do
+	sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
+done
+
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER
 
@@ -107,11 +112,6 @@ for job in $(jobs -p); do
     if [ "$RET" != "0" ]; then
         error "zero pack subprocessor failed"
     fi
-done
-
-# we only need the full chroot from this point on, so cleanup the others
-for BUNDLE in $(ls "$BUNDLEREPO" | grep -v "full"); do
-	sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
 done
 
 # step 4: hardlink relevant dirs

@@ -1,8 +1,8 @@
 #!/bin/bash -e
 # usage:
-#	pack_maker.sh <to version> <back_count>
-#	pack_maker.sh 2820 2
-#	pack_maker.sh 2730 3
+#	mixer-pack-maker.sh <to version> <back_count>
+#	mixer-pack-maker.sh 2820 2
+#	mixer-pack-maker.sh 2730 3
 #
 # For each bundle changed as of the Manifest.MoM at the <to version>,
 # create version-pair packs going back <back_count>

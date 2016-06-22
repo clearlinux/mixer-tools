@@ -4,7 +4,8 @@ dist_bin_SCRIPTS = \
 	build-chroots.sh \
 	init-mix.sh \
 	init-versions.sh \
-	update-bundles.sh
+	update-bundles.sh \
+	pack-maker.sh
 
 configdir = $(datadir)/defaults/mixer
 dist_config_DATA = yum.conf.in

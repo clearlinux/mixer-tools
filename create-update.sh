@@ -5,6 +5,8 @@ PREFIX=
 LOG_DIR="$PWD/logs"
 NOPUBLISH=0
 ZEROPACKS=1
+BACK_COUNT=30       # Number of packs to create backward from current version
+DELTA_PACK_COUNT=5  # Number of those packs to keep as delta packs, the rest
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {
@@ -107,7 +109,6 @@ BUNDLE_LIST=$(cat ${MOM} | awk -v V=${MIXVER} '$1 ~ /^M\./ && $3 == V { print $4
 # NOTE: for signing, pass the --signcontent option to swupd_make_pack.
 # Signing is currently disabled until there are new test certs ready.
 if [ $ZEROPACKS -eq 1 ]; then
-	echo "ZERO PACKS ENABLED"
 	for BUNDLE in $BUNDLE_LIST; do
 		sudo -E "$PREFIX"swupd_make_pack -S "$STATE_DIR" 0 $MIXVER $BUNDLE &
 	done

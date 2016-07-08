@@ -16,7 +16,7 @@ update_repo() {
         # to force the update of clr-bundles "latest" tag
         git fetch --tags
         git checkout master
-        git pull
+        git pull origin master
     fi
     # checkout the tag relating to the clear version used to build against
     git checkout tags/"$CLRVER"

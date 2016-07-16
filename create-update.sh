@@ -4,6 +4,7 @@ set -e
 PREFIX=
 LOG_DIR="$PWD/logs"
 NOPUBLISH=0
+ZEROPACKS=1
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {
@@ -29,6 +30,9 @@ do
 		-p|--prefix)
 		PREFIX="$2"
 		shift
+		;;
+		-z|--no-zero-packs)
+		ZEROPACKS=0
 		;;
 		--no-publish)
 		NOPUBLISH=1
@@ -102,17 +106,20 @@ fi
 BUNDLE_LIST=$(cat ${MOM} | awk -v V=${MIXVER} '$1 ~ /^M\./ && $3 == V { print $4 }')
 # NOTE: for signing, pass the --signcontent option to swupd_make_pack.
 # Signing is currently disabled until there are new test certs ready.
-for BUNDLE in $BUNDLE_LIST; do
-	sudo -E "$PREFIX"swupd_make_pack -S "$STATE_DIR" 0 $MIXVER $BUNDLE &
-done
+if [ $ZEROPACKS -eq 1 ]; then
+	echo "ZERO PACKS ENABLED"
+	for BUNDLE in $BUNDLE_LIST; do
+		sudo -E "$PREFIX"swupd_make_pack -S "$STATE_DIR" 0 $MIXVER $BUNDLE &
+	done
 
-for job in $(jobs -p); do
-    wait ${job}
-    RET=$?
-    if [ "$RET" != "0" ]; then
-        error "zero pack subprocessor failed"
-    fi
-done
+	for job in $(jobs -p); do
+	    wait ${job}
+	    RET=$?
+	    if [ "$RET" != "0" ]; then
+		error "zero pack subprocessor failed"
+	    fi
+	done
+fi
 
 # step 4: hardlink relevant dirs
 sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/*

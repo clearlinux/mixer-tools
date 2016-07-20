@@ -44,7 +44,6 @@ MOM=$WORK_DIR/Manifest.MoM
 BUNDLE_LIST=$(cat ${MOM} | awk -v V=${TO_VER} '$1 ~ /^M\./ && $3 == V { print $4 }')
 
 for BUNDLE in $BUNDLE_LIST; do
-	#SUPERPACK=""
 	echo "Creating superpack for $BUNDLE"
 	VER_LIST=()
 

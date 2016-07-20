@@ -5,9 +5,6 @@ PREFIX=
 LOG_DIR="$PWD/logs"
 NOPUBLISH=0
 ZEROPACKS=1
-BACK_COUNT=30       # Number of packs to create backward from current version
-DELTA_PACK_COUNT=5  # Number of those packs to keep as delta packs, the rest
-                    # will become symlinks to a superpack
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {
@@ -133,10 +130,6 @@ if [ $NOPUBLISH -eq 0 ]; then
 	sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
 fi
 
-# step 6: create delta packs and super packs
-sudo mixer-pack-maker.sh $MIXVER $BACK_COUNT
-sudo mixer-superpack-maker.sh $MIXVER $DELTA_PACK_COUNT $STATE_DIR
-
-# step 7: archive the swupd-server logs for this mix build
+# step 6: archive the swupd-server logs for this mix build
 mkdir -p "$LOG_DIR/$MIXVER"
 mv -f "$PWD"/swupd-*-$MIXVER.log "$LOG_DIR/$MIXVER/"

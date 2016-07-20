@@ -1,8 +1,8 @@
 #!/bin/bash -e
 # usage:
-#	mixer-pack-maker.sh <to version> <back_count>
+#	mixer-pack-maker.sh <to version> <back_count> [<state_dir>]
 #	mixer-pack-maker.sh 2820 2
-#	mixer-pack-maker.sh 2730 3
+#	mixer-pack-maker.sh 2730 3 /home/clr/mix/update
 #
 # For each bundle changed as of the Manifest.MoM at the <to version>,
 # create version-pair packs going back <back_count>
@@ -11,6 +11,8 @@
 # "editors" last two change points were 2550 and 2260 and thus create a
 # 2550-to-2650 and a 2260-to-2650 version pair pack for the "editors"
 # bundle.
+#
+# state_dir defaults to /var/lib/update if not provided
 
 #NOTE: fullfiles must be created before calling this script
 #NOTE: zero packs need similarly created
@@ -22,8 +24,6 @@
 
 SWUPDREPO=${SWUPDREPO:-"/usr/src/clear-projects/swupd-server"}
 BUNDLEREPO=${BUNDLEREPO:-"/usr/src/clear-projects/clr-bundles"}
-UPDATEDIR=${UPDATEDIR:-"/var/lib/update"}
-SWUPDWEBDIR="${UPDATEDIR}/www"
 SWUPD_CERTS_DIR=${SWUPD_CERTS_DIR=:-"/root/swupd-certs"}
 
 export XZ_DEFAULTS="--threads 0"
@@ -36,6 +36,7 @@ export PASSPHRASE="${SWUPD_CERTS_DIR}/passphrase"
 
 VER=$1
 BACK_COUNT=$2
+STATE_DIR=$3
 
 if [ "${BACK_COUNT}" == "" ]; then
 	echo "missing to pack count"
@@ -46,6 +47,14 @@ if [ "${VER}" == "" ]; then
 	echo "missing to version"
 	exit 1
 fi
+
+if [ "${STATE_DIR}" == "" ]; then
+	echo "missing state dir, default is /var/lib/update"
+	STATE_DIR="/var/lib/update"
+fi
+
+UPDATEDIR=${STATE_DIR}
+SWUPDWEBDIR="${UPDATEDIR}/www"
 
 MOM=${SWUPDWEBDIR}/${VER}/Manifest.MoM
 if [ ! -e ${MOM} ]; then

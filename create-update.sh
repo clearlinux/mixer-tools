@@ -5,8 +5,6 @@ PREFIX=
 LOG_DIR="$PWD/logs"
 NOPUBLISH=0
 ZEROPACKS=1
-BACK_COUNT=30       # Number of packs to create backward from current version
-DELTA_PACK_COUNT=5  # Number of those packs to keep as delta packs, the rest
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {

@@ -31,7 +31,6 @@ fi
 TO_VER=$1                           # $MIXVER in create_update.sh
 DELTA_PACK_COUNT=$2                 # $DELTA_PACK_COUNT in create_update.sh
 UPDATE_DIR=${3:-"/var/lib/update"}  # Defaults to /var/lib/update
-
 WORK_DIR=$UPDATE_DIR/www/$TO_VER
 CUR_DIR=$PWD
 

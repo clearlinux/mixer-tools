@@ -20,32 +20,29 @@
 #      consider which version-pair packs are meaningful for intermediate builds
 #      and revert builds.
 
-SWUPDREPO=${SWUPDREPO:-"/usr/src/clear-projects/swupd-server"}
-BUNDLEREPO=${BUNDLEREPO:-"/usr/src/clear-projects/clr-bundles"}
-UPDATEDIR=${UPDATEDIR:-"/var/lib/update"}
-SWUPDWEBDIR="${UPDATEDIR}/www"
-SWUPD_CERTS_DIR=${SWUPD_CERTS_DIR=:-"/root/swupd-certs"}
-
 export XZ_DEFAULTS="--threads 0"
-
-export SWUPD_CERTS_DIR
-export LEAF_KEY="leaf.key.pem"
-export LEAF_CERT="leaf.cert.pem"
-export CA_CHAIN_CERT="ca-chain.cert.pem"
-export PASSPHRASE="${SWUPD_CERTS_DIR}/passphrase"
 
 VER=$1
 BACK_COUNT=$2
+UPDATEDIR=$3
+SWUPDREPO=${SWUPDREPO}
 
-if [ "${BACK_COUNT}" == "" ]; then
+if [ -z "${BACK_COUNT}" ]; then
 	echo "missing to pack count"
 	exit 1
 fi
 
-if [ "${VER}" == "" ]; then
+if [ -z "${VER}" ]; then
 	echo "missing to version"
 	exit 1
 fi
+
+if [ -z "${UPDATEDIR}" ]; then
+	echo "Missing STATE_DIR, using /var/lib/update/"
+	UPDATEDIR="/var/lib/update/"
+fi
+
+SWUPDWEBDIR="${UPDATEDIR}/www"
 
 MOM=${SWUPDWEBDIR}/${VER}/Manifest.MoM
 if [ ! -e ${MOM} ]; then
@@ -53,14 +50,10 @@ if [ ! -e ${MOM} ]; then
 	exit 1
 fi
 
-#time ${SWUPDREPO}/swupd_make_fullfiles --statedir ${UPDATEDIR} ${VER}
-
 BUNDLE_LIST=$(cat ${MOM} | awk -v V=${VER} '$1 ~ /^M\./ && $3 == V { print $4 }')
 
 # build packs for all bundles changed in $VER
 for BUNDLE in $BUNDLE_LIST; do
-	#${SWUPDREPO}/swupd_make_pack --statedir ${UPDATEDIR} 0 ${VER} ${BUNDLE} &
-
 	BUNDLE_VER_LIST=""
 	MANIFEST_VER=$(cat ${SWUPDWEBDIR}/$VER/Manifest.MoM | grep "^previous:" | cut -f 2)
 	BUNDLE_VER=""
@@ -87,7 +80,7 @@ for BUNDLE in $BUNDLE_LIST; do
 		if [ -e ${SWUPDWEBDIR}/${VER}/pack-${BUNDLE}-from-$v.tar ]; then
 			echo "${VER}/pack-${BUNDLE}-from-$v.tar already exists, skipping."
 		else
-			${SWUPDREPO}/swupd_make_pack --statedir ${UPDATEDIR} $v ${VER} ${BUNDLE} &
+			${SWUPDREPO}swupd_make_pack --statedir ${UPDATEDIR} $v ${VER} ${BUNDLE} &
 		fi
 	done
 done

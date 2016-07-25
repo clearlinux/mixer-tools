@@ -42,6 +42,11 @@ if [ -z "${UPDATEDIR}" ]; then
 	UPDATEDIR="/var/lib/update/"
 fi
 
+# So we can call swupd_* with a sane path even if it's not / terminated
+if [ ! -z "${SWUPDREPO}" ]; then
+	SWUPDREPO="${SWUPDREPO}/"
+fi
+
 SWUPDWEBDIR="${UPDATEDIR}/www"
 
 MOM=${SWUPDWEBDIR}/${VER}/Manifest.MoM

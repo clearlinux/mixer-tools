@@ -5,6 +5,7 @@ PREFIX=
 LOG_DIR="$PWD/logs"
 NOPUBLISH=0
 ZEROPACKS=1
+KEEP_CHROOTS=0
 
 # Strip the trailing and leading whitespace on variables to sanitize them
 function strip_whitespace {
@@ -36,6 +37,9 @@ do
 		;;
 		--no-publish)
 		NOPUBLISH=1
+		;;
+		--keep-chroots)
+		KEEP_CHROOTS=1
 		;;
 		-h|--help)
 		echo -e "Usage: mixer-create-update.sh\n"
@@ -91,9 +95,11 @@ fi
 sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" --minversion "$MINVERSION" -F "$FORMAT" --osversion $MIXVER
 
 # we only need the full chroot from this point on, so cleanup the others
-for BUNDLE in $(ls "$BUNDLEREPO" | grep -v "^full"); do
-	sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
-done
+if [  "$KEEP_CHROOTS" -eq 0 ]; then
+		for BUNDLE in $(ls "$BUNDLEREPO" | grep -v "^full"); do
+			sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
+		done
+fi
 
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER

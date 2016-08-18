@@ -6,6 +6,8 @@ if [ -e /usr/lib/os-release ]; then
     CLRVER=$(awk -F= '/^VERSION_ID/ { print $2 }' /usr/lib/os-release)
 fi
 
+ALL=0
+
 while [[ $# > 0 ]]
 do
     key="$1"
@@ -17,6 +19,9 @@ do
         -b|--buildver)
         CLRVER="$2"
         shift
+        ;;
+        -a|--all-bundles)
+        ALL=1
         ;;
         -h|--help)
         echo -e "Usage: mixer-init-mix.sh\n"
@@ -42,14 +47,15 @@ echo -e "Creating initial update version 10\n"
 mixer-init-versions.sh -m 10 -c $CLRVER
 
 mixer-update-bundles.sh
-
-echo -e "Initializing mix with bundles:\n* os-core\n* os-core-update\n"
-cd mix-bundles/
-rm -rf *
-git checkout os-core os-core-update
-git add .
-git commit -s -m "Prune bundles for starting version 10"
-cd -
+if [ $ALL -eq 0 ]; then
+    echo -e "Initializing mix with bundles:\n* os-core\n* os-core-update\n"
+    cd mix-bundles/
+    rm -rf *
+    git checkout os-core os-core-update
+    git add .
+    git commit -s -m "Prune bundles for starting version 10"
+    cd -
+fi
 
 if [[ ! -z $BUILDERCONF ]]; then
     mixer-build-chroots.sh -c $BUILDERCONF

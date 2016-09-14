@@ -132,7 +132,7 @@ sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/
 
 # step 5: update latest version
 if [ $NOPUBLISH -eq 0 ]; then
-	sudo cp "$PWD/.mix-version" "$STATE_DIR/image/latest.version"
+	sudo cp "$PWD/.mix-version" "$STATE_DIR/image/LAST_VER"
 	sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
 fi
 

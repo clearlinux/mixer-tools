@@ -127,7 +127,7 @@ if [ $ZEROPACKS -eq 1 ]; then
 fi
 
 # step 4: hardlink relevant dirs
-sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/*
+sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/
 
 # step 5: update latest version
 if [ $NOPUBLISH -eq 0 ]; then

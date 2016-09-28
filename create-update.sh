@@ -48,6 +48,7 @@ do
 		echo -e "\t-m, --minversion supply minversion to build upate with\n"
 		echo -e "\t-p, --prefix Supply prefix for where the swupd binaries live\n"
 		echo -e "\t    --no-publish Do not update the latest version after update \n"
+		echo -e "\t    --keep-chroots Keep individual chroots created not just the consolidated 'full'"
 		exit
 		;;
 		*)

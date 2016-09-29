@@ -1,5 +1,5 @@
 AC_PREREQ([2.68])
-AC_INIT([mixer-tools],[1.11],[tudor.marcu@intel.com],[mixer-tools])
+AC_INIT([mixer-tools],[1.12],[tudor.marcu@intel.com],[mixer-tools])
 AM_INIT_AUTOMAKE([foreign silent-rules color-tests no-dist-gzip dist-xz])
 AC_CONFIG_FILES([Makefile])
 AC_PREFIX_DEFAULT(/usr/local)

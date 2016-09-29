@@ -103,7 +103,7 @@ done
 # NOTE: your devops will want to expose the completed swupd server build to
 # trial usage at some point.  This would be done via code like:
 #
-#	echo ${VER} > ${SWUPDWEBDIR}/../image/latest.version
+#	echo ${VER} > ${SWUPDWEBDIR}/../image/LAST_VER
 #	STAGING=$(cat ${SWUPDWEBDIR}/version/formatstaging/latest)
 #	if [ "${STAGING}" -lt "${VER}" ]; then
 #		echo ${VER} > ${SWUPDWEBDIR}/version/formatstaging/latest

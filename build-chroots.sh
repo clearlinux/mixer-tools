@@ -68,12 +68,15 @@ function strip_whitespace {
 if [[ ! -z $BUILDERCONF ]]; then
     STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
     YUM_CONF=$(grep YUM_CONF "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
+    CERT=$(grep CERT "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
 elif [ -e "/etc/bundle-chroot-builder/builder.conf" ]; then
     STATE_DIR=$(grep STATE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
     YUM_CONF=$(grep YUM_CONF "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    CERT=$(grep CERT "/etc/bundle-chroot-builder/builder.conf"| cut -d "=" -f2 | strip_whitespace)
 else
     STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
     YUM_CONF=$(grep YUM_CONF "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
+    CERT=$(grep CERT "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
 fi
 
 if [ "$BUILDTYPE" = "clear" ]; then
@@ -101,6 +104,12 @@ if [[ ! -z $BUILDERCONF ]]; then
     sudo -E sh -c "LD_PRELOAD=/usr/lib64/nosync/nosync.so $BUILDERSCRIPT -c $BUILDERCONF -m $BUILDVER $CLRVER"
 else
     sudo -E sh -c "LD_PRELOAD=/usr/lib64/nosync/nosync.so $BUILDERSCRIPT -m $BUILDVER $CLRVER"
+fi
+
+# insert the certificate needed for signing verification
+if [ ! -z $CERT ]; then
+    echo -e "Installing certificate\n"
+    sudo cp $CERT "$STATE_DIR/image/$BUILDVER/os-core-update/usr/share/clear/update-ca/"
 fi
 
 # clean up the files-* entries since they are now copied into the webdir noship

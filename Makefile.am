@@ -9,7 +9,9 @@ dist_bin_SCRIPTS = \
 	superpack-maker.sh
 
 configdir = $(datadir)/defaults/mixer
-dist_config_DATA = yum.conf.in
+dist_config_DATA = \
+	yum.conf.in \
+	certattributes.cnf
 EXTRA_DIST = COPYING
 
 release:

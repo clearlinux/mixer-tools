@@ -106,8 +106,16 @@ else
     sudo -E sh -c "LD_PRELOAD=/usr/lib64/nosync/nosync.so $BUILDERSCRIPT -m $BUILDVER $CLRVER"
 fi
 
-# insert the certificate needed for signing verification
+# Create the certificate needed for signing verification if it does not exist, and then
+# insert it into the chroot
 if [ ! -z $CERT ]; then
+    if [ ! -f $CERT ]; then
+        # This generates the private key and self signed certificate
+        openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
+                -keyout private.pem -out $CERT \
+                -subj "/C=US/ST=Oregon/L=Portland/O=Company Name/OU=Org/CN=www.example.com/DN=MixerCert" \
+                -config /usr/share/defaults/mixer/certattributes.cnf
+    fi
     echo -e "Installing certificate\n"
     sudo cp $CERT "$STATE_DIR/image/$BUILDVER/os-core-update/usr/share/clear/update-ca/"
 fi

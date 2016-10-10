@@ -102,6 +102,13 @@ if [  "$KEEP_CHROOTS" -eq 0 ]; then
 		done
 fi
 
+# step 1.5: sign the Manifest.MoM that was just created
+if [ -f "ClearLinuxRoot.pem" ]; then
+	sudo openssl smime -sign -binary -in update/www/$MIXVER/Manifest.MoM \
+		-signer ClearLinuxRoot.pem -inkey private.pem \
+		-outform DER -out update/www/$MIXVER/Manifest.MoM.sig
+fi
+
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER
 

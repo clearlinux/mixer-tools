@@ -34,9 +34,6 @@ BUILDTYPE="mix"
 # Desperately needs a fix in Clear...
 export LANG="en_US.utf8"
 
-unset http_proxy
-unset https_proxy
-
 check_dep() {
     type $1 &> /dev/null
     if [ $? -ne 0 ]; then

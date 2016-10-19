@@ -1,48 +1,52 @@
 #!/bin/bash
+if [ ! -f /usr/share/mixer-tools/helpers ]; then
+    echo "Cannot find /usr/share/mixer-tools/helpers, please install first, exiting..."
+    exit
+fi
+source /usr/share/mixer-tools/helpers
 
 set -e
 
-CLRVER=$(cat "$PWD/.clear-version")
-GITREPODIR="$PWD/mix-bundles"
+while [[ $# > 0 ]]
+do
+    key="$1"
+    case $key in
+        -c|--config)
+        BUILDERCONF="$2"
+        shift
+        ;;
+        -h|--help)
+        echo -e "Usage: mixer-update-bundles.sh\n"
+        echo -e "\t-c, --config\t\tSupply specific builder.conf\n"
+        exit
+        ;;
+        *)
+        echo -e "Invalid option\n"
+        exit
+        ;;
+    esac
+    shift
+done
 
-update_repo() {
-    local repo="$1"
-    (
-    if [ ! -d "$repo" ]; then
-        git clone https://github.com/clearlinux/"$repo.git"
-        cd "$repo"
-    else
-        cd "$repo"
-        # to force the update of clr-bundles "latest" tag
-        git fetch --tags
-        git checkout master
-        git pull origin master
-    fi
-    # checkout the tag relating to the clear version used to build against
-    git checkout tags/"$CLRVER"
-    set +e
-    local branch="${CLRVER}_mix"
-    git rev-parse --verify "$branch"
-    if [ $? -eq 0 ]; then
-        git checkout "$branch"
-        git pull
-    else
-        git checkout -b "$branch"
-    fi
-    set -e
-    cd ..
-    ) &> /dev/null
-    echo "$repo updated"
-}
+# Set the possible builder.conf files to read from
+load_builder_conf
+BUILDERCONFS="
+$BUILDERCONF
+$LOCALCONF
+"
+
+# Read values from builder.conf, either supplied or default
+# This will prioritize reading from cmd line, etc, and then /usr/share/defaults/
+read_builder_conf $BUILDERCONFS
 
 # Get the upstream clr-bundles
-update_repo clr-bundles
+update_repo "clr-bundles"
 
 # Set up mix bundle repo if it does not exist
-if [ ! -d "$GITREPODIR" ]; then
-    echo "Creating initial $GITREPODIR"
-    mkdir "$GITREPODIR"
-    cd "$GITREPODIR"
+if [ ! -d "$BUNDLE_DIR" ]; then
+    echo "Creating initial $BUNDLE_DIR"
+    mkdir "$BUNDLE_DIR"
+    cd "$BUNDLE_DIR"
     (
     git init .
     cp ../clr-bundles/bundles/* .

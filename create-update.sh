@@ -1,4 +1,9 @@
 #!/bin/bash
+if [ ! -f /usr/share/mixer-tools/helpers ]; then
+    echo "Cannot find /usr/share/mixer-tools/helpers, please install first, exiting..."
+    exit
+fi
+source /usr/share/mixer-tools/helpers
 set -e
 
 PREFIX=
@@ -6,11 +11,6 @@ LOG_DIR="$PWD/logs"
 NOPUBLISH=0
 ZEROPACKS=1
 KEEP_CHROOTS=0
-
-# Strip the trailing and leading whitespace on variables to sanitize them
-function strip_whitespace {
-    sed 's/ *$//' | sed 's/^ *//'
-}
 
 while [[ $# > 0 ]]
 do
@@ -21,7 +21,7 @@ do
 		shift
 		;;
 		-f|--format)
-		FORMAT="$(echo $2 | strip_whitespace)"
+		FORMAT="$2"
 		shift
 		;;
 		-m|--minversion)
@@ -43,12 +43,12 @@ do
 		;;
 		-h|--help)
 		echo -e "Usage: mixer-create-update.sh\n"
-		echo -e "\t-c, --config Supply specific builder.conf\n"
-		echo -e "\t-f, --format Supply format to use\n"
-		echo -e "\t-m, --minversion supply minversion to build upate with\n"
-		echo -e "\t-p, --prefix Supply prefix for where the swupd binaries live\n"
-		echo -e "\t    --no-publish Do not update the latest version after update \n"
-		echo -e "\t    --keep-chroots Keep individual chroots created not just the consolidated 'full'"
+		echo -e "\t-c, --config\t\tSupply specific builder.conf\n"
+		echo -e "\t-f, --format\t\tSupply format to use\n"
+		echo -e "\t-m, --minversion\tSupply minversion to build upate with\n"
+		echo -e "\t-p, --prefix Supply\tprefix for where the swupd binaries live\n"
+		echo -e "\t    --no-publish\tDo not update the latest version after update\n"
+		echo -e "\t    --keep-chroots\tKeep individual chroots created not just the consolidated 'full'"
 		exit
 		;;
 		*)
@@ -59,28 +59,16 @@ do
 	shift
 done
 
-CLRVER=$(cat "$PWD/.clear-version")
-MIXVER=$(cat "$PWD/.mix-version")
+# Set the possible builder.conf files to read from
+load_builder_conf
+BUILDERCONFS="
+$BUILDERCONF
+$LOCALCONF
+"
 
-if [ ! -z "$BUILDERCONF" ]; then
-    STATE_DIR=$(grep STATE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
-    BUNDLE_DIR=$(grep BUNDLE_DIR "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
-    if [ -z "$FORMAT" ]; then
-        FORMAT=$(grep FORMAT "$BUILDERCONF" | cut -d "=" -f2 | strip_whitespace)
-    fi
-elif [ -e "/etc/bundle-chroot-builder/builder.conf" ]; then
-    STATE_DIR=$(grep STATE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
-    BUNDLE_DIR=$(grep BUNDLE_DIR "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
-    if [ -z "$FORMAT" ]; then
-            FORMAT=$(grep FORMAT "/etc/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
-    fi
-else
-    STATE_DIR=$(grep STATE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
-    BUNDLE_DIR=$(grep BUNDLE_DIR "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
-    if [ -z "$FORMAT"]; then
-            FORMAT=$(grep FORMAT "/usr/share/defaults/bundle-chroot-builder/builder.conf" | cut -d "=" -f2 | strip_whitespace)
-    fi
-fi
+# Read values from builder.conf, either supplied or default
+# This will prioritize reading from cmd line, etc, and then /usr/share/defaults/
+read_builder_conf $BUILDERCONFS
 
 if [ -z "$FORMAT" ]; then
     FORMAT="staging"
@@ -89,7 +77,7 @@ fi
 export BUNDLEREPO="$BUNDLE_DIR"
 
 if [ ! -d "$STATE_DIR/www/version/format$FORMAT" ]; then
-    sudo -E mkdir -p "$STATE_DIR/www/version/format$FORMAT/"
+	sudo -E mkdir -p "$STATE_DIR/www/version/format$FORMAT/"
 fi
 
 # step 1: create update content for current mix
@@ -97,41 +85,18 @@ sudo -E "$PREFIX"swupd_create_update -S "$STATE_DIR" --minversion "$MINVERSION" 
 
 # we only need the full chroot from this point on, so cleanup the others
 if [  "$KEEP_CHROOTS" -eq 0 ]; then
-		for BUNDLE in $(ls "$BUNDLEREPO" | grep -v "^full"); do
-			sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
-		done
+	clean_chroots
 fi
 
 # step 1.5: sign the Manifest.MoM that was just created
-if [ -f "ClearLinuxRoot.pem" ]; then
-	sudo openssl smime -sign -binary -in update/www/$MIXVER/Manifest.MoM \
-		-signer ClearLinuxRoot.pem -inkey private.pem \
-		-outform DER -out update/www/$MIXVER/Manifest.MoM.sig
-fi
+sign_manifest_mom
 
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER
 
 # step 3: create zero packs
-MOM="$STATE_DIR/www/$MIXVER/Manifest.MoM"
-if [ ! -e ${MOM} ]; then
-    error "no ${MOM}"
-fi
-BUNDLE_LIST=$(cat ${MOM} | awk -v V=${MIXVER} '$1 ~ /^M\./ && $3 == V { print $4 }')
-# NOTE: for signing, pass the --signcontent option to swupd_make_pack.
-# Signing is currently disabled until there are new test certs ready.
 if [ $ZEROPACKS -eq 1 ]; then
-	for BUNDLE in $BUNDLE_LIST; do
-		sudo -E "$PREFIX"swupd_make_pack -S "$STATE_DIR" 0 $MIXVER $BUNDLE &
-	done
-
-	for job in $(jobs -p); do
-	    wait ${job}
-	    RET=$?
-	    if [ "$RET" != "0" ]; then
-		error "zero pack subprocessor failed"
-	    fi
-	done
+	sudo -E mixer-pack-maker.sh --to $MIXVER -S "$STATE_DIR"
 fi
 
 # step 4: hardlink relevant dirs
@@ -139,8 +104,8 @@ sudo -E "hardlink" -f "$STATE_DIR/image/$MIXVER"/
 
 # step 5: update latest version
 if [ $NOPUBLISH -eq 0 ]; then
-	sudo cp "$PWD/.mix-version" "$STATE_DIR/image/LAST_VER"
-	sudo cp "$PWD/.mix-version" "$STATE_DIR/www/version/format$FORMAT/latest"
+	sudo -E echo "$MIXVER" > "$STATE_DIR/image/LAST_VER"
+	sudo -E echo "$MIXVER" > "$STATE_DIR/www/version/format$FORMAT/latest"
 fi
 
 # step 6: archive the swupd-server logs for this mix build

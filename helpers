@@ -1,0 +1,117 @@
+#!/bin/bash
+
+# Program that builds the actual chroots
+BUILDERSCRIPT="bundle-chroot-builder.py"
+
+# Fallback config files for the scripts
+BUILDERCONF=
+LOCALCONF=
+
+SIGNING=1
+YUM_TEMPLATE="/usr/share/defaults/mixer/yum.conf.in"
+
+STATE_DIR=
+YUM_CONF=
+BUNDLE_DIR=
+CERT=
+CLRVER=
+MIXVER=
+REPODIR=
+RPMDIR=
+
+check_dep() {
+    type $1 &> /dev/null
+    if [ $? -ne 0 ]; then
+        echo "$1 program not found... Unable to continue"
+        exit 1
+    fi
+}
+
+check_deps() {
+	check_dep "createrepo_c"
+	check_dep "git"
+	check_dep "hardlink"
+	check_dep "m4"
+	check_dep "openssl"
+	check_dep "parallel"
+	check_dep "rpm"
+	check_dep "yum"
+}
+
+update_repo() {
+	local repo="$1"
+	(
+	if [ ! -d "$repo" ]; then
+		git clone https://github.com/clearlinux/"$repo.git"
+		cd "$repo"
+	else
+		cd "$repo"
+		# to force the update of clr-bundles "latest" tag
+		git fetch --tags
+		git checkout master
+		git pull origin master
+	fi
+	set +e
+	# checkout the tag relating to the clear version used to build against
+	git checkout tags/"$CLRVER"
+	local branch="${CLRVER}_mix"
+	git rev-parse --verify "$branch"
+	if [ $? -eq 0 ]; then
+		git checkout "$branch"
+		git pull
+		else
+		git checkout -b "$branch"
+	fi
+	set -e
+	cd ..
+	)
+}
+
+install_cert() {
+	if [ ! -z $CERT ]; then
+		if [ ! -f $CERT ]; then
+			# This generates the private key and self signed certificate
+			openssl req -x509 -sha256 -nodes -days 365 -newkey rsa:2048 \
+			-keyout private.pem -out $CERT \
+			-subj "/C=US/ST=Oregon/L=Portland/O=Company Name/OU=Org/CN=www.example.com/DN=MixerCert" \
+			-config /usr/share/defaults/mixer/certattributes.cnf
+		fi
+		echo -e "Installing certificate\n"
+		sudo cp $CERT "$STATE_DIR/image/$MIXVER/os-core-update/usr/share/clear/update-ca/"
+	fi
+}
+
+sign_manifest_mom() {
+	if [ -f "$CERT" ]; then
+		sudo openssl smime -sign -binary -in update/www/$MIXVER/Manifest.MoM \
+			-signer $CERT -inkey private.pem \
+			-outform DER -out update/www/$MIXVER/Manifest.MoM.sig
+	fi
+}
+
+load_builder_conf() {
+	if [ -f "$PWD/builder.conf" ]; then
+		LOCALCONF="$PWD/builder.conf"
+	elif [ -z $BUILDERCONF ]; then
+		echo -e "ERROR: Cannot find any builder.conf to use!\n"
+		exit
+	fi
+}
+
+read_builder_conf() {
+	STATE_DIR=$(awk -F '=[ ]*' '/^SERVER_STATE_DIR *=/ {print $2; exit}' $1)
+	YUM_CONF=$(awk -F '=[ ]*' '/^YUM_CONF *=/ {print $2; exit}' $1)
+	BUNDLE_DIR=$(awk -F '=[ ]*' '/^BUNDLE_DIR *=/ {print $2; exit}' $1)
+	CERT=$(awk -F '=[ ]*' '/^CERT *=/ {print $2; exit}' $1)
+	CLRVER=$(awk -F '=[ ]*' '/^CLEAR_VERSION *=/ {print $2; exit}' $1)
+	MIXVER=$(awk -F '=[ ]*' '/^MIX_VERSION *=/ {print $2; exit}' $1)
+	REPODIR=$(awk -F '=[ ]*' '/^REPODIR *=/ {print $2; exit}' $1)
+	RPMDIR=$(awk -F '=[ ]*' '/^RPMDIR *=/ {print $2; exit}' $1)
+	FORMAT=$(awk -F '=[ ]*' '/^FORMAT *=/ {print $2; exit}' $1)
+}
+
+clean_chroots() {
+	for BUNDLE in $(ls "$BUNDLE_DIR" | grep -v "^full"); do
+		sudo rm -rf "$STATE_DIR/image/$MIXVER/$BUNDLE"
+	done
+}

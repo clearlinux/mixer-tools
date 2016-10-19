@@ -1,5 +1,9 @@
 #!/bin/bash
-
+if [ ! -f /usr/share/mixer-tools/helpers ]; then
+    echo "Cannot find /usr/share/mixer-tools/helpers, please install first, exiting..."
+    exit
+fi
+source /usr/share/mixer-tools/helpers
 set -e
 
 if [ -e /usr/lib/os-release ]; then
@@ -7,7 +11,6 @@ if [ -e /usr/lib/os-release ]; then
 fi
 
 ALL=0
-MIXVER=
 
 while [[ $# > 0 ]]
 do
@@ -17,23 +20,13 @@ do
         BUILDERCONF="$2"
         shift
         ;;
-        -b|--clear-version)
-        CLRVER="$2"
-        shift
-        ;;
-        -m|--mix-version)
-        MIXVER="$2"
-        shift
-        ;;
         -a|--all-bundles)
         ALL=1
         ;;
         -h|--help)
         echo -e "Usage: mixer-init-mix.sh\n"
-        echo -e "\t-c, --config Supply specific builder.conf\n"
-        echo -e "\t-b, --clear-version Supply specific Clear version to build against\n"
-        echo -e "\t-m, --mix-version Supply the specific Mix version to build\n"
-        echo -e "\t-a, --all-bundles Create a mix with all Clear bundles included\n"
+        echo -e "\t-c, --config\t\tSupply specific builder.conf\n"
+        echo -e "\t-a, --all-bundles\tCreate a mix with all Clear bundles included\n"
         exit
         ;;
         *)
@@ -44,19 +37,29 @@ do
     shift
 done
 
-if [ -z "$CLRVER" ]; then
-    echo -e "Please supply Clear version to use\n"
-    exit
-fi
+# Check dependencies before doing any more work
+check_deps
 
-if [ -z "$MIXVER" ]; then
-    MIXVER=10
-fi
+# Set the possible builder.conf files to read from
+load_builder_conf
+BUILDERCONFS="
+$BUILDERCONF
+$LOCALCONF
+"
+
+# Read values from builder.conf, either supplied or default
+# This will prioritize reading from cmd line, etc, and then /usr/share/defaults/
+read_builder_conf $BUILDERCONFS
 
 echo -e "Creating initial update version $MIXVER\n"
 
-mixer-init-versions.sh -m $MIXVER -c $CLRVER
-mixer-update-bundles.sh
+if [[ ! -z $BUILDERCONF ]]; then
+    mixer-update-bundles.sh -c $BUILDERCONF
+elif [ -f $LOCALCONF ]; then
+    mixer-update-bundles.sh -c $LOCALCONF
+else
+    mixer-update-bundles.sh
+fi
 
 # Do not build the update content unless the --all-bundles flag is passed, user may want
 # to do additional changes to the bundles for the first version.
@@ -66,12 +69,15 @@ if [ $ALL -eq 0 ]; then
     rm -rf *
     git checkout os-core os-core-update bootloader kernel-native
     git add .
-    git commit -s -m "Prune bundles for starting version $MIXVER"
+    git commit -s -m "Prune bundles for initial version $MIXVER"
     cd -
 else
     if [[ ! -z $BUILDERCONF ]]; then
         mixer-build-chroots.sh -c $BUILDERCONF
         mixer-create-update.sh -c $BUILDERCONF
+    elif [ -f $LOCALCONF ]; then
+        mixer-build-chroots.sh -c $LOCALCONF
+        mixer-create-update.sh -c $LOCALCONF
     else
         mixer-build-chroots.sh
         mixer-create-update.sh

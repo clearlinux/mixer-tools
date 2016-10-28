@@ -27,6 +27,12 @@
 #     mixer-pack-maker.sh --to 7000 --from 6900 --zero
 #
 
+if [ ! -f /usr/share/mixer-tools/helpers ]; then
+    echo "Cannot find /usr/share/mixer-tools/helpers, please install first, exiting..."
+    exit
+fi
+source /usr/share/mixer-tools/helpers
+
 FROM_VERS=""
 REPO_DIR=""
 STATE_DIR=/var/lib/update
@@ -177,6 +183,9 @@ if [ -n "$REPO_DIR" ]; then
 	d=$(dirname $REPO_DIR)
 	b=$(basename $REPO_DIR)
 	REPO_DIR="${d}/${b}/"
+
+	# Ensure swupd_make_pack exists in REPO_DIR, too
+	check_dep "${REPO_DIR}"swupd_make_pack
 fi
 
 # If delta packs are not being created, this loop does not execute

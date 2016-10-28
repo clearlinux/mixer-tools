@@ -28,6 +28,9 @@ do
 		MINVERSION="$2"
 		shift
 		;;
+		-n|--no-signing)
+		SIGNING=0
+		;;
 		-p|--prefix)
 		PREFIX="$2"
 		shift
@@ -46,6 +49,7 @@ do
 		echo -e "\t-c, --config\t\tSupply specific builder.conf\n"
 		echo -e "\t-f, --format\t\tSupply format to use\n"
 		echo -e "\t-m, --minversion\tSupply minversion to build upate with\n"
+		echo -e "\t-n, --no-signing\tDo not sign the Manifest.MoM"
 		echo -e "\t-p, --prefix Supply\tprefix for where the swupd binaries live\n"
 		echo -e "\t    --no-publish\tDo not update the latest version after update\n"
 		echo -e "\t    --keep-chroots\tKeep individual chroots created not just the consolidated 'full'"
@@ -89,7 +93,9 @@ if [  "$KEEP_CHROOTS" -eq 0 ]; then
 fi
 
 # step 1.5: sign the Manifest.MoM that was just created
-sign_manifest_mom
+if [ $SIGNING -eq 1 ]; then
+	sign_manifest_mom
+fi
 
 # step 2: create fullfiles
 sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER

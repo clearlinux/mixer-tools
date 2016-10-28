@@ -49,7 +49,7 @@ do
 		echo -e "\t-c, --config\t\tSupply specific builder.conf\n"
 		echo -e "\t-f, --format\t\tSupply format to use\n"
 		echo -e "\t-m, --minversion\tSupply minversion to build upate with\n"
-		echo -e "\t-n, --no-signing\tDo not sign the Manifest.MoM"
+		echo -e "\t-n, --no-signing\tDo not sign the Manifest.MoM\n"
 		echo -e "\t-p, --prefix Supply\tprefix for where the swupd binaries live\n"
 		echo -e "\t    --no-publish\tDo not update the latest version after update\n"
 		echo -e "\t    --keep-chroots\tKeep individual chroots created not just the consolidated 'full'"

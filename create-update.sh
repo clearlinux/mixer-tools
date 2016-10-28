@@ -96,7 +96,11 @@ sudo -E "$PREFIX"swupd_make_fullfiles -S "$STATE_DIR" $MIXVER
 
 # step 3: create zero packs
 if [ $ZEROPACKS -eq 1 ]; then
-	sudo -E mixer-pack-maker.sh --to $MIXVER -S "$STATE_DIR"
+	if [ -z "$PREFIX" ]; then
+		sudo -E mixer-pack-maker.sh --to $MIXVER -S "$STATE_DIR"
+	else
+		sudo -E mixer-pack-maker.sh --to $MIXVER -S "$STATE_DIR" --repodir "$PREFIX"
+	fi
 fi
 
 # step 4: hardlink relevant dirs

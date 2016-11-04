@@ -41,12 +41,14 @@ $LOCALCONF
 # This will prioritize reading from cmd line, etc, and then /usr/share/defaults/
 read_builder_conf $BUILDERCONFS
 
-# Generate the yum config file
+# Generate the yum config file if it does not exist
 # This takes the template and adds the relevant local rpm repo path if needed
-if [ -z "$REPODIR" ] ; then
-    m4 "$YUM_TEMPLATE" > "$YUM_CONF"
-else
-    m4 -D MIXER_REPO -D MIXER_REPOPATH="$REPODIR" "$YUM_TEMPLATE" > "$YUM_CONF"
+if [ ! -f $YUM_CONF ]; then
+    if [ -z "$REPODIR" ] ; then
+        m4 "$YUM_TEMPLATE" > "$YUM_CONF"
+    else
+        m4 -D MIXER_REPO -D MIXER_REPOPATH="$REPODIR" "$YUM_TEMPLATE" > "$YUM_CONF"
+    fi
 fi
 
 # If MIXVER already exists wipe it so it's a fresh build

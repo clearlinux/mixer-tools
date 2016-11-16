@@ -85,7 +85,7 @@ sign_manifest_mom() {
 	if [ -f "$CERT" ]; then
 		sudo openssl smime -sign -binary -in $STATE_DIR/www/$MIXVER/Manifest.MoM \
 			-signer $CERT -inkey private.pem \
-			-outform DER -out update/www/$MIXVER/Manifest.MoM.sig
+			-outform DER -out $STATE_DIR/www/$MIXVER/Manifest.MoM.sig
 	fi
 }
 

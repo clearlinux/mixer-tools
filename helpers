@@ -108,6 +108,16 @@ read_builder_conf() {
 	REPODIR=$(awk -F '=[ ]*' '/^REPODIR *=/ {print $2; exit}' $1)
 	RPMDIR=$(awk -F '=[ ]*' '/^RPMDIR *=/ {print $2; exit}' $1)
 	FORMAT=$(awk -F '=[ ]*' '/^FORMAT *=/ {print $2; exit}' $1)
+
+	if [ -z $MIXVER ]; then
+		echo -e "ERROR: Please set the mix version\n"
+		exit
+	fi
+
+	if [ -z $CLRVER ]; then
+		echo -e "ERROR: Please set the Clear version\n"
+		exit
+	fi
 }
 
 clean_chroots() {

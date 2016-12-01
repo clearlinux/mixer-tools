@@ -4,6 +4,7 @@ if [ ! -f /usr/share/mixer-tools/helpers ]; then
     exit
 fi
 source /usr/share/mixer-tools/helpers
+set -e
 
 while [[ $# > 0 ]]
 do

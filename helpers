@@ -20,11 +20,13 @@ REPODIR=
 RPMDIR=
 
 check_dep() {
+    set +e
     type $1 &> /dev/null
     if [ $? -ne 0 ]; then
         echo "$1 program not found... Unable to continue"
         exit 1
     fi
+    set -e
 }
 
 check_deps() {

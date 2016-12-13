@@ -55,10 +55,10 @@ update_repo() {
 	fi
 	set +e
 	# Ensure that CLRVER exists and is a tag
-	git rev-parse --verify "${CLRVER}^{tag}" &> /dev/null
+	git rev-parse --verify "refs/tags/${CLRVER}^{tag}" &> /dev/null
 	if [ $? -eq 0 ]; then
 		# Always reset the _mix branch to be based off the tag
-		git checkout -B "${CLRVER}_mix" "${CLRVER}"
+		git checkout -B "${CLRVER}_mix" "refs/tags/${CLRVER}"
 	else
 		echo "ERROR: invalid CLEAR_VERSION in builder.conf (${CLRVER})"
 		exit 1

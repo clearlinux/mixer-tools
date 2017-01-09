@@ -17,10 +17,14 @@ do
         -n|--no-signing)
         SIGNING=0
         ;;
+        -i|--incrememnt)
+        INC=1
+        ;;
         -h|--help)
         echo -e "Usage: mixer-build-chroots.sh\n"
         echo -e "\t-c, --config\t\tSupply specific builder.conf\n"
-        echo -e "\t-n, --no-signing\tDo not generate a certificate and do not sign the Manifest.MoM"
+        echo -e "\t-n, --no-signing\tDo not generate a certificate and do not sign the Manifest.MoM\n"
+        echo -e "\t-i, --incrememnt\tAutomatically bump the version up by +10"
         exit
         ;;
         *)
@@ -52,8 +56,18 @@ if [ ! -f $YUM_CONF ]; then
     fi
 fi
 
+if [ $INC -eq 1 ]; then
+    let MIXVER+=10
+    if [[ ! -z $BUILDERCONF ]]; then
+        sed -i "s/^MIX_VERSION.*/MIX_VERSION=$MIXVER/" $BUILDERCONF
+    elif [ -f $LOCALCONF ]; then
+        sed -i "s/^MIX_VERSION.*/MIX_VERSION=$MIXVER/" $LOCALCONF
+    fi
+    echo -e "Inrementing Mix version to $MIXVER\n"
+fi
+
 # If MIXVER already exists wipe it so it's a fresh build
-if [ -d $STATE_DIR/image/$MIXVER ] ; then
+if [ -d $STATE_DIR/image/$MIXVER ]; then
     echo -e "Wiping away previous version $MIXVER...\n"
     sudo -E rm -rf "$STATE_DIR/www/$MIXVER"
     sudo -E rm -rf "$STATE_DIR/image/$MIXVER"

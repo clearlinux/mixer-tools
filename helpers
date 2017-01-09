@@ -18,6 +18,7 @@ CLRVER=
 MIXVER=
 REPODIR=
 RPMDIR=
+INC=0
 
 check_dep() {
     set +e

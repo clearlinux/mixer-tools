@@ -45,7 +45,7 @@ update_repo "clr-bundles"
 # Set up mix bundle repo if it does not exist
 if [ ! -d "$BUNDLE_DIR" ]; then
     echo "Creating initial $BUNDLE_DIR"
-    mkdir "$BUNDLE_DIR"
+    mkdir -p "$BUNDLE_DIR"
     cd "$BUNDLE_DIR"
     (
     git init .

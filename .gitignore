@@ -8,7 +8,6 @@ build/
 bundles
 repos/
 results/
-Makefile
 Makefile.in
 configure
 aclocal.m4

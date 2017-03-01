@@ -25,7 +25,7 @@ install: $(BINS)
 	install -m 00755 bin/* $(DESTDIR)/usr/bin/.
 	install -m 00755 pack-maker.sh $(DESTDIR)/usr/bin/mixer-pack-maker.sh
 	install -m 00755 superpack-maker.sh $(DESTDIR)/usr/bin/mixer-superpack-maker.sh
-	install -m 00644 yum.conf.in /usr/share/defaults/mixer/
+	install -D -m 00644 yum.conf.in $(DESTDIR)/usr/share/defaults/mixer/yum.conf.in
 
 release:
 	git archive --format=tar.gz --verbose -o mixer-$(VERSION).tar.gz HEAD --prefix=mixer-$(VERSION)/

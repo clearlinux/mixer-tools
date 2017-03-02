@@ -27,12 +27,6 @@
 #     mixer-pack-maker.sh --to 7000 --from 6900 --zero
 #
 
-if [ ! -f /usr/share/mixer-tools/helpers ]; then
-    echo "Cannot find /usr/share/mixer-tools/helpers, please install first, exiting..."
-    exit
-fi
-source /usr/share/mixer-tools/helpers
-
 FROM_VERS=""
 REPO_DIR=""
 STATE_DIR=/var/lib/update
@@ -50,6 +44,16 @@ usage() {
 	echo -e "\t-t, --to\tCreate packs for the given version. This option is required.\n"
 	echo -e "\t-x, --force\tRecreate packs if they already exist\n"
 	echo -e "\t-z, --zero-packs\tCreate zero packs. If only --to is specified, this is the default.\n"
+}
+
+check_dep() {
+    set +e
+    type $1 &> /dev/null
+    if [ $? -ne 0 ]; then
+        echo "$1 program not found... Unable to continue"
+        exit 1
+    fi
+    set -e
 }
 
 error() {

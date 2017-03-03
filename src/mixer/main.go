@@ -14,6 +14,7 @@ import (
 // PrintMainHelp emits useful help text to the console
 func PrintMainHelp() {
 	fmt.Printf("usage: mixer <command> [args]\n")
+	fmt.Printf("\tbuild-all\t\tBuild all content for mix with default options\n")
 	fmt.Printf("\tbuild-chroots\t\tBuild chroots for the mix\n")
 	fmt.Printf("\tbuild-update\t\tBuild all update content for the mix\n")
 	fmt.Printf("\tbuild-image\t\tBuild an image from the mix content\n")
@@ -37,6 +38,9 @@ func main() {
 
 	addcmd := flag.NewFlagSet("add-rpms", flag.ExitOnError)
 	addconf := addcmd.String("config", "", "Supply a specific builder.conf to use for mixing")
+
+	buildall := flag.NewFlagSet("build-all", flag.ExitOnError)
+	buildallconf := buildall.String("config", "", "Supply a specific builder.conf to use for mixing")
 
 	chrootcmd := flag.NewFlagSet("build-chroots", flag.ExitOnError)
 	certflag := chrootcmd.Bool("no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
@@ -70,6 +74,8 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "build-all":
+		buildall.Parse(os.Args[2:])
 	case "build-chroots":
 		chrootcmd.Parse(os.Args[2:])
 	case "build-update":
@@ -101,6 +107,17 @@ func main() {
 		builder.AddRPMList(rpms)
 	}
 
+	if buildall.Parsed() {
+		SetupBuilder(*buildallconf, builder)
+		rpms, err := ioutil.ReadDir(builder.Rpmdir)
+		if err == nil {
+			builder.AddRPMList(rpms)
+		}
+		BuildChroots(builder, *certflag)
+		BuildUpdate(builder, *prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
+		builder.UpdateMixVer()
+	}
+
 	if bundlescmd.Parsed() {
 		SetupBuilder(*bundleconf, builder)
 		fmt.Println("Getting clr-bundles for version " + builder.Get("Clearver"))
@@ -115,34 +132,13 @@ func main() {
 
 	if chrootcmd.Parsed() {
 		SetupBuilder(*chrootconf, builder)
-
-		// Create the signing and validation key/cert
-		if _, err := os.Stat(builder.Get("Cert")); os.IsNotExist(err) {
-			fmt.Println("Generating certificate for signature validation...")
-			privkey, err := helpers.CreateKeyPair()
-			if err != nil {
-				os.Exit(1)
-			}
-			template := helpers.CreateCertTemplate()
-
-			err = builder.BuildChroots(template, privkey, *certflag)
-			if err != nil {
-				os.Exit(-1)
-			}
-		} else {
-			err := builder.BuildChroots(nil, nil, true)
-			if err != nil {
-				os.Exit(-1)
-			}
-		}
+		BuildChroots(builder, *certflag)
 	}
 
 	if updatecmd.Parsed() {
 		SetupBuilder(*updateconf, builder)
-		err := builder.BuildUpdate(*prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
-		if err != nil {
-			os.Exit(-1)
-		}
+		BuildUpdate(builder, *prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
+
 		if *incrementflag == true {
 			builder.UpdateMixVer()
 		}
@@ -151,5 +147,36 @@ func main() {
 	if imagecmd.Parsed() {
 		SetupBuilder("", builder)
 		builder.BuildImage(*imageformat)
+	}
+}
+
+func BuildChroots(config interface{}, signflag bool) {
+	builder := config.(*builder.Builder)
+	// Create the signing and validation key/cert
+	if _, err := os.Stat(builder.Get("Cert")); os.IsNotExist(err) {
+		fmt.Println("Generating certificate for signature validation...")
+		privkey, err := helpers.CreateKeyPair()
+		if err != nil {
+			os.Exit(1)
+		}
+		template := helpers.CreateCertTemplate()
+
+		err = builder.BuildChroots(template, privkey, signflag)
+		if err != nil {
+			os.Exit(-1)
+		}
+	} else {
+		err := builder.BuildChroots(nil, nil, true)
+		if err != nil {
+			os.Exit(-1)
+		}
+	}
+}
+
+func BuildUpdate(config interface{}, prefixflag string, minvflag int, formatflag string, signflag bool, publishflag bool, keepchrootsflag bool) {
+	builder := config.(*builder.Builder)
+	err := builder.BuildUpdate(prefixflag, minvflag, formatflag, signflag, publishflag, keepchrootsflag)
+	if err != nil {
+		os.Exit(-1)
 	}
 }

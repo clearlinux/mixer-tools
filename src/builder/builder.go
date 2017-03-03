@@ -272,6 +272,17 @@ func (b *Builder) InitMix(clearver string, mixver string, all bool) error {
 	return nil
 }
 
+// UpdatMixVer automatically bumps the mixversion file +10 to prepare for the next build
+// without requiring user intervention. This makes the flow slightly more automatable.
+func (b *Builder) UpdateMixVer() {
+	mixver, _ := strconv.Atoi(b.Mixver)
+	err := ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(strconv.Itoa(mixver+10)), 0644)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+}
+
 // BuildChroots will attempt to construct the chroots required by populating roots
 // using the m4 bundle configurations in conjunction with the YUM configuration file,
 // installing all required named packages into the roots.

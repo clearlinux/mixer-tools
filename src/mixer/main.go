@@ -45,6 +45,7 @@ func main() {
 	updatecmd := flag.NewFlagSet("build-update", flag.ExitOnError)
 	updateconf := updatecmd.String("config", "", "Supply a specific builder.conf to use for mixing")
 	formatflag := updatecmd.String("format", "", "Supply format to use")
+	incrementflag := updatecmd.Bool("increment", false, "Automatically increment the mixversion post build")
 	minvflag := updatecmd.Int("minversion", 0, "Supply minversion to build update with")
 	signflag := updatecmd.Bool("no-signing", false, "Do not generate a certificate and do not sign the Manifest.MoM")
 	prefixflag := updatecmd.String("prefix", "", "Supply prefix for where the swupd binaries live")
@@ -141,6 +142,9 @@ func main() {
 		err := builder.BuildUpdate(*prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
 		if err != nil {
 			os.Exit(-1)
+		}
+		if *incrementflag == true {
+			builder.UpdateMixVer()
 		}
 	}
 

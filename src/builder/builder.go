@@ -347,7 +347,13 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 
 	// Only copy the certificate into the mix if it exists
 	if _, err := os.Stat(b.Cert); err == nil {
-		chrootcert := b.Statedir + "/image/" + b.Mixver + "/os-core-update/usr/share/clear/update-ca/Swupd_Root.pem"
+		certdir := b.Statedir + "/image/" + b.Mixver + "/os-core-update/usr/share/clear/update-ca"
+		err = os.MkdirAll(certdir, 0755)
+		if err != nil {
+			helpers.PrintError(err)
+			return err
+		}
+		chrootcert := certdir + "/Swupd_Root.pem"
 		fmt.Println("Copying Certificate into chroot...")
 		err = helpers.CopyFile(chrootcert, b.Cert)
 		if err != nil {

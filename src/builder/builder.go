@@ -498,8 +498,18 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) {
 			fmt.Println("ERROR: RPM is not valid! Please make sure it was built correctly.")
 			os.Exit(1)
 		} else {
-			fmt.Printf("Copying %s\n", rpm.Name())
-			helpers.CopyFile(b.Repodir+"/"+rpm.Name(), b.Rpmdir+"/"+rpm.Name())
+			if _, err = os.Stat(b.Repodir + "/" + rpm.Name()); err == nil {
+				continue
+			}
+		}
+		fmt.Printf("Hardlinking %s to repodir\n", rpm.Name())
+		err := os.Link(b.Rpmdir+"/"+rpm.Name(), b.Repodir+"/"+rpm.Name())
+		if err != nil {
+			err = helpers.CopyFile(b.Repodir+"/"+rpm.Name(), b.Rpmdir+"/"+rpm.Name())
+			if err != nil {
+				helpers.PrintError(err)
+				os.Exit(1)
+			}
 		}
 	}
 	// Save current dir so we can get back to it

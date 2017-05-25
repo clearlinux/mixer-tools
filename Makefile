@@ -1,5 +1,5 @@
 PROJECT_ROOT := src/
-VERSION = 3.03
+VERSION = 3.04
 
 .DEFAULT_GOAL := all
 

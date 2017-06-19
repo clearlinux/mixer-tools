@@ -153,13 +153,15 @@ func (b *Builder) ReadVersions() {
 		os.Exit(1)
 	}
 	b.Mixver = strings.TrimSpace(string(ver))
+	b.Mixver = strings.Replace(b.Mixver, "\n", "", -1)
 
 	ver, err = ioutil.ReadFile(b.Versiondir + "/.clearversion")
 	if err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}
-	b.Clearver = string(ver)
+	b.Clearver = strings.TrimSpace(string(ver))
+	b.Clearver = strings.Replace(b.Clearver, "\n", "", -1)
 }
 
 // SignManifestMOM will sign the Manifest.Mom file in in place based on the Mix

@@ -28,6 +28,6 @@ install: $(BINS)
 	install -D -m 00644 yum.conf.in $(DESTDIR)/usr/share/defaults/mixer/yum.conf.in
 
 release:
-	git archive --format=tar.gz --verbose -o mixer-$(VERSION).tar.gz HEAD --prefix=mixer-$(VERSION)/
+	git archive --format=tar.gz --verbose -o mixer-tools-$(VERSION).tar.gz HEAD --prefix=mixer-tools-$(VERSION)/
 
 all: compliant $(BUILDABLES)

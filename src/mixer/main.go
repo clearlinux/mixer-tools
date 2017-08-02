@@ -21,6 +21,7 @@ func PrintMainHelp() {
 	fmt.Printf("\tadd-rpms\t\tAdd rpms to local yum repository\n")
 	fmt.Printf("\tget-bundles\t\tGet the clr-bundles from upstream\n")
 	fmt.Printf("\tinit-mix\t\tInitialize the mixer and workspace\n")
+	fmt.Printf("\thelp     \t\tShow help options\n")
 }
 
 // SetupBuilder performs the initial bootstrap and configuration according to
@@ -74,6 +75,9 @@ func main() {
 	}
 
 	switch os.Args[1] {
+	case "help", "-h":
+		PrintMainHelp()
+		return
 	case "build-all":
 		buildall.Parse(os.Args[2:])
 	case "build-chroots":

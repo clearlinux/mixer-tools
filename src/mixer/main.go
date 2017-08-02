@@ -24,15 +24,6 @@ func PrintMainHelp() {
 	fmt.Printf("\thelp     \t\tShow help options\n")
 }
 
-// SetupBuilder performs the initial bootstrap and configuration according to
-// the local configuration.
-func SetupBuilder(conf string, config interface{}) {
-	builder := config.(*builder.Builder)
-	builder.LoadBuilderConf(conf)
-	builder.ReadBuilderConf()
-	builder.ReadVersions()
-}
-
 func main() {
 	fmt.Println("Mixer 3.06")
 	os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so")
@@ -97,60 +88,58 @@ func main() {
 		os.Exit(-1)
 	}
 
-	// Allocate a builder object to do all our mixing needs
-	builder := builder.New()
-
 	// If we got this far, the flags are correct, so read the conf from
 	// the current directory or from the flag passed in
 	if addcmd.Parsed() {
-		SetupBuilder(*addconf, builder)
-		rpms, err := ioutil.ReadDir(builder.Rpmdir)
+		b := builder.NewFromConfig(*addconf)
+		rpms, err := ioutil.ReadDir(b.Rpmdir)
 		if err != nil {
-			fmt.Printf("ERROR: cannot read %s\n", builder.Rpmdir)
+			fmt.Printf("ERROR: cannot read %s\n", b.Rpmdir)
 		}
-		builder.AddRPMList(rpms)
+		b.AddRPMList(rpms)
 	}
 
 	if buildall.Parsed() {
-		SetupBuilder(*buildallconf, builder)
-		rpms, err := ioutil.ReadDir(builder.Rpmdir)
+		b := builder.NewFromConfig(*buildallconf)
+		rpms, err := ioutil.ReadDir(b.Rpmdir)
 		if err == nil {
-			builder.AddRPMList(rpms)
+			b.AddRPMList(rpms)
 		}
-		BuildChroots(builder, *certflag)
-		BuildUpdate(builder, *prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
-		builder.UpdateMixVer()
+		BuildChroots(b, *certflag)
+		BuildUpdate(b, *prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
+		b.UpdateMixVer()
 	}
 
 	if bundlescmd.Parsed() {
-		SetupBuilder(*bundleconf, builder)
-		fmt.Println("Getting clr-bundles for version " + builder.Get("Clearver"))
-		builder.UpdateRepo(builder.Get("Clearver"), false)
+		b := builder.NewFromConfig(*bundleconf)
+		fmt.Println("Getting clr-bundles for version " + b.Get("Clearver"))
+		b.UpdateRepo(b.Get("Clearver"), false)
 	}
 
 	if initcmd.Parsed() {
-		builder.LoadBuilderConf(*initconf)
-		builder.ReadBuilderConf()
-		builder.InitMix(strconv.Itoa(*clearflag), strconv.Itoa(*mixflag), *allflag)
+		b := builder.New()
+		b.LoadBuilderConf(*initconf)
+		b.ReadBuilderConf()
+		b.InitMix(strconv.Itoa(*clearflag), strconv.Itoa(*mixflag), *allflag)
 	}
 
 	if chrootcmd.Parsed() {
-		SetupBuilder(*chrootconf, builder)
-		BuildChroots(builder, *certflag)
+		b := builder.NewFromConfig(*chrootconf)
+		BuildChroots(b, *certflag)
 	}
 
 	if updatecmd.Parsed() {
-		SetupBuilder(*updateconf, builder)
-		BuildUpdate(builder, *prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
+		b := builder.NewFromConfig(*updateconf)
+		BuildUpdate(b, *prefixflag, *minvflag, *formatflag, *signflag, !(*publishflag), *keepchrootsflag)
 
 		if *incrementflag == true {
-			builder.UpdateMixVer()
+			b.UpdateMixVer()
 		}
 	}
 
 	if imagecmd.Parsed() {
-		SetupBuilder("", builder)
-		builder.BuildImage(*imageformat)
+		b := builder.NewFromConfig("")
+		b.BuildImage(*imageformat)
 	}
 }
 

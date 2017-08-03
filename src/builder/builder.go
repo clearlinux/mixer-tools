@@ -240,9 +240,10 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 			os.Exit(1)
 		}
 		os.Chdir(b.Bundledir)
-		helpers.GitInit()
-		helpers.GitAdd()
-		helpers.GitCommit("Initial Mix version " + b.Mixver)
+		helpers.Git("init")
+		helpers.Git("add", ".")
+		commitMsg := fmt.Sprintf("Initial Mix Version %s from Clear Version %s", b.Mixver, b.Clearver)
+		helpers.Git("commit", "-m", commitMsg)
 		os.Chdir(curr)
 	}
 

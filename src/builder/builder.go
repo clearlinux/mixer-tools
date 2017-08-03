@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -58,12 +57,6 @@ func NewFromConfig(conf string) *Builder {
 	b.ReadBuilderConf()
 	b.ReadVersions()
 	return b
-}
-
-// Get provides a useful wrapper function to pull a named field from the Builder
-// instance through reflection, i.e. in assisting with parsing config files.
-func (b *Builder) Get(name string) string {
-	return reflect.ValueOf(b).Elem().FieldByName(name).String()
 }
 
 // CheckDeps will perform host validation to ensure that mixer has all programs

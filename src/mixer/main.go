@@ -171,8 +171,8 @@ func cmdGetBundles(args []string) {
 	bundleconf := bundlescmd.String("config", "", "Supply a specific builder.conf to use for mixing")
 	bundlescmd.Parse(args)
 	b := builder.NewFromConfig(*bundleconf)
-	fmt.Println("Getting clr-bundles for version " + b.Get("Clearver"))
-	b.UpdateRepo(b.Get("Clearver"), false)
+	fmt.Println("Getting clr-bundles for version " + b.Clearver)
+	b.UpdateRepo(b.Clearver, false)
 }
 
 func cmdInitMix(args []string) {
@@ -194,7 +194,7 @@ func cmdHelp(args []string) {
 
 func BuildChroots(builder *builder.Builder, signflag bool) {
 	// Create the signing and validation key/cert
-	if _, err := os.Stat(builder.Get("Cert")); os.IsNotExist(err) {
+	if _, err := os.Stat(builder.Cert); os.IsNotExist(err) {
 		fmt.Println("Generating certificate for signature validation...")
 		privkey, err := helpers.CreateKeyPair()
 		if err != nil {

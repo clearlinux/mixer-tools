@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"strconv"
 
 	"builder"
@@ -39,6 +40,25 @@ func PrintMainHelp() {
 	}
 }
 
+func CheckDeps() error {
+	deps := []string{
+		"createrepo_c",
+		"git",
+		"hardlink",
+		"m4",
+		"openssl",
+		"parallel",
+		"rpm",
+		"yum",
+	}
+	for _, dep := range deps {
+		if _, err := exec.LookPath(dep); err != nil {
+			return fmt.Errorf("failed to find program %q: %v\n", dep, err)
+		}
+	}
+	return nil
+}
+
 func main() {
 	fmt.Println("Mixer 3.06")
 	os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so")
@@ -52,6 +72,13 @@ func main() {
 	name := os.Args[1]
 	if name == "-h" {
 		name = "help"
+	}
+	if name != "version" && name != "help" {
+		err := CheckDeps()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	for _, c := range commands {

@@ -59,31 +59,6 @@ func NewFromConfig(conf string) *Builder {
 	return b
 }
 
-// CheckDeps will perform host validation to ensure that mixer has all programs
-// that are required during our lifetime, available at startup.
-// Missing dependencies are fatal, so we bail early to ensure we have access
-// to them.
-func (b *Builder) CheckDeps() bool {
-	deps := []string{
-		"createrepo_c",
-		"git",
-		"hardlink",
-		"m4",
-		"openssl",
-		"parallel",
-		"rpm",
-		"yum",
-	}
-	for _, i := range deps {
-		if _, err := exec.LookPath(i); err != nil {
-			helpers.PrintError(err)
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to find package \"%s\"\n", i)
-			return false
-		}
-	}
-	return true
-}
-
 // LoadBuilderConf will read the builder configuration from the command line if
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.

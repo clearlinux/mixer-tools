@@ -180,39 +180,14 @@ func GetDirContents(dirname string) []os.FileInfo {
 	return files
 }
 
-// GitInit attempts to initialize an empty git repository in the current
-// directory, or exits on failure.
-func GitInit() {
-	gitcmd := exec.Command("git", "init")
-	gitcmd.Stdout = os.Stdout
-	err := gitcmd.Run()
+// Git runs git with arguments and exit in case of failure.
+func Git(args ...string) {
+	cmd := exec.Command("git", args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
 	if err != nil {
-		PrintError(err)
-		fmt.Println("Failed to init git repo, exiting...")
-		os.Exit(1)
-	}
-}
-
-// GitAdd performs a 'git add .' in the current directory
-func GitAdd() {
-	gitcmd := exec.Command("git", "add", ".")
-	gitcmd.Stdout = os.Stdout
-	err := gitcmd.Run()
-	if err != nil {
-		PrintError(err)
-		fmt.Println("Failed to add to git repo, exiting...")
-		os.Exit(1)
-	}
-}
-
-// GitCommit commits to a repo with a passed in string as the commit message
-func GitCommit(commitmsg string) {
-	gitcmd := exec.Command("git", "commit", "-m", commitmsg)
-	gitcmd.Stdout = os.Stdout
-	err := gitcmd.Run()
-	if err != nil {
-		PrintError(err)
-		fmt.Println("Failed to commit to git repo, exiting...")
+		fmt.Fprintf(os.Stderr, "ERROR: failed to run git %s: %v\n", strings.Join(args, " "), err)
 		os.Exit(1)
 	}
 }

@@ -33,7 +33,7 @@ func SetupBuilder(conf string, config interface{}) {
 }
 
 func main() {
-	fmt.Println("Mixer 3.05")
+	fmt.Println("Mixer 3.06")
 	os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so")
 
 	addcmd := flag.NewFlagSet("add-rpms", flag.ExitOnError)

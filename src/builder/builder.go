@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -172,7 +173,7 @@ func (b *Builder) SignManifestMOM() {
 	manifestMOM := b.Statedir + "/www/" + b.Mixver + "/Manifest.MoM"
 	manifestMOMsig := manifestMOM + ".sig"
 	cmd := exec.Command("openssl", "smime", "-sign", "-binary", "-in", manifestMOM,
-		"-signer", b.Cert, "-inkey", "private.pem",
+		"-signer", b.Cert, "-inkey", filepath.Dir(b.Cert)+"/private.pem",
 		"-outform", "DER", "-out", manifestMOMsig)
 
 	// OpenSSL gives us useful info here so capture it if needed

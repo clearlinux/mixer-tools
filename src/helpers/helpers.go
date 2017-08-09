@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -74,7 +75,7 @@ func GenerateCertificate(cert string, template, parent *x509.Certificate, pubkey
 		}
 
 		// Write the public certficiate out for clients to use
-		certOut, err := os.Create("Swupd_Root.pem")
+		certOut, err := os.Create(cert)
 		if err != nil {
 			fmt.Printf("failed to open cert.pem for writing: %v\n", err)
 			PrintError(err)
@@ -83,17 +84,17 @@ func GenerateCertificate(cert string, template, parent *x509.Certificate, pubkey
 		certOut.Close()
 
 		// Write the private signing key out
-		keyOut, err := os.OpenFile("private.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+		keyOut, err := os.OpenFile(filepath.Dir(cert)+"/private.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			fmt.Println("failed to open key.pem for writing")
 			PrintError(err)
 			return err
 		}
+		defer keyOut.Close()
 		// Need type assertion for Marshal to work
 		priv := privkey.(*rsa.PrivateKey)
 		pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
 	}
-
 	return nil
 }
 

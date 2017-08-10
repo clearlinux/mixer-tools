@@ -146,13 +146,6 @@ func CopyFile(dest string, src string) error {
 
 // Download will attempt to download a from URL to the given filename
 func Download(filename string, url string) (err error) {
-	out, err := os.Create(filename)
-	if err != nil {
-		PrintError(err)
-		return err
-	}
-	defer out.Close()
-
 	infile, err := http.Get(url)
 	if err != nil {
 		PrintError(err)
@@ -160,8 +153,16 @@ func Download(filename string, url string) (err error) {
 	}
 	defer infile.Body.Close()
 
+	out, err := os.Create(filename)
+	if err != nil {
+		PrintError(err)
+		return err
+	}
+	defer out.Close()
+
 	_, err = io.Copy(out, infile.Body)
 	if err != nil {
+		os.RemoveAll(filename)
 		PrintError(err)
 		return err
 	}

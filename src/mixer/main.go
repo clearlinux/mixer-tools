@@ -60,7 +60,7 @@ func CheckDeps() error {
 }
 
 func main() {
-	fmt.Println("Mixer 3.06")
+	fmt.Println("Mixer 3.1.0")
 	os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so")
 
 	if len(os.Args) == 1 {

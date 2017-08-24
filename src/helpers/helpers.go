@@ -182,7 +182,11 @@ func GetDirContents(dirname string) []os.FileInfo {
 	return files
 }
 
-// Git runs git with arguments and exit in case of failure.
+// Git runs git with arguments and exits in case of failure.
+// IMPORTANT: the 'args' passed to this function _must_ be validated,
+// as to avoid cases where input is received from a third party source.
+// Such inputs could be something the likes of 'status; rm -rf .*'
+// and need to be escaped or avoided properly.
 func Git(args ...string) {
 	cmd := exec.Command("git", args...)
 	cmd.Stdout = os.Stdout

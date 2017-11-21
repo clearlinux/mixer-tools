@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"builder"
 	"helpers"
@@ -28,6 +29,7 @@ func init() {
 		{"build-image", "Build an image from the mix content", cmdBuildImage},
 		{"add-rpms", "Add rpms to local yum repository", cmdAddRPMs},
 		{"get-bundles", "Get the clr-bundles from upstream", cmdGetBundles},
+		{"add-bundles", "Add clr-bundles to your mix", cmdAddBundles},
 		{"init-mix", "Initialize the mixer and workspace", cmdInitMix},
 		{"help", "Show help options", cmdHelp},
 	}
@@ -200,6 +202,24 @@ func cmdGetBundles(args []string) {
 	b := builder.NewFromConfig(*bundleconf)
 	fmt.Println("Getting clr-bundles for version " + b.Clearver)
 	b.UpdateRepo(b.Clearver, false)
+}
+
+func cmdAddBundles(args []string) {
+	flags := flag.NewFlagSet("add-bundles", flag.ExitOnError)
+	bundlesarg := flags.String("bundles", "", "Comma-separated list of bundles to add")
+	force := flags.Bool("force", false, "Override bundles that already exist")
+	git := flags.Bool("git", false, "Automatically apply new git commit")
+	conf := flags.String("config", "", "Supply a specific builder.conf to use for mixing")
+	flags.Parse(args)
+
+	if len(*bundlesarg) == 0 {
+		flags.Usage()
+		os.Exit(1)
+	}
+
+	b := builder.NewFromConfig(*conf)
+	bundles := strings.Split(*bundlesarg, ",")
+	b.AddBundles(bundles, *force, *git)
 }
 
 func cmdInitMix(args []string) {

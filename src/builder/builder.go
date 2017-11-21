@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -225,6 +226,78 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 	}
 
 	fmt.Println("Downloaded " + repo)
+}
+
+// AddBundles will copy the specified clr-bundles from the configured Clear
+// Linux version to the mix-bundles directory
+// bundles: array slice of bundle names
+// force: override bundle in mix-dir when present
+// git: automatically git commit with bundles added
+func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
+	var bundleAddCount int
+
+	bundledir := b.Bundledir
+	if !strings.HasSuffix(bundledir, "/") {
+		bundledir = bundledir + "/"
+	}
+
+	// Check if mix bundles dir exists
+	if _, err := os.Stat(bundledir); os.IsNotExist(err) {
+		helpers.PrintError(errors.New("Mix bundles directory does not exist. Run mixer init-mix."))
+		os.Exit(1)
+	}
+
+	clrbundledir := "clr-bundles/clr-bundles-" + b.Clearver + "/bundles/"
+
+	// Check if CLR bundles exist, download if not
+	if _, err := os.Stat(clrbundledir); os.IsNotExist(err) {
+		b.UpdateRepo(b.Clearver, false)
+	}
+
+	var includes []string
+	for _, bundle := range bundles {
+		// Check if bundle exists in clrbundledir
+		if _, err := os.Stat(clrbundledir + bundle); os.IsNotExist(err) {
+			helpers.PrintError(errors.New("Bundle " + bundle + " does not exist in CLR version " + b.Clearver))
+			os.Exit(1)
+		}
+		// Check if bundle exists in mix bundles dir
+		if _, err := os.Stat(bundledir + bundle); os.IsNotExist(err) || force {
+			// Parse bundle to get all includes
+			if ib, err := helpers.GetIncludedBundles(clrbundledir + bundle); err != nil {
+				helpers.PrintError(errors.New("Cannot parse bundle " + bundle + " from CLR version " + b.Clearver))
+				os.Exit(1)
+			} else if len(ib) > 0 {
+				includes = append(includes, ib...)
+			}
+
+			fmt.Printf("Adding bundle %q\n", bundle)
+			helpers.CopyFile(bundledir+bundle, clrbundledir+bundle)
+			bundleAddCount++
+		} else {
+			fmt.Printf("Warning: bundle %q already exists; skipping.\n", bundle)
+		}
+	}
+	// Recurse on included bundles
+	if len(includes) > 0 {
+		bundleAddCount += b.AddBundles(includes, force, false)
+	}
+
+	if git && bundleAddCount > 0 {
+		// Save current dir so we can get back to it
+		curr, err := os.Getwd()
+		if err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
+		fmt.Println("Adding git commit")
+		os.Chdir(bundledir)
+		helpers.Git("add", ".")
+		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.Clearver, bundles)
+		helpers.Git("commit", "-m", commitMsg)
+		os.Chdir(curr)
+	}
+	return bundleAddCount
 }
 
 // InitMix will initialise a new swupd-client consumable "mix" with the given

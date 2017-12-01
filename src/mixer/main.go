@@ -175,11 +175,13 @@ func cmdBuildUpdate(args []string) {
 func cmdBuildImage(args []string) {
 	imagecmd := flag.NewFlagSet("build-image", flag.ExitOnError)
 	imageformat := imagecmd.String("format", "", "Supply the format used for the Mix")
+	conf := imagecmd.String("config", "", "Supply a specific builder.conf to use for mixing")
+	imagetemplate := imagecmd.String("template", "", "Path to tempalte file to use")
 
 	imagecmd.Parse(args)
 
-	b := builder.NewFromConfig("")
-	b.BuildImage(*imageformat)
+	b := builder.NewFromConfig(*conf)
+	b.BuildImage(*imageformat, *imagetemplate)
 }
 
 func cmdAddRPMs(args []string) {

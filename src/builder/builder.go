@@ -526,14 +526,19 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 
 // BuildImage will now proceed to build the full image with the previously
 // validated configuration.
-func (b *Builder) BuildImage(format string) {
+func (b *Builder) BuildImage(format string, template string) {
 	// If the user did not pass in a format, default to builder.conf
 	if format == "" {
 		format = b.Format
 	}
 
+	// If the user did not pass in a template, default to release-image-config.json
+	if template == "" {
+		template = "release-image-config.json"
+	}
+
 	content := "file://" + b.Statedir + "/www"
-	imagecmd := exec.Command("ister.py", "-t", "release-image-config.json", "-V", content, "-C", content, "-f", format, "-s", b.Cert)
+	imagecmd := exec.Command("ister.py", "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Cert)
 	imagecmd.Stdout = os.Stdout
 	imagecmd.Stderr = os.Stderr
 

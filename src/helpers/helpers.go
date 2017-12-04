@@ -171,14 +171,16 @@ func CopyFile(dest string, src string) error {
 func Download(filename string, url string) (err error) {
 	infile, err := http.Get(url)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 	defer infile.Body.Close()
 
+	if infile.StatusCode != http.StatusOK {
+		return fmt.Errorf("Get %s replied: %d (%s)", url, infile.StatusCode, http.StatusText(infile.StatusCode))
+	}
+
 	out, err := os.Create(filename)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 	defer out.Close()
@@ -186,7 +188,6 @@ func Download(filename string, url string) (err error) {
 	_, err = io.Copy(out, infile.Body)
 	if err != nil {
 		os.RemoveAll(filename)
-		PrintError(err)
 		return err
 	}
 

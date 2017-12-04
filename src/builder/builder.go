@@ -182,7 +182,7 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 	URL := "https://github.com/clearlinux/clr-bundles/archive/" + ver + ".tar.gz"
 	err := helpers.Download(repo, URL)
 	if err != nil {
-		fmt.Println("ERROR: Failed to download new clr-bundles, make sure the version is valid")
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to download clr-bundles, make sure the version is valid: %s\n", err)
 		os.Exit(1)
 	}
 

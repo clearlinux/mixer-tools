@@ -180,3 +180,79 @@ func TestReadManifestFileEntry(t *testing.T) {
 		})
 	}
 }
+
+func TestCheckHeaderPopulated(t *testing.T) {
+	t.Run("populated", func(t *testing.T) {
+		m := Manifest{
+			Header: ManifestHeader{
+				Format:      10,
+				Version:     100,
+				Previous:    90,
+				FileCount:   553,
+				ContentSize: 100000,
+				TimeStamp:   time.Unix(1000, 0),
+				// does not fail when includes not added
+			},
+		}
+
+		if err := m.CheckHeaderPopulated(); err != nil {
+			t.Error("CheckHeaderPopulated raised error for valid header")
+		}
+	})
+
+	zeroTime := time.Time{}
+	var includes []Manifest
+	invalidHeaders := []ManifestHeader{
+		{0, 100, 90, 553, time.Unix(1000, 0), 100000, includes},
+		{10, 0, 90, 553, time.Unix(1000, 0), 100000, includes},
+		{10, 100, 0, 553, time.Unix(1000, 0), 100000, includes},
+		{10, 100, 90, 0, time.Unix(1000, 0), 100000, includes},
+		{10, 100, 90, 553, zeroTime, 100000, includes},
+		{10, 100, 90, 553, time.Unix(1000, 0), 0, includes},
+	}
+
+	for _, header := range invalidHeaders {
+		t.Run("unpopulated", func(t *testing.T) {
+			m := Manifest{Header: header}
+			if err := m.CheckHeaderPopulated(); err == nil {
+				t.Error("CheckHeaderPopulated did not return an error on invalid header")
+			}
+		})
+	}
+}
+
+func TestReadManifestFromFileGood(t *testing.T) {
+	path := "testdata/manifest.good"
+	var m Manifest
+	if err := m.ReadManifestFromFile(path); err != nil {
+		t.Error(err)
+	}
+
+	if len(m.Files) == 0 {
+		t.Error("ReadManifestFromFile did not add file entries to the file list")
+	}
+}
+
+func TestReadManifestFromFileMissingFileCount(t *testing.T) {
+	path := "testdata/manifest.missingFilecount"
+	var m Manifest
+	if err := m.ReadManifestFromFile(path); err == nil {
+		t.Error("ReadManifestFromFile did not raise error on missing header")
+	}
+}
+
+func TestReadManifestFromFileMissingFiles(t *testing.T) {
+	path := "testdata/manifest.missingFiles"
+	var m Manifest
+	if err := m.ReadManifestFromFile(path); err == nil {
+		t.Error("ReadManifestFromFile did not raise error when missing file entries")
+	}
+}
+
+func TestReadManifestFromFileEmpty(t *testing.T) {
+	path := "testdata/manifest.empty"
+	var m Manifest
+	if err := m.ReadManifestFromFile(path); err == nil {
+		t.Error("ReadManifestFromFile did not raise error on empty file")
+	}
+}

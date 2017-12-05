@@ -7,11 +7,11 @@ func TestTypeFromFlagFile(t *testing.T) {
 		flag     byte
 		expected ftype
 	}{
-		{'F', FILE},
-		{'D', DIRECTORY},
-		{'L', LINK},
-		{'M', MANIFEST},
-		{'.', TYPE_UNSET},
+		{'F', typeFile},
+		{'D', typeDirectory},
+		{'L', typeLink},
+		{'M', typeManifest},
+		{'.', typeUnset},
 	}
 
 	for _, tc := range testCases {
@@ -36,7 +36,7 @@ func TestTypeFromFlagFile(t *testing.T) {
 			t.Error("typeFromFlag did not fail with invalid input")
 		}
 
-		if f.Type != TYPE_UNSET {
+		if f.Type != typeUnset {
 			t.Errorf("file type was set to %v from invalid flag", f.Type)
 		}
 	})
@@ -47,9 +47,9 @@ func TestStatusFromFlag(t *testing.T) {
 		flag     byte
 		expected fstatus
 	}{
-		{'d', DELETED},
-		{'g', GHOSTED},
-		{'.', STATUS_UNSET},
+		{'d', statusDeleted},
+		{'g', statusGhosted},
+		{'.', statusUnset},
 	}
 
 	for _, tc := range testCases {
@@ -74,7 +74,7 @@ func TestStatusFromFlag(t *testing.T) {
 			t.Error("statusFromFlag did not fail with invalid input")
 		}
 
-		if f.Status != STATUS_UNSET {
+		if f.Status != statusUnset {
 			t.Errorf("file modifier was set to %v from invalid flag", f.Status)
 		}
 	})
@@ -85,10 +85,10 @@ func TestModifierFromFlag(t *testing.T) {
 		flag     byte
 		expected fmodifier
 	}{
-		{'C', CONFIG},
-		{'s', STATE},
-		{'b', BOOT},
-		{'.', MODIFIER_UNSET},
+		{'C', modifierConfig},
+		{'s', modifierState},
+		{'b', modifierBoot},
+		{'.', modifierUnset},
 	}
 
 	for _, tc := range testCases {
@@ -113,7 +113,7 @@ func TestModifierFromFlag(t *testing.T) {
 			t.Error("setModifierFromFlag did not fail with invalid input")
 		}
 
-		if f.Modifier != MODIFIER_UNSET {
+		if f.Modifier != modifierUnset {
 			t.Errorf("file modifier was set to %v from invalid flag", f.Modifier)
 		}
 	})
@@ -124,8 +124,8 @@ func TestRenameFromFlag(t *testing.T) {
 		flag     byte
 		expected frename
 	}{
-		{'r', RENAME},
-		{'.', RENAME_UNSET},
+		{'r', renameSet},
+		{'.', renameUnset},
 	}
 
 	for _, tc := range testCases {
@@ -150,7 +150,7 @@ func TestRenameFromFlag(t *testing.T) {
 			t.Error("setRenameFromFlag did not fail with invalid input")
 		}
 
-		if f.Rename != RENAME_UNSET {
+		if f.Rename != renameUnset {
 			t.Error("file rename was set to true from invalid flag")
 		}
 	})

@@ -10,9 +10,7 @@ import (
 	"time"
 )
 
-const (
-	MANIFEST_FIELD_DELIM string = "\t"
-)
+const manifestFieldDelim = "\t"
 
 // ManifestHeader contains metadata for the manifest
 type ManifestHeader struct {
@@ -154,14 +152,21 @@ func (m *Manifest) CheckHeaderPopulated() error {
 	return nil
 }
 
-// Read reads a manifest file into memory
+// ReadManifestFromFile reads a manifest file into memory
 func (m *Manifest) ReadManifestFromFile(f string) error {
 	var err error
 	manifestFile, err := os.Open(f)
 	if err != nil {
 		return err
 	}
-	defer manifestFile.Close()
+
+	// handle Close() errors
+	defer func() {
+		cerr := manifestFile.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
 
 	fstat, err := manifestFile.Stat()
 	if err != nil {
@@ -188,11 +193,11 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 				continue
 			} else {
 				// we already had a blank line, this is an error
-				return errors.New("found extra blank line in manifest")
+				return errors.New("extra blank line in manifest")
 			}
 		}
 
-		manifestFields := strings.Split(manifestLine, MANIFEST_FIELD_DELIM)
+		manifestFields := strings.Split(manifestLine, manifestFieldDelim)
 
 		// In the header until an empty line is encountered
 		if inHeader {
@@ -216,5 +221,6 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 		return errors.New("manifest does not have any file entries")
 	}
 
-	return nil
+	// return err so the deferred close can modify it
+	return err
 }

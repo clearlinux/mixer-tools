@@ -96,10 +96,6 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 		return fmt.Errorf("invalid number of flags: %v", fflags)
 	}
 
-	if len(fhash) != 64 {
-		return fmt.Errorf("invalid hash length: %v", fhash)
-	}
-
 	var parsed uint64
 	var err error
 	// fver must be a valid uint32
@@ -110,7 +106,13 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 
 	// create a file record
 	var file *File
-	file = &File{Name: fname, Hash: fhash, Version: ver}
+	file = &File{Name: fname, Version: ver}
+
+	// set the file hash
+	if err = file.setHash(fhash); err != nil {
+		return fmt.Errorf("invalid hash: %v", err)
+	}
+
 	// Set the flags using fflags
 	if err = file.setFlags(fflags); err != nil {
 		return fmt.Errorf("invalid flags: %v", err)

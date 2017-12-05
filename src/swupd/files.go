@@ -1,6 +1,7 @@
 package swupd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 )
@@ -18,6 +19,14 @@ const (
 	typeManifest
 )
 
+var typeBytes = map[ftype]byte{
+	typeUnset:     '.',
+	typeFile:      'F',
+	typeDirectory: 'D',
+	typeLink:      'L',
+	typeManifest:  'M',
+}
+
 const (
 	modifierUnset fmodifier = iota
 	modifierConfig
@@ -25,21 +34,39 @@ const (
 	modifierBoot
 )
 
+var modifierBytes = map[fmodifier]byte{
+	modifierUnset:  '.',
+	modifierConfig: 'C',
+	modifierState:  's',
+	modifierBoot:   'b',
+}
+
 const (
 	statusUnset fstatus = iota
 	statusDeleted
 	statusGhosted
 )
 
+var statusBytes = map[fstatus]byte{
+	statusUnset:   '.',
+	statusDeleted: 'd',
+	statusGhosted: 'g',
+}
+
 const (
 	renameUnset = false
 	renameSet   = true
 )
 
+var renameBytes = map[frename]byte{
+	renameUnset: '.',
+	renameSet:   'r',
+}
+
 // File represents an entry in a manifest
 type File struct {
 	Name    string
-	Hash    string
+	Hash    hashval
 	Version uint32
 
 	// flags
@@ -141,4 +168,36 @@ func (f *File) setFlags(flags string) error {
 	}
 
 	return nil
+}
+
+// setHash intern hashes of correct length and add index to f.Hash
+func (f *File) setHash(hash string) error {
+	if len(hash) != 64 {
+		return fmt.Errorf("hash %v incorrect length", hash)
+	}
+
+	f.Hash = internHash(hash)
+	return nil
+}
+
+func (f *File) getHashString() string {
+	return *Hashes[f.Hash]
+}
+
+func (f *File) getFlagString() (string, error) {
+	if f.Type == typeUnset &&
+		f.Status == statusUnset &&
+		f.Modifier == modifierUnset &&
+		f.Rename == renameUnset {
+		return "", errors.New("no flags are set on file")
+	}
+
+	flagBytes := []byte{
+		typeBytes[f.Type],
+		statusBytes[f.Status],
+		modifierBytes[f.Modifier],
+		renameBytes[f.Rename],
+	}
+
+	return string(flagBytes), nil
 }

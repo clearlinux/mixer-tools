@@ -1,9 +1,17 @@
 package swupd
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"time"
+)
+
+const (
+	MANIFEST_FIELD_DELIM string = "\t"
 )
 
 // ManifestHeader contains metadata for the manifest
@@ -112,6 +120,101 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 
 	// add file to manifest
 	m.Files = append(m.Files, file)
+
+	return nil
+}
+
+// CheckHeaderPopulated checks that all header fields in the manifest are populated
+func (m *Manifest) CheckHeaderPopulated() error {
+	if m.Header.Format == 0 {
+		return errors.New("manifest format not set")
+	}
+
+	if m.Header.Version == 0 {
+		return errors.New("manifest version not set")
+	}
+
+	if m.Header.Previous == 0 {
+		return errors.New("manifest previous not set")
+	}
+
+	if m.Header.FileCount == 0 {
+		return errors.New("manifest has a zero file count")
+	}
+
+	if m.Header.ContentSize == 0 {
+		return errors.New("manifest has zero contentsize")
+	}
+
+	if m.Header.TimeStamp.IsZero() {
+		return errors.New("manifest timestamp not set")
+	}
+
+	// Includes is not required
+	return nil
+}
+
+// Read reads a manifest file into memory
+func (m *Manifest) ReadManifestFromFile(f string) error {
+	var err error
+	manifestFile, err := os.Open(f)
+	if err != nil {
+		return err
+	}
+	defer manifestFile.Close()
+
+	fstat, err := manifestFile.Stat()
+	if err != nil {
+		return err
+	}
+
+	if fstat.Size() == 0 {
+		return fmt.Errorf("%v is an empty file", f)
+	}
+
+	input := bufio.NewScanner(manifestFile)
+
+	inHeader := true
+	for input.Scan() {
+		manifestLine := input.Text()
+		// empty line means end of header
+		if len(manifestLine) == 0 {
+			if inHeader {
+				inHeader = false
+				// reached end of header, validate that everything was set
+				if err = m.CheckHeaderPopulated(); err != nil {
+					return err
+				}
+				continue
+			} else {
+				// we already had a blank line, this is an error
+				return errors.New("found extra blank line in manifest")
+			}
+		}
+
+		manifestFields := strings.Split(manifestLine, MANIFEST_FIELD_DELIM)
+
+		// In the header until an empty line is encountered
+		if inHeader {
+			if err = readManifestFileHeaderLine(manifestFields, m); err != nil {
+				return err
+			}
+			continue
+		}
+
+		// body if we got this far
+		if err = readManifestFileEntry(manifestFields, m); err != nil {
+			return err
+		}
+	}
+
+	if err = m.CheckHeaderPopulated(); err != nil {
+		return err
+	}
+
+	if len(m.Files) == 0 {
+		return errors.New("manifest does not have any file entries")
+	}
 
 	return nil
 }

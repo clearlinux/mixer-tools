@@ -34,6 +34,7 @@ type Builder struct {
 	Versiondir  string
 	Yumconf     string
 	Yumtemplate string
+	Upstreamurl string
 
 	Signing int
 	Bump    int
@@ -153,6 +154,14 @@ func (b *Builder) ReadVersions() {
 	}
 	b.Clearver = strings.TrimSpace(string(ver))
 	b.Clearver = strings.Replace(b.Clearver, "\n", "", -1)
+
+	ver, err = ioutil.ReadFile(b.Versiondir + "/.clearurl")
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+	b.Upstreamurl = strings.TrimSpace(string(ver))
+	b.Upstreamurl = strings.Replace(b.Upstreamurl, "\n", "", -1)
 }
 
 // SignManifestMOM will sign the Manifest.Mom file in in place based on the Mix
@@ -314,24 +323,30 @@ func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
 
 // InitMix will initialise a new swupd-client consumable "mix" with the given
 // based Clear Linux version and specified mix version.
-func (b *Builder) InitMix(clearver string, mixver string, all bool) error {
+func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl string) error {
 	if clearver == "0" || mixver == "0" {
 		fmt.Println("ERROR: Please supply -clearver and -mixver")
 		os.Exit(1)
 	}
-	err := ioutil.WriteFile(b.Versiondir+"/.clearversion", []byte(clearver), 0644)
+	err := ioutil.WriteFile(b.Versiondir+"/.clearurl", []byte(upstreamurl), 0644)
 	if err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}
-	b.Mixver = mixver
+	b.Upstreamurl = upstreamurl
+	err = ioutil.WriteFile(b.Versiondir+"/.clearversion", []byte(clearver), 0644)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+	b.Clearver = clearver
 
 	err = ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(mixver), 0644)
 	if err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}
-	b.Clearver = clearver
+	b.Mixver = mixver
 
 	b.UpdateRepo(clearver, all)
 
@@ -369,7 +384,10 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			cmd.Run()
 
 		} else {
-			cmd := exec.Command("m4", "-D", "MIXER_REPO", "-D", "MIXER_REPOPATH="+b.Repodir, b.Yumtemplate)
+			cmd := exec.Command("m4", "-D", "MIXER_REPO",
+				"-D", "MIXER_REPOPATH="+b.Repodir,
+				"-D", "UPSTREAM_URL="+b.Upstreamurl,
+				b.Yumtemplate)
 			cmd.Stdout = outfile
 			cmd.Run()
 		}
@@ -454,6 +472,21 @@ func (b *Builder) setVersion(publish bool) {
 	}
 
 	err = ioutil.WriteFile(b.Statedir+"/image/LAST_VER", []byte(b.Mixver), 0644)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Saving the upstream version URL " + b.Upstreamurl)
+	upstream_url := b.Statedir + "/www/" + b.Mixver + "/upstream_url"
+	err = ioutil.WriteFile(upstream_url, []byte(b.Upstreamurl), 0644)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+	fmt.Println("Saving the upstream version " + b.Clearver)
+	upstream_ver := b.Statedir + "/www/" + b.Mixver + "/upstream_ver"
+	err = ioutil.WriteFile(upstream_ver, []byte(b.Clearver), 0644)
 	if err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)

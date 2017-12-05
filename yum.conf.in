@@ -13,7 +13,7 @@ reposdir=/root/mash
 [clear]
 name=Clear
 failovermethod=priority
-baseurl=https://download.clearlinux.org/releases/$releasever/clear/x86_64/os/
+baseurl=UPSTREAM_URL/releases/$releasever/clear/x86_64/os/
 enabled=1
 gpgcheck=0
 

@@ -227,14 +227,15 @@ func cmdAddBundles(args []string) {
 func cmdInitMix(args []string) {
 	initcmd := flag.NewFlagSet("init-mix", flag.ExitOnError)
 	allflag := initcmd.Bool("all", false, "Create a mix with all Clear bundles included")
-	clearflag := initcmd.Int("clearver", 0, "Supply the Clear version to compose the mix from")
+	clearflag := initcmd.Int("clearver", 1, "Supply the Clear version to compose the mix from")
 	mixflag := initcmd.Int("mixver", 0, "Supply the Mix version to build")
 	initconf := initcmd.String("config", "", "Supply a specific builder.conf to use for mixing")
+	upstreamurl := initcmd.String("upstreamurl", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 	initcmd.Parse(args)
 	b := builder.New()
 	b.LoadBuilderConf(*initconf)
 	b.ReadBuilderConf()
-	b.InitMix(strconv.Itoa(*clearflag), strconv.Itoa(*mixflag), *allflag)
+	b.InitMix(strconv.Itoa(*clearflag), strconv.Itoa(*mixflag), *allflag, *upstreamurl)
 }
 
 func cmdHelp(args []string) {

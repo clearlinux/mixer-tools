@@ -39,7 +39,7 @@ const (
 // File represents an entry in a manifest
 type File struct {
 	Name    string
-	Hash    string
+	Hash    int
 	Version uint32
 
 	// flags
@@ -140,5 +140,14 @@ func (f *File) setFlags(flags string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (f *File) setHash(hash string) error {
+	if len(hash) != 64 {
+		return fmt.Errorf("hash %v incorrect length", hash)
+	}
+
+	f.Hash = internHash(hash)
 	return nil
 }

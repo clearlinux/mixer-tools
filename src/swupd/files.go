@@ -11,29 +11,29 @@ type fstatus int
 type frename bool
 
 const (
-	TYPE_UNSET ftype = iota
-	FILE
-	DIRECTORY
-	LINK
-	MANIFEST
+	typeUnset ftype = iota
+	typeFile
+	typeDirectory
+	typeLink
+	typeManifest
 )
 
 const (
-	MODIFIER_UNSET fmodifier = iota
-	CONFIG
-	STATE
-	BOOT
+	modifierUnset fmodifier = iota
+	modifierConfig
+	modifierState
+	modifierBoot
 )
 
 const (
-	STATUS_UNSET fstatus = iota
-	DELETED
-	GHOSTED
+	statusUnset fstatus = iota
+	statusDeleted
+	statusGhosted
 )
 
 const (
-	RENAME_UNSET = false
-	RENAME       = true
+	renameUnset = false
+	renameSet   = true
 )
 
 // File represents an entry in a manifest
@@ -60,17 +60,17 @@ type File struct {
 func typeFromFlag(flag byte) (ftype, error) {
 	switch flag {
 	case 'F':
-		return FILE, nil
+		return typeFile, nil
 	case 'D':
-		return DIRECTORY, nil
+		return typeDirectory, nil
 	case 'L':
-		return LINK, nil
+		return typeLink, nil
 	case 'M':
-		return MANIFEST, nil
+		return typeManifest, nil
 	case '.':
-		return TYPE_UNSET, nil
+		return typeUnset, nil
 	default:
-		return TYPE_UNSET, fmt.Errorf("invalid file type flag: %v", flag)
+		return typeUnset, fmt.Errorf("invalid file type flag: %v", flag)
 	}
 }
 
@@ -78,13 +78,13 @@ func typeFromFlag(flag byte) (ftype, error) {
 func statusFromFlag(flag byte) (fstatus, error) {
 	switch flag {
 	case 'd':
-		return DELETED, nil
+		return statusDeleted, nil
 	case 'g':
-		return GHOSTED, nil
+		return statusGhosted, nil
 	case '.':
-		return STATUS_UNSET, nil
+		return statusUnset, nil
 	default:
-		return STATUS_UNSET, fmt.Errorf("invalid file status flag: %v", flag)
+		return statusUnset, fmt.Errorf("invalid file status flag: %v", flag)
 	}
 }
 
@@ -92,15 +92,15 @@ func statusFromFlag(flag byte) (fstatus, error) {
 func modifierFromFlag(flag byte) (fmodifier, error) {
 	switch flag {
 	case 'C':
-		return CONFIG, nil
+		return modifierConfig, nil
 	case 's':
-		return STATE, nil
+		return modifierState, nil
 	case 'b':
-		return BOOT, nil
+		return modifierBoot, nil
 	case '.':
-		return MODIFIER_UNSET, nil
+		return modifierUnset, nil
 	default:
-		return MODIFIER_UNSET, fmt.Errorf("invalid file modifier flag: %v", flag)
+		return modifierUnset, fmt.Errorf("invalid file modifier flag: %v", flag)
 	}
 }
 
@@ -108,11 +108,11 @@ func modifierFromFlag(flag byte) (fmodifier, error) {
 func renameFromFlag(flag byte) (frename, error) {
 	switch flag {
 	case 'r':
-		return RENAME, nil
+		return renameSet, nil
 	case '.':
-		return RENAME_UNSET, nil
+		return renameUnset, nil
 	default:
-		return RENAME_UNSET, fmt.Errorf("invalid file rename flag: %v", flag)
+		return renameUnset, fmt.Errorf("invalid file rename flag: %v", flag)
 	}
 }
 

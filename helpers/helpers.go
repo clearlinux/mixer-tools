@@ -140,27 +140,23 @@ func GetIncludedBundles(filename string) ([]string, error) {
 func CopyFile(dest string, src string) error {
 	source, err := os.Open(src)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 	defer source.Close()
 
 	destination, err := os.Create(dest)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 	defer destination.Close()
 
 	_, err = io.Copy(destination, source)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 
 	err = destination.Sync()
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 

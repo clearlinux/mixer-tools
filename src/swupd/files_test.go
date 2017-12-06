@@ -196,3 +196,25 @@ func TestSetFlags(t *testing.T) {
 		})
 	}
 }
+
+func TestSetHashValid(t *testing.T) {
+	// reset Hashes so we get the expected indices
+	Hashes = []*string{}
+	f := File{}
+	validHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36729"
+	if err := f.setHash(validHash); err != nil {
+		t.Error("setHash failed on valid hash")
+	}
+
+	if f.Hash != 0 {
+		t.Errorf("f.Hash set to %v when 0 expected", f.Hash)
+	}
+}
+
+func TestSetHashInvalid(t *testing.T) {
+	f := File{}
+	invalidHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db"
+	if err := f.setHash(invalidHash); err == nil {
+		t.Error("setHash did not fail on invalid hash")
+	}
+}

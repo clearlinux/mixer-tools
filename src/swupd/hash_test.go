@@ -25,7 +25,8 @@ func TestInternHash(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run("validHash", func(t *testing.T) {
 			if idx := internHash(tc.hash); idx != tc.expected {
-				t.Errorf("interned hash index %v did not match expected %v", idx, tc.expected)
+				t.Errorf("interned hash index %v did not match expected %v",
+					idx, tc.expected)
 			}
 		})
 	}
@@ -49,3 +50,34 @@ func TestHashPrinting2(t *testing.T) {
 		t.Errorf("in and out of hashtable do not match\n\t%v\n\t%v", sout, s)
 	}
 }
+
+func TestHashEqual(t *testing.T) {
+	someHashes := []struct {
+		hash string
+		val  hashval
+	}{
+		{"3a60eb03c76ce17f1d08e0b5844c0455f6136c9b4bd4dd54c98cad2783354635", 0},
+		{"b4b9333757d79e1e766dbb5db3160108e907e110bd19cba4d1d4230b299d0eb", 0},
+		{"99aff80fc35d08b36c69ed0340ea80805f0c1b81ba7c734db6434b29a24c8391", 0},
+	}
+	for i, tc := range someHashes {
+		// subtle point here, need to use the array index, rather than
+		// setting tc.val as tc is a copy of the entry, not a pointer to it
+		// See https://golang.org/ref/spec#RangeClause
+		someHashes[i].val = internHash(tc.hash)
+	}
+	// do n^2 compares
+	for i := range someHashes {
+		tc := &someHashes[i]
+		for j := range someHashes {
+			tc2 := &someHashes[j]
+			if HashEquals(tc.val, tc2.val) != (i == j) {
+				t.Errorf("HashEquals returns incorrect result %d %d %v %v",
+					i, j, tc.hash, tc2.hash)
+			}
+		}
+	}
+}
+
+// Tip, to generate random hash values use this.
+// hexdump -n32 -e '32 "%02x" "\n"' /dev/random

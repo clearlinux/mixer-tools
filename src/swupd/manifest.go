@@ -242,3 +242,80 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 	// return err so the deferred close can modify it
 	return err
 }
+
+// writeManifestFileHeader writes the header of a manifest to the file
+func writeManifestFileHeader(m *Manifest, w *bufio.Writer) error {
+	var err error
+	if err = m.CheckHeaderPopulated(); err != nil {
+		return err
+	}
+
+	// bufio.Writer is an errWriter, so errors will be returned when the calling
+	// function calls w.Flush()
+	w.WriteString(fmt.Sprintf("MANIFEST\t%v\n", m.Header.Format))
+	w.WriteString(fmt.Sprintf("version:\t%v\n", m.Header.Version))
+	w.WriteString(fmt.Sprintf("previous:\t%v\n", m.Header.Previous))
+	w.WriteString(fmt.Sprintf("filecount:\t%v\n", m.Header.FileCount))
+	w.WriteString(fmt.Sprintf("timestamp:\t%v\n", m.Header.TimeStamp.Unix()))
+	w.WriteString(fmt.Sprintf("contentsize:\t%v\n", m.Header.ContentSize))
+
+	for _, include := range m.Header.Includes {
+		w.WriteString(fmt.Sprintf("includes:\t%v\n", include.Name))
+	}
+
+	return nil
+}
+
+// writeManifestFileEntry writes the file entry line to the file
+func writeManifestFileEntry(file *File, w *bufio.Writer) error {
+	var flags string
+	var err error
+	if flags, err = file.getFlagString(); err != nil {
+		return err
+	}
+
+	line := fmt.Sprintf("%v\t%v\t%v\t%v\n",
+		flags,
+		file.Hash,
+		file.Version,
+		file.Name)
+	_, err = w.WriteString(line)
+	return err
+}
+
+// WriteManifestFile writes manifest m to a new file at path
+func (m *Manifest) WriteManifestFile(path string) error {
+	var err error
+	var f *os.File
+	if f, err = os.Create(path); err != nil {
+		return err
+	}
+
+	// handle close errors
+	defer func() {
+		cerr := f.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+
+	w := bufio.NewWriter(f)
+
+	if err = writeManifestFileHeader(m, w); err != nil {
+		return err
+	}
+
+	// write separator between header and body
+	w.WriteString("\n")
+
+	for _, entry := range m.Files {
+		if err := writeManifestFileEntry(entry, w); err != nil {
+			return err
+		}
+	}
+
+	// return error code or nil from w.Flush()
+	err = w.Flush()
+	// a nil error may be replaced by an f.Close() error in the deferred function
+	return err
+}

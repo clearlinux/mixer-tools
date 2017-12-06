@@ -210,18 +210,23 @@ func cmdAddBundles(args []string) {
 	flags := flag.NewFlagSet("add-bundles", flag.ExitOnError)
 	bundlesarg := flags.String("bundles", "", "Comma-separated list of bundles to add")
 	force := flags.Bool("force", false, "Override bundles that already exist")
+	all := flags.Bool("all", false, "Add all bundles from CLR; takes precedence over -bundles")
 	git := flags.Bool("git", false, "Automatically apply new git commit")
 	conf := flags.String("config", "", "Supply a specific builder.conf to use for mixing")
 	flags.Parse(args)
 
-	if len(*bundlesarg) == 0 {
-		flags.Usage()
-		os.Exit(1)
+	var bundles []string
+	if !*all {
+		if len(*bundlesarg) == 0 {
+			flags.Usage()
+			os.Exit(1)
+		} else {
+			bundles = strings.Split(*bundlesarg, ",")
+		}
 	}
 
 	b := builder.NewFromConfig(*conf)
-	bundles := strings.Split(*bundlesarg, ",")
-	b.AddBundles(bundles, *force, *git)
+	b.AddBundles(bundles, *force, *all, *git)
 }
 
 func cmdInitMix(args []string) {

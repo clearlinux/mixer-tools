@@ -253,8 +253,9 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 // Linux version to the mix-bundles directory
 // bundles: array slice of bundle names
 // force: override bundle in mix-dir when present
+// all: include all CLR bundles. Overrides bundles.
 // git: automatically git commit with bundles added
-func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
+func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git bool) int {
 	var bundleAddCount int
 
 	bundledir := b.Bundledir
@@ -275,6 +276,24 @@ func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
 		b.UpdateRepo(b.Clearver, false)
 	}
 
+	// Add all bundles if -all passed
+	if allbundles {
+		files, err := ioutil.ReadDir(clrbundledir)
+		if err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
+
+		// Clear out bundles if not empty
+		if len(bundles) > 0 {
+			bundles = make([]string, len(files))
+		}
+
+		for _, file := range files {
+			bundles = append(bundles, file.Name())
+		}
+	}
+
 	var includes []string
 	for _, bundle := range bundles {
 		// Check if bundle exists in clrbundledir
@@ -284,16 +303,21 @@ func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
 		}
 		// Check if bundle exists in mix bundles dir
 		if _, err := os.Stat(bundledir + bundle); os.IsNotExist(err) || force {
-			// Parse bundle to get all includes
-			if ib, err := helpers.GetIncludedBundles(clrbundledir + bundle); err != nil {
-				helpers.PrintError(errors.New("Cannot parse bundle " + bundle + " from CLR version " + b.Clearver))
-				os.Exit(1)
-			} else if len(ib) > 0 {
-				includes = append(includes, ib...)
+			if !allbundles {
+				// Parse bundle to get all includes
+				if ib, err := helpers.GetIncludedBundles(clrbundledir + bundle); err != nil {
+					helpers.PrintError(errors.New("Cannot parse bundle " + bundle + " from CLR version " + b.Clearver))
+					os.Exit(1)
+				} else if len(ib) > 0 {
+					includes = append(includes, ib...)
+				}
 			}
 
 			fmt.Printf("Adding bundle %q\n", bundle)
-			helpers.CopyFile(bundledir+bundle, clrbundledir+bundle)
+			if err = helpers.CopyFile(bundledir+bundle, clrbundledir+bundle); err != nil {
+				helpers.PrintError(err)
+				os.Exit(1)
+			}
 			bundleAddCount++
 		} else {
 			fmt.Printf("Warning: bundle %q already exists; skipping.\n", bundle)
@@ -301,7 +325,7 @@ func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
 	}
 	// Recurse on included bundles
 	if len(includes) > 0 {
-		bundleAddCount += b.AddBundles(includes, force, false)
+		bundleAddCount += b.AddBundles(includes, force, false, false)
 	}
 
 	if git && bundleAddCount > 0 {
@@ -315,7 +339,7 @@ func (b *Builder) AddBundles(bundles []string, force bool, git bool) int {
 		os.Chdir(bundledir)
 		helpers.Git("add", ".")
 		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.Clearver, bundles)
-		helpers.Git("commit", "-m", commitMsg)
+		helpers.Git("commit", "-q", "-m", commitMsg)
 		os.Chdir(curr)
 	}
 	return bundleAddCount

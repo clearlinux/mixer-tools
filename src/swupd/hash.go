@@ -21,3 +21,8 @@ func internHash(hash string) hashval {
 func (h hashval) String() string {
 	return *Hashes[int(h)]
 }
+
+// HashEquals trivial equality function for hashval
+func HashEquals(h1 hashval, h2 hashval) bool {
+	return h1 == h2
+}

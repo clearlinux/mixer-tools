@@ -200,6 +200,7 @@ func TestSetFlags(t *testing.T) {
 func TestSetHashValid(t *testing.T) {
 	// reset Hashes so we get the expected indices
 	Hashes = []*string{}
+	invHash = make(map[string]hashval)
 	f := File{}
 	validHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36729"
 	if err := f.setHash(validHash); err != nil {
@@ -216,5 +217,43 @@ func TestSetHashInvalid(t *testing.T) {
 	invalidHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db"
 	if err := f.setHash(invalidHash); err == nil {
 		t.Error("setHash did not fail on invalid hash")
+	}
+}
+
+func TestGetHashString(t *testing.T) {
+	// reset Hashes so we get the expected indices
+	f := File{}
+	validHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36729"
+	if err := f.setHash(validHash); err != nil {
+		t.Fatal("setHash failed on valid hash")
+	}
+
+	hash := f.getHashString()
+	if hash != validHash {
+		t.Errorf("hash %v did not match expected %v", hash, validHash)
+	}
+}
+
+func TestGetFlagString(t *testing.T) {
+	f := File{}
+	var err error
+	if err := f.setFlags("F.br"); err != nil {
+		t.Fatal(err)
+	}
+
+	var flags string
+	if flags, err = f.getFlagString(); err != nil {
+		t.Error(err)
+	}
+
+	if flags != "F.br" {
+		t.Errorf("%s did not match expected F.br", flags)
+	}
+}
+
+func TestGetFlagStringFlagsUnset(t *testing.T) {
+	f := File{}
+	if _, err := f.getFlagString(); err == nil {
+		t.Error("getFlagString did not raise an error on unset flags")
 	}
 }

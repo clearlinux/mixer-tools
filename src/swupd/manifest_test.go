@@ -1,6 +1,12 @@
 package swupd
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"os"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -255,5 +261,119 @@ func TestInvalidManifests(t *testing.T) {
 				t.Error("ReadManifestFromFile did not raise error for invalid manifest")
 			}
 		})
+	}
+}
+
+func compareFiles(file1path string, file2path string) (bool, error) {
+	var err error
+	var f1Stat, f2Stat os.FileInfo
+	var f1, f2 *os.File
+
+	chunkSize := 65536
+
+	f1Stat, err = os.Lstat(file1path)
+	if err != nil {
+		return false, err
+	}
+
+	f2Stat, err = os.Lstat(file2path)
+	if err != nil {
+		return false, err
+	}
+
+	if f1Stat.Size() != f2Stat.Size() {
+		return false, nil
+	}
+
+	f1, err = os.Open(file1path)
+	if err != nil {
+		return false, err
+	}
+	defer f1.Close()
+
+	f2, err = os.Open(file2path)
+	if err != nil {
+		return false, err
+	}
+	defer f2.Close()
+
+	b1 := bufio.NewReader(f1)
+	b2 := bufio.NewReader(f2)
+	for {
+		bytesRead1 := make([]byte, chunkSize)
+		b1BytesIn, err1 := b1.Read(bytesRead1)
+
+		bytesRead2 := make([]byte, chunkSize)
+		b2BytesIn, err2 := b2.Read(bytesRead2)
+
+		if b1BytesIn != b2BytesIn {
+			return false, nil
+		}
+
+		if err1 != nil || err2 != nil {
+			if err1 == io.EOF && err2 == io.EOF {
+				return true, nil
+			} else if err1 == io.EOF || err2 == io.EOF {
+				return false, nil
+			} else {
+				return false, fmt.Errorf("%v - %v", err1, err2)
+			}
+		}
+
+		if !bytes.Equal(bytesRead1, bytesRead2) {
+			return false, nil
+		}
+	}
+}
+
+func TestWriteManifestFile(t *testing.T) {
+	path := "testdata/manifest.good"
+
+	var m Manifest
+	if err := m.ReadManifestFromFile(path); err != nil {
+		t.Fatal(err)
+	}
+
+	if len(m.Files) == 0 {
+		t.Fatal("ReadManifestFromFile did not add file entried to the file list")
+	}
+
+	f, err := ioutil.TempFile("testdata", "manifest.result")
+	if err != nil {
+		t.Fatal("unable to open file for write")
+	}
+	defer os.Remove(f.Name())
+
+	newpath := f.Name()
+	if err := m.WriteManifestFile(newpath); err != nil {
+		t.Error(err)
+	}
+
+	match, err := compareFiles(path, newpath)
+	if err != nil {
+		t.Fatal("unable to compare old and new manifest")
+	}
+
+	if !match {
+		t.Errorf("generated %v did not match read %v file", newpath, path)
+	}
+}
+
+func TestWriteManifestFileBadHeader(t *testing.T) {
+	m := Manifest{Header: ManifestHeader{}}
+
+	f, err := ioutil.TempFile("testdata", "manifest.result")
+	if err != nil {
+		t.Fatal("unable to open file for write")
+	}
+	defer os.Remove(f.Name())
+
+	path := f.Name()
+	if err = m.WriteManifestFile(path); err == nil {
+		t.Error("WriteManifestFile did not fail on invalid header")
+	}
+
+	if err = os.Remove(path); err != nil {
+		t.Error("unable to remove file, did it not close properly?")
 	}
 }

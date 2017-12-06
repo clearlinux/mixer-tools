@@ -1,13 +1,16 @@
 package swupd
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestInternHash(t *testing.T) {
 	// reset Hashes so we get the expected indices
 	Hashes = []*string{}
 	testCases := []struct {
 		hash     string
-		expected int
+		expected hashval
 	}{
 		{"9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36728", 0},
 		{"33ccead640727d66c62be03e089a3ca3f4ef7c374a3eeab79764f9509075b0d8", 1},
@@ -25,5 +28,24 @@ func TestInternHash(t *testing.T) {
 				t.Errorf("interned hash index %v did not match expected %v", idx, tc.expected)
 			}
 		})
+	}
+}
+
+func TestHashPrinting(t *testing.T) {
+	s := "0000000000000000000000000000000000000000000000000000000000000001"
+	v := internHash(s)
+	sout := fmt.Sprintf("%v", v)
+	if sout != s {
+		t.Errorf("in and out of hashtable do not match\n\t%v\n\t%v", sout, s)
+	}
+}
+
+func TestHashPrinting2(t *testing.T) {
+	s := []byte("0000000000000000000000000000000000000000000000000000000000000001")
+	v := internHash(string(s))
+	s[0] = '1'
+	sout := fmt.Sprintf("%v", v)
+	if sout == string(s) {
+		t.Errorf("in and out of hashtable do not match\n\t%v\n\t%v", sout, s)
 	}
 }

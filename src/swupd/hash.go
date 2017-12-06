@@ -1,17 +1,23 @@
 package swupd
 
+type hashval int
+
 // Hashes is a global map of indices to hashes
 var Hashes = []*string{}
+var invHash = make(map[string]hashval)
 
 // internHash adds only new hashes to the Hashes slice and returns the index at
 // which they are located
-func internHash(hash string) int {
-	for idx, val := range Hashes {
-		if *val == hash {
-			return idx
-		}
+func internHash(hash string) hashval {
+	if key, ok := invHash[hash]; ok {
+		return key
 	}
-
 	Hashes = append(Hashes, &hash)
-	return len(Hashes) - 1
+	key := hashval(len(Hashes) - 1)
+	invHash[hash] = key
+	return key
+}
+
+func (h hashval) String() string {
+	return *Hashes[int(h)]
 }

@@ -39,7 +39,7 @@ const (
 // File represents an entry in a manifest
 type File struct {
 	Name    string
-	Hash    int
+	Hash    hashval
 	Version uint32
 
 	// flags

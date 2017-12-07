@@ -220,20 +220,6 @@ func TestSetHashInvalid(t *testing.T) {
 	}
 }
 
-func TestGetHashString(t *testing.T) {
-	// reset Hashes so we get the expected indices
-	f := File{}
-	validHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36729"
-	if err := f.setHash(validHash); err != nil {
-		t.Fatal("setHash failed on valid hash")
-	}
-
-	hash := f.getHashString()
-	if hash != validHash {
-		t.Errorf("hash %v did not match expected %v", hash, validHash)
-	}
-}
-
 func TestGetFlagString(t *testing.T) {
 	f := File{}
 	var err error

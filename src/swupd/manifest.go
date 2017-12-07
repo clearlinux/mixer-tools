@@ -154,6 +154,15 @@ func (m *Manifest) CheckHeaderIsValid() error {
 	return nil
 }
 
+var requiredManifestHeaderEntries = []string{
+	"MANIFEST",
+	"version:",
+	"previous:",
+	"filecount:",
+	"timestamp:",
+	"contentsize:",
+}
+
 // ReadManifestFromFile reads a manifest file into memory
 func (m *Manifest) ReadManifestFromFile(f string) error {
 	var err error
@@ -181,42 +190,49 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 
 	input := bufio.NewScanner(manifestFile)
 
-	inHeader := true
+	// Read the header.
+	parsedEntries := make(map[string]uint)
 	for input.Scan() {
-		manifestLine := input.Text()
-		// empty line means end of header
-		if len(manifestLine) == 0 {
-			if inHeader {
-				inHeader = false
-				// reached end of header, validate that everything was set
-				if err = m.CheckHeaderIsValid(); err != nil {
-					return err
-				}
-				continue
-			} else {
-				// we already had a blank line, this is an error
-				return errors.New("extra blank line in manifest")
-			}
+		text := input.Text()
+		if text == "" {
+			// Empty line means end of the header.
+			break
 		}
 
-		manifestFields := strings.Split(manifestLine, manifestFieldDelim)
-
-		// In the header until an empty line is encountered
-		if inHeader {
-			if err = readManifestFileHeaderLine(manifestFields, m); err != nil {
-				return err
-			}
-			continue
+		fields := strings.Split(text, manifestFieldDelim)
+		entry := fields[0]
+		if entry != "includes:" && parsedEntries[entry] > 0 {
+			return fmt.Errorf("invalid manifest, duplicate entry %q in header", entry)
 		}
+		parsedEntries[entry]++
 
-		// body if we got this far
-		if err = readManifestFileEntry(manifestFields, m); err != nil {
+		if err = readManifestFileHeaderLine(fields, m); err != nil {
 			return err
 		}
 	}
 
-	if err = m.CheckHeaderIsValid(); err != nil {
+	// Validate the header.
+	for _, e := range requiredManifestHeaderEntries {
+		if parsedEntries[e] == 0 {
+			return fmt.Errorf("invalid manifest, missing entry %q in header", e)
+		}
+	}
+	err = m.CheckHeaderIsValid()
+	if err != nil {
 		return err
+	}
+
+	// Read the body.
+	for input.Scan() {
+		text := input.Text()
+		if text == "" {
+			return errors.New("extra blank line in manifest")
+		}
+
+		fields := strings.Split(text, manifestFieldDelim)
+		if err = readManifestFileEntry(fields, m); err != nil {
+			return err
+		}
 	}
 
 	if len(m.Files) == 0 {

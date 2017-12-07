@@ -181,42 +181,36 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 
 	input := bufio.NewScanner(manifestFile)
 
-	inHeader := true
+	// Read the header.
 	for input.Scan() {
-		manifestLine := input.Text()
-		// empty line means end of header
-		if len(manifestLine) == 0 {
-			if inHeader {
-				inHeader = false
-				// reached end of header, validate that everything was set
-				if err = m.CheckHeaderIsValid(); err != nil {
-					return err
-				}
-				continue
-			} else {
-				// we already had a blank line, this is an error
-				return errors.New("extra blank line in manifest")
-			}
+		text := input.Text()
+		if text == "" {
+			// Empty line means end of the header.
+			break
 		}
 
-		manifestFields := strings.Split(manifestLine, manifestFieldDelim)
-
-		// In the header until an empty line is encountered
-		if inHeader {
-			if err = readManifestFileHeaderLine(manifestFields, m); err != nil {
-				return err
-			}
-			continue
-		}
-
-		// body if we got this far
-		if err = readManifestFileEntry(manifestFields, m); err != nil {
+		fields := strings.Split(text, manifestFieldDelim)
+		if err = readManifestFileHeaderLine(fields, m); err != nil {
 			return err
 		}
 	}
 
-	if err = m.CheckHeaderIsValid(); err != nil {
+	err = m.CheckHeaderIsValid()
+	if err != nil {
 		return err
+	}
+
+	// Read the body.
+	for input.Scan() {
+		text := input.Text()
+		if text == "" {
+			return errors.New("extra blank line in manifest")
+		}
+
+		fields := strings.Split(text, manifestFieldDelim)
+		if err = readManifestFileEntry(fields, m); err != nil {
+			return err
+		}
 	}
 
 	if len(m.Files) == 0 {

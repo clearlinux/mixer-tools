@@ -1,0 +1,15 @@
+MANIFEST	21
+version:	19440
+filecount:	8
+timestamp:	1512419456
+contentsize:	1145939028
+includes:	os-core
+
+F...	9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36728	18940	/usr/bin/FileCheck
+F...	33ccead640727d66c62be03e089a3ca3f4ef7c374a3eeab79764f9509075b0d8	18940	/usr/bin/aclocal
+F...	33ccead640727d66c62be03e089a3ca3f4ef7c374a3eeab79764f9509075b0d8	18940	/usr/bin/aclocal-1.15
+F...	b26f85ffaf3595ecd9a8b1e0c894f1b9e6e3ed0e8c3f28bcde3d66e63bfedd4d	18940	/usr/bin/addr2line
+F...	a49e68b3e2230855586e9ffd1b2962a2282411a488b80e3bd65851f068394c0a	18940	/usr/bin/ar
+F...	d5d363d7b1b30ebd39dbae6b3bb4b29817a97dc3471a8795e1428e937033e7b3	18940	/usr/bin/as
+F...	63266f59318fb6f3dd15d996ebe48adcf9d9de30883aa958632db45e1499fa57	18940	/usr/bin/autoconf
+F...	864f78102661c05b61cafcb59785349fd2fb7a956ec00a77198fe5bc2432de76	18940	/usr/bin/autogen

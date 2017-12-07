@@ -154,6 +154,15 @@ func (m *Manifest) CheckHeaderIsValid() error {
 	return nil
 }
 
+var requiredManifestHeaderEntries = []string{
+	"MANIFEST",
+	"version:",
+	"previous:",
+	"filecount:",
+	"timestamp:",
+	"contentsize:",
+}
+
 // ReadManifestFromFile reads a manifest file into memory
 func (m *Manifest) ReadManifestFromFile(f string) error {
 	var err error
@@ -182,6 +191,7 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 	input := bufio.NewScanner(manifestFile)
 
 	// Read the header.
+	parsedEntries := make(map[string]uint)
 	for input.Scan() {
 		text := input.Text()
 		if text == "" {
@@ -190,11 +200,23 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 		}
 
 		fields := strings.Split(text, manifestFieldDelim)
+		entry := fields[0]
+		if entry != "includes:" && parsedEntries[entry] > 0 {
+			return fmt.Errorf("invalid manifest, duplicate entry %q in header", entry)
+		}
+		parsedEntries[entry]++
+
 		if err = readManifestFileHeaderLine(fields, m); err != nil {
 			return err
 		}
 	}
 
+	// Validate the header.
+	for _, e := range requiredManifestHeaderEntries {
+		if parsedEntries[e] == 0 {
+			return fmt.Errorf("invalid manifest, missing entry %q in header", e)
+		}
+	}
 	err = m.CheckHeaderIsValid()
 	if err != nil {
 		return err

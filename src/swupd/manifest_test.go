@@ -1,6 +1,8 @@
 package swupd
 
 import (
+	"path"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -229,31 +231,29 @@ func TestReadManifestFromFileGood(t *testing.T) {
 		t.Error(err)
 	}
 
+	if expected := uint(21); m.Header.Format != expected {
+		t.Errorf("Expected manifest format %d, got %d", expected, m.Header.Format)
+	}
+
 	if len(m.Files) == 0 {
 		t.Error("ReadManifestFromFile did not add file entries to the file list")
 	}
 }
 
-func TestReadManifestFromFileMissingFileCount(t *testing.T) {
-	path := "testdata/manifest.missingFilecount"
-	var m Manifest
-	if err := m.ReadManifestFromFile(path); err == nil {
-		t.Error("ReadManifestFromFile did not raise error on missing header")
+func TestInvalidManifests(t *testing.T) {
+	files, err := filepath.Glob("testdata/invalid_manifests/*")
+	if err != nil {
+		t.Errorf("error while reading testdata: %s", err)
 	}
-}
-
-func TestReadManifestFromFileMissingFiles(t *testing.T) {
-	path := "testdata/manifest.missingFiles"
-	var m Manifest
-	if err := m.ReadManifestFromFile(path); err == nil {
-		t.Error("ReadManifestFromFile did not raise error when missing file entries")
+	if len(files) == 0 {
+		t.Error("no files available for this test")
 	}
-}
-
-func TestReadManifestFromFileEmpty(t *testing.T) {
-	path := "testdata/manifest.empty"
-	var m Manifest
-	if err := m.ReadManifestFromFile(path); err == nil {
-		t.Error("ReadManifestFromFile did not raise error on empty file")
+	for _, name := range files {
+		t.Run(path.Base(name), func(t *testing.T) {
+			var m Manifest
+			if err := m.ReadManifestFromFile(name); err == nil {
+				t.Error("ReadManifestFromFile did not raise error for invalid manifest")
+			}
+		})
 	}
 }

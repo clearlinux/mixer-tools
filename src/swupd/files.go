@@ -101,6 +101,22 @@ func typeFromFlag(flag byte) (ftype, error) {
 	}
 }
 
+func (t ftype) String() string {
+	switch t {
+	case typeFile:
+		return "F"
+	case typeDirectory:
+		return "D"
+	case typeLink:
+		return "L"
+	case typeManifest:
+		return "M"
+	case typeUnset:
+		return "."
+	}
+	return "?"
+}
+
 // statusFromFlag return status based on flag byte
 func statusFromFlag(flag byte) (fstatus, error) {
 	switch flag {

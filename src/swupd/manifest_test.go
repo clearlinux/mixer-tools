@@ -179,41 +179,44 @@ func TestReadManifestFileEntry(t *testing.T) {
 	}
 }
 
-func TestCheckHeaderPopulated(t *testing.T) {
-	t.Run("populated", func(t *testing.T) {
-		m := Manifest{
-			Header: ManifestHeader{
-				Format:      10,
-				Version:     100,
-				Previous:    90,
-				FileCount:   553,
-				ContentSize: 100000,
-				TimeStamp:   time.Unix(1000, 0),
-				// does not fail when includes not added
-			},
-		}
-
-		if err := m.CheckHeaderPopulated(); err != nil {
-			t.Error("CheckHeaderPopulated raised error for valid header")
-		}
-	})
-
-	zeroTime := time.Time{}
-	var includes []*Manifest
-	invalidHeaders := []ManifestHeader{
-		{0, 100, 90, 553, time.Unix(1000, 0), 100000, includes},
-		{10, 0, 90, 553, time.Unix(1000, 0), 100000, includes},
-		{10, 100, 0, 553, time.Unix(1000, 0), 100000, includes},
-		{10, 100, 90, 0, time.Unix(1000, 0), 100000, includes},
-		{10, 100, 90, 553, zeroTime, 100000, includes},
-		{10, 100, 90, 553, time.Unix(1000, 0), 0, includes},
+func TestCheckValidManifestHeader(t *testing.T) {
+	m := Manifest{
+		Header: ManifestHeader{
+			Format:      10,
+			Version:     100,
+			Previous:    90,
+			FileCount:   553,
+			ContentSize: 100000,
+			TimeStamp:   time.Unix(1000, 0),
+			// does not fail when includes not added
+		},
 	}
 
-	for _, header := range invalidHeaders {
-		t.Run("unpopulated", func(t *testing.T) {
-			m := Manifest{Header: header}
-			if err := m.CheckHeaderPopulated(); err == nil {
-				t.Error("CheckHeaderPopulated did not return an error on invalid header")
+	if err := m.CheckHeaderIsValid(); err != nil {
+		t.Error("CheckHeaderIsValid returned error for valid header")
+	}
+}
+
+func TestCheckInvalidManifestHeaders(t *testing.T) {
+	zeroTime := time.Time{}
+
+	tests := []struct {
+		name   string
+		header ManifestHeader
+	}{
+		{"format not set", ManifestHeader{0, 100, 90, 553, time.Unix(1000, 0), 100000, nil}},
+		{"version zero", ManifestHeader{10, 0, 90, 553, time.Unix(1000, 0), 100000, nil}},
+		{"no files", ManifestHeader{10, 100, 90, 0, time.Unix(1000, 0), 100000, nil}},
+		{"no timestamp", ManifestHeader{10, 100, 90, 553, zeroTime, 100000, nil}},
+		{"zero contentsize", ManifestHeader{10, 100, 90, 553, time.Unix(1000, 0), 0, nil}},
+		{"version smaller than previous", ManifestHeader{10, 100, 110, 553, time.Unix(1000, 0), 100000, nil}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := Manifest{Header: tt.header}
+			if err := m.CheckHeaderIsValid(); err == nil {
+				t.Error("CheckHeaderIsValid did not return an error on invalid header")
 			}
 		})
 	}

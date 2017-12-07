@@ -124,18 +124,18 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 	return nil
 }
 
-// CheckHeaderPopulated checks that all header fields in the manifest are populated
-func (m *Manifest) CheckHeaderPopulated() error {
+// CheckHeaderIsValid verifies that all header fields in the manifest are valid.
+func (m *Manifest) CheckHeaderIsValid() error {
 	if m.Header.Format == 0 {
 		return errors.New("manifest format not set")
 	}
 
 	if m.Header.Version == 0 {
-		return errors.New("manifest version not set")
+		return errors.New("manifest has version zero, version must be positive")
 	}
 
-	if m.Header.Previous == 0 {
-		return errors.New("manifest previous not set")
+	if m.Header.Version < m.Header.Previous {
+		return errors.New("version is smaller than previous")
 	}
 
 	if m.Header.FileCount == 0 {
@@ -150,7 +150,7 @@ func (m *Manifest) CheckHeaderPopulated() error {
 		return errors.New("manifest timestamp not set")
 	}
 
-	// Includes is not required
+	// Includes are not required.
 	return nil
 }
 
@@ -189,7 +189,7 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 			if inHeader {
 				inHeader = false
 				// reached end of header, validate that everything was set
-				if err = m.CheckHeaderPopulated(); err != nil {
+				if err = m.CheckHeaderIsValid(); err != nil {
 					return err
 				}
 				continue
@@ -215,7 +215,7 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 		}
 	}
 
-	if err = m.CheckHeaderPopulated(); err != nil {
+	if err = m.CheckHeaderIsValid(); err != nil {
 		return err
 	}
 

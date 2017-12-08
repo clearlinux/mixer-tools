@@ -180,6 +180,10 @@ func (f *File) setHash(hash string) error {
 	return nil
 }
 
+func (f *File) setHashZero() {
+	f.Hash = 0
+}
+
 func (f *File) getHashString() string {
 	return *Hashes[f.Hash]
 }

@@ -2,9 +2,11 @@ package swupd
 
 type hashval int
 
+const AllZeroHash = "0000000000000000000000000000000000000000000000000000000000000000"
+
 // Hashes is a global map of indices to hashes
-var Hashes = []*string{}
-var invHash = make(map[string]hashval)
+var Hashes = []*string{&AllZeroHash}
+var invHash = map[string]hashval{AllZeroHash: 0}
 
 // internHash adds only new hashes to the Hashes slice and returns the index at
 // which they are located

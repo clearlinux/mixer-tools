@@ -115,9 +115,21 @@ func (b *Builder) ReadBuilderConf() {
 
 	for _, h := range fields {
 		r := regexp.MustCompile(h.re)
+		// Look for Environment variables in the config file
+		re := regexp.MustCompile(`\$\{?([[:word:]]+)\}?`)
 		for _, i := range lines {
 			if m := r.FindIndex([]byte(i)); m != nil {
-				*h.dest = i[m[1]:]
+				// We want the variable without the $ or {} for lookup checking
+				matches := re.FindAllStringSubmatch(i[m[1]:], -1)
+				for _, s := range matches {
+					if _, ok := os.LookupEnv(s[1]); !ok {
+						helpers.PrintError(fmt.Errorf("buildconf contains an undefined environment variable: %s", s[1]))
+						os.Exit(1)
+					}
+				}
+
+				// Replace valid Environment Variables
+				*h.dest = os.ExpandEnv(i[m[1]:])
 			}
 		}
 	}

@@ -9,8 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-
-	"golang.org/x/sys/unix"
+	"syscall"
 )
 
 func main() {
@@ -29,18 +28,30 @@ func main() {
 }
 
 func Hashcalc(filename string) string {
-	key, err := hmac_compute_key(filename)
+	key, ftype, err := hmac_compute_key(filename)
+	var result, data []byte
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error stating file '%s' %v\n", filename, err)
 		return ""
 	}
-	// Only handle files for now..
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Read error for '%s' %v\n", filename, err)
-		return ""
+	switch ftype {
+	case '-':
+		data, err = ioutil.ReadFile(filename)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Read error for '%s' %v\n", filename, err)
+			return ""
+		}
+	case 'd':
+		data = []byte("DIRECTORY") // fixed magic string
+	case 'l':
+		if target, err := os.Readlink(filename); err != nil {
+			fmt.Fprintf(os.Stderr, "Error readlink file '%s' %v\n", filename, err)
+			return ""
+		} else {
+			data = []byte(target)
+		}
 	}
-	result := hmac_sha256_for_data(key, data)
+	result = hmac_sha256_for_data(key, data)
 	return string(result[:])
 }
 
@@ -71,21 +82,36 @@ func set(out []byte, in int64) {
 	}
 }
 
-// return what should be an ascii string as an array of byte
-func hmac_compute_key(filename string) ([]byte, error) {
+// hmac_compute_key returns what should be an ascii string as an array of byte
+// it is really ugly to be compatible with the C implementation. It is not portable
+// as the C version isn't portable.
+func hmac_compute_key(filename string) ([]byte, rune, error) {
 	// Create the key
 	updatestat := [40]byte{}
-	var info unix.Stat_t
-	if err := unix.Stat(filename, &info); err != nil {
-		return nil, err
+	var info syscall.Stat_t
+	if err := syscall.Lstat(filename, &info); err != nil {
+		return nil, 'x', err
 	}
-	set(updatestat[24:32], 0)
+	ftype := '-'
+	// Get magic constants out of /usr/include/bits/stat.h
+	switch info.Mode & 0170000 {
+	case 0100000: // Regular file
+	case 0040000: // Directory
+		ftype = 'd'
+		info.Size = 0
+	case 0120000:
+		ftype = 'l'
+		info.Mode = 0
+	default:
+		return nil, 'x', fmt.Errorf("%s is not a file, directory or symlink %o", filename, info.Mode&0170000)
+	}
 	set(updatestat[0:8], int64(info.Mode))
 	set(updatestat[8:16], int64(info.Uid))
 	set(updatestat[16:24], int64(info.Gid))
 	// 24:32 is rdev, but this is always zero
-	set(updatestat[32:40], int64(info.Size))
+	set(updatestat[24:32], 0)
+	set(updatestat[32:40], info.Size)
 	// fmt.Printf("key is %v\n", updatestat)
 	key := hmac_sha256_for_data(updatestat[:], nil)
-	return key, nil
+	return key, ftype, nil
 }

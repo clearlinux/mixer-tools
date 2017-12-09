@@ -157,11 +157,12 @@ func (b *Builder) ReadVersions() {
 
 	ver, err = ioutil.ReadFile(b.Versiondir + "/.clearurl")
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		fmt.Fprintf(os.Stderr, "WARNING: %s/.clearurl does not exist, run mixer init-mix to generate\n", b.Versiondir)
+		b.Upstreamurl = ""
+	} else {
+		b.Upstreamurl = strings.TrimSpace(string(ver))
+		b.Upstreamurl = strings.Replace(b.Upstreamurl, "\n", "", -1)
 	}
-	b.Upstreamurl = strings.TrimSpace(string(ver))
-	b.Upstreamurl = strings.Replace(b.Upstreamurl, "\n", "", -1)
 }
 
 // SignManifestMOM will sign the Manifest.Mom file in in place based on the Mix
@@ -352,12 +353,14 @@ func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl 
 		fmt.Println("ERROR: Please supply -clearver and -mixver")
 		os.Exit(1)
 	}
+
 	err := ioutil.WriteFile(b.Versiondir+"/.clearurl", []byte(upstreamurl), 0644)
 	if err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}
 	b.Upstreamurl = upstreamurl
+
 	err = ioutil.WriteFile(b.Versiondir+"/.clearversion", []byte(clearver), 0644)
 	if err != nil {
 		helpers.PrintError(err)
@@ -501,12 +504,14 @@ func (b *Builder) setVersion(publish bool) {
 		os.Exit(1)
 	}
 
-	fmt.Println("Saving the upstream version URL " + b.Upstreamurl)
-	upstream_url := b.Statedir + "/www/" + b.Mixver + "/upstream_url"
-	err = ioutil.WriteFile(upstream_url, []byte(b.Upstreamurl), 0644)
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+	if b.Upstreamurl != "" {
+		fmt.Println("Saving the upstream version URL " + b.Upstreamurl)
+		upstream_url := b.Statedir + "/www/" + b.Mixver + "/upstream_url"
+		err = ioutil.WriteFile(upstream_url, []byte(b.Upstreamurl), 0644)
+		if err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 	}
 	fmt.Println("Saving the upstream version " + b.Clearver)
 	upstream_ver := b.Statedir + "/www/" + b.Mixver + "/upstream_ver"

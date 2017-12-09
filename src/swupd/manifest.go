@@ -246,7 +246,7 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 // writeManifestFileHeader writes the header of a manifest to the file
 func writeManifestFileHeader(m *Manifest, w *bufio.Writer) error {
 	var err error
-	if err = m.CheckHeaderPopulated(); err != nil {
+	if err = m.CheckHeaderIsValid(); err != nil {
 		return err
 	}
 

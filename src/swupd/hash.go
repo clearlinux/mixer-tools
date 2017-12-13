@@ -2,7 +2,7 @@ package swupd
 
 type hashval int
 
-const AllZeroHash = "0000000000000000000000000000000000000000000000000000000000000000"
+var AllZeroHash = "0000000000000000000000000000000000000000000000000000000000000000"
 
 // Hashes is a global map of indices to hashes
 var Hashes = []*string{&AllZeroHash}

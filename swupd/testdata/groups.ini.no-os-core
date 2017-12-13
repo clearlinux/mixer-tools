@@ -1,0 +1,5 @@
+[test-bundle]
+group=test-bundle
+
+[test-bundle2]
+group=test-bundle2

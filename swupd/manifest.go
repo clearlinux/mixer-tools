@@ -19,6 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
+	"reflect"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -39,9 +42,11 @@ type ManifestHeader struct {
 
 // Manifest represents a bundle or list of bundles (MoM)
 type Manifest struct {
-	Name   string
-	Header ManifestHeader
-	Files  []*File
+	Name         string
+	Header       ManifestHeader
+	Files        []*File
+	DeletedFiles []*File
+	Changed      bool
 }
 
 // MoM is a manifest of manifests with the same header information
@@ -110,6 +115,10 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 		return fmt.Errorf("invalid number of flags: %v", fflags)
 	}
 
+	if len(fhash) != 64 {
+		return fmt.Errorf("invalid hash: %v", fhash)
+	}
+
 	var parsed uint64
 	var err error
 	// fver must be a valid uint32
@@ -123,9 +132,7 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 	file = &File{Name: fname, Version: ver}
 
 	// set the file hash
-	if err = file.setHash(fhash); err != nil {
-		return fmt.Errorf("invalid hash: %v", err)
-	}
+	file.Hash = internHash(fhash)
 
 	// Set the flags using fflags
 	if err = file.setFlags(fflags); err != nil {
@@ -134,6 +141,11 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 
 	// add file to manifest
 	m.Files = append(m.Files, file)
+
+	// track deleted file
+	if file.Status == statusDeleted {
+		m.DeletedFiles = append(m.DeletedFiles, file)
+	}
 
 	return nil
 }
@@ -298,7 +310,7 @@ func (m *Manifest) WriteManifestFile(path string) error {
 	var err error
 	var f *os.File
 	if f, err = os.Create(path); err != nil {
-		return err
+		return fmt.Errorf("could not create %v: %v", path, err)
 	}
 
 	// handle close errors
@@ -312,7 +324,7 @@ func (m *Manifest) WriteManifestFile(path string) error {
 	w := bufio.NewWriter(f)
 
 	if err = writeManifestFileHeader(m, w); err != nil {
-		return err
+		return fmt.Errorf("could not write manifest header: %v", err)
 	}
 
 	// write separator between header and body
@@ -320,7 +332,7 @@ func (m *Manifest) WriteManifestFile(path string) error {
 
 	for _, entry := range m.Files {
 		if err := writeManifestFileEntry(entry, w); err != nil {
-			return err
+			return fmt.Errorf("could not write manifest entry: %v", err)
 		}
 	}
 
@@ -328,4 +340,205 @@ func (m *Manifest) WriteManifestFile(path string) error {
 	err = w.Flush()
 	// a nil error may be replaced by an f.Close() error in the deferred function
 	return err
+}
+
+func (m *Manifest) sortFilesName() {
+	// files
+	sort.Slice(m.Files, func(i, j int) bool {
+		return m.Files[i].Name < m.Files[j].Name
+	})
+	// and deleted files
+	sort.Slice(m.DeletedFiles, func(i, j int) bool {
+		return m.DeletedFiles[i].Name < m.DeletedFiles[j].Name
+	})
+}
+
+func (m *Manifest) sortFilesVersionName() {
+	// files
+	sort.Slice(m.Files, func(i, j int) bool {
+		if m.Files[i].Version < m.Files[j].Version {
+			return true
+		}
+		if m.Files[i].Version > m.Files[j].Version {
+			return false
+		}
+		return m.Files[i].Name < m.Files[j].Name
+	})
+	// and deleted files
+	sort.Slice(m.DeletedFiles, func(i, j int) bool {
+		if m.DeletedFiles[i].Version < m.DeletedFiles[j].Version {
+			return true
+		}
+		if m.DeletedFiles[i].Version > m.DeletedFiles[j].Version {
+			return false
+		}
+		return m.DeletedFiles[i].Name < m.DeletedFiles[j].Name
+	})
+}
+
+func (m *Manifest) addDeleted(oldManifest *Manifest) {
+	for _, df := range oldManifest.DeletedFiles {
+		if df.findFileNameInSlice(m.Files) == nil {
+			m.Files = append(m.Files, df)
+			m.DeletedFiles = append(m.DeletedFiles, df)
+		}
+	}
+}
+
+// linkPeersAndChange
+// At this point Manifest m should only have the files that were present
+// in the chroot for that manifest. Link delta peers with the oldManifest
+// if the file in the oldManifest is not deleted or ghosted
+func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) int {
+	changed := 0
+	for _, of := range oldManifest.Files {
+		if match := of.findFileNameInSlice(m.Files); match != nil {
+			if of.Status == statusDeleted || of.Status == statusGhosted {
+				continue
+			}
+
+			match.DeltaPeer = of
+			of.DeltaPeer = match
+			if !sameFile(match, of) {
+				match.Version = m.Header.Version
+				changed++
+			} else {
+				match.Version = of.Version
+			}
+		}
+	}
+
+	return changed
+}
+
+func (m *Manifest) filesAdded(oldManifest *Manifest) int {
+	added := 0
+	for _, af := range m.Files {
+		if af.findFileNameInSlice(oldManifest.Files) == nil {
+			af.Version = m.Header.Version
+			added++
+		}
+	}
+
+	return added
+}
+
+func (m *Manifest) newDeleted(oldManifest *Manifest) int {
+	deleted := 0
+	for _, df := range oldManifest.Files {
+		if df.Status != statusDeleted && df.findFileNameInSlice(m.DeletedFiles) != nil {
+			df.Version = m.Header.Version
+			deleted++
+		}
+	}
+
+	return deleted
+}
+
+func (m *Manifest) readIncludes(bundles []*Manifest) error {
+	// read in <imageBase>/<version>/noship/<bundle>-includes
+	var err error
+	newPath := filepath.Join(imageBase, string(m.Header.Version), fmt.Sprintf("%v-includes", m.Name))
+	bundleNames, err := readIncludesFile(newPath)
+	if err != nil {
+		return err
+	}
+
+	includes := []*Manifest{}
+	for _, b := range bundles {
+		if b.Name == "os-core" {
+			includes = append(includes, b)
+		}
+	}
+
+	for _, bn := range bundleNames {
+		for _, b := range bundles {
+			if bn == b.Name {
+				includes = append(includes, b)
+			}
+		}
+	}
+
+	m.Header.Includes = includes
+	return nil
+}
+
+func compareIncludes(m1 *Manifest, m2 *Manifest) bool {
+	return reflect.DeepEqual(m1.Header.Includes, m2.Header.Includes)
+}
+
+func getManifestFromName(name string, ms []*Manifest) *Manifest {
+	for _, m := range ms {
+		if m.Name == name {
+			return m
+		}
+	}
+
+	return nil
+}
+
+func (m *Manifest) hasTypeChanges() bool {
+	for _, f := range m.Files {
+		if f.typeHasChanged() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
+	m.sortFilesName()
+	m2.sortFilesName()
+
+	i := 0
+	j := 0
+	for i < len(m.Files) && j < len(m2.Files) {
+		f1 := m.Files[i]
+		f2 := m2.Files[j]
+		if f1.Name == f2.Name {
+			// When both files are marked deleted, skip subtraction.
+			// Preserving the deleted entries in both manifests is
+			// required for "swupd update" to know when to delete the
+			// file, because the m2 bundle may be installed with or
+			// without the m1 bundle.
+			if f1.Status == statusDeleted && f2.Status == statusDeleted {
+				i++
+				j++
+				continue
+			}
+			if f1.Status == statusDeleted && f2.Status == statusDeleted {
+				i++
+				j++
+				continue
+			}
+
+			// TODO: figure out why only the is_deleted and is_file fields
+			// are checked in the original swupd-server code
+			if f1.Status == f2.Status && f1.Type == f2.Type {
+				// this is expensive because we care about order at this point
+				m.Files = append(m.Files[:i], m.Files[i+1:]...)
+			}
+
+			// only need to advance the m2.Files index since i now points to the next
+			// file in m.Files
+			j++
+		} else if f1.Name < f2.Name {
+			// check next filename in m
+			i++
+		} else {
+			// check next filename in m2
+			j++
+		}
+	}
+}
+
+func (m *Manifest) subtractManifests(m2 *Manifest) {
+	if m != m2 {
+		m.subtractManifestFromManifest(m2)
+	}
+
+	for _, mi := range m2.Header.Includes {
+		m.subtractManifestFromManifest(mi)
+	}
 }

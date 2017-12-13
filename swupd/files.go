@@ -200,16 +200,6 @@ func (f *File) setFlags(flags string) error {
 	return nil
 }
 
-// setHash intern hashes of correct length and add index to f.Hash
-func (f *File) setHash(hash string) error {
-	if len(hash) != 64 {
-		return fmt.Errorf("hash %v incorrect length", hash)
-	}
-
-	f.Hash = internHash(hash)
-	return nil
-}
-
 func (f *File) setHashZero() {
 	f.Hash = 0
 }
@@ -234,4 +224,44 @@ func (f *File) getFlagString() (string, error) {
 	}
 
 	return string(flagBytes), nil
+}
+
+func (f *File) findFileNameInSlice(fs []*File) *File {
+	for _, file := range fs {
+		if file.Name == f.Name {
+			return file
+		}
+	}
+
+	return nil
+}
+
+func sameFile(f1 *File, f2 *File) bool {
+	return f1.Name == f2.Name &&
+		f1.Hash == f2.Hash &&
+		f1.Type == f2.Type &&
+		f1.Status == f2.Status &&
+		f1.Modifier == f2.Modifier
+}
+
+func (f *File) typeHasChanged() bool {
+	if f.DeltaPeer == nil {
+		// nothing to check, new or deleted file
+		return false
+	}
+
+	if f.Status == statusDeleted || f.DeltaPeer.Status == statusDeleted {
+		return false
+	}
+
+	if f.Type == f.DeltaPeer.Type {
+		return false
+	}
+
+	// file -> link OK
+	// file -> directory OK
+	// link -> file OK
+	// link -> directory OK
+	// directory -> anything TYPE CHANGE
+	return (f.DeltaPeer.Type == typeDirectory && f.Type != typeDirectory)
 }

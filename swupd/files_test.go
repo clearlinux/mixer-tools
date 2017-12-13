@@ -197,29 +197,6 @@ func TestSetFlags(t *testing.T) {
 	}
 }
 
-func TestSetHashValid(t *testing.T) {
-	// reset Hashes so we get the expected indices
-	Hashes = []*string{}
-	invHash = make(map[string]hashval)
-	f := File{}
-	validHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36729"
-	if err := f.setHash(validHash); err != nil {
-		t.Error("setHash failed on valid hash")
-	}
-
-	if f.Hash != 0 {
-		t.Errorf("f.Hash set to %v when 0 expected", f.Hash)
-	}
-}
-
-func TestSetHashInvalid(t *testing.T) {
-	f := File{}
-	invalidHash := "9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db"
-	if err := f.setHash(invalidHash); err == nil {
-		t.Error("setHash did not fail on invalid hash")
-	}
-}
-
 func TestGetFlagString(t *testing.T) {
 	f := File{}
 	var err error
@@ -241,5 +218,203 @@ func TestGetFlagStringFlagsUnset(t *testing.T) {
 	f := File{}
 	if _, err := f.getFlagString(); err == nil {
 		t.Error("getFlagString did not raise an error on unset flags")
+	}
+}
+
+func TestFindFileNameInSlice(t *testing.T) {
+	fs := []*File{
+		{Name: "1"},
+		{Name: "2"},
+		{Name: "3"},
+	}
+
+	testCases := []struct {
+		name        string
+		hasMatch    bool
+		expectedIdx int
+	}{
+		{"1", true, 0},
+		{"2", true, 1},
+		{"3", true, 2},
+		{"4", false, 9},
+		{"notpresent", false, 9},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := File{Name: tc.name}
+			found := f.findFileNameInSlice(fs)
+			if tc.hasMatch {
+				if found.Name != fs[tc.expectedIdx].Name {
+					t.Errorf("findFileNameInSlice returned %v when %v expected",
+						found.Name, fs[tc.expectedIdx].Name)
+				}
+			}
+		})
+	}
+}
+
+func TestSameFile(t *testing.T) {
+	testCases := []struct {
+		file1    File
+		file2    File
+		expected bool
+	}{
+		{
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			true,
+		},
+		{
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "2", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			false,
+		},
+		{
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 2, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			false,
+		},
+		{
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: typeLink, Status: statusUnset, Modifier: modifierUnset},
+			false,
+		},
+		{
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusDeleted, Modifier: modifierUnset},
+			false,
+		},
+		{
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierBoot},
+			false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run("sameFile", func(t *testing.T) {
+			if sameFile(&tc.file1, &tc.file2) != tc.expected {
+				t.Errorf("sameFile returned %v when %v was expected",
+					!tc.expected,
+					tc.expected)
+			}
+		})
+	}
+}
+
+func TestTypeHasChanged(t *testing.T) {
+	testCases := []struct {
+		file     File
+		expected bool
+	}{
+		{
+			File{
+				Status: statusDeleted,
+				Type:   typeFile,
+				DeltaPeer: &File{
+					Status: statusDeleted,
+					Type:   typeDirectory,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeFile,
+				DeltaPeer: &File{
+					Status: statusDeleted,
+					Type:   typeDirectory,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeDirectory,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeDirectory,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeLink,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeFile,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeDirectory,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeFile,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeFile,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeLink,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeDirectory,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeLink,
+				},
+			},
+			false,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeFile,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeDirectory,
+				},
+			},
+			true,
+		},
+		{
+			File{
+				Status: statusUnset,
+				Type:   typeLink,
+				DeltaPeer: &File{
+					Status: statusUnset,
+					Type:   typeDirectory,
+				},
+			},
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run("typeHasChanged", func(t *testing.T) {
+			if tc.file.typeHasChanged() != tc.expected {
+				t.Error("typeHasChanged returned %v when %v was expected",
+					!tc.expected, tc.expected)
+			}
+		})
 	}
 }

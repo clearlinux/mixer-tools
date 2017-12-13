@@ -354,7 +354,7 @@ func TestWriteManifestFile(t *testing.T) {
 	}
 
 	if !match {
-		t.Errorf("generated %v did not match read %v file", newpath, path)
+		t.Fatalf("generated %v did not match read %v file", newpath, path)
 	}
 }
 
@@ -374,5 +374,310 @@ func TestWriteManifestFileBadHeader(t *testing.T) {
 
 	if err = os.Remove(path); err != nil {
 		t.Error("unable to remove file, did it not close properly?")
+	}
+}
+
+func TestSortFilesName(t *testing.T) {
+	m := Manifest{
+		Files: []*File{
+			{Name: "c"},
+			{Name: "b"},
+			{Name: "d"},
+			{Name: "a"},
+			{Name: "f"},
+			{Name: "fa"},
+			{Name: "ba"},
+		},
+	}
+
+	expectedNames := []string{"a", "b", "ba", "c", "d", "f", "fa"}
+	mResult := m
+	mResult.sortFilesName()
+	for i, f := range mResult.Files {
+		if f.Name != expectedNames[i] {
+			t.Error("manifest files were not sorted correctly")
+		}
+	}
+}
+
+func TestSortFilesVersionName(t *testing.T) {
+	m := Manifest{
+		Files: []*File{
+			{Name: "z", Version: 20},
+			{Name: "x", Version: 20},
+			{Name: "u", Version: 10},
+			{Name: "qa", Version: 30},
+			{Name: "qs", Version: 10},
+			{Name: "r", Version: 40},
+			{Name: "m", Version: 40},
+		},
+	}
+
+	expectedNames := []string{"qs", "u", "x", "z", "qa", "m", "r"}
+	mResult := m
+	mResult.sortFilesVersionName()
+	for i, f := range mResult.Files {
+		if f.Name != expectedNames[i] {
+			t.Error("manifest files were not sorted correctly")
+		}
+	}
+}
+
+func TestAddDeleted(t *testing.T) {
+	mOld := Manifest{
+		DeletedFiles: []*File{
+			{Name: "1"},
+			{Name: "2"},
+			{Name: "3"},
+			{Name: "4"},
+		},
+	}
+
+	mNew := Manifest{
+		Files: []*File{
+			{Name: "1"},
+			{Name: "3"},
+			{Name: "5"},
+		},
+	}
+
+	expectedFileNames := []string{"1", "2", "3", "4", "5"}
+	expectedDeletedFileNames := []string{"2", "4"}
+
+	mNew.addDeleted(&mOld)
+	// sort to easily compare
+	mNew.sortFilesName()
+	for i, f := range mNew.Files {
+		if f.Name != expectedFileNames[i] {
+			t.Errorf("%v did not match expected %v", f.Name, expectedFileNames[i])
+		}
+	}
+
+	for i, f := range mNew.DeletedFiles {
+		if f.Name != expectedDeletedFileNames[i] {
+			t.Errorf("%v did not match expected %v", f.Name, expectedDeletedFileNames[i])
+		}
+	}
+}
+
+func TestLinkPeersAndChange(t *testing.T) {
+	mOld := Manifest{
+		Files: []*File{
+			{Name: "1", Status: statusUnset},
+			{Name: "2", Status: statusDeleted},
+			{Name: "3", Status: statusGhosted},
+			{Name: "4", Status: statusUnset},
+			{Name: "5", Status: statusUnset, Hash: 1},
+		},
+	}
+
+	mNew := Manifest{
+		Files: []*File{
+			{Name: "1", Status: statusUnset},
+			{Name: "2", Status: statusDeleted},
+			{Name: "3", Status: statusUnset},
+			{Name: "5", Status: statusUnset, Hash: 2},
+			{Name: "6", Status: statusUnset},
+		},
+	}
+
+	testCases := map[string]struct {
+		hasPeer  bool
+		expected string
+	}{
+		"1": {true, "1"},
+		"2": {false, ""},
+		"3": {false, ""},
+		"5": {true, "5"},
+		"6": {false, ""},
+	}
+
+	if changed := mNew.linkPeersAndChange(&mOld); changed != 1 {
+		t.Errorf("%v files detected as changed when only 1 was expected", changed)
+	}
+
+	for _, f := range mNew.Files {
+		if testCases[f.Name].hasPeer {
+			if f.DeltaPeer == nil {
+				t.Errorf("File %v does not have delta peer when expected", f.Name)
+			}
+
+			if f.DeltaPeer.Name != testCases[f.Name].expected {
+				t.Errorf("File %v has %v delta peer when %v is expected",
+					f.Name,
+					f.DeltaPeer.Name,
+					testCases[f.Name].expected)
+			}
+		}
+	}
+}
+
+func TestFilesAdded(t *testing.T) {
+	mOld := Manifest{
+		Files: []*File{
+			{Name: "1"},
+			{Name: "2"},
+			{Name: "4"},
+		},
+	}
+
+	mNew := Manifest{
+		Files: []*File{
+			{Name: "1"},
+			{Name: "2"},
+			{Name: "3"},
+			{Name: "4"},
+			{Name: "5"},
+		},
+	}
+
+	if added := mNew.filesAdded(&mOld); added != 2 {
+		t.Errorf("filesAdded detected %v added files when 2 was expected", added)
+	}
+}
+
+func TestNewDeleted(t *testing.T) {
+	mOld := Manifest{
+		Files: []*File{
+			{Name: "1"},
+			{Name: "2", Status: statusDeleted},
+			{Name: "4"},
+		},
+	}
+
+	mNew := Manifest{
+		DeletedFiles: []*File{
+			{Name: "1"},
+			{Name: "2"},
+			{Name: "3"},
+		},
+	}
+
+	// file 1 is the only new deleted file
+	if deleted := mNew.newDeleted(&mOld); deleted != 1 {
+		t.Errorf("newDeleted detected %v new deleted files when 1 was expected", deleted)
+	}
+}
+
+func TestHasTypeChanges(t *testing.T) {
+	mUnchanged := Manifest{
+		Files: []*File{
+			{ // no delta peer, no type change
+				Name:      "1",
+				Type:      typeFile,
+				Status:    statusUnset,
+				DeltaPeer: nil,
+			},
+			{ // same type, no type change
+				Name:   "2",
+				Type:   typeFile,
+				Status: statusUnset,
+				DeltaPeer: &File{
+					Name:   "2",
+					Type:   typeFile,
+					Status: statusUnset,
+				},
+			},
+			{ // File -> Link OK, no change reported
+				Name:   "3",
+				Type:   typeLink,
+				Status: statusUnset,
+				DeltaPeer: &File{
+					Name:   "3",
+					Type:   typeFile,
+					Status: statusUnset,
+				},
+			},
+			{ // File -> Directory OK, no change reported
+				Name:   "4",
+				Type:   typeDirectory,
+				Status: statusUnset,
+				DeltaPeer: &File{
+					Name:   "4",
+					Type:   typeFile,
+					Status: statusUnset,
+				},
+			},
+			{ // Link -> File OK, no change reported
+				Name:   "5",
+				Type:   typeFile,
+				Status: statusUnset,
+				DeltaPeer: &File{
+					Name:   "5",
+					Type:   typeLink,
+					Status: statusUnset,
+				},
+			},
+			{ // Link -> Directory OK, no change reported
+				Name:   "6",
+				Type:   typeDirectory,
+				Status: statusUnset,
+				DeltaPeer: &File{
+					Name:   "6",
+					Type:   typeLink,
+					Status: statusUnset,
+				},
+			},
+			{ // file deleted, no type change reported
+				Name:   "7",
+				Type:   typeFile,
+				Status: statusDeleted,
+				DeltaPeer: &File{
+					Name:   "7",
+					Type:   typeLink,
+					Status: statusUnset,
+				},
+			},
+			{ // delta peer deleted, no type change reported
+				Name:   "8",
+				Type:   typeFile,
+				Status: statusUnset,
+				DeltaPeer: &File{
+					Name:   "8",
+					Type:   typeLink,
+					Status: statusDeleted,
+				},
+			},
+		},
+	}
+	msChanged := []Manifest{
+		Manifest{
+			Files: []*File{ // Directory -> File TYPE CHANGE
+				&File{
+					Name:   "1",
+					Type:   typeFile,
+					Status: statusUnset,
+					DeltaPeer: &File{
+						Name:   "1",
+						Type:   typeDirectory,
+						Status: statusUnset,
+					},
+				},
+			},
+		},
+		Manifest{
+			Files: []*File{ // Directory -> Link TYPE CHANGE
+				&File{
+					Name:   "2",
+					Type:   typeLink,
+					Status: statusUnset,
+					DeltaPeer: &File{
+						Name:   "2",
+						Type:   typeDirectory,
+						Status: statusUnset,
+					},
+				},
+			},
+		},
+	}
+
+	if mUnchanged.hasTypeChanges() {
+		t.Error("Manifest with no type changes detected to have type changes")
+	}
+
+	for _, m := range msChanged {
+		if !m.hasTypeChanges() {
+			t.Error("Manifest with type changes detected to have no type changes")
+		}
 	}
 }

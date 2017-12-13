@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 )
 
 const DebugFullfiles = false
@@ -28,37 +29,74 @@ var fullfileCompressors = []struct {
 }
 
 func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
+	// TODO: Parametrize or pick a better value based on system.
+	const GoroutineCount = 3
+	var wg sync.WaitGroup
+	wg.Add(GoroutineCount)
+
+	// Used to feed Files to the task runners.
+	taskCh := make(chan *File)
+
+	// Used by the task runners to indicate an error happened. The channel is buffered to ensure
+	// that all the goroutines can send their failure and finish.
+	errorCh := make(chan error, GoroutineCount)
+
+	taskRunner := func() {
+		for f := range taskCh {
+			input := filepath.Join(chrootDir, f.Name)
+			name := f.Hash.String()
+			// NOTE: to make life simpler for the client, always use .tar extension even
+			// if the file could be compressed.
+			output := filepath.Join(outputDir, name+".tar")
+
+			var err error
+			switch f.Type {
+			case typeDirectory:
+				err = createDirectoryFullfile(input, name, output)
+			case typeLink:
+				err = createLinkFullfile(input, name, output)
+			case typeFile:
+				err = createRegularFullfile(input, name, output)
+			default:
+				err = fmt.Errorf("file %s is of unsupported type %q", f.Name, f.Type)
+			}
+
+			if err != nil {
+				errorCh <- err
+				break
+			}
+		}
+		wg.Done()
+	}
+
+	for i := 0; i < GoroutineCount; i++ {
+		go taskRunner()
+	}
+
+	var err error
 	done := make(map[hashval]bool)
 	for _, f := range m.Files {
 		if done[f.Hash] || f.Version != m.Header.Version || f.Status == statusDeleted || f.Status == statusGhosted {
 			continue
 		}
-
-		input := filepath.Join(chrootDir, f.Name)
-		name := f.Hash.String()
-		// NOTE: to make life simpler for the client, always use .tar extension even if the
-		// file could be compressed.
-		output := filepath.Join(outputDir, name+".tar")
-
-		var err error
-		switch f.Type {
-		case typeDirectory:
-			err = createDirectoryFullfile(input, name, output)
-		case typeLink:
-			err = createLinkFullfile(input, name, output)
-		case typeFile:
-			err = createRegularFullfile(input, name, output)
-		default:
-			return fmt.Errorf("cannot create fullfiles: file %s is of unsupported type %q", f.Name, f.Type)
-		}
-
-		if err != nil {
-			return err
-		}
-
 		done[f.Hash] = true
+
+		select {
+		case taskCh <- f:
+		case err = <-errorCh:
+			// Break as soon as there is a failure.
+			break
+		}
 	}
-	return nil
+	close(taskCh)
+	wg.Wait()
+
+	// Sending loop might finish before any goroutine could send an error back, so check for
+	// error again after they are all done.
+	if err == nil && len(errorCh) > 0 {
+		err = <-errorCh
+	}
+	return err
 }
 
 func createDirectoryFullfile(input, name, output string) error {

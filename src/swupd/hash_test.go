@@ -6,8 +6,8 @@ import (
 )
 
 func resetHash() {
-	Hashes = []*string{&allzero}
-	invHash = map[string]hashval{allzero: 0}
+	Hashes = []*string{&AllZeroHash}
+	invHash = map[string]hashval{AllZeroHash: 0}
 }
 
 func TestInternHash(t *testing.T) {

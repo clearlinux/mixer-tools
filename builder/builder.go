@@ -61,6 +61,77 @@ func NewFromConfig(conf string) *Builder {
 	return b
 }
 
+// CreateDefaultConfig creates a default builder.conf using the active
+// directory as base path for the variables values.
+func (b *Builder) CreateDefaultConfig(builderconf string) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	if builderconf == "" {
+		builderconf = pwd + "/builder.conf"
+	}
+
+	err = helpers.CopyFile(builderconf, "/usr/share/defaults/bundle-chroot-builder/builder.conf", false)
+	if os.IsExist(err) {
+		fmt.Printf("File '%s' already exists. Skipping...\n", builderconf)
+		return
+	} else if os.IsNotExist(err) {
+		fmt.Println("Template for 'builder.conf' not found. Please create it manually.")
+		return
+	} else if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Creating new builder.conf configuration file...")
+
+	raw, err := ioutil.ReadFile(builderconf)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
+	data += "\n[Mixer]\n"
+	data += "RPMDIR=" + pwd + "/rpms\n"
+	data += "REPODIR=" + pwd + "/local\n"
+
+	err = ioutil.WriteFile(builderconf, []byte(data), 0666)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+}
+
+// CreateRpmDirs creates the RPM directories
+func (b *Builder) CreateRpmDirs() {
+	pwd, err := os.Getwd()
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	// Make the folder to store rpms
+	err = os.Mkdir(pwd+"/rpms", 0755)
+	if os.IsExist(err) {
+		fmt.Printf("Directory '%s' already exists. Skipping...\n", pwd+"/rpms")
+	} else if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	err = os.Mkdir(pwd+"/local", 0755)
+	if os.IsExist(err) {
+		fmt.Printf("Directory '%s' already exists. Skipping...\n", pwd+"/local")
+	} else if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+}
+
 // LoadBuilderConf will read the builder configuration from the command line if
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.

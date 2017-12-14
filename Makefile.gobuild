@@ -1,7 +1,8 @@
 CUR_DIR = $(shell pwd)
+GOPATH ?= $(HOME)/go
 
 %.build:
-	GOPATH=$(CUR_DIR) go install $(subst .build,,$@)
+	GOPATH=$(CUR_DIR):$(GOPATH) go install $(subst .build,,$@)
 
 clean:
 	test ! -d $(CUR_DIR)/pkg || rm -rvf $(CUR_DIR)/pkg; \
@@ -11,7 +12,7 @@ clean:
 	@ ( \
 		cd "$(PROJECT_ROOT)/$(subst .compliant,,$@)" >/dev/null || exit 1; \
 		go fmt || exit 1; \
-		GOPATH=$(CUR_DIR)/ go vet || exit 1; \
+		GOPATH=$(CUR_DIR):$(GOPATH)/ go vet || exit 1; \
 	);
 
 prep_coverage:
@@ -22,7 +23,7 @@ prep_coverage:
 %.test: prep_coverage
 	@ ( \
 		safe_nom=`echo "$(subst .test,,$@)" | sed 's/\//_/g'`; \
-		GOPATH=$(CUR_DIR) go test -v -cover -covermode=count -coverprofile=_coverage_$$safe_nom.out  $(subst .test,,$@); \
+		GOPATH=$(CUR_DIR):$(GOPATH) go test -v -cover -covermode=count -coverprofile=_coverage_$$safe_nom.out  $(subst .test,,$@); \
 		tail -n +2 _coverage_$$safe_nom.out >> coverage.out; \
 		rm _coverage_$$safe_nom.out; \
 	);
@@ -31,7 +32,7 @@ prep_coverage:
 	@ ( \
 		safe_nom=`echo "$(subst .benchmark,,$@)" | sed 's/\//_/g'`; \
 		cd "$(PROJECT_ROOT)/$(subst .benchmark,,$@)" >/dev/null || exit 1; \
-		GOPATH=$(CUR_DIR) go test -run=XXX -v -bench=. -cpuprofile=$(CUR_DIR)/$$safe_nom.cpuprofile -memprofile=$(CUR_DIR)/$$safe_nom.memprofile; \
+		GOPATH=$(CUR_DIR):$(GOPATH) go test -run=XXX -v -bench=. -cpuprofile=$(CUR_DIR)/$$safe_nom.cpuprofile -memprofile=$(CUR_DIR)/$$safe_nom.memprofile; \
 	);
 
 check: $(GO_TESTS)
@@ -39,4 +40,4 @@ check: $(GO_TESTS)
 bench: $(GO_BENCH)
 
 coverage: check
-	GOPATH=$(CUR_DIR)/ go tool cover -html=coverage.out -o coverage.html
+	GOPATH=$(CUR_DIR):$(GOPATH)/ go tool cover -html=coverage.out -o coverage.html

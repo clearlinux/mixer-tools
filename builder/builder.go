@@ -611,12 +611,22 @@ func (b *Builder) BuildImage(format string, template string) {
 		template = "release-image-config.json"
 	}
 
+	// swupd (client) called by itser will need a temporary directory to act as its stage dir.
+	wd, _ := os.Getwd()
+	tempStage, err := ioutil.TempDir(wd, "ister-swupd-client-")
+	if err != nil {
+		// TODO: This should return a proper error and the caller deals with printing.
+		helpers.PrintError(err)
+		return
+	}
+	defer os.RemoveAll(tempStage)
+
 	content := "file://" + b.Statedir + "/www"
-	imagecmd := exec.Command("ister.py", "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Cert)
+	imagecmd := exec.Command("ister.py", "-S", tempStage, "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Cert)
 	imagecmd.Stdout = os.Stdout
 	imagecmd.Stderr = os.Stderr
 
-	err := imagecmd.Run()
+	err = imagecmd.Run()
 	if err != nil {
 		helpers.PrintError(err)
 		fmt.Println("Failed to create image, check /var/log/ister")

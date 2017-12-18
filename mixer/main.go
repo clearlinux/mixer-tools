@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"builder"
-	"helpers"
+	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/helpers"
 )
 
 type Command struct {

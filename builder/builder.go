@@ -14,7 +14,7 @@ import (
 	"strconv"
 	"strings"
 
-	"helpers"
+	"github.com/clearlinux/mixer-tools/helpers"
 )
 
 // A Builder contains all configurable fields required to perform a full mix

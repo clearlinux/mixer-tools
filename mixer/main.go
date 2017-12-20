@@ -13,6 +13,8 @@ import (
 	"github.com/clearlinux/mixer-tools/helpers"
 )
 
+const Version = "3.2.0"
+
 type Command struct {
 	Name        string
 	Description string
@@ -62,7 +64,7 @@ func CheckDeps() error {
 }
 
 func main() {
-	fmt.Println("Mixer 3.2.0")
+	fmt.Printf("Mixer %s\n", Version)
 	os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so")
 
 	if len(os.Args) == 1 {

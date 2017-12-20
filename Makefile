@@ -1,28 +1,70 @@
-PROJECT_ROOT := src/
-VERSION = 3.2.0
+# Makefile used to create packages for mixer-tools. It doesn't assume
+# that the code is inside a GOPATH, and always copy the files into a
+# new workspace to get the work done. Go tools doesn't reliably work
+# with symbolic links.
+#
+# For historical purposes, it also works in a development environment
+# when the repository is already inside a GOPATH.
+
+.NOTPARALLEL:
+
+GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
+
+.PHONY: gopath
+
+# Strictly speaking we should check if it the directory is inside an
+# actual GOPATH, but the directory structure matching is likely enough.
+ifeq (,$(findstring ${GO_PACKAGE_PREFIX},${CURDIR}))
+LOCAL_GOPATH := ${CURDIR}/.gopath
+export GOPATH := ${LOCAL_GOPATH}
+gopath:
+	@rm -rf ${LOCAL_GOPATH}/src
+	@mkdir -p ${LOCAL_GOPATH}/src/${GO_PACKAGE_PREFIX}
+	@cp -af * ${LOCAL_GOPATH}/src/${GO_PACKAGE_PREFIX}
+	@echo "Prepared a local GOPATH=${GOPATH}"
+else
+LOCAL_GOPATH :=
+GOPATH ?= ${HOME}/go
+gopath:
+	@echo "Code already in existing GOPATH=${GOPATH}"
+endif
+
+.PHONY: all compliant build install clean
 
 .DEFAULT_GOAL := all
+all: compliant build
 
-CHANGES := $(shell go fmt ./... 2>&1)
+compliant: gopath
+	CHANGED_FILES=$$(go fmt ${GO_PACKAGE_PREFIX}/... 2>&1) ; \
+	if [ -n "$$CHANGED_FILES" ]; then \
+		printf 'ERROR: go fmt had to fix the following:\n%s\n' "$CHANGED_FILES" >&2 ; \
+		exit 1 ;\
+	fi
+	go vet ${GO_PACKAGE_PREFIX}/...
 
-# Ensure code is compliant
-compliant:
-	if [ "$(CHANGES)" ]; then echo -e "Error, go fmt ./... updated:\n$(CHANGES)"; exit 1 ; fi
-	go vet ./...
+build: gopath
+	go install ${GO_PACKAGE_PREFIX}/mixer
 
-install:
+install: gopath
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
 	install -m 00755 pack-maker.sh $(DESTDIR)/usr/bin/mixer-pack-maker.sh
 	install -m 00755 superpack-maker.sh $(DESTDIR)/usr/bin/mixer-superpack-maker.sh
 	install -D -m 00644 yum.conf.in $(DESTDIR)/usr/share/defaults/mixer/yum.conf.in
 
+clean:
+ifeq (,${LOCAL_GOPATH})
+	go clean -i -x
+else
+	rm -rf ${LOCAL_GOPATH}
+endif
+	rm -f mixer-tools-*.tar.gz
+
+VERSION = 3.2.0
 release:
+	@if [ ! -d .git ]; then \
+		echo "Release needs to be used from a git repository"; \
+		exit 1; \
+	fi
 	git archive --format=tar.gz --verbose -o mixer-tools-$(VERSION).tar.gz HEAD --prefix=mixer-tools-$(VERSION)/
 
-all: compliant
-	go install ./...
-
-clean:
-	rm -rf $(GOPATH)/bin/mixer
-	rm -rf mixer-tools-*.tar.gz

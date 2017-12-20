@@ -1,3 +1,17 @@
+// Copyright © 2017 Intel Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package builder
 
 import (
@@ -210,6 +224,10 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 
 	// FIXME: Maybe use Go's tar or compress packages to do this
 	_, err = exec.Command("tar", "-xzf", repo, "-C", "clr-bundles/").Output()
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
 	bundles := b.Bundledir
 	if _, err := os.Stat(bundles); os.IsNotExist(err) {
 		clrbundles := "clr-bundles/clr-bundles-" + ver + "/bundles/"
@@ -266,7 +284,7 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 
 	// Check if mix bundles dir exists
 	if _, err := os.Stat(bundledir); os.IsNotExist(err) {
-		helpers.PrintError(errors.New("Mix bundles directory does not exist. Run mixer init-mix."))
+		helpers.PrintError(errors.New("Mix bundles directory does not exist. Run mixer init-mix"))
 		os.Exit(1)
 	}
 
@@ -380,7 +398,7 @@ func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl 
 	return nil
 }
 
-// UpdatMixVer automatically bumps the mixversion file +10 to prepare for the next build
+// UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
 // without requiring user intervention. This makes the flow slightly more automatable.
 func (b *Builder) UpdateMixVer() {
 	mixver, _ := strconv.Atoi(b.Mixver)
@@ -506,16 +524,16 @@ func (b *Builder) setVersion(publish bool) {
 
 	if b.Upstreamurl != "" {
 		fmt.Println("Saving the upstream version URL " + b.Upstreamurl)
-		upstream_url := b.Statedir + "/www/" + b.Mixver + "/upstream_url"
-		err = ioutil.WriteFile(upstream_url, []byte(b.Upstreamurl), 0644)
+		upstreamurl := b.Statedir + "/www/" + b.Mixver + "/upstreamurl"
+		err = ioutil.WriteFile(upstreamurl, []byte(b.Upstreamurl), 0644)
 		if err != nil {
 			helpers.PrintError(err)
 			os.Exit(1)
 		}
 	}
 	fmt.Println("Saving the upstream version " + b.Clearver)
-	upstream_ver := b.Statedir + "/www/" + b.Mixver + "/upstream_ver"
-	err = ioutil.WriteFile(upstream_ver, []byte(b.Clearver), 0644)
+	upstreamver := b.Statedir + "/www/" + b.Mixver + "/upstreamver"
+	err = ioutil.WriteFile(upstreamver, []byte(b.Clearver), 0644)
 	if err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)
@@ -591,6 +609,10 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 
 	// Step 4: hardlink relevant dirs
 	_, err = exec.Command("hardlink", "-f", b.Statedir+"/image/"+b.Mixver+"/").Output()
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
 
 	// Step 5: update the latest version
 	b.setVersion(publishflag)
@@ -600,7 +622,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 
 // BuildImage will now proceed to build the full image with the previously
 // validated configuration.
-func (b *Builder) BuildImage(format string, template string) {
+func (b *Builder) BuildImage(format string, template string) error {
 	// If the user did not pass in a format, default to builder.conf
 	if format == "" {
 		format = b.Format
@@ -615,9 +637,7 @@ func (b *Builder) BuildImage(format string, template string) {
 	wd, _ := os.Getwd()
 	tempStage, err := ioutil.TempDir(wd, "ister-swupd-client-")
 	if err != nil {
-		// TODO: This should return a proper error and the caller deals with printing.
-		helpers.PrintError(err)
-		return
+		return err
 	}
 	defer os.RemoveAll(tempStage)
 
@@ -626,11 +646,7 @@ func (b *Builder) BuildImage(format string, template string) {
 	imagecmd.Stdout = os.Stdout
 	imagecmd.Stderr = os.Stderr
 
-	err = imagecmd.Run()
-	if err != nil {
-		helpers.PrintError(err)
-		fmt.Println("Failed to create image, check /var/log/ister")
-	}
+	return imagecmd.Run()
 }
 
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to

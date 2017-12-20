@@ -29,7 +29,7 @@ gopath:
 	@echo "Code already in existing GOPATH=${GOPATH}"
 endif
 
-.PHONY: all compliant build install clean
+.PHONY: all compliant build install clean check
 
 .DEFAULT_GOAL := all
 all: compliant build
@@ -51,6 +51,9 @@ install: gopath
 	install -m 00755 pack-maker.sh $(DESTDIR)/usr/bin/mixer-pack-maker.sh
 	install -m 00755 superpack-maker.sh $(DESTDIR)/usr/bin/mixer-superpack-maker.sh
 	install -D -m 00644 yum.conf.in $(DESTDIR)/usr/share/defaults/mixer/yum.conf.in
+
+check: gopath
+	go test ${GO_PACKAGE_PREFIX}/...
 
 clean:
 ifeq (,${LOCAL_GOPATH})

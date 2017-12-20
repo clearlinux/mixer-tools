@@ -60,11 +60,15 @@ else
 endif
 	rm -f mixer-tools-*.tar.gz
 
-VERSION = 3.2.0
 release:
 	@if [ ! -d .git ]; then \
 		echo "Release needs to be used from a git repository"; \
 		exit 1; \
 	fi
-	git archive --format=tar.gz --verbose -o mixer-tools-$(VERSION).tar.gz HEAD --prefix=mixer-tools-$(VERSION)/
+	@VERSION=$$(grep -e 'const Version' mixer/main.go | cut -d '"' -f 2) ; \
+	if [ -z "$$VERSION" ]; then \
+		echo "Couldn't extract version number from the source code"; \
+		exit 1; \
+	fi; \
+	git archive --format=tar.gz --verbose -o mixer-tools-$$VERSION.tar.gz HEAD --prefix=mixer-tools-$$VERSION/
 

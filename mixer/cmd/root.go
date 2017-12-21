@@ -90,8 +90,9 @@ func init() {
 	RootCmd.AddCommand(initCmd)
 
 	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Create a mix with all Clear bundles included")
-	initCmd.Flags().IntVar(&initFlags.clearver, "clearver", 1, "Supply the Clear version to compose the mix from")
-	initCmd.Flags().IntVar(&initFlags.mixver, "mixver", 0, "Supply the Mix version to build")
+	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
+	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
-	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstreamurl", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
+
+initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 }

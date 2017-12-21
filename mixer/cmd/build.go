@@ -137,7 +137,7 @@ var buildImageCmd = &cobra.Command{
 func setUpdateFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply format to use")
 	cmd.Flags().BoolVar(&buildFlags.increment, "increment", false, "Automatically increment the mixversion post build")
-	cmd.Flags().IntVar(&buildFlags.minVersion, "minversion", 0, "Supply minversion to build update with")
+	cmd.Flags().IntVar(&buildFlags.minVersion, "min-version", 0, "Supply minversion to build update with")
 	cmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate and do not sign the Manifest.MoM")
 	cmd.Flags().StringVar(&buildFlags.prefix, "prefix", "", "Supply prefix for where the swupd binaries live")
 	cmd.Flags().BoolVar(&buildFlags.noPublish, "no-publish", false, "Do not update the latest version after update")

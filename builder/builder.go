@@ -406,7 +406,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 		defer outfile.Close()
 		if b.Repodir == "" {
-			cmd := exec.Command("m4", b.Yumtemplate)
+			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.Upstreamurl, b.Yumtemplate)
 			cmd.Stdout = outfile
 			cmd.Run()
 

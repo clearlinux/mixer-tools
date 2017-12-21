@@ -1,0 +1,16 @@
+language: go
+sudo: required
+
+go:
+    - 1.9
+
+go_import_path: github.com/clearlinux/mixer-tools
+
+before_install:
+    - sudo apt-get update -qq
+    - go get -u gopkg.in/alecthomas/gometalinter.v1
+    - gometalinter.v1 --install
+
+script:
+    - gometalinter.v1 --deadline=10m --tests --vendor --disable-all --enable=misspell --enable=vet --enable=ineffassign --enable=gofmt --enable=gocyclo --cyclo-over=10 --enable=golint --enable=deadcode --enable=varcheck --enable=structcheck --enable=unused ./...
+

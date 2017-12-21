@@ -13,7 +13,7 @@ import (
 	"github.com/clearlinux/mixer-tools/helpers"
 )
 
-const Version = "3.2.0"
+const Version = "3.2.1"
 
 type Command struct {
 	Name        string

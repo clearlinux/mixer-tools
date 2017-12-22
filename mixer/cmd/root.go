@@ -85,6 +85,7 @@ func checkDeps() error {
 func init() {
 	if err := checkDeps(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		os.Exit(1)
 	}
 
 	RootCmd.AddCommand(initCmd)
@@ -93,6 +94,5 @@ func init() {
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
-
-initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
+	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 }

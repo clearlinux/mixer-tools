@@ -13,6 +13,7 @@ import (
 	"sync"
 )
 
+// DebugFullfiles is a flag to turn on debug statements for fullfile creation
 const DebugFullfiles = false
 
 type compressFunc func(dst io.Writer, src io.Reader) error
@@ -28,6 +29,8 @@ var fullfileCompressors = []struct {
 	{"external-tar-xz", nil, "--xz"},
 }
 
+// CreateFullfiles creates full file compressed tars for files in chrootDir and places them
+// in outputDir
 func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 	// TODO: Parametrize or pick a better value based on system.
 	const GoroutineCount = 3
@@ -74,7 +77,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 	}
 
 	var err error
-	done := make(map[hashval]bool)
+	done := make(map[Hashval]bool)
 	for _, f := range m.Files {
 		if done[f.Hash] || f.Version != m.Header.Version || f.Status == statusDeleted || f.Status == statusGhosted {
 			continue
@@ -191,7 +194,7 @@ func createRegularFullfile(input, name, output string) (err error) {
 
 	// Pick the best compression option (or no compression) for that specific fullfile.
 	best := ""
-	var bestSize int64 = uncompressedSize
+	bestSize := uncompressedSize
 	for i, c := range fullfileCompressors {
 		var candidateSize int64
 		candidate := fmt.Sprintf("%s.%d.%s", output, i, c.Name)

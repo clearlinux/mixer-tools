@@ -80,7 +80,7 @@ var renameBytes = map[frename]byte{
 // File represents an entry in a manifest
 type File struct {
 	Name    string
-	Hash    hashval
+	Hash    Hashval
 	Version uint32
 
 	// flags
@@ -198,14 +198,6 @@ func (f *File) setFlags(flags string) error {
 	}
 
 	return nil
-}
-
-func (f *File) setHashZero() {
-	f.Hash = 0
-}
-
-func (f *File) getHashString() string {
-	return *Hashes[f.Hash]
 }
 
 func (f *File) getFlagString() (string, error) {

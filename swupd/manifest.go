@@ -46,7 +46,6 @@ type Manifest struct {
 	Header       ManifestHeader
 	Files        []*File
 	DeletedFiles []*File
-	Changed      bool
 }
 
 // MoM is a manifest of manifests with the same header information
@@ -261,7 +260,6 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 		return errors.New("manifest does not have any file entries")
 	}
 
-	// return err so the deferred close can modify it
 	return err
 }
 
@@ -313,11 +311,16 @@ func (m *Manifest) WriteManifestFile(path string) error {
 		return fmt.Errorf("could not create %v: %v", path, err)
 	}
 
-	// handle close errors
+	// close before setting permissions
 	defer func() {
 		cerr := f.Close()
 		if err == nil {
 			err = cerr
+		}
+
+		cherr := os.Chmod(path, 0644)
+		if err == nil {
+			err = cherr
 		}
 	}()
 
@@ -435,11 +438,11 @@ func (m *Manifest) newDeleted(oldManifest *Manifest) int {
 	return deleted
 }
 
-func (m *Manifest) readIncludes(bundles []*Manifest) error {
+func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {
 	// read in <imageBase>/<version>/noship/<bundle>-includes
 	var err error
-	newPath := filepath.Join(imageBase, string(m.Header.Version), fmt.Sprintf("%v-includes", m.Name))
-	bundleNames, err := readIncludesFile(newPath)
+	path := filepath.Join(c.imageBase, fmt.Sprint(m.Header.Version), "noship", m.Name+"-includes")
+	bundleNames, err := readIncludesFile(path)
 	if err != nil {
 		return err
 	}
@@ -467,16 +470,6 @@ func compareIncludes(m1 *Manifest, m2 *Manifest) bool {
 	return reflect.DeepEqual(m1.Header.Includes, m2.Header.Includes)
 }
 
-func getManifestFromName(name string, ms []*Manifest) *Manifest {
-	for _, m := range ms {
-		if m.Name == name {
-			return m
-		}
-	}
-
-	return nil
-}
-
 func (m *Manifest) hasTypeChanges() bool {
 	for _, f := range m.Files {
 		if f.typeHasChanged() {
@@ -502,11 +495,6 @@ func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
 			// required for "swupd update" to know when to delete the
 			// file, because the m2 bundle may be installed with or
 			// without the m1 bundle.
-			if f1.Status == statusDeleted && f2.Status == statusDeleted {
-				i++
-				j++
-				continue
-			}
 			if f1.Status == statusDeleted && f2.Status == statusDeleted {
 				i++
 				j++

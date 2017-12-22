@@ -9,7 +9,7 @@ import (
 
 func resetHash() {
 	Hashes = []*string{&AllZeroHash}
-	invHash = map[string]hashval{AllZeroHash: 0}
+	invHash = map[string]Hashval{AllZeroHash: 0}
 }
 
 func TestInternHash(t *testing.T) {
@@ -17,7 +17,7 @@ func TestInternHash(t *testing.T) {
 	resetHash()
 	testCases := []struct {
 		hash     string
-		expected hashval
+		expected Hashval
 	}{
 		{"9bcc1718757db298fb656ae6e2ee143dde746f49fbf6805db7683cb574c36728", 1},
 		{"33ccead640727d66c62be03e089a3ca3f4ef7c374a3eeab79764f9509075b0d8", 2},
@@ -63,7 +63,7 @@ func TestHashPrinting2(t *testing.T) {
 func TestHashEqual(t *testing.T) {
 	someHashes := []struct {
 		hash string
-		val  hashval
+		val  Hashval
 	}{
 		{"3a60eb03c76ce17f1d08e0b5844c0455f6136c9b4bd4dd54c98cad2783354635", 0},
 		{"b4b9333757d79e1e766dbb5db3160108e907e110bd19cba4d1d4230b299d0eb", 0},
@@ -92,9 +92,8 @@ func TestHashEqual(t *testing.T) {
 // hexdump -n32 -e '32 "%02x" "\n"' /dev/random
 
 const (
-	Dir  = 0040000
-	Reg  = 0100000
-	Link = 0120000
+	Dir = 0040000
+	Reg = 0100000
 )
 
 // TestGenHash checks that the internal data hashing is correct

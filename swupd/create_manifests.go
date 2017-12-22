@@ -23,10 +23,11 @@ import (
 	"time"
 )
 
-var StateDir = "/var/lib/swupd"
+// MinVersion indicates a minimum version build in which all content must be generated
 var MinVersion = false
 
-type Update struct {
+// UpdateInfo contains the meta information for the current update
+type UpdateInfo struct {
 	oldFormat   uint
 	format      uint
 	lastVersion uint32
@@ -52,14 +53,8 @@ func initBuildEnv() error {
 //        <version>/
 //            <bundle1>/
 //            ...
-//    LAST_VER (file containing "0\n" for now)
-func initBuildDirs(version uint32, groups []string) error {
-	// what is this???
-	//lastVer := []byte{'0', '\n'}
-	//if err := ioutil.WriteFile(filepath.Join(imageBase, "LAST_VER"), lastVer, 0755); err != nil {
-	//	return err
-	//}
-
+//    LAST_VER
+func initBuildDirs(version uint32, groups []string, imageBase string) error {
 	verDir := filepath.Join(imageBase, fmt.Sprint(version))
 	for _, bundle := range groups {
 		if err := os.MkdirAll(filepath.Join(verDir, bundle), 0755); err != nil {
@@ -70,46 +65,42 @@ func initBuildDirs(version uint32, groups []string) error {
 	return nil
 }
 
-func processBundles(update Update) ([]*Manifest, error) {
+func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	newManifests := []*Manifest{}
-	for _, bundle := range update.bundles {
-		oldM := Manifest{}
-		oldMPath := filepath.Join(outputDir, fmt.Sprint(update.lastVersion), "Manifest."+bundle)
+	for _, bundle := range ui.bundles {
+		oldM := &Manifest{}
+		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle)
 		if err := oldM.ReadManifestFromFile(oldMPath); err != nil {
 			// old manifest may not exist, continue
-			//return newManifests, err
 		}
 
-		newM := Manifest{
+		newM := &Manifest{
 			Header: ManifestHeader{
-				Format:    update.format,
-				Version:   update.version,
-				Previous:  update.lastVersion,
-				TimeStamp: update.timeStamp,
+				Format:    ui.format,
+				Version:   ui.version,
+				Previous:  ui.lastVersion,
+				TimeStamp: ui.timeStamp,
 			},
 			Name: bundle,
 		}
 
-		newMChroot := filepath.Join(imageBase, fmt.Sprint(update.version), newM.Name)
+		newMChroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), newM.Name)
 		if err := newM.addFilesFromChroot(newMChroot); err != nil {
 			return newManifests, err
 		}
 
-		if update.oldFormat == update.format {
-			newM.addDeleted(&oldM)
+		if ui.oldFormat == ui.format {
+			newM.addDeleted(oldM)
 		}
 
-		changedIncludes := compareIncludes(&newM, &oldM)
-		changedFiles := newM.linkPeersAndChange(&oldM)
-		added := newM.filesAdded(&oldM)
-		deleted := newM.newDeleted(&oldM)
+		changedIncludes := compareIncludes(newM, oldM)
+		changedFiles := newM.linkPeersAndChange(oldM)
+		added := newM.filesAdded(oldM)
+		deleted := newM.newDeleted(oldM)
 		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
 			newM.Header.Version = oldM.Header.Version
 			continue
 		}
-
-		// apply heuristics
-		newM.applyHeuristics()
 
 		// detect type changes
 		// fail out here if a type change is detected since this is not yet supported in client
@@ -117,13 +108,17 @@ func processBundles(update Update) ([]*Manifest, error) {
 			return newManifests, errors.New("type changes not yet supported")
 		}
 
-		newManifests = append(newManifests, &newM)
+		// detect modifier flag for all files in the manifest
+		newM.applyHeuristics()
+
+		// if we get this far we need to actually write this manifest because it has changes
+		newManifests = append(newManifests, newM)
 	}
 
 	for _, bundle := range newManifests {
 		if bundle.Name != "os-core" && bundle.Name != "full" {
 			// read in bundle includes
-			if err := bundle.readIncludes(newManifests); err != nil {
+			if err := bundle.readIncludes(newManifests, c); err != nil {
 				return newManifests, err
 			}
 
@@ -142,6 +137,7 @@ func processBundles(update Update) ([]*Manifest, error) {
 	return newManifests, nil
 }
 
+// CreateManifests creates update manifests for changed and added bundles for <version>
 func CreateManifests(version uint32, minVersion bool, format uint, statedir string) error {
 	if statedir != "" {
 		StateDir = statedir
@@ -156,9 +152,7 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		return err
 	}
 
-	if err = readServerINI(filepath.Join(StateDir, "server.ini")); err != nil {
-		return err
-	}
+	c := getConfig()
 
 	var groups []string
 	if groups, err = readGroupsINI(filepath.Join(StateDir, "groups.ini")); err != nil {
@@ -168,12 +162,12 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 	groups = append(groups, "full")
 
 	var lastVersion uint32
-	lastVersion, err = readLastVerFile(filepath.Join(imageBase, "LAST_VER"))
+	lastVersion, err = readLastVerFile(filepath.Join(c.imageBase, "LAST_VER"))
 	if err != nil {
 		return err
 	}
 
-	if err = initBuildDirs(version, groups); err != nil {
+	if err = initBuildDirs(version, groups, c.imageBase); err != nil {
 		return err
 	}
 
@@ -183,29 +177,38 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		// might not exist, so the empty manifest is fine
 	}
 
+	// create new chroot from all bundle chroots
+	// TODO: this should be its own thing that an earlier step in mixer does
+	if err = createNewFullChroot(version, groups, c.imageBase); err != nil {
+		return err
+	}
+
 	timeStamp := time.Now()
-	newFullManifest := Manifest{
-		Header: ManifestHeader{
-			Format:    format,
-			Version:   version,
-			Previous:  lastVersion,
-			TimeStamp: timeStamp,
-		},
-		Name: "full",
-	}
-	if err = createNewFullChroot(version, groups); err != nil {
-		return err
-	}
-
-	newFullChroot := filepath.Join(imageBase, fmt.Sprint(version), "full")
-	if err = newFullManifest.addFilesFromChroot(newFullChroot); err != nil {
-		return err
-	}
-
-	oldMoM := Manifest{}
+	oldMoM := Manifest{Header: ManifestHeader{Version: lastVersion}}
 	oldMoMPath := filepath.Join(StateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
 	if err = oldMoM.ReadManifestFromFile(oldMoMPath); err != nil {
-		// nothing here yet either
+		// could not find or read old MoM, continue with oldMoM as an empty manifest
+	}
+
+	oldFormat := oldMoM.Header.Format
+
+	// PROCESS BUNDLES
+	ui := UpdateInfo{
+		oldFormat:   oldFormat,
+		format:      format,
+		lastVersion: lastVersion,
+		version:     version,
+		bundles:     groups,
+		timeStamp:   timeStamp,
+	}
+	var newManifests []*Manifest
+	if newManifests, err = processBundles(ui, c); err != nil {
+		return err
+	}
+
+	verOutput := filepath.Join(c.outputDir, fmt.Sprint(version))
+	if err = os.MkdirAll(verOutput, 0755); err != nil {
+		return err
 	}
 
 	newMoM := Manifest{
@@ -216,27 +219,6 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 			Previous:  lastVersion,
 			TimeStamp: timeStamp,
 		},
-	}
-
-	oldFormat := oldMoM.Header.Format
-
-	// PROCESS BUNDLES
-	var newManifests []*Manifest
-	update := Update{
-		oldFormat:   oldFormat,
-		format:      format,
-		lastVersion: lastVersion,
-		version:     version,
-		bundles:     groups,
-		timeStamp:   timeStamp,
-	}
-	if newManifests, err = processBundles(update); err != nil {
-		return err
-	}
-
-	verOutput := filepath.Join(outputDir, fmt.Sprint(version))
-	if err = os.MkdirAll(verOutput, 0755); err != nil {
-		return err
 	}
 
 	for _, bMan := range newManifests {
@@ -267,9 +249,6 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 	if err = newMoM.WriteManifestFile(filepath.Join(verOutput, "Manifest.MoM")); err != nil {
 		return err
 	}
-
-	// TODO: populate and write full
-	// TODO: manifest tars?
 
 	return nil
 }

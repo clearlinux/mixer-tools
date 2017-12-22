@@ -7,14 +7,14 @@ import (
 
 func TestCreateFileFromPath(t *testing.T) {
 	Hashes = []*string{}
-	invHash = make(map[string]hashval)
+	invHash = make(map[string]Hashval)
 	path := "testdata/manifest.good"
 	expected := File{
 		Name: path,
 		Type: typeFile,
 	}
 
-	var fh hashval
+	var fh Hashval
 	var err error
 	fh, err = Hashcalc(expected.Name)
 	if err != nil {
@@ -68,6 +68,6 @@ func TestExists(t *testing.T) {
 	}
 
 	if exists("testdata/nowhere") {
-		t.Error("exists() returned true for non-existant file")
+		t.Error("exists() returned true for non-existent file")
 	}
 }

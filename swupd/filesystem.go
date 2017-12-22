@@ -98,19 +98,3 @@ func exists(path string) bool {
 
 	return true
 }
-
-func dirExistsWithPerm(path string, perm os.FileMode) bool {
-	var err error
-	var info os.FileInfo
-	if info, err = os.Stat(path); err != nil {
-		// assume it doesn't exist here
-		return false
-	}
-
-	// check if it is a directory or the perms don't match
-	if !info.Mode().IsDir() || info.Mode().Perm() != perm {
-		return false
-	}
-
-	return true
-}

@@ -412,7 +412,7 @@ func TestTypeHasChanged(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run("typeHasChanged", func(t *testing.T) {
 			if tc.file.typeHasChanged() != tc.expected {
-				t.Error("typeHasChanged returned %v when %v was expected",
+				t.Errorf("typeHasChanged returned %v when %v was expected",
 					!tc.expected, tc.expected)
 			}
 		})

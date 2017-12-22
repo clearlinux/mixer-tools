@@ -39,7 +39,7 @@ func TestCreateFullfiles(t *testing.T) {
 	m := &Manifest{}
 	m.Header.Version = 20
 
-	unique := make(map[hashval]bool)
+	unique := make(map[Hashval]bool)
 	for name, desc := range files {
 		err := ioutil.WriteFile(filepath.Join(chrootDir, name), desc.data, 0644)
 		if err != nil {

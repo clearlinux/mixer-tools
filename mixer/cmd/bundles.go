@@ -32,14 +32,19 @@ type bundleCmdFlags struct {
 
 var bundleFlags bundleCmdFlags
 
+var bundleCmd = &cobra.Command{
+	Use:   "bundle",
+	Short: "Perform various actions on bundles",
+}
+
 var addBundlesCmd = &cobra.Command{
-	Use:   "add-bundles [bundle list]",
+	Use:   "add [bundle(s)]",
 	Short: "Add clr-bundles to your mix",
 	Long:  `Add clr-bundles to your mix`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if bundleFlags.all == false {
 			if len(args) <= 0 {
-				return errors.New("add-bundles requires at least 1 argument if --all is not passed")
+				return errors.New("bundle add requires at least 1 argument if --all is not passed")
 			}
 		}
 		bundles := strings.Split(args[0], ",")
@@ -52,7 +57,7 @@ var addBundlesCmd = &cobra.Command{
 }
 
 var getBundlesCmd = &cobra.Command{
-	Use:   "get-bundles",
+	Use:   "get",
 	Short: "Get the clr-bundles from upstream",
 	Long:  `Get the clr-bundles from upstream`,
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -71,9 +76,11 @@ var bundlesCmds = []*cobra.Command{
 
 func init() {
 	for _, cmd := range bundlesCmds {
-		RootCmd.AddCommand(cmd)
+		bundleCmd.AddCommand(cmd)
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
+
+	RootCmd.AddCommand(bundleCmd)
 
 	addBundlesCmd.Flags().BoolVar(&bundleFlags.force, "force", false, "Override bundles that already exist")
 	addBundlesCmd.Flags().BoolVar(&bundleFlags.all, "all", false, "Add all bundles from CLR; takes precedence over -bundles")

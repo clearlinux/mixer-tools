@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func createNewFullChroot(version uint32, bundles []string) error {
+func createNewFullChroot(version uint32, bundles []string, imageBase string) error {
 	fullPath := filepath.Join(imageBase, fmt.Sprint(version), "full")
 	// MkdirAll returns nil when the path exists, so we continue to do the
 	// full chroot creation over the existing one

@@ -18,56 +18,88 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/go-ini/ini"
 )
 
-var emptyDir = "/var/lib/update/empty/"
-var imageBase = "/var/lib/update/image/"
-var outputDir = "/var/lib/update/www/"
-var debuginfoBanned = true
-var debuginfoLib = "/usr/lib/debug"
-var debuginfoSrc = "/usr/src/debug"
+type dbgConfig struct {
+	banned bool
+	lib    string
+	src    string
+}
 
-func readServerINI(path string) error {
+type config struct {
+	emptyDir  string
+	imageBase string
+	outputDir string
+	debuginfo dbgConfig
+}
+
+// StateDir is the directory under which swupd will create the update
+// defaults to /var/lib/swupd unless overridden
+var StateDir = "/var/lib/swupd"
+var defaultConfig config
+
+func setDefaultConfig() {
+	defaultConfig = config{
+		emptyDir:  filepath.Join(StateDir, "empty"),
+		imageBase: filepath.Join(StateDir, "image"),
+		outputDir: filepath.Join(StateDir, "www"),
+		debuginfo: dbgConfig{
+			banned: true,
+			lib:    "/usr/lib/debug",
+			src:    "/usr/src/debug",
+		},
+	}
+}
+
+func getConfig() config {
+	setDefaultConfig()
+	return readServerINI(filepath.Join(StateDir, "server.ini"))
+}
+
+func readServerINI(path string) config {
 	if !exists(path) {
 		// just use defaults
-		return nil
+		return defaultConfig
 	}
+
+	userConfig := defaultConfig
 
 	cfg, err := ini.InsensitiveLoad(path)
 	if err != nil {
 		// server.ini exists, but we were unable to read it
-		return err
+		return defaultConfig
 	}
 
-	if ed := cfg.Section("Server").Key("emptydir").Value(); ed != "" {
-		emptyDir = ed
+	if key, err := cfg.Section("Server").GetKey("emptydir"); err == nil {
+		userConfig.emptyDir = key.Value()
 	}
 
-	if ib := cfg.Section("Server").Key("imagebase").Value(); ib != "" {
-		imageBase = ib
+	if key, err := cfg.Section("Server").GetKey("imagebase"); err == nil {
+		userConfig.imageBase = key.Value()
 	}
 
-	if od := cfg.Section("Server").Key("outputdir").Value(); od != "" {
-		outputDir = od
+	if key, err := cfg.Section("Server").GetKey("outputdir"); err == nil {
+		userConfig.outputDir = key.Value()
 	}
 
-	if db := cfg.Section("Debuginfo").Key("banned").Value(); db != "" {
-		debuginfoBanned = (db == "true")
+	if key, err := cfg.Section("Debuginfo").GetKey("banned"); err == nil {
+		userConfig.debuginfo.banned = (key.Value() == "true")
 	}
 
-	if dl := cfg.Section("Debuginfo").Key("lib").Value(); dl != "" {
-		debuginfoLib = dl
+	if key, err := cfg.Section("Debuginfo").GetKey("lib"); err == nil {
+		userConfig.debuginfo.lib = key.Value()
 	}
 
-	if ds := cfg.Section("Debuginfo").Key("src").Value(); ds != "" {
-		debuginfoSrc = ds
+	if key, err := cfg.Section("Debuginfo").GetKey("src"); err == nil {
+		userConfig.debuginfo.src = key.Value()
 	}
 
-	return nil
+	return userConfig
 }
 
 func readGroupsINI(path string) ([]string, error) {
@@ -87,7 +119,6 @@ func readGroupsINI(path string) ([]string, error) {
 	for _, section := range sections {
 		if section == "default" {
 			// skip "default" set by go-ini/ini
-			// better way to do this?
 			continue
 		}
 

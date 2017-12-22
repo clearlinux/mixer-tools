@@ -147,7 +147,7 @@ func TestApplyHeuristics(t *testing.T) {
 	}
 
 	m := Manifest{}
-	for key, _ := range testCases {
+	for key := range testCases {
 		m.Files = append(m.Files, &File{Name: key})
 	}
 

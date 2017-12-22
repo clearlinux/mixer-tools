@@ -33,6 +33,7 @@ endif
 
 .DEFAULT_GOAL := build
 
+
 build: gopath
 	go install ${GO_PACKAGE_PREFIX}/mixer
 

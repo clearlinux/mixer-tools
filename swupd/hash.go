@@ -24,49 +24,51 @@ import (
 	"syscall"
 )
 
-type hashval int
+// Hashval is the integer index of the interned hash
+type Hashval int
 
+// AllZeroHash is the string representation of a zero value hash
 var AllZeroHash = "0000000000000000000000000000000000000000000000000000000000000000"
 
 // Hashes is a global map of indices to hashes
 var Hashes = []*string{&AllZeroHash}
-var invHash = map[string]hashval{AllZeroHash: 0}
+var invHash = map[string]Hashval{AllZeroHash: 0}
 
 // internHash adds only new hashes to the Hashes slice and returns the index at
 // which they are located
-func internHash(hash string) hashval {
+func internHash(hash string) Hashval {
 	if key, ok := invHash[hash]; ok {
 		return key
 	}
 	Hashes = append(Hashes, &hash)
-	key := hashval(len(Hashes) - 1)
+	key := Hashval(len(Hashes) - 1)
 	invHash[hash] = key
 	return key
 }
 
-func (h hashval) String() string {
+func (h Hashval) String() string {
 	return *Hashes[int(h)]
 }
 
-// HashEquals trivial equality function for hashval
-func HashEquals(h1 hashval, h2 hashval) bool {
+// HashEquals trivial equality function for Hashval
+func HashEquals(h1 Hashval, h2 Hashval) bool {
 	return h1 == h2
 }
 
 // Hashcalc returns the swupd hash for the given file
-func Hashcalc(filename string) (hashval, error) {
+func Hashcalc(filename string) (Hashval, error) {
 	var info syscall.Stat_t
 	var err error
 	var data []byte
 	if err = syscall.Lstat(filename, &info); err != nil {
-		return 0, fmt.Errorf("Error stating file '%s' %v\n", filename, err)
+		return 0, fmt.Errorf("error statting file '%s' %v", filename, err)
 	}
 	// Get magic constants out of /usr/include/bits/stat.h
 	switch info.Mode & syscall.S_IFMT {
 	case syscall.S_IFREG: // Regular file
 		data, err = ioutil.ReadFile(filename)
 		if err != nil {
-			return 0, fmt.Errorf("Read error for '%s' %v\n", filename, err)
+			return 0, fmt.Errorf("read error for '%s' %v", filename, err)
 		}
 	case syscall.S_IFDIR: // Directory
 		info.Size = 0
@@ -75,7 +77,7 @@ func Hashcalc(filename string) (hashval, error) {
 		info.Mode = 0
 		target, err := os.Readlink(filename)
 		if err != nil {
-			return 0, fmt.Errorf("Error readlink file '%s' %v\n", filename, err)
+			return 0, fmt.Errorf("error readlink file '%s' %v", filename, err)
 		}
 		data = []byte(target)
 	default:

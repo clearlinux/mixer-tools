@@ -8,6 +8,22 @@ import (
 	"testing"
 )
 
+func dirExistsWithPerm(path string, perm os.FileMode) bool {
+	var err error
+	var info os.FileInfo
+	if info, err = os.Stat(path); err != nil {
+		// assume it doesn't exist here
+		return false
+	}
+
+	// check if it is a directory or the perms don't match
+	if !info.Mode().IsDir() || info.Mode().Perm() != perm {
+		return false
+	}
+
+	return true
+}
+
 func TestInitBuildEnv(t *testing.T) {
 	var err error
 	tmpStateDir := StateDir
@@ -33,28 +49,24 @@ func TestInitBuildEnv(t *testing.T) {
 func TestInitBuildDirs(t *testing.T) {
 	var err error
 	bundles := []string{"os-core", "os-core-update", "test-bundle"}
-	tmpImageBase := imageBase
-	defer func() {
-		imageBase = tmpImageBase
-	}()
-
-	if imageBase, err = ioutil.TempDir("testdata", "image"); err != nil {
+	c := getConfig()
+	if c.imageBase, err = ioutil.TempDir("testdata", "image"); err != nil {
 		t.Fatalf("Could not initialize image dir for testing: %v", err)
 	}
 
-	defer os.RemoveAll(imageBase)
+	defer os.RemoveAll(c.imageBase)
 
-	if err = initBuildDirs(10, bundles); err != nil {
+	if err = initBuildDirs(10, bundles, c.imageBase); err != nil {
 		t.Errorf("initBuildDirs raised unexpected error: %v", err)
 	}
 
-	if !dirExistsWithPerm(filepath.Join(imageBase, "10"), 0755) {
-		t.Errorf("%v does not exist with correct perms", filepath.Join(imageBase, "10"))
+	if !dirExistsWithPerm(filepath.Join(c.imageBase, "10"), 0755) {
+		t.Errorf("%v does not exist with correct perms", filepath.Join(c.imageBase, "10"))
 	}
 
 	for _, dir := range bundles {
-		if !dirExistsWithPerm(filepath.Join(imageBase, "10", dir), 0755) {
-			t.Errorf("%v does not exist with correct perms", filepath.Join(imageBase, "10", dir))
+		if !dirExistsWithPerm(filepath.Join(c.imageBase, "10", dir), 0755) {
+			t.Errorf("%v does not exist with correct perms", filepath.Join(c.imageBase, "10", dir))
 		}
 	}
 }

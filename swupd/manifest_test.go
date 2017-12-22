@@ -1,10 +1,6 @@
 package swupd
 
 import (
-	"bufio"
-	"bytes"
-	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -263,68 +259,6 @@ func TestInvalidManifests(t *testing.T) {
 	}
 }
 
-func compareFiles(file1path string, file2path string) (bool, error) {
-	var err error
-	var f1Stat, f2Stat os.FileInfo
-	var f1, f2 *os.File
-
-	chunkSize := 65536
-
-	f1Stat, err = os.Lstat(file1path)
-	if err != nil {
-		return false, err
-	}
-
-	f2Stat, err = os.Lstat(file2path)
-	if err != nil {
-		return false, err
-	}
-
-	if f1Stat.Size() != f2Stat.Size() {
-		return false, nil
-	}
-
-	f1, err = os.Open(file1path)
-	if err != nil {
-		return false, err
-	}
-	defer f1.Close()
-
-	f2, err = os.Open(file2path)
-	if err != nil {
-		return false, err
-	}
-	defer f2.Close()
-
-	b1 := bufio.NewReader(f1)
-	b2 := bufio.NewReader(f2)
-	for {
-		bytesRead1 := make([]byte, chunkSize)
-		b1BytesIn, err1 := b1.Read(bytesRead1)
-
-		bytesRead2 := make([]byte, chunkSize)
-		b2BytesIn, err2 := b2.Read(bytesRead2)
-
-		if b1BytesIn != b2BytesIn {
-			return false, nil
-		}
-
-		if err1 != nil || err2 != nil {
-			if err1 == io.EOF && err2 == io.EOF {
-				return true, nil
-			} else if err1 == io.EOF || err2 == io.EOF {
-				return false, nil
-			} else {
-				return false, fmt.Errorf("%v - %v", err1, err2)
-			}
-		}
-
-		if !bytes.Equal(bytesRead1, bytesRead2) {
-			return false, nil
-		}
-	}
-}
-
 func TestWriteManifestFile(t *testing.T) {
 	path := "testdata/manifest.good"
 
@@ -348,13 +282,10 @@ func TestWriteManifestFile(t *testing.T) {
 		t.Error(err)
 	}
 
-	match, err := compareFiles(path, newpath)
-	if err != nil {
-		t.Fatal("unable to compare old and new manifest")
-	}
-
-	if !match {
-		t.Fatalf("generated %v did not match read %v file", newpath, path)
+	fh1, _ := Hashcalc(path)
+	fh2, _ := Hashcalc(newpath)
+	if fh1 != fh2 {
+		t.Errorf("generated %v did not match read %v file", newpath, path)
 	}
 }
 
@@ -641,9 +572,9 @@ func TestHasTypeChanges(t *testing.T) {
 		},
 	}
 	msChanged := []Manifest{
-		Manifest{
+		{
 			Files: []*File{ // Directory -> File TYPE CHANGE
-				&File{
+				{
 					Name:   "1",
 					Type:   typeFile,
 					Status: statusUnset,
@@ -655,9 +586,9 @@ func TestHasTypeChanges(t *testing.T) {
 				},
 			},
 		},
-		Manifest{
+		{
 			Files: []*File{ // Directory -> Link TYPE CHANGE
-				&File{
+				{
 					Name:   "2",
 					Type:   typeLink,
 					Status: statusUnset,

@@ -307,20 +307,14 @@ func writeManifestFileEntry(file *File, w *bufio.Writer) error {
 func (m *Manifest) WriteManifestFile(path string) error {
 	var err error
 	var f *os.File
-	if f, err = os.Create(path); err != nil {
+	if f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		return fmt.Errorf("could not create %v: %v", path, err)
 	}
 
-	// close before setting permissions
 	defer func() {
 		cerr := f.Close()
 		if err == nil {
 			err = cerr
-		}
-
-		cherr := os.Chmod(path, 0644)
-		if err == nil {
-			err = cherr
 		}
 	}()
 
@@ -429,8 +423,16 @@ func (m *Manifest) filesAdded(oldManifest *Manifest) int {
 func (m *Manifest) newDeleted(oldManifest *Manifest) int {
 	deleted := 0
 	for _, df := range oldManifest.Files {
-		if df.Status != statusDeleted && df.findFileNameInSlice(m.DeletedFiles) != nil {
+		if df.Status != statusDeleted && df.findFileNameInSlice(m.Files) == nil {
+			if df.Status == statusGhosted {
+				continue
+			}
 			df.Version = m.Header.Version
+			df.Status = statusDeleted
+			df.Modifier = modifierUnset
+			df.Type = typeUnset
+			m.Files = append(m.Files, df)
+			m.DeletedFiles = append(m.DeletedFiles, df)
 			deleted++
 		}
 	}
@@ -528,5 +530,23 @@ func (m *Manifest) subtractManifests(m2 *Manifest) {
 
 	for _, mi := range m2.Header.Includes {
 		m.subtractManifestFromManifest(mi)
+	}
+}
+
+func (m *Manifest) removeDebuginfo(d dbgConfig) {
+	for i, f := range m.Files {
+		if strings.HasPrefix(f.Name, d.src) && len(f.Name) > len(d.src) {
+			copy(m.Files[i:], m.Files[i+1:])
+			m.Files[len(m.Files)-1] = &File{}
+			m.Files = m.Files[:len(m.Files)-1]
+			continue
+		}
+
+		if strings.HasPrefix(f.Name, d.lib) && len(f.Name) > len(d.lib) {
+			copy(m.Files[i:], m.Files[i+1:])
+			m.Files[len(m.Files)-1] = &File{}
+			m.Files = m.Files[:len(m.Files)-1]
+			continue
+		}
 	}
 }

@@ -55,6 +55,21 @@ install: gopath
 check: gopath
 	go test ${GO_PACKAGE_PREFIX}/...
 
+.PHONY: lint
+lint: gopath
+	@gometalinter.v1 --deadline=10m --tests --vendor --disable-all \
+	--enable=misspell \
+	--enable=vet \
+	--enable=ineffassign \
+	--enable=gofmt \
+	--enable=gocyclo --cyclo-over=10 \
+	--enable=golint \
+	--enable=deadcode \
+	--enable=varcheck \
+	--enable=structcheck \
+	--enable=unused \
+	./...
+
 clean:
 ifeq (,${LOCAL_GOPATH})
 	go clean -i -x

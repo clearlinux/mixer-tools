@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 
-	"swupd"
+	"github.com/clearlinux/mixer-tools/swupd"
 )
 
 func usage() {

@@ -102,6 +102,10 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			continue
 		}
 
+		if c.debuginfo.banned {
+			newM.removeDebuginfo(c.debuginfo)
+		}
+
 		// detect type changes
 		// fail out here if a type change is detected since this is not yet supported in client
 		if newM.hasTypeChanges() {
@@ -132,6 +136,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		// this must be done after subtractManifests has been done for all manifests
 		// because subtractManifests sorts the file lists by filename alone
 		bundle.sortFilesVersionName()
+		bundle.Header.FileCount = uint32(len(bundle.Files))
 	}
 
 	return newManifests, nil
@@ -143,6 +148,8 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		StateDir = statedir
 	}
 
+	c := getConfig()
+
 	if minVersion {
 		MinVersion = true
 	}
@@ -151,8 +158,6 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 	if err = initBuildEnv(); err != nil {
 		return err
 	}
-
-	c := getConfig()
 
 	var groups []string
 	if groups, err = readGroupsINI(filepath.Join(StateDir, "groups.ini")); err != nil {
@@ -167,14 +172,18 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		return err
 	}
 
-	if err = initBuildDirs(version, groups, c.imageBase); err != nil {
-		return err
-	}
-
 	oldFullManifest := Manifest{}
-	oldFullManifestPath := filepath.Join(StateDir, fmt.Sprint(lastVersion), "Manifest.full")
+	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
 	if err = oldFullManifest.ReadManifestFromFile(oldFullManifestPath); err != nil {
 		// might not exist, so the empty manifest is fine
+	}
+
+	if oldFullManifest.Header.Format > format {
+		return fmt.Errorf("new format %v is lower than old format %v", format, oldFullManifest.Header.Format)
+	}
+
+	if err = initBuildDirs(version, groups, c.imageBase); err != nil {
+		return err
 	}
 
 	// create new chroot from all bundle chroots
@@ -243,6 +252,7 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		}
 	}
 
+	newMoM.Header.FileCount = uint32(len(newMoM.Files))
 	newMoM.sortFilesVersionName()
 
 	// write MoM

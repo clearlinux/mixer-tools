@@ -106,6 +106,9 @@ func (f *File) setBootFromPathname() {
 	for _, path := range bootPaths {
 		if strings.HasPrefix(f.Name, path) {
 			f.Modifier = modifierBoot
+			if f.Status == statusDeleted {
+				f.Status = statusGhosted
+			}
 			return
 		}
 	}

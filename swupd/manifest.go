@@ -307,20 +307,14 @@ func writeManifestFileEntry(file *File, w *bufio.Writer) error {
 func (m *Manifest) WriteManifestFile(path string) error {
 	var err error
 	var f *os.File
-	if f, err = os.Create(path); err != nil {
+	if f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		return fmt.Errorf("could not create %v: %v", path, err)
 	}
 
-	// close before setting permissions
 	defer func() {
 		cerr := f.Close()
 		if err == nil {
 			err = cerr
-		}
-
-		cherr := os.Chmod(path, 0644)
-		if err == nil {
-			err = cherr
 		}
 	}()
 

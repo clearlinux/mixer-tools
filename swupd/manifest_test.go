@@ -1,8 +1,11 @@
 package swupd
 
 import (
+	"bytes"
+	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"reflect"
@@ -271,21 +274,37 @@ func TestWriteManifestFile(t *testing.T) {
 		t.Fatal("ReadManifestFromFile did not add file entried to the file list")
 	}
 
-	f, err := ioutil.TempFile("testdata", "manifest.result")
-	if err != nil {
-		t.Fatal("unable to open file for write")
-	}
-	defer os.Remove(f.Name())
-
-	newpath := f.Name()
+	// do not use a tempfile here, we just need the unique name
+	newpath := "testdata/manifest.good.result"
+	defer os.Remove(newpath)
 	if err := m.WriteManifestFile(newpath); err != nil {
 		t.Error(err)
+	}
+
+	if err := os.Chmod(path, 0644); err != nil {
+		t.Fatal("unable to change file permissions for test")
 	}
 
 	fh1, _ := Hashcalc(path)
 	fh2, _ := Hashcalc(newpath)
 	if fh1 != fh2 {
-		t.Errorf("generated %v did not match read %v file", newpath, path)
+		t.Errorf("generated %v (%v) did not match read %v (%v) file", newpath, fh2, path, fh1)
+		// Print some debug information
+		cmd := exec.Command("diff", newpath, path)
+		var out bytes.Buffer
+		cmd.Stdout = &out
+		err := cmd.Run()
+		if err != nil {
+			t.Fatal("diff failed")
+		}
+		fmt.Println("DIFF")
+		fmt.Println(out.String())
+
+		info1, _ := os.Stat(path)
+		info2, _ := os.Stat(newpath)
+		fmt.Println("FILE PERMISSIONS")
+		fmt.Printf("read: %v\n", info1.Mode())
+		fmt.Printf("gend: %v\n", info2.Mode())
 	}
 }
 

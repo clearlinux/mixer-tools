@@ -19,4 +19,5 @@ missing
 mixer-tools-*.tar.xz
 swupd-server.log.*
 coverage.out
-test-web-dir/
+testdata-*/
+!testdata-*.bak/

@@ -73,26 +73,26 @@ func TestInitBuildDirs(t *testing.T) {
 
 func TestCreateManifests(t *testing.T) {
 	// init test dir
-	if err := os.RemoveAll("./testdata/test-web-dir"); err != nil {
-		t.Fatal("Unable to remove testdata/test-web-dir")
+	if err := os.RemoveAll("./testdata/testdata-basic"); err != nil {
+		t.Fatal("Unable to remove testdata/testdata-basic")
 	}
 
-	cmd := exec.Command("cp", "-a", "./testdata/test-web-dir.bak", "./testdata/test-web-dir")
+	cmd := exec.Command("cp", "-a", "./testdata/testdata-basic.bak", "./testdata/testdata-basic")
 	if err := cmd.Run(); err != nil {
-		t.Fatal("Unable to copy testdata/test-web-dir.bak to testdata/test-web-dir")
+		t.Fatal("Unable to copy testdata/testdata-basic.bak to testdata/testdata-basic")
 	}
 
-	if err := CreateManifests(10, false, 1, "./testdata/test-web-dir"); err != nil {
+	if err := CreateManifests(10, false, 1, "./testdata/testdata-basic"); err != nil {
 		t.Error(err)
 	}
 
 	// set last version to 10
 	ver := []byte("10\n")
-	if err := ioutil.WriteFile("./testdata/test-web-dir/image/LAST_VER", ver, 0755); err != nil {
+	if err := ioutil.WriteFile("./testdata/testdata-basic/image/LAST_VER", ver, 0755); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := CreateManifests(20, false, 1, "./testdata/test-web-dir"); err != nil {
+	if err := CreateManifests(20, false, 1, "./testdata/testdata-basic"); err != nil {
 		t.Error(err)
 	}
 }

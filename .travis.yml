@@ -12,5 +12,4 @@ before_install:
     - gometalinter.v1 --install
 
 script:
-    - gometalinter.v1 --deadline=10m --tests --vendor --disable-all --enable=misspell --enable=vet --enable=ineffassign --enable=gofmt --enable=gocyclo --cyclo-over=10 --enable=golint --enable=deadcode --enable=varcheck --enable=structcheck --enable=unused ./...
-
+    - make lint

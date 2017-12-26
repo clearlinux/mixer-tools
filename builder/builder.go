@@ -206,7 +206,9 @@ func (b *Builder) SignManifestMOM() {
 func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 	// Make the folder to store all clr-bundles version
 	if _, err := os.Stat("clr-bundles"); err != nil {
-		os.Mkdir("clr-bundles", 0777)
+		if err = os.Mkdir("clr-bundles", 0777); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to create clr-bundles: %s\n", err.Error())
+		}
 	}
 
 	repo := "clr-bundles/clr-bundles-" + ver + ".tar.gz"
@@ -231,7 +233,10 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 	bundles := b.Bundledir
 	if _, err := os.Stat(bundles); os.IsNotExist(err) {
 		clrbundles := "clr-bundles/clr-bundles-" + ver + "/bundles/"
-		os.Mkdir(bundles, 0777)
+		if err = os.Mkdir(bundles, 0777); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 		// Copy all bundles over into mix-bundles if -all passed
 		if allbundles == true {
 			files, err := ioutil.ReadDir("clr-bundles/clr-bundles-" + ver + "/bundles/")
@@ -240,15 +245,17 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 				os.Exit(1)
 			}
 			for _, file := range files {
-				helpers.CopyFile(bundles+"/"+file.Name(), clrbundles+file.Name())
+				if err = helpers.CopyFile(bundles+"/"+file.Name(), clrbundles+file.Name()); err != nil {
+					helpers.PrintError(err)
+				}
 			}
 		} else {
 			// Install only a minimal set of bundles
 			fmt.Println("Adding os-core, os-core-update, kernel-native, bootloader to mix-bundles...")
-			helpers.CopyFile(bundles+"/os-core", clrbundles+"os-core")
-			helpers.CopyFile(bundles+"/os-core-update", clrbundles+"os-core-update")
-			helpers.CopyFile(bundles+"/kernel-native", clrbundles+"kernel-native")
-			helpers.CopyFile(bundles+"/bootloader", clrbundles+"bootloader")
+			_ = helpers.CopyFile(bundles+"/os-core", clrbundles+"os-core")
+			_ = helpers.CopyFile(bundles+"/os-core-update", clrbundles+"os-core-update")
+			_ = helpers.CopyFile(bundles+"/kernel-native", clrbundles+"kernel-native")
+			_ = helpers.CopyFile(bundles+"/bootloader", clrbundles+"bootloader")
 		}
 
 		// Save current dir so we can get back to it
@@ -257,12 +264,18 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 			helpers.PrintError(err)
 			os.Exit(1)
 		}
-		os.Chdir(b.Bundledir)
+		if err = os.Chdir(b.Bundledir); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 		helpers.Git("init")
 		helpers.Git("add", ".")
 		commitMsg := fmt.Sprintf("Initial Mix Version %s from Clear Version %s", b.Mixver, b.Clearver)
 		helpers.Git("commit", "-m", commitMsg)
-		os.Chdir(curr)
+		if err = os.Chdir(curr); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 	}
 
 	fmt.Println("Downloaded " + repo)
@@ -323,8 +336,9 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 		// Check if bundle exists in mix bundles dir
 		if _, err := os.Stat(bundledir + bundle); os.IsNotExist(err) || force {
 			if !allbundles {
+				var ib []string
 				// Parse bundle to get all includes
-				if ib, err := helpers.GetIncludedBundles(clrbundledir + bundle); err != nil {
+				if ib, err = helpers.GetIncludedBundles(clrbundledir + bundle); err != nil {
 					helpers.PrintError(errors.New("Cannot parse bundle " + bundle + " from CLR version " + b.Clearver))
 					os.Exit(1)
 				} else if len(ib) > 0 {
@@ -355,11 +369,17 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 			os.Exit(1)
 		}
 		fmt.Println("Adding git commit")
-		os.Chdir(bundledir)
+		if err = os.Chdir(bundledir); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 		helpers.Git("add", ".")
 		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.Clearver, bundles)
 		helpers.Git("commit", "-q", "-m", commitMsg)
-		os.Chdir(curr)
+		if err = os.Chdir(curr); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 	}
 	return bundleAddCount
 }
@@ -422,21 +442,27 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			helpers.PrintError(err)
 			panic(err)
 		}
-		defer outfile.Close()
+		defer func() {
+			_ = outfile.Close()
+		}()
 		if b.Repodir == "" {
 			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.Upstreamurl, b.Yumtemplate)
 			cmd.Stdout = outfile
-			cmd.Run()
-
+			if err = cmd.Run(); err != nil {
+				helpers.PrintError(err)
+				return err
+			}
 		} else {
 			cmd := exec.Command("m4", "-D", "MIXER_REPO",
 				"-D", "MIXER_REPOPATH="+b.Repodir,
 				"-D", "UPSTREAM_URL="+b.Upstreamurl,
 				b.Yumtemplate)
 			cmd.Stdout = outfile
-			cmd.Run()
+			if err = cmd.Run(); err != nil {
+				helpers.PrintError(err)
+				return err
+			}
 		}
-		outfile.Close()
 		if err != nil {
 			helpers.PrintError(err)
 			return err
@@ -506,7 +532,10 @@ func (b *Builder) setVersion(publish bool) {
 	// Create the www/version/format# dir if it doesn't exist
 	formatdir := b.Statedir + "/www/version/format" + b.Format
 	if _, err := os.Stat(formatdir); os.IsNotExist(err) {
-		os.MkdirAll(formatdir, 0777)
+		if err = os.MkdirAll(formatdir, 0777); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 	}
 
 	fmt.Println("Setting latest version to " + b.Mixver)
@@ -564,7 +593,10 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 	}
 
 	if _, err := os.Stat(b.Statedir + "www/version/format" + b.Format); os.IsNotExist(err) {
-		os.Mkdir(b.Statedir+"www/version/format"+b.Format, 0777)
+		if err = os.Mkdir(b.Statedir+"www/version/format"+b.Format, 0777); err != nil {
+			helpers.PrintError(err)
+			return err
+		}
 	}
 
 	// Step 1: create update content for the current mix
@@ -639,7 +671,9 @@ func (b *Builder) BuildImage(format string, template string) error {
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(tempStage)
+	defer func() {
+		_ = os.RemoveAll(tempStage)
+	}()
 
 	content := "file://" + b.Statedir + "/www"
 	imagecmd := exec.Command("ister.py", "-S", tempStage, "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Cert)
@@ -677,7 +711,10 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}
-	os.Chdir(b.Repodir)
+	if err = os.Chdir(b.Repodir); err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
 	createcmd := exec.Command("createrepo_c", ".")
 	createcmd.Stdout = os.Stdout
 	createcmd.Stderr = os.Stderr
@@ -686,5 +723,8 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}
-	os.Chdir(curr)
+	if err = os.Chdir(curr); err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
 }

@@ -29,18 +29,9 @@ gopath:
 	@echo "Code already in existing GOPATH=${GOPATH}"
 endif
 
-.PHONY: all compliant build install clean check
+.PHONY: build install clean check
 
-.DEFAULT_GOAL := all
-all: compliant build
-
-compliant: gopath
-	CHANGED_FILES=$$(go fmt ${GO_PACKAGE_PREFIX}/... 2>&1) ; \
-	if [ -n "$$CHANGED_FILES" ]; then \
-		printf 'ERROR: go fmt had to fix the following:\n%s\n' "$CHANGED_FILES" >&2 ; \
-		exit 1 ;\
-	fi
-	go vet ${GO_PACKAGE_PREFIX}/...
+.DEFAULT_GOAL := build
 
 build: gopath
 	go install ${GO_PACKAGE_PREFIX}/mixer

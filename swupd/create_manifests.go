@@ -17,14 +17,11 @@ package swupd
 import (
 	"errors"
 	"fmt"
-	//"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
-
-// MinVersion indicates a minimum version build in which all content must be generated
-var MinVersion = false
 
 // UpdateInfo contains the meta information for the current update
 type UpdateInfo struct {
@@ -36,8 +33,8 @@ type UpdateInfo struct {
 	timeStamp   time.Time
 }
 
-func initBuildEnv() error {
-	tmpDir := filepath.Join(StateDir, "temp")
+func initBuildEnv(c config) error {
+	tmpDir := filepath.Join(c.stateDir, "temp")
 	// remove old directory
 	if err := os.RemoveAll(tmpDir); err != nil {
 		return err
@@ -71,7 +68,11 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		oldM := &Manifest{}
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle)
 		if err := oldM.ReadManifestFromFile(oldMPath); err != nil {
-			// old manifest may not exist, continue
+			// throw away read manifest if it is invalid
+			if strings.Contains(err.Error(), "invalid manifest") {
+				fmt.Fprintf(os.Stderr, "%s: %s\n", oldM.Name, err)
+				oldM = &Manifest{}
+			}
 		}
 
 		newM := &Manifest{
@@ -98,7 +99,6 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		added := newM.filesAdded(oldM)
 		deleted := newM.newDeleted(oldM)
 		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
-			newM.Header.Version = oldM.Header.Version
 			continue
 		}
 
@@ -108,7 +108,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 
 		// detect type changes
 		// fail out here if a type change is detected since this is not yet supported in client
-		if newM.hasTypeChanges() {
+		if newM.hasUnsupportedTypeChanges() {
 			return newManifests, errors.New("type changes not yet supported")
 		}
 
@@ -144,23 +144,20 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
 func CreateManifests(version uint32, minVersion bool, format uint, statedir string) error {
-	if statedir != "" {
-		StateDir = statedir
-	}
-
-	c := getConfig()
-
-	if minVersion {
-		MinVersion = true
-	}
-
 	var err error
-	if err = initBuildEnv(); err != nil {
+	var c config
+	c, err = getConfig(statedir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Found server.ini, but was unable to read it. "+
+			"Continuing with default configuration\n")
+	}
+
+	if err = initBuildEnv(c); err != nil {
 		return err
 	}
 
 	var groups []string
-	if groups, err = readGroupsINI(filepath.Join(StateDir, "groups.ini")); err != nil {
+	if groups, err = readGroupsINI(filepath.Join(c.stateDir, "groups.ini")); err != nil {
 		return err
 	}
 
@@ -175,7 +172,11 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 	oldFullManifest := Manifest{}
 	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
 	if err = oldFullManifest.ReadManifestFromFile(oldFullManifestPath); err != nil {
-		// might not exist, so the empty manifest is fine
+		// throw away read manifest if it is invalid
+		if strings.Contains(err.Error(), "invalid manifest") {
+			fmt.Fprintf(os.Stderr, "full: %s\n", err)
+			oldFullManifest = Manifest{}
+		}
 	}
 
 	if oldFullManifest.Header.Format > format {
@@ -194,9 +195,13 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 
 	timeStamp := time.Now()
 	oldMoM := Manifest{Header: ManifestHeader{Version: lastVersion}}
-	oldMoMPath := filepath.Join(StateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(c.stateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
 	if err = oldMoM.ReadManifestFromFile(oldMoMPath); err != nil {
-		// could not find or read old MoM, continue with oldMoM as an empty manifest
+		// throw away read manifest if it is invalid
+		if strings.Contains(err.Error(), "invalid manifest") {
+			fmt.Fprintf(os.Stderr, "MoM: %s\n", err)
+			oldMoM = Manifest{}
+		}
 	}
 
 	oldFormat := oldMoM.Header.Format

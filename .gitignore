@@ -20,4 +20,4 @@ mixer-tools-*.tar.xz
 swupd-server.log.*
 coverage.out
 testdata-*/
-!testdata-*.bak/
+!testdata-*.in/

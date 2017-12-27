@@ -32,47 +32,51 @@ type dbgConfig struct {
 }
 
 type config struct {
+	stateDir  string
 	emptyDir  string
 	imageBase string
 	outputDir string
 	debuginfo dbgConfig
 }
 
-// StateDir is the directory under which swupd will create the update
-// defaults to /var/lib/swupd unless overridden
-var StateDir = "/var/lib/swupd"
-var defaultConfig config
+var defaultConfig = config{
+	stateDir:  "/var/lib/swupd",
+	emptyDir:  "/var/lib/swupd/empty",
+	imageBase: "/var/lib/swupd/image",
+	outputDir: "/var/lib/swupd/www",
+	debuginfo: dbgConfig{
+		banned: true,
+		lib:    "/usr/lib/debug",
+		src:    "/usr/src/debug",
+	},
+}
 
-func setDefaultConfig() {
-	defaultConfig = config{
-		emptyDir:  filepath.Join(StateDir, "empty"),
-		imageBase: filepath.Join(StateDir, "image"),
-		outputDir: filepath.Join(StateDir, "www"),
-		debuginfo: dbgConfig{
-			banned: true,
-			lib:    "/usr/lib/debug",
-			src:    "/usr/src/debug",
-		},
+func getConfig(stateDir string) (config, error) {
+	var s string
+	if stateDir != "" {
+		s = stateDir
+	} else {
+		s = defaultConfig.stateDir
 	}
+
+	return readServerINI(s, filepath.Join(s, "server.ini"))
 }
 
-func getConfig() config {
-	setDefaultConfig()
-	return readServerINI(filepath.Join(StateDir, "server.ini"))
-}
-
-func readServerINI(path string) config {
+// readServerINI reads the server.ini file from path. Raises an error when the file
+// exists but it was unable to be loaded
+func readServerINI(stateDir, path string) (config, error) {
 	if !exists(path) {
 		// just use defaults
-		return defaultConfig
+		return defaultConfig, nil
 	}
 
 	userConfig := defaultConfig
+	userConfig.stateDir = stateDir
 
 	cfg, err := ini.InsensitiveLoad(path)
 	if err != nil {
 		// server.ini exists, but we were unable to read it
-		return defaultConfig
+		return defaultConfig, err
 	}
 
 	if key, err := cfg.Section("Server").GetKey("emptydir"); err == nil {
@@ -99,9 +103,11 @@ func readServerINI(path string) config {
 		userConfig.debuginfo.src = key.Value()
 	}
 
-	return userConfig
+	return userConfig, nil
 }
 
+// readGroupsINI reads the groups.ini file from path. Raises an error when the
+// groups.ini file does not exist because it is required for the build
 func readGroupsINI(path string) ([]string, error) {
 	if !exists(path) {
 		return nil, errors.New("no groups.ini file to define bundles")

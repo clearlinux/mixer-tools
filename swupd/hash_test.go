@@ -138,7 +138,7 @@ func TestHashcalc(t *testing.T) {
 		filename string
 		result   string
 	}{
-		//{"/", directoryhash},
+		{"/", directoryhash},
 		{"/does not exist", missinghash},
 		{"/usr", directoryhash},
 		{"/dev/null", missinghash},

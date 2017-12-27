@@ -423,8 +423,16 @@ func (m *Manifest) filesAdded(oldManifest *Manifest) int {
 func (m *Manifest) newDeleted(oldManifest *Manifest) int {
 	deleted := 0
 	for _, df := range oldManifest.Files {
-		if df.Status != statusDeleted && df.findFileNameInSlice(m.DeletedFiles) != nil {
+		if df.Status != statusDeleted && df.findFileNameInSlice(m.Files) == nil {
+			if df.Status == statusGhosted {
+				continue
+			}
 			df.Version = m.Header.Version
+			df.Status = statusDeleted
+			df.Modifier = modifierUnset
+			df.Type = typeUnset
+			m.Files = append(m.Files, df)
+			m.DeletedFiles = append(m.DeletedFiles, df)
 			deleted++
 		}
 	}
@@ -522,5 +530,23 @@ func (m *Manifest) subtractManifests(m2 *Manifest) {
 
 	for _, mi := range m2.Header.Includes {
 		m.subtractManifestFromManifest(mi)
+	}
+}
+
+func (m *Manifest) removeDebuginfo(d dbgConfig) {
+	for i, f := range m.Files {
+		if strings.HasPrefix(f.Name, d.src) && len(f.Name) > len(d.src) {
+			copy(m.Files[i:], m.Files[i+1:])
+			m.Files[len(m.Files)-1] = &File{}
+			m.Files = m.Files[:len(m.Files)-1]
+			continue
+		}
+
+		if strings.HasPrefix(f.Name, d.lib) && len(f.Name) > len(d.lib) {
+			copy(m.Files[i:], m.Files[i+1:])
+			m.Files[len(m.Files)-1] = &File{}
+			m.Files = m.Files[:len(m.Files)-1]
+			continue
+		}
 	}
 }

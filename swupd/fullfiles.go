@@ -11,8 +11,8 @@ import (
 	"sync"
 )
 
-// DebugFullfiles is a flag to turn on debug statements for fullfile creation
-const DebugFullfiles = false
+// debugFullfiles is a flag to turn on debug statements for fullfile creation.
+const debugFullfiles = false
 
 type compressFunc func(dst io.Writer, src io.Reader) error
 
@@ -180,7 +180,7 @@ func createRegularFullfile(input, name, output string) (err error) {
 		return fmt.Errorf("couldn't find the size of uncompressed fullfile: %s", err)
 	}
 
-	if DebugFullfiles {
+	if debugFullfiles {
 		log.Printf("DEBUG: Creating fullfile %s for regular file %s (%d bytes)", name, input, fi.Size())
 		log.Printf("DEBUG: %s (%d bytes, uncompressed)", filepath.Base(output), uncompressedSize)
 	}
@@ -227,9 +227,17 @@ func createRegularFullfile(input, name, output string) (err error) {
 			os.RemoveAll(candidate)
 		}
 
-		if DebugFullfiles {
+		if debugFullfiles {
 			log.Printf("DEBUG: %s (%d bytes)", filepath.Base(candidate), candidateSize)
 		}
+	}
+
+	if debugFullfiles {
+		bestName := "<uncompressed>"
+		if best != "" {
+			bestName = filepath.Ext(best)[1:]
+		}
+		log.Printf("DEBUG: best algorithm was %s", bestName)
 	}
 
 	if best != "" {

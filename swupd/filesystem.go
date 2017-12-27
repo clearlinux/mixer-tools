@@ -21,6 +21,11 @@ import (
 	"strings"
 )
 
+func filenameBlacklisted(fname string) bool {
+	illegalChars := ";&|*`/<>\\\"'"
+	return strings.ContainsAny(fname, illegalChars)
+}
+
 // createFileRecord creates a manifest File entry from a file
 // this function sets the Name, Info, Type, and Hash fields
 // the Version field is additionally set using the global toVersion variable
@@ -28,7 +33,11 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	var file *File
 	fname := strings.TrimPrefix(path, rootPath)
 	if fname == "" {
-		// do not add "/" to manifest
+		return nil
+	}
+
+	if filenameBlacklisted(filepath.Base(fname)) {
+		fmt.Fprintf(os.Stderr, "%s is a blacklisted file name\n", fname)
 		return nil
 	}
 
@@ -45,7 +54,8 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	case mode&os.ModeSymlink != 0:
 		file.Type = typeLink
 	default:
-		return fmt.Errorf("%v is an unsupported file type", file.Name)
+		fmt.Fprintf(os.Stderr, "%v is an unsupported file type\n", file.Name)
+		return nil
 	}
 
 	fh, err := Hashcalc(rootPath + file.Name)
@@ -56,7 +66,6 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	file.Hash = fh
 
 	m.Files = append(m.Files, file)
-	m.Header.FileCount++
 	m.Header.ContentSize += uint64(fi.Size())
 
 	return nil

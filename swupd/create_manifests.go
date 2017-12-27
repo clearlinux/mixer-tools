@@ -36,8 +36,8 @@ type UpdateInfo struct {
 	timeStamp   time.Time
 }
 
-func initBuildEnv() error {
-	tmpDir := filepath.Join(StateDir, "temp")
+func initBuildEnv(c config) error {
+	tmpDir := filepath.Join(c.stateDir, "temp")
 	// remove old directory
 	if err := os.RemoveAll(tmpDir); err != nil {
 		return err
@@ -144,23 +144,19 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
 func CreateManifests(version uint32, minVersion bool, format uint, statedir string) error {
-	if statedir != "" {
-		StateDir = statedir
-	}
-
-	c := getConfig()
+	c := getConfig(statedir)
 
 	if minVersion {
 		MinVersion = true
 	}
 
 	var err error
-	if err = initBuildEnv(); err != nil {
+	if err = initBuildEnv(c); err != nil {
 		return err
 	}
 
 	var groups []string
-	if groups, err = readGroupsINI(filepath.Join(StateDir, "groups.ini")); err != nil {
+	if groups, err = readGroupsINI(filepath.Join(c.stateDir, "groups.ini")); err != nil {
 		return err
 	}
 
@@ -194,7 +190,7 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 
 	timeStamp := time.Now()
 	oldMoM := Manifest{Header: ManifestHeader{Version: lastVersion}}
-	oldMoMPath := filepath.Join(StateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(c.stateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
 	if err = oldMoM.ReadManifestFromFile(oldMoMPath); err != nil {
 		// could not find or read old MoM, continue with oldMoM as an empty manifest
 	}

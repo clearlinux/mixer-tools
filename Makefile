@@ -59,6 +59,8 @@ lint: gopath
 	--enable=varcheck \
 	--enable=structcheck \
 	--enable=unused \
+	--enable=vetshadow \
+	--enable=errcheck \
 	./...
 
 clean:

@@ -32,42 +32,44 @@ type dbgConfig struct {
 }
 
 type config struct {
+	stateDir  string
 	emptyDir  string
 	imageBase string
 	outputDir string
 	debuginfo dbgConfig
 }
 
-// StateDir is the directory under which swupd will create the update
-// defaults to /var/lib/swupd unless overridden
-var StateDir = "/var/lib/swupd"
-var defaultConfig config
+var defaultConfig = config{
+	stateDir:  "/var/lib/swupd",
+	emptyDir:  "/var/lib/swupd/empty",
+	imageBase: "/var/lib/swupd/image",
+	outputDir: "/var/lib/swupd/www",
+	debuginfo: dbgConfig{
+		banned: true,
+		lib:    "/usr/lib/debug",
+		src:    "/usr/src/debug",
+	},
+}
 
-func setDefaultConfig() {
-	defaultConfig = config{
-		emptyDir:  filepath.Join(StateDir, "empty"),
-		imageBase: filepath.Join(StateDir, "image"),
-		outputDir: filepath.Join(StateDir, "www"),
-		debuginfo: dbgConfig{
-			banned: true,
-			lib:    "/usr/lib/debug",
-			src:    "/usr/src/debug",
-		},
+func getConfig(stateDir string) config {
+	var s string
+	if stateDir != "" {
+		s = stateDir
+	} else {
+		s = defaultConfig.stateDir
 	}
+
+	return readServerINI(s, filepath.Join(s, "server.ini"))
 }
 
-func getConfig() config {
-	setDefaultConfig()
-	return readServerINI(filepath.Join(StateDir, "server.ini"))
-}
-
-func readServerINI(path string) config {
+func readServerINI(stateDir, path string) config {
 	if !exists(path) {
 		// just use defaults
 		return defaultConfig
 	}
 
 	userConfig := defaultConfig
+	userConfig.stateDir = stateDir
 
 	cfg, err := ini.InsensitiveLoad(path)
 	if err != nil {

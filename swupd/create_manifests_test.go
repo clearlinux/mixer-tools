@@ -28,22 +28,18 @@ func dirExistsWithPerm(path string, perm os.FileMode) bool {
 
 func TestInitBuildEnv(t *testing.T) {
 	var err error
-	tmpStateDir := StateDir
-	defer func() {
-		StateDir = tmpStateDir
-	}()
-
-	if StateDir, err = ioutil.TempDir("testdata", "state"); err != nil {
+	var sdir string
+	if sdir, err = ioutil.TempDir("testdata", "state"); err != nil {
 		t.Fatalf("Could not initialize state dir for testing: %v", err)
 	}
 
-	defer os.RemoveAll(StateDir)
+	defer os.RemoveAll(sdir)
 
-	if err = initBuildEnv(); err != nil {
+	if err = initBuildEnv(config{stateDir: sdir}); err != nil {
 		t.Errorf("initBuildEnv raised unexpected error: %v", err)
 	}
 
-	if !exists(filepath.Join(StateDir, "temp")) {
+	if !exists(filepath.Join(sdir, "temp")) {
 		t.Error("initBuildEnv failed to set up temporary directory")
 	}
 }
@@ -51,7 +47,7 @@ func TestInitBuildEnv(t *testing.T) {
 func TestInitBuildDirs(t *testing.T) {
 	var err error
 	bundles := []string{"os-core", "os-core-update", "test-bundle"}
-	c := getConfig()
+	c := getConfig("./testdata/state_builddirs")
 	if c.imageBase, err = ioutil.TempDir("testdata", "image"); err != nil {
 		t.Fatalf("Could not initialize image dir for testing: %v", err)
 	}

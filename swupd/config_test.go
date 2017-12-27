@@ -6,13 +6,13 @@ import (
 )
 
 func TestReadServerINI(t *testing.T) {
-	if c := readServerINI("nowhere"); c != defaultConfig {
+	if c := readServerINI("nowhere", "noINI"); c != defaultConfig {
 		// should just leave the defaults in place
 		t.Error("generated config was the not the expected default config")
 	}
 
 	var c config
-	if c = readServerINI("testdata/server.ini"); c == defaultConfig {
+	if c = readServerINI("/var/lib/update", "testdata/server.ini"); c == defaultConfig {
 		t.Error("generated config was the same as the default config")
 	}
 

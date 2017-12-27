@@ -21,6 +21,9 @@ var fullfileCompressors = []struct {
 	Func compressFunc
 }{
 	{"gzip", compressGzip},
+	{"external-bzip2", externalCompressFunc("bzip2")},
+	{"external-gzip", externalCompressFunc("gzip")},
+	{"external-xz", externalCompressFunc("xz")},
 }
 
 // CreateFullfiles creates full file compressed tars for files in chrootDir and places them
@@ -304,6 +307,20 @@ func getHeaderFromFileInfo(fi os.FileInfo) (*tar.Header, error) {
 	// TODO: FileInfoHeader gets as much as it can. Change to explicitly pick only the metadata
 	// we care about.
 	return tar.FileInfoHeader(fi, "")
+}
+
+func externalCompressFunc(program string, args ...string) compressFunc {
+	return func(dst io.Writer, src io.Reader) error {
+		w, err := newExternalWriter(dst, program, args...)
+		if err != nil {
+			return err
+		}
+		_, err = io.Copy(w, src)
+		if err != nil {
+			return err
+		}
+		return w.Close()
+	}
 }
 
 func compressGzip(dst io.Writer, src io.Reader) error {

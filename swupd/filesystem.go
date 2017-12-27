@@ -21,8 +21,9 @@ import (
 	"strings"
 )
 
+const illegalChars = ";&|*`/<>\\\"'"
+
 func filenameBlacklisted(fname string) bool {
-	illegalChars := ";&|*`/<>\\\"'"
 	return strings.ContainsAny(fname, illegalChars)
 }
 
@@ -37,8 +38,7 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	}
 
 	if filenameBlacklisted(filepath.Base(fname)) {
-		fmt.Fprintf(os.Stderr, "%s is a blacklisted file name\n", fname)
-		return nil
+		return fmt.Errorf("%s is a blacklisted file name\n", fname)
 	}
 
 	file = &File{
@@ -54,13 +54,12 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	case mode&os.ModeSymlink != 0:
 		file.Type = typeLink
 	default:
-		fmt.Fprintf(os.Stderr, "%v is an unsupported file type\n", file.Name)
-		return nil
+		return fmt.Errorf("%v is an unsupported file type\n", file.Name)
 	}
 
 	fh, err := Hashcalc(rootPath + file.Name)
 	if err != nil {
-		return err
+		return fmt.Errorf("hash calculation error: %v", err)
 	}
 
 	file.Hash = fh
@@ -74,7 +73,10 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 // createManifestRecord wraps createFileRecord to create a Manifest record for a MoM
 func (m *Manifest) createManifestRecord(rootPath string, path string, fi os.FileInfo, version uint32) error {
 	if err := m.createFileRecord(rootPath, path, fi); err != nil {
-		return err
+		if strings.Contains(err.Error(), "hash calculation error") {
+			return err
+		}
+		fmt.Fprint(os.Stderr, err)
 	}
 
 	// remove leading "/" from manifest record
@@ -91,13 +93,17 @@ func (m *Manifest) addFilesFromChroot(rootPath string) error {
 	}
 
 	err := filepath.Walk(rootPath, func(path string, fi os.FileInfo, err error) error {
-		return m.createFileRecord(rootPath, path, fi)
+		err = m.createFileRecord(rootPath, path, fi)
+		if err != nil {
+			if strings.Contains(err.Error(), "hash calculation error") {
+				return err
+			}
+			fmt.Fprint(os.Stderr, err)
+		}
+		return nil
 	})
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func exists(path string) bool {

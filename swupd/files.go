@@ -236,7 +236,7 @@ func sameFile(f1 *File, f2 *File) bool {
 		f1.Modifier == f2.Modifier
 }
 
-func (f *File) typeHasChanged() bool {
+func (f *File) isUnsupportedTypeChange() bool {
 	if f.DeltaPeer == nil {
 		// nothing to check, new or deleted file
 		return false

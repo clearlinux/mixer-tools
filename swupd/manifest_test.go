@@ -621,12 +621,12 @@ func TestHasTypeChanges(t *testing.T) {
 		},
 	}
 
-	if mUnchanged.hasTypeChanges() {
+	if mUnchanged.hasUnsupportedTypeChanges() {
 		t.Error("Manifest with no type changes detected to have type changes")
 	}
 
 	for _, m := range msChanged {
-		if !m.hasTypeChanges() {
+		if !m.hasUnsupportedTypeChanges() {
 			t.Error("Manifest with type changes detected to have no type changes")
 		}
 	}

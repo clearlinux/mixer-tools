@@ -200,7 +200,7 @@ func TestSetFlags(t *testing.T) {
 func TestGetFlagString(t *testing.T) {
 	f := File{}
 	var err error
-	if err := f.setFlags("F.br"); err != nil {
+	if err = f.setFlags("F.br"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -410,9 +410,9 @@ func TestTypeHasChanged(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run("typeHasChanged", func(t *testing.T) {
-			if tc.file.typeHasChanged() != tc.expected {
-				t.Errorf("typeHasChanged returned %v when %v was expected",
+		t.Run("isUnsupportedTypeChange", func(t *testing.T) {
+			if tc.file.isUnsupportedTypeChange() != tc.expected {
+				t.Errorf("isUnsupportedTypeChange returned %v when %v was expected",
 					!tc.expected, tc.expected)
 			}
 		})

@@ -2,13 +2,11 @@ package swupd
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 )
@@ -19,14 +17,10 @@ const DebugFullfiles = false
 type compressFunc func(dst io.Writer, src io.Reader) error
 
 var fullfileCompressors = []struct {
-	Name                string
-	Func                compressFunc
-	ExternalTarExtraArg string
+	Name string
+	Func compressFunc
 }{
-	{"gzip", compressGzip, ""},
-	{"external-tar-bzip2", nil, "--bzip2"},
-	{"external-tar-gzip", nil, "--gzip"},
-	{"external-tar-xz", nil, "--xz"},
+	{"gzip", compressGzip},
 }
 
 // CreateFullfiles creates full file compressed tars for files in chrootDir and places them
@@ -166,8 +160,7 @@ func createRegularFullfile(input, name, output string) (err error) {
 	}
 
 	// Create the uncompressed fullfile. We keep this file open to pass to the compressors that
-	// use io.Reader. External compressors don't use this file, so we don't need to care about
-	// syncing it.
+	// use io.Reader.
 	uncompressed, err := os.Create(output)
 	if err != nil {
 		return fmt.Errorf("couldn't create uncompressed fullfile: %s", err)
@@ -199,46 +192,30 @@ func createRegularFullfile(input, name, output string) (err error) {
 		var candidateSize int64
 		candidate := fmt.Sprintf("%s.%d.%s", output, i, c.Name)
 
-		if c.Func != nil {
-			_, err := uncompressed.Seek(0, io.SeekStart)
-			if err != nil {
-				return fmt.Errorf("couldn't seek in fullfile %s: %s", input, err)
-			}
-			out, err := os.Create(candidate)
-			if err != nil {
-				log.Printf("WARNING: couldn't create output file for %q compressor: %s", c.Name, err)
-				continue
-			}
-			err = c.Func(out, uncompressed)
-			if err != nil {
-				log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, c.Name, err)
-				out.Close()
-				os.RemoveAll(candidate)
-				continue
-			}
-			candidateSize, err = out.Seek(0, io.SeekEnd)
-			if err != nil {
-				log.Printf("WARNING: couldn't get size of %s: %s", candidate, err)
-				out.Close()
-				os.RemoveAll(candidate)
-				continue
-			}
-			out.Close()
-		} else {
-			err = runTarCommand(input, name, candidate, c.ExternalTarExtraArg)
-			if err != nil {
-				log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, c.Name, err)
-				os.RemoveAll(candidate)
-				continue
-			}
-			candidateInfo, err := os.Stat(candidate)
-			if err != nil {
-				log.Printf("WARNING: couldn't get size of %s: %s", candidate, err)
-				os.RemoveAll(candidate)
-				continue
-			}
-			candidateSize = candidateInfo.Size()
+		_, err := uncompressed.Seek(0, io.SeekStart)
+		if err != nil {
+			return fmt.Errorf("couldn't seek in fullfile %s: %s", input, err)
 		}
+		out, err := os.Create(candidate)
+		if err != nil {
+			log.Printf("WARNING: couldn't create output file for %q compressor: %s", c.Name, err)
+			continue
+		}
+		err = c.Func(out, uncompressed)
+		if err != nil {
+			log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, c.Name, err)
+			out.Close()
+			os.RemoveAll(candidate)
+			continue
+		}
+		candidateSize, err = out.Seek(0, io.SeekEnd)
+		if err != nil {
+			log.Printf("WARNING: couldn't get size of %s: %s", candidate, err)
+			out.Close()
+			os.RemoveAll(candidate)
+			continue
+		}
+		out.Close()
 
 		if candidateSize < bestSize {
 			if best != "" {
@@ -259,23 +236,6 @@ func createRegularFullfile(input, name, output string) (err error) {
 		// Failure during rename might indicate some further problems, so return error
 		// instead of ignoring it (since there is an uncompressed version).
 		return os.Rename(best, output)
-	}
-	return nil
-}
-
-func runTarCommand(input, name, output, extra string) error {
-	var buf bytes.Buffer
-	// We know that name is suitable to be part of the transform regexp. If this function gets
-	// wider usage, we must revisit this.
-	cmd := exec.Command("tar", "--create", extra, "--file="+output, "--transform=s/.*/"+name+"/", "--preserve-permissions", input)
-	cmd.Stderr = &buf
-	cmd.Stdout = &buf
-	err := cmd.Run()
-	if err != nil {
-		if buf.Len() > 0 {
-			return fmt.Errorf("running external command %s failed: %s\nOUTPUT:\n%s", cmd.Args, err, buf.String())
-		}
-		return fmt.Errorf("running external command %s failed: %s", cmd.Args, err)
 	}
 	return nil
 }

@@ -61,6 +61,77 @@ func NewFromConfig(conf string) *Builder {
 	return b
 }
 
+// CreateDefaultConfig creates a default builder.conf using the active
+// directory as base path for the variables values.
+func (b *Builder) CreateDefaultConfig(builderconf string) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	if builderconf == "" {
+		builderconf = pwd + "/builder.conf"
+	}
+
+	err = helpers.CopyFile(builderconf, "/usr/share/defaults/bundle-chroot-builder/builder.conf", false)
+	if os.IsExist(err) {
+		fmt.Printf("File '%s' already exists. Skipping...\n", builderconf)
+		return
+	} else if os.IsNotExist(err) {
+		fmt.Println("Template for 'builder.conf' not found. Please create it manually.")
+		return
+	} else if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Creating new builder.conf configuration file...")
+
+	raw, err := ioutil.ReadFile(builderconf)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
+	data += "\n[Mixer]\n"
+	data += "RPMDIR=" + pwd + "/rpms\n"
+	data += "REPODIR=" + pwd + "/local\n"
+
+	err = ioutil.WriteFile(builderconf, []byte(data), 0666)
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+}
+
+// CreateRpmDirs creates the RPM directories
+func (b *Builder) CreateRpmDirs() {
+	pwd, err := os.Getwd()
+	if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	// Make the folder to store rpms
+	err = os.Mkdir(pwd+"/rpms", 0755)
+	if os.IsExist(err) {
+		fmt.Printf("Directory '%s' already exists. Skipping...\n", pwd+"/rpms")
+	} else if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+
+	err = os.Mkdir(pwd+"/local", 0755)
+	if os.IsExist(err) {
+		fmt.Printf("Directory '%s' already exists. Skipping...\n", pwd+"/local")
+	} else if err != nil {
+		helpers.PrintError(err)
+		os.Exit(1)
+	}
+}
+
 // LoadBuilderConf will read the builder configuration from the command line if
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.
@@ -222,15 +293,33 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 				os.Exit(1)
 			}
 			for _, file := range files {
-				helpers.CopyFile(bundles+"/"+file.Name(), clrbundles+file.Name())
+				if err := helpers.CopyFile(bundles+"/"+file.Name(), clrbundles+file.Name(), true); err != nil {
+					helpers.PrintError(err)
+					os.Exit(1)
+				}
 			}
 		} else {
 			// Install only a minimal set of bundles
 			fmt.Println("Adding os-core, os-core-update, kernel-native, bootloader to mix-bundles...")
-			helpers.CopyFile(bundles+"/os-core", clrbundles+"os-core")
-			helpers.CopyFile(bundles+"/os-core-update", clrbundles+"os-core-update")
-			helpers.CopyFile(bundles+"/kernel-native", clrbundles+"kernel-native")
-			helpers.CopyFile(bundles+"/bootloader", clrbundles+"bootloader")
+			if err := helpers.CopyFile(bundles+"/os-core", clrbundles+"os-core", true); err != nil {
+				helpers.PrintError(err)
+				os.Exit(1)
+			}
+
+			if err := helpers.CopyFile(bundles+"/os-core-update", clrbundles+"os-core-update", true); err != nil {
+				helpers.PrintError(err)
+				os.Exit(1)
+			}
+
+			if err := helpers.CopyFile(bundles+"/kernel-native", clrbundles+"kernel-native", true); err != nil {
+				helpers.PrintError(err)
+				os.Exit(1)
+			}
+
+			if err := helpers.CopyFile(bundles+"/bootloader", clrbundles+"bootloader", true); err != nil {
+				helpers.PrintError(err)
+				os.Exit(1)
+			}
 		}
 
 		// Save current dir so we can get back to it
@@ -315,7 +404,7 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 			}
 
 			fmt.Printf("Adding bundle %q\n", bundle)
-			if err = helpers.CopyFile(bundledir+bundle, clrbundledir+bundle); err != nil {
+			if err = helpers.CopyFile(bundledir+bundle, clrbundledir+bundle, true); err != nil {
 				helpers.PrintError(err)
 				os.Exit(1)
 			}
@@ -466,8 +555,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 		chrootcert := certdir + "/Swupd_Root.pem"
 		fmt.Println("Copying Certificate into chroot...")
-		err = helpers.CopyFile(chrootcert, b.Cert)
-		if err != nil {
+		if err = helpers.CopyFile(chrootcert, b.Cert, true); err != nil {
 			helpers.PrintError(err)
 			return err
 		}
@@ -648,8 +736,7 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) {
 		fmt.Printf("Hardlinking %s to repodir\n", rpm.Name())
 		err := os.Link(b.Rpmdir+"/"+rpm.Name(), b.Repodir+"/"+rpm.Name())
 		if err != nil {
-			err = helpers.CopyFile(b.Repodir+"/"+rpm.Name(), b.Rpmdir+"/"+rpm.Name())
-			if err != nil {
+			if err = helpers.CopyFile(b.Repodir+"/"+rpm.Name(), b.Rpmdir+"/"+rpm.Name(), true); err != nil {
 				helpers.PrintError(err)
 				os.Exit(1)
 			}

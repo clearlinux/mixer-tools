@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -263,50 +264,37 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 	return err
 }
 
-// writeManifestFileHeader writes the header of a manifest to the file
-func writeManifestFileHeader(m *Manifest, w *bufio.Writer) error {
-	var err error
-	if err = m.CheckHeaderIsValid(); err != nil {
-		return err
-	}
-
-	// bufio.Writer is an errWriter, so errors will be returned when the calling
-	// function calls w.Flush()
-	w.WriteString(fmt.Sprintf("MANIFEST\t%v\n", m.Header.Format))
-	w.WriteString(fmt.Sprintf("version:\t%v\n", m.Header.Version))
-	w.WriteString(fmt.Sprintf("previous:\t%v\n", m.Header.Previous))
-	w.WriteString(fmt.Sprintf("filecount:\t%v\n", m.Header.FileCount))
-	w.WriteString(fmt.Sprintf("timestamp:\t%v\n", m.Header.TimeStamp.Unix()))
-	w.WriteString(fmt.Sprintf("contentsize:\t%v\n", m.Header.ContentSize))
-
-	for _, include := range m.Header.Includes {
-		w.WriteString(fmt.Sprintf("includes:\t%v\n", include.Name))
-	}
-
-	return nil
+// Correct visability
+func (f *File) FlagString() (string, error) {
+	return f.getFlagString()
 }
 
-// writeManifestFileEntry writes the file entry line to the file
-func writeManifestFileEntry(file *File, w *bufio.Writer) error {
-	var flags string
-	var err error
-	if flags, err = file.getFlagString(); err != nil {
-		return err
-	}
-
-	line := fmt.Sprintf("%v\t%v\t%v\t%v\n",
-		flags,
-		file.Hash,
-		file.Version,
-		file.Name)
-	_, err = w.WriteString(line)
-	return err
-}
+// what a manifest file looks like
+// could replace the tabs with \t if we convert this to a normal rather than raw string.
+const manifestTemplate = `
+{{- with .Header -}}
+MANIFEST	{{.Format}}
+version:	{{.Version}}
+previous:	{{.Previous}}
+filecount:	{{.FileCount}}
+timestamp:	{{(.TimeStamp.Unix)}}
+contentsize:	{{.ContentSize -}}
+{{range .Includes}}
+includes:	{{.Name}}
+{{- end}}
+{{- end}}
+{{ range .Files}}
+{{.FlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
+{{- end}}
+`
 
 // WriteManifestFile writes manifest m to a new file at path
 func (m *Manifest) WriteManifestFile(path string) error {
 	var err error
 	var f *os.File
+	if err = m.CheckHeaderIsValid(); err != nil {
+		return err
+	}
 	if f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
 		return fmt.Errorf("could not create %v: %v", path, err)
 	}
@@ -320,17 +308,14 @@ func (m *Manifest) WriteManifestFile(path string) error {
 
 	w := bufio.NewWriter(f)
 
-	if err = writeManifestFileHeader(m, w); err != nil {
-		return fmt.Errorf("could not write manifest header: %v", err)
+	t, err := template.New("manifest").Parse(manifestTemplate)
+	if err != nil {
+		panic(err) // Compile time issue
 	}
 
-	// write separator between header and body
-	w.WriteString("\n")
-
-	for _, entry := range m.Files {
-		if err = writeManifestFileEntry(entry, w); err != nil {
-			return fmt.Errorf("could not write manifest entry: %v", err)
-		}
+	err = t.Execute(w, m)
+	if err != nil {
+		return err
 	}
 
 	// return error code or nil from w.Flush()

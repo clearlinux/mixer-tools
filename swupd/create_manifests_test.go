@@ -1,29 +1,26 @@
 package swupd
 
 import (
+	"bytes"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 )
 
-func dirExistsWithPerm(path string, perm os.FileMode) bool {
+func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
 	var err error
 	var info os.FileInfo
 	if info, err = os.Stat(path); err != nil {
-		// assume it doesn't exist here
-		return false
+		t.Fatal(err)
 	}
 
 	// check if it is a directory or the perms don't match
 	if !info.Mode().IsDir() || info.Mode().Perm() != perm {
-		return false
+		t.Fatal(err)
 	}
-
-	return true
 }
 
 func TestInitBuildEnv(t *testing.T) {
@@ -45,9 +42,10 @@ func TestInitBuildEnv(t *testing.T) {
 }
 
 func TestInitBuildDirs(t *testing.T) {
+	var c config
 	var err error
 	bundles := []string{"os-core", "os-core-update", "test-bundle"}
-	c := getConfig("./testdata/state_builddirs")
+	c, _ = getConfig("./testdata/state_builddirs")
 	if c.imageBase, err = ioutil.TempDir("testdata", "image"); err != nil {
 		t.Fatalf("Could not initialize image dir for testing: %v", err)
 	}
@@ -58,24 +56,20 @@ func TestInitBuildDirs(t *testing.T) {
 		t.Errorf("initBuildDirs raised unexpected error: %v", err)
 	}
 
-	if !dirExistsWithPerm(filepath.Join(c.imageBase, "10"), 0755) {
-		t.Errorf("%v does not exist with correct perms", filepath.Join(c.imageBase, "10"))
-	}
+	mustDirExistsWithPerm(t, filepath.Join(c.imageBase, "10"), 0755)
 
 	for _, dir := range bundles {
-		if !dirExistsWithPerm(filepath.Join(c.imageBase, "10", dir), 0755) {
-			t.Errorf("%v does not exist with correct perms", filepath.Join(c.imageBase, "10", dir))
-		}
+		mustDirExistsWithPerm(t, filepath.Join(c.imageBase, "10", dir), 0755)
 	}
 }
 
-func fileContains(path string, sub string) bool {
+func fileContains(path string, sub []byte) bool {
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		return false
 	}
 
-	return strings.Contains(string(b), sub)
+	return bytes.Contains(b, sub)
 }
 
 func fileContainsRe(path string, re *regexp.Regexp) string {
@@ -84,23 +78,28 @@ func fileContainsRe(path string, re *regexp.Regexp) string {
 		return ""
 	}
 
-	return re.FindString(string(b))
+	return string(re.Find(b))
+}
+
+func mustCopyDir(t *testing.T, testDir string) {
+	cmd := exec.Command("cp", "-a", testDir+".in", testDir)
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("Unable to copy %s.in to %s", testDir, testDir)
+	}
+}
+
+func mustRemoveAll(t *testing.T, testDir string) {
+	if err := os.RemoveAll(testDir); err != nil {
+		t.Fatalf("unable to remove old %s for testing", testDir)
+	}
 }
 
 func TestCreateManifests(t *testing.T) {
 	testDir := "./testdata/testdata-basic"
-	// init test dir
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatalf("Unable to remove %s", testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", testDir+".bak", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Unable to copy %s.bak to %s", testDir, testDir)
-	}
-
+	mustRemoveAll(t, testDir)
+	mustCopyDir(t, testDir)
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// set last version to 10
@@ -114,20 +113,20 @@ func TestCreateManifests(t *testing.T) {
 	}
 
 	lines := []struct {
-		sub      string
+		sub      []byte
 		expected bool
 	}{
-		{"MANIFEST\t1", true},
-		{"version:\t10", true},
-		{"previous:\t0", true},
-		{"filecount:\t5", true},
-		{"timestamp:\t", true},
-		{"contentsize:\t", true},
-		{"includes:\tos-core", true},
-		{"10\t/foo", true},
-		{"\t0\t/foo", false},
-		{"10\t/usr/share", true},
-		{".d..\t", false},
+		{[]byte("MANIFEST\t1"), true},
+		{[]byte("version:\t10"), true},
+		{[]byte("previous:\t0"), true},
+		{[]byte("filecount:\t5"), true},
+		{[]byte("timestamp:\t"), true},
+		{[]byte("contentsize:\t"), true},
+		{[]byte("includes:\tos-core"), true},
+		{[]byte("10\t/foo"), true},
+		{[]byte("\t0\t/foo"), false},
+		{[]byte("10\t/usr/share"), true},
+		{[]byte(".d..\t"), false},
 	}
 
 	// do not use the fileContains helper for this because we are checking a lot
@@ -137,9 +136,8 @@ func TestCreateManifests(t *testing.T) {
 		t.Fatal("could not read test file for checking")
 	}
 
-	s := string(b)
 	for _, l := range lines {
-		if strings.Contains(s, l.sub) != l.expected {
+		if bytes.Contains(b, l.sub) != l.expected {
 			if l.expected {
 				t.Errorf("'%s' not found in 10/Manifest.test-bundle", l.sub)
 			} else {
@@ -149,16 +147,16 @@ func TestCreateManifests(t *testing.T) {
 	}
 
 	lines20 := []struct {
-		sub      string
+		sub      []byte
 		expected bool
 	}{
-		{"MANIFEST\t1", true},
-		{"version:\t20", true},
-		{"previous:\t10", true},
-		{"filecount:\t5", true},
-		{"includes:\tos-core", true},
-		{"20\t/foo", true},
-		{"10\t/foo", false},
+		{[]byte("MANIFEST\t1"), true},
+		{[]byte("version:\t20"), true},
+		{[]byte("previous:\t10"), true},
+		{[]byte("filecount:\t5"), true},
+		{[]byte("includes:\tos-core"), true},
+		{[]byte("20\t/foo"), true},
+		{[]byte("10\t/foo"), false},
 	}
 
 	// do not use the fileContains helper for this because we are checking a lot
@@ -168,9 +166,8 @@ func TestCreateManifests(t *testing.T) {
 		t.Fatal("could not read test file for checking")
 	}
 
-	s = string(b)
 	for _, l := range lines20 {
-		if strings.Contains(s, l.sub) != l.expected {
+		if bytes.Contains(b, l.sub) != l.expected {
 			if l.expected {
 				t.Errorf("'%s' not found in 20/Manifest.test-bundle", l.sub)
 			} else {
@@ -183,17 +180,10 @@ func TestCreateManifests(t *testing.T) {
 func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 	// init test dir
 	testDir := "./testdata/testdata-delete-no-version-bump"
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatal("unable to remove " + testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", testDir+".bak", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.bak to %s", testDir, testDir)
-	}
-
+	mustRemoveAll(t, testDir)
+	mustCopyDir(t, testDir)
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	ver := []byte("10\n")
@@ -205,81 +195,65 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 		t.Error(err)
 	}
 
-	if !fileContains(filepath.Join(testDir, "www/10/Manifest.full"), "10\t/foo") {
+	if !fileContains(filepath.Join(testDir, "www/10/Manifest.full"), []byte("10\t/foo")) {
 		t.Error("'10\t/foo' not found in 10/Manifest.full")
 	}
 
-	if !fileContains(filepath.Join(testDir, "www/20/Manifest.full"), "10\t/foo") {
+	if !fileContains(filepath.Join(testDir, "www/20/Manifest.full"), []byte("10\t/foo")) {
 		t.Error("'10\t/foo' not found in 20/Manifest.full")
 	}
 
-	if fileContains(filepath.Join(testDir, "www/20/Manifest.full"), "20\t/foo") {
+	if fileContains(filepath.Join(testDir, "www/20/Manifest.full"), []byte("20\t/foo")) {
 		t.Error("invalid '20\t/foo' found in 20/Manifest.full")
 	}
 }
 
 func TestCreateManifestIllegalChar(t *testing.T) {
 	testDir := "./testdata/testdata-filename-blacklisted"
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatal("unable to remove " + testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", testDir+".bak", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.bak to %s", testDir, testDir)
-	}
-
+	mustRemoveAll(t, testDir)
+	mustCopyDir(t, testDir)
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Error(err)
 	}
 
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.os-core"), "semicolon;") {
+	if fileContains(filepath.Join(testDir, "www/10/Manifest.os-core"), []byte("semicolon;")) {
 		t.Error("illegal filename 'semicolon;' not blacklisted")
 	}
 }
 
 func TestCreateManifestDebuginfo(t *testing.T) {
 	testDir := "./testdata/testdata-filename-debuginfo"
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatal("unable to remove " + testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", testDir+".bak", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.bak to %s", testDir, testDir)
-	}
-
+	mustRemoveAll(t, testDir)
+	mustCopyDir(t, testDir)
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Error(err)
 	}
 
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), "/usr/lib/debug/foo") {
+	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/lib/debug/foo")) {
 		t.Error("debuginfo file '/usr/lib/debug/foo' not banned")
 	}
 
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), "/usr/src/debug/bar") {
+	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/src/debug/bar")) {
 		t.Error("debuginfo file '/usr/src/debug/bar' not banned")
 	}
 }
 
 func TestCreateManifestFormatNoDecrement(t *testing.T) {
 	testDir := "./testdata/testdata-format-no-decrement"
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatal("unable to remove " + testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", "./testdata/testdata-format.bak", testDir)
+	mustRemoveAll(t, testDir)
+	cmd := exec.Command("cp", "-a", "./testdata/testdata-format.in", testDir)
 	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.bak to %s", testDir, testDir)
+		t.Fatalf("unable to copy %s.in to %s", testDir, testDir)
 	}
 
-	cmd = exec.Command("cp", "./testdata/format-no-dec-server.ini", testDir)
+	cmd = exec.Command("/bin/cp", "./testdata/format-no-dec-server.ini",
+		testDir+"/server.ini")
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("unable to copy server.ini to %s", testDir)
 	}
 
 	if err := CreateManifests(10, false, 2, testDir); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	ver := []byte("10\n")
@@ -288,23 +262,16 @@ func TestCreateManifestFormatNoDecrement(t *testing.T) {
 	}
 
 	if err := CreateManifests(20, true, 1, testDir); err == nil {
-		t.Error("CreateManifests successful when decrementing format")
+		t.Error("CreateManifests successful when decrementing format (error expected)")
 	}
 }
 
 func TestCreateManifestFormat(t *testing.T) {
 	testDir := "./testdata/testdata-format"
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatal("unable to remove " + testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", testDir+".bak", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.bak to %s", testDir, testDir)
-	}
-
+	mustRemoveAll(t, testDir)
+	mustCopyDir(t, testDir)
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	ver := []byte("10\n")
@@ -319,17 +286,10 @@ func TestCreateManifestFormat(t *testing.T) {
 
 func TestCreateManifestGhosted(t *testing.T) {
 	testDir := "./testdata/testdata-ghosting"
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatal("unable to remove " + testDir)
-	}
-
-	cmd := exec.Command("cp", "-a", testDir+".bak", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.bak to %s", testDir, testDir)
-	}
-
+	mustRemoveAll(t, testDir)
+	mustCopyDir(t, testDir)
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	ver := []byte("10\n")
@@ -338,7 +298,7 @@ func TestCreateManifestGhosted(t *testing.T) {
 	}
 
 	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	ver = []byte("20\n")
@@ -365,7 +325,7 @@ func TestCreateManifestGhosted(t *testing.T) {
 		t.Errorf("%v not found in 20/Manifest.full", re.String())
 	}
 
-	if fileContains(filepath.Join(testDir, "www/30/Manifest.full"), "/usr/lib/kernel/bar") {
+	if fileContains(filepath.Join(testDir, "www/30/Manifest.full"), []byte("/usr/lib/kernel/bar")) {
 		t.Error("/usr/lib/kernel/bar not cleaned up in 30/Manifest.full")
 	}
 

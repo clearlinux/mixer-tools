@@ -51,7 +51,7 @@ var defaultConfig = config{
 	},
 }
 
-func getConfig(stateDir string) config {
+func getConfig(stateDir string) (config, error) {
 	var s string
 	if stateDir != "" {
 		s = stateDir
@@ -62,10 +62,12 @@ func getConfig(stateDir string) config {
 	return readServerINI(s, filepath.Join(s, "server.ini"))
 }
 
-func readServerINI(stateDir, path string) config {
+// readServerINI reads the server.ini file from path. Raises an error when the file
+// exists but it was unable to be loaded
+func readServerINI(stateDir, path string) (config, error) {
 	if !exists(path) {
 		// just use defaults
-		return defaultConfig
+		return defaultConfig, nil
 	}
 
 	userConfig := defaultConfig
@@ -74,7 +76,7 @@ func readServerINI(stateDir, path string) config {
 	cfg, err := ini.InsensitiveLoad(path)
 	if err != nil {
 		// server.ini exists, but we were unable to read it
-		return defaultConfig
+		return defaultConfig, err
 	}
 
 	if key, err := cfg.Section("Server").GetKey("emptydir"); err == nil {
@@ -101,9 +103,11 @@ func readServerINI(stateDir, path string) config {
 		userConfig.debuginfo.src = key.Value()
 	}
 
-	return userConfig
+	return userConfig, nil
 }
 
+// readGroupsINI reads the groups.ini file from path. Raises an error when the
+// groups.ini file does not exist because it is required for the build
 func readGroupsINI(path string) ([]string, error) {
 	if !exists(path) {
 		return nil, errors.New("no groups.ini file to define bundles")

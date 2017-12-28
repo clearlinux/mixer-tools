@@ -216,7 +216,6 @@ func TestCheckInvalidManifestHeaders(t *testing.T) {
 		{"version zero", ManifestHeader{10, 0, 90, 553, time.Unix(1000, 0), 100000, nil}},
 		{"no files", ManifestHeader{10, 100, 90, 0, time.Unix(1000, 0), 100000, nil}},
 		{"no timestamp", ManifestHeader{10, 100, 90, 553, zeroTime, 100000, nil}},
-		{"zero contentsize", ManifestHeader{10, 100, 90, 553, time.Unix(1000, 0), 0, nil}},
 		{"version smaller than previous", ManifestHeader{10, 100, 110, 553, time.Unix(1000, 0), 100000, nil}},
 	}
 

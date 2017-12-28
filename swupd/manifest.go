@@ -142,10 +142,6 @@ func (m *Manifest) CheckHeaderIsValid() error {
 		return errors.New("manifest has a zero file count")
 	}
 
-	if m.Header.ContentSize == 0 {
-		return errors.New("manifest has zero contentsize")
-	}
-
 	if m.Header.TimeStamp.IsZero() {
 		return errors.New("manifest timestamp not set")
 	}

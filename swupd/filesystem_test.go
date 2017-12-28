@@ -6,8 +6,7 @@ import (
 )
 
 func TestCreateFileFromPath(t *testing.T) {
-	Hashes = []*string{}
-	invHash = make(map[string]Hashval)
+	resetHash()
 	path := "testdata/manifest.good"
 	expected := File{
 		Name: path,
@@ -49,8 +48,8 @@ func TestAddFilesFromChroot(t *testing.T) {
 		t.Error(err)
 	}
 
-	if len(m.Files) == 0 {
-		t.Error("No files added from chroot")
+	if len(m.Files) != 6 {
+		t.Error("incorrect number of files added from chroot")
 	}
 }
 

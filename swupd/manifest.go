@@ -63,34 +63,34 @@ func readManifestFileHeaderLine(fields []string, m *Manifest) error {
 	switch fields[0] {
 	case "MANIFEST":
 		if parsed, err = strconv.ParseUint(fields[1], 10, 16); err != nil {
-			return err
+			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		m.Header.Format = uint(parsed)
 	case "version:":
 		if parsed, err = strconv.ParseUint(fields[1], 10, 32); err != nil {
-			return err
+			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		m.Header.Version = uint32(parsed)
 	case "previous:":
 		if parsed, err = strconv.ParseUint(fields[1], 10, 32); err != nil {
-			return err
+			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		m.Header.Previous = uint32(parsed)
 	case "filecount:":
 		if parsed, err = strconv.ParseUint(fields[1], 10, 32); err != nil {
-			return err
+			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		m.Header.FileCount = uint32(parsed)
 	case "timestamp:":
 		var timestamp int64
 		if timestamp, err = strconv.ParseInt(fields[1], 10, 64); err != nil {
-			return err
+			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		// parsed is already int64
 		m.Header.TimeStamp = time.Unix(timestamp, 0)
 	case "contentsize:":
 		if parsed, err = strconv.ParseUint(fields[1], 10, 64); err != nil {
-			return err
+			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		// parsed is already uint64
 		m.Header.ContentSize = parsed
@@ -247,7 +247,7 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 	for input.Scan() {
 		text := input.Text()
 		if text == "" {
-			return errors.New("extra blank line in manifest")
+			return errors.New("invalid manifest, extra blank line")
 		}
 
 		fields := strings.Split(text, manifestFieldDelim)
@@ -257,7 +257,7 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 	}
 
 	if len(m.Files) == 0 {
-		return errors.New("manifest does not have any file entries")
+		return errors.New("invalid manifest, does not have any file entries")
 	}
 
 	return err
@@ -328,7 +328,7 @@ func (m *Manifest) WriteManifestFile(path string) error {
 	w.WriteString("\n")
 
 	for _, entry := range m.Files {
-		if err := writeManifestFileEntry(entry, w); err != nil {
+		if err = writeManifestFileEntry(entry, w); err != nil {
 			return fmt.Errorf("could not write manifest entry: %v", err)
 		}
 	}
@@ -472,9 +472,9 @@ func compareIncludes(m1 *Manifest, m2 *Manifest) bool {
 	return reflect.DeepEqual(m1.Header.Includes, m2.Header.Includes)
 }
 
-func (m *Manifest) hasTypeChanges() bool {
+func (m *Manifest) hasUnsupportedTypeChanges() bool {
 	for _, f := range m.Files {
-		if f.typeHasChanged() {
+		if f.isUnsupportedTypeChange() {
 			return true
 		}
 	}

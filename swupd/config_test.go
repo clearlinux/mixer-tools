@@ -6,13 +6,14 @@ import (
 )
 
 func TestReadServerINI(t *testing.T) {
-	if c := readServerINI("nowhere", "noINI"); c != defaultConfig {
+	if c, _ := readServerINI("nowhere", "noINI"); !reflect.DeepEqual(c, defaultConfig) {
 		// should just leave the defaults in place
 		t.Error("generated config was the not the expected default config")
 	}
 
 	var c config
-	if c = readServerINI("/var/lib/update", "testdata/server.ini"); c == defaultConfig {
+	c, _ = readServerINI("/var/lib/update", "testdata/server.ini")
+	if reflect.DeepEqual(c, defaultConfig) {
 		t.Error("generated config was the same as the default config")
 	}
 
@@ -30,8 +31,6 @@ func TestReadServerINI(t *testing.T) {
 func TestReadGroupsINI(t *testing.T) {
 	var err error
 	if _, err = readGroupsINI("nowhere"); err == nil {
-		// readGroupsINI does raise an error when the groups.ini file does not exist
-		// because it is required for the build
 		t.Error("readGroupsINI did not raise an error on a non-existent file")
 	}
 

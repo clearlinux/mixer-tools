@@ -1,3 +1,17 @@
+// Copyright © 2017 Intel Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package helpers
 
 import (
@@ -6,6 +20,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -70,31 +85,39 @@ func GenerateCertificate(cert string, template, parent *x509.Certificate, pubkey
 	if _, err := os.Stat(cert); os.IsNotExist(err) {
 		der, err := x509.CreateCertificate(rand.Reader, template, parent, pubkey, privkey)
 		if err != nil {
-			fmt.Println("ERROR: Failed to create certificate!")
-			PrintError(err)
 			return err
 		}
 
 		// Write the public certficiate out for clients to use
 		certOut, err := os.Create(cert)
 		if err != nil {
-			fmt.Printf("failed to open cert.pem for writing: %v\n", err)
-			PrintError(err)
+			return err
 		}
-		pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: der})
-		certOut.Close()
+		err = pem.Encode(certOut, &pem.Block{Type: "CERTIFICATE", Bytes: der})
+		if err != nil {
+			return err
+		}
+		err = certOut.Close()
+		if err != nil {
+			return err
+		}
 
 		// Write the private signing key out
 		keyOut, err := os.OpenFile(filepath.Dir(cert)+"/private.pem", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
-			fmt.Println("failed to open key.pem for writing")
-			PrintError(err)
 			return err
 		}
-		defer keyOut.Close()
+
+		defer func() {
+			_ = keyOut.Close()
+		}()
+
 		// Need type assertion for Marshal to work
 		priv := privkey.(*rsa.PrivateKey)
-		pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+		err = pem.Encode(keyOut, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)})
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -143,14 +166,18 @@ func CopyFile(dest string, src string) error {
 		PrintError(err)
 		return err
 	}
-	defer source.Close()
+	defer func() {
+		_ = source.Close()
+	}()
 
 	destination, err := os.Create(dest)
 	if err != nil {
 		PrintError(err)
 		return err
 	}
-	defer destination.Close()
+	defer func() {
+		_ = destination.Close()
+	}()
 
 	_, err = io.Copy(destination, source)
 	if err != nil {
@@ -173,7 +200,9 @@ func Download(filename string, url string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer infile.Body.Close()
+	defer func() {
+		_ = infile.Body.Close()
+	}()
 
 	if infile.StatusCode != http.StatusOK {
 		return fmt.Errorf("Get %s replied: %d (%s)", url, infile.StatusCode, http.StatusText(infile.StatusCode))
@@ -183,12 +212,16 @@ func Download(filename string, url string) (err error) {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+	}()
 
-	_, err = io.Copy(out, infile.Body)
-	if err != nil {
-		os.RemoveAll(filename)
-		return err
+	_, copyerr := io.Copy(out, infile.Body)
+	if copyerr != nil {
+		if err := os.RemoveAll(filename); err != nil {
+			return errors.New(copyerr.Error() + err.Error())
+		}
+		return copyerr
 	}
 
 	return nil
@@ -233,5 +266,5 @@ func CheckRPM(rpm string) error {
 	if strings.Contains(string(output), "RPM v") {
 		return nil
 	}
-	return fmt.Errorf("ERROR: %s is not valid!", rpm)
+	return fmt.Errorf("ERROR: %s is not valid", rpm)
 }

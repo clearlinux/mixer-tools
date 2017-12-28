@@ -1,10 +1,9 @@
-// Copyright © 2017 Intel Corporation
+// Copyright © 2015 Steve Francia <spf@spf13.com>.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
+// http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,20 +13,8 @@
 
 package main
 
-import (
-	"fmt"
-	"os"
-
-	"github.com/clearlinux/mixer-tools/mixer/cmd"
-)
-
-const version = "3.2.1"
+import "github.com/spf13/cobra/cobra/cmd"
 
 func main() {
-	fmt.Printf("Mixer %s\n", version)
-	if err := os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so"); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load nosync.so, mixing may take longer\n")
-	}
-
 	cmd.Execute()
 }

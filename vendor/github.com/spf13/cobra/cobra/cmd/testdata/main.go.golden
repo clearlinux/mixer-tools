@@ -1,4 +1,4 @@
-// Copyright © 2017 Intel Corporation
+// Copyright © 2017 NAME HERE <EMAIL ADDRESS>
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,20 +14,8 @@
 
 package main
 
-import (
-	"fmt"
-	"os"
-
-	"github.com/clearlinux/mixer-tools/mixer/cmd"
-)
-
-const version = "3.2.1"
+import "github.com/spf13/testproject/cmd"
 
 func main() {
-	fmt.Printf("Mixer %s\n", version)
-	if err := os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so"); err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to load nosync.so, mixing may take longer\n")
-	}
-
 	cmd.Execute()
 }

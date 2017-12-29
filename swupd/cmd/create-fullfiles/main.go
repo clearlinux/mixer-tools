@@ -57,9 +57,7 @@ func main() {
 		log.Fatalf("couldn't access the full manifest: %s", err)
 	}
 
-	// TODO: Make ReadManifestFromFile return the Manifest.
-	m := &swupd.Manifest{}
-	err := m.ReadManifestFromFile(manifestFile)
+	m, err := swupd.ParseManifestFile(manifestFile)
 	if err != nil {
 		log.Fatalf("couldn't read full manifest %s: %s", manifestFile, err)
 	}

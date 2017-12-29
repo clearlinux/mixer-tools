@@ -20,8 +20,8 @@ let dep tool know that we need that dependency
 
 and then
 
-    $ cd src/swupd
-    $ GOPATH=$PWD/../.. dep ensure -add github.com/ulikunitz/xz@v0.5.4
+    $ cd swupd
+    $ dep ensure -add github.com/ulikunitz/xz@v0.5.4
 
 The @name suffix is used to specify a branch/tag, otherwise master is
 fetched. Another option is to edit Gopkg.toml manually. See
@@ -30,7 +30,7 @@ https://github.com/golang/dep for details.
 The blank import trick allow us to keep the commit that add the
 vendored files separated from later changes that will use it.
 
-Note that src/swupd already has the Gopkg.* files, if a sibling
+Note that swupd already has the Gopkg.* files, if a sibling
 package need specific code to be vendored, it should call "dep init"
 in the package directory. (Or we should move vendoring one level
 below)

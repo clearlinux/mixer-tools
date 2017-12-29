@@ -65,14 +65,14 @@ func initBuildDirs(version uint32, groups []string, imageBase string) error {
 func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	newManifests := []*Manifest{}
 	for _, bundle := range ui.bundles {
-		oldM := &Manifest{}
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle)
-		if err := oldM.ReadManifestFromFile(oldMPath); err != nil {
+		oldM, err := ParseManifestFile(oldMPath)
+		if err != nil {
 			// throw away read manifest if it is invalid
 			if strings.Contains(err.Error(), "invalid manifest") {
 				fmt.Fprintf(os.Stderr, "%s: %s\n", oldM.Name, err)
-				oldM = &Manifest{}
 			}
+			oldM = &Manifest{}
 		}
 
 		newM := &Manifest{
@@ -169,14 +169,14 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		return err
 	}
 
-	oldFullManifest := Manifest{}
 	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
-	if err = oldFullManifest.ReadManifestFromFile(oldFullManifestPath); err != nil {
+	oldFullManifest, err := ParseManifestFile(oldFullManifestPath)
+	if err != nil {
 		// throw away read manifest if it is invalid
 		if strings.Contains(err.Error(), "invalid manifest") {
 			fmt.Fprintf(os.Stderr, "full: %s\n", err)
-			oldFullManifest = Manifest{}
 		}
+		oldFullManifest = &Manifest{}
 	}
 
 	if oldFullManifest.Header.Format > format {
@@ -194,14 +194,14 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 	}
 
 	timeStamp := time.Now()
-	oldMoM := Manifest{Header: ManifestHeader{Version: lastVersion}}
 	oldMoMPath := filepath.Join(c.stateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
-	if err = oldMoM.ReadManifestFromFile(oldMoMPath); err != nil {
+	oldMoM, err := ParseManifestFile(oldMoMPath)
+	if err != nil {
 		// throw away read manifest if it is invalid
 		if strings.Contains(err.Error(), "invalid manifest") {
 			fmt.Fprintf(os.Stderr, "MoM: %s\n", err)
-			oldMoM = Manifest{}
 		}
+		oldMoM = &Manifest{Header: ManifestHeader{Version: lastVersion}}
 	}
 
 	oldFormat := oldMoM.Header.Format

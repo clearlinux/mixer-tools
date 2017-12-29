@@ -227,10 +227,11 @@ func TestCheckInvalidManifestHeaders(t *testing.T) {
 	}
 }
 
-func TestReadManifestFromFileGood(t *testing.T) {
+func TestParseManifestFromFileGood(t *testing.T) {
 	path := "testdata/manifest.good"
-	var m Manifest
-	if err := m.ReadManifestFromFile(path); err != nil {
+
+	m, err := ParseManifestFile(path)
+	if err != nil {
 		t.Error(err)
 	}
 
@@ -239,7 +240,7 @@ func TestReadManifestFromFileGood(t *testing.T) {
 	}
 
 	if len(m.Files) == 0 {
-		t.Error("ReadManifestFromFile did not add file entries to the file list")
+		t.Error("ParseManifestFile did not add file entries to the file list")
 	}
 }
 
@@ -253,9 +254,9 @@ func TestInvalidManifests(t *testing.T) {
 	}
 	for _, name := range files {
 		t.Run(path.Base(name), func(t *testing.T) {
-			var m Manifest
-			if err := m.ReadManifestFromFile(name); err == nil {
-				t.Error("ReadManifestFromFile did not raise error for invalid manifest")
+			_, err := ParseManifestFile(name)
+			if err == nil {
+				t.Error("ParseManifestFile did not raise error for invalid manifest")
 			}
 		})
 	}
@@ -264,13 +265,13 @@ func TestInvalidManifests(t *testing.T) {
 func TestWriteManifestFile(t *testing.T) {
 	path := "testdata/manifest.good"
 
-	var m Manifest
-	if err := m.ReadManifestFromFile(path); err != nil {
+	m, err := ParseManifestFile(path)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	if len(m.Files) == 0 {
-		t.Fatal("ReadManifestFromFile did not add file entried to the file list")
+		t.Fatal("ParseManifestFile did not add file entried to the file list")
 	}
 
 	// do not use a tempfile here, we just need the unique name

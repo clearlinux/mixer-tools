@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -271,7 +272,7 @@ func (f *File) FlagString() (string, error) {
 
 // what a manifest file looks like
 // could replace the tabs with \t if we convert this to a normal rather than raw string.
-const manifestTemplate = `
+var manifestTemplate = template.Must(template.New("manifest").Parse(`
 {{- with .Header -}}
 MANIFEST	{{.Format}}
 version:	{{.Version}}
@@ -286,42 +287,34 @@ includes:	{{.Name}}
 {{ range .Files}}
 {{.FlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
 {{- end}}
-`
+`))
 
-// WriteManifestFile writes manifest m to a new file at path
+// WriteManifest writes manifest to a given io.Writer.
+func (m *Manifest) WriteManifest(w io.Writer) error {
+	err := m.CheckHeaderIsValid()
+	if err != nil {
+		return err
+	}
+	err = manifestTemplate.Execute(w, m)
+	if err != nil {
+		return fmt.Errorf("couldn't write manifest: %s", err)
+	}
+	return nil
+}
+
+// WriteManifestFile writes manifest m to a new file at path.
 func (m *Manifest) WriteManifestFile(path string) error {
-	var err error
-	var f *os.File
-	if err = m.CheckHeaderIsValid(); err != nil {
-		return err
-	}
-	if f, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644); err != nil {
-		return fmt.Errorf("could not create %v: %v", path, err)
-	}
-
-	defer func() {
-		cerr := f.Close()
-		if err == nil {
-			err = cerr
-		}
-	}()
-
-	w := bufio.NewWriter(f)
-
-	t, err := template.New("manifest").Parse(manifestTemplate)
-	if err != nil {
-		panic(err) // Compile time issue
-	}
-
-	err = t.Execute(w, m)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
-
-	// return error code or nil from w.Flush()
-	err = w.Flush()
-	// a nil error may be replaced by an f.Close() error in the deferred function
-	return err
+	err = m.WriteManifest(f)
+	if err != nil {
+		f.Close()
+		_ = os.Remove(path)
+		return err
+	}
+	return f.Close()
 }
 
 func (m *Manifest) sortFilesName() {

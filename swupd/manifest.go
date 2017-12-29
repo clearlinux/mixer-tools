@@ -186,32 +186,28 @@ var requiredManifestHeaderEntries = []string{
 	"contentsize:",
 }
 
-// ReadManifestFromFile reads a manifest file into memory
-func (m *Manifest) ReadManifestFromFile(f string) error {
-	var err error
-	manifestFile, err := os.Open(f)
+// ParseManifestFile creates a Manifest from file in path.
+func ParseManifestFile(path string) (*Manifest, error) {
+	f, err := os.Open(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// handle Close() errors
-	defer func() {
-		cerr := manifestFile.Close()
-		if err == nil {
-			err = cerr
-		}
-	}()
-
-	fstat, err := manifestFile.Stat()
+	m, err := ParseManifest(f)
 	if err != nil {
-		return err
+		_ = f.Close()
+		return nil, err
 	}
-
-	if fstat.Size() == 0 {
-		return fmt.Errorf("%v is an empty file", f)
+	err = f.Close()
+	if err != nil {
+		return nil, err
 	}
+	return m, nil
+}
 
-	input := bufio.NewScanner(manifestFile)
+// ParseManifest creates a Manifest from an io.Reader.
+func ParseManifest(r io.Reader) (*Manifest, error) {
+	m := &Manifest{}
+	input := bufio.NewScanner(r)
 
 	// Read the header.
 	parsedEntries := make(map[string]uint)
@@ -225,44 +221,44 @@ func (m *Manifest) ReadManifestFromFile(f string) error {
 		fields := strings.Split(text, manifestFieldDelim)
 		entry := fields[0]
 		if entry != "includes:" && parsedEntries[entry] > 0 {
-			return fmt.Errorf("invalid manifest, duplicate entry %q in header", entry)
+			return nil, fmt.Errorf("invalid manifest, duplicate entry %q in header", entry)
 		}
 		parsedEntries[entry]++
 
-		if err = readManifestFileHeaderLine(fields, m); err != nil {
-			return err
+		if err := readManifestFileHeaderLine(fields, m); err != nil {
+			return nil, err
 		}
 	}
 
 	// Validate the header.
 	for _, e := range requiredManifestHeaderEntries {
 		if parsedEntries[e] == 0 {
-			return fmt.Errorf("invalid manifest, missing entry %q in header", e)
+			return nil, fmt.Errorf("invalid manifest, missing entry %q in header", e)
 		}
 	}
-	err = m.CheckHeaderIsValid()
+	err := m.CheckHeaderIsValid()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Read the body.
 	for input.Scan() {
 		text := input.Text()
 		if text == "" {
-			return errors.New("invalid manifest, extra blank line")
+			return nil, errors.New("invalid manifest, extra blank line")
 		}
 
 		fields := strings.Split(text, manifestFieldDelim)
-		if err = readManifestFileEntry(fields, m); err != nil {
-			return err
+		if err := readManifestFileEntry(fields, m); err != nil {
+			return nil, err
 		}
 	}
 
 	if len(m.Files) == 0 {
-		return errors.New("invalid manifest, does not have any file entries")
+		return nil, errors.New("invalid manifest, does not have any file entries")
 	}
 
-	return err
+	return m, nil
 }
 
 // Correct visability

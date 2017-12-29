@@ -3,7 +3,6 @@ package swupd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
 	"path"
@@ -308,22 +307,13 @@ func TestWriteManifestFile(t *testing.T) {
 	}
 }
 
-func TestWriteManifestFileBadHeader(t *testing.T) {
+func TestWriteManifestWithBadHeader(t *testing.T) {
 	m := Manifest{Header: ManifestHeader{}}
 
-	f, err := ioutil.TempFile("testdata", "manifest.result")
-	if err != nil {
-		t.Fatal("unable to open file for write")
-	}
-	defer os.Remove(f.Name())
-
-	path := f.Name()
-	if err = m.WriteManifestFile(path); err == nil {
-		t.Error("WriteManifestFile did not fail on invalid header")
-	}
-
-	if err = os.Remove(path); err != nil {
-		t.Error("unable to remove file, did it not close properly?")
+	var output bytes.Buffer
+	err := m.WriteManifest(&output)
+	if err == nil {
+		t.Fatal("WriteManifest did not fail on invalid header")
 	}
 }
 

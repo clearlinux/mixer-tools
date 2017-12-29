@@ -179,27 +179,26 @@ func (b *Builder) ReadVersions() {
 	}
 }
 
-// SignManifestMOM will sign the Manifest.Mom file in in place based on the Mix
+// SignManifestMoM will sign the Manifest.MoM file in in place based on the Mix
 // version read from builder.conf.
-// Shelling out to openssl because signing and pkcs7 stuff is not well supported
-// in Go yet.. but the command works well and is how things worked previously
-func (b *Builder) SignManifestMOM() {
-	manifestMOM := b.Statedir + "/www/" + b.Mixver + "/Manifest.MoM"
-	manifestMOMsig := manifestMOM + ".sig"
-	cmd := exec.Command("openssl", "smime", "-sign", "-binary", "-in", manifestMOM,
-		"-signer", b.Cert, "-inkey", filepath.Dir(b.Cert)+"/private.pem",
-		"-outform", "DER", "-out", manifestMOMsig)
+func (b *Builder) SignManifestMoM() error {
+	mom := filepath.Join(b.Statedir, "www", b.Mixver, "Manifest.MoM")
+	sig := mom + ".sig"
 
-	// OpenSSL gives us useful info here so capture it if needed
+	// Call openssl because signing and pkcs7 stuff is not well supported in Go yet.
+	cmd := exec.Command("openssl", "smime", "-sign", "-binary", "-in", mom,
+		"-signer", b.Cert, "-inkey", filepath.Dir(b.Cert)+"/private.pem",
+		"-outform", "DER", "-out", sig)
+
+	// Capture the output as it is useful in case of errors.
 	var out bytes.Buffer
+	cmd.Stdout = &out
 	cmd.Stderr = &out
 	err := cmd.Run()
 	if err != nil {
-		fmt.Println("ERROR: Failed to sign Manifest.MoM!")
-		fmt.Printf("%s\n", out.String())
-		helpers.PrintError(err)
+		return fmt.Errorf("failed to sign Manifest.MoM:\n%s", out.String())
 	}
-	fmt.Println("Signed Manifest.MoM")
+	return nil
 }
 
 // UpdateRepo will fetch the clr-bundles for our configured Clear Linux version
@@ -593,7 +592,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 	}
 
 	if _, err := os.Stat(b.Statedir + "/www/version/format" + b.Format); os.IsNotExist(err) {
-		if err = os.MkdirAll(b.Statedir + "/www/version/format"+b.Format, 0777); err != nil {
+		if err = os.MkdirAll(b.Statedir+"/www/version/format"+b.Format, 0777); err != nil {
 			helpers.PrintError(err)
 			return err
 		}
@@ -616,7 +615,12 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 
 	// Step 1.5: sign the Manifest.MoM that was just created
 	if signflag == false {
-		b.SignManifestMOM()
+		err = b.SignManifestMoM()
+		if err != nil {
+			helpers.PrintError(err)
+			return err
+		}
+		fmt.Println("Signed Manifest.MoM")
 	}
 
 	// Step 2: create fullfiles

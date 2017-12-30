@@ -200,7 +200,8 @@ func (f *File) setFlags(flags string) error {
 	return nil
 }
 
-func (f *File) getFlagString() (string, error) {
+// GetFlagString returns the flags in a format suitable for the Manifest
+func (f *File) GetFlagString() (string, error) {
 	if f.Type == typeUnset &&
 		f.Status == statusUnset &&
 		f.Modifier == modifierUnset &&

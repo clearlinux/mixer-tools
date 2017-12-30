@@ -205,7 +205,7 @@ func TestGetFlagString(t *testing.T) {
 	}
 
 	var flags string
-	if flags, err = f.getFlagString(); err != nil {
+	if flags, err = f.GetFlagString(); err != nil {
 		t.Error(err)
 	}
 
@@ -216,7 +216,7 @@ func TestGetFlagString(t *testing.T) {
 
 func TestGetFlagStringFlagsUnset(t *testing.T) {
 	f := File{}
-	if _, err := f.getFlagString(); err == nil {
+	if _, err := f.GetFlagString(); err == nil {
 		t.Error("getFlagString did not raise an error on unset flags")
 	}
 }

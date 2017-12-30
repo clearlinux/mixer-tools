@@ -261,11 +261,6 @@ func ParseManifest(r io.Reader) (*Manifest, error) {
 	return m, nil
 }
 
-// Correct visability
-func (f *File) FlagString() (string, error) {
-	return f.getFlagString()
-}
-
 // what a manifest file looks like
 // could replace the tabs with \t if we convert this to a normal rather than raw string.
 var manifestTemplate = template.Must(template.New("manifest").Parse(`
@@ -281,7 +276,7 @@ includes:	{{.Name}}
 {{- end}}
 {{- end}}
 {{ range .Files}}
-{{.FlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
+{{.GetFlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
 {{- end}}
 `))
 

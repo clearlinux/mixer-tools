@@ -34,11 +34,6 @@ import (
 	"time"
 )
 
-var (
-	// ENOVERSION is returned when an a version is unknown
-	ENOVERSION = 24
-)
-
 // PrintError is a utility function to emit an error to the console
 func PrintError(e error) {
 	fmt.Fprintf(os.Stderr, "***Error: %v\n", e)

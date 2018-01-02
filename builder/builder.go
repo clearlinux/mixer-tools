@@ -592,8 +592,8 @@ func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string
 		b.Format = formatflag
 	}
 
-	if _, err := os.Stat(b.Statedir + "www/version/format" + b.Format); os.IsNotExist(err) {
-		if err = os.Mkdir(b.Statedir+"www/version/format"+b.Format, 0777); err != nil {
+	if _, err := os.Stat(b.Statedir + "/www/version/format" + b.Format); os.IsNotExist(err) {
+		if err = os.MkdirAll(b.Statedir + "/www/version/format"+b.Format, 0777); err != nil {
 			helpers.PrintError(err)
 			return err
 		}

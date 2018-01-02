@@ -33,9 +33,7 @@ var addRPMCmd = &cobra.Command{
 		if err != nil {
 			return errors.Wrapf(err, "Error cannot read %s\n", b.Rpmdir)
 		}
-		// TODO return error to check from AddRPMList
-		b.AddRPMList(rpms)
-		return nil
+		return b.AddRPMList(rpms)
 	},
 }
 

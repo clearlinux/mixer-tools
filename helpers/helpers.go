@@ -254,17 +254,3 @@ func Git(args ...string) {
 		os.Exit(1)
 	}
 }
-
-// CheckRPM returns nil if file <name>.rpm shows a valid RPM v# output,
-// in order to catch corrupt or invalid RPM files.
-func CheckRPM(rpm string) error {
-	output, err := exec.Command("file", rpm).Output()
-	if err != nil {
-		PrintError(err)
-		return err
-	}
-	if strings.Contains(string(output), "RPM v") {
-		return nil
-	}
-	return fmt.Errorf("ERROR: %s is not valid", rpm)
-}

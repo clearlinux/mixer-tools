@@ -10,6 +10,10 @@ import (
 	"testing"
 )
 
+func removeAllIgnoreErr(dir string) {
+	_ = os.RemoveAll(dir)
+}
+
 func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
 	var err error
 	var info os.FileInfo
@@ -30,7 +34,7 @@ func TestInitBuildEnv(t *testing.T) {
 		t.Fatalf("Could not initialize state dir for testing: %v", err)
 	}
 
-	defer os.RemoveAll(sdir)
+	defer removeAllIgnoreErr(sdir)
 
 	if err = initBuildEnv(config{stateDir: sdir}); err != nil {
 		t.Errorf("initBuildEnv raised unexpected error: %v", err)
@@ -50,7 +54,7 @@ func TestInitBuildDirs(t *testing.T) {
 		t.Fatalf("Could not initialize image dir for testing: %v", err)
 	}
 
-	defer os.RemoveAll(c.imageBase)
+	defer removeAllIgnoreErr(c.imageBase)
 
 	if err = initBuildDirs(10, bundles, c.imageBase); err != nil {
 		t.Errorf("initBuildDirs raised unexpected error: %v", err)

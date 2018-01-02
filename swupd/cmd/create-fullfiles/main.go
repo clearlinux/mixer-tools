@@ -40,7 +40,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("couldn't create file for CPU profile: %s", err)
 		}
-		pprof.StartCPUProfile(f)
+		_ = pprof.StartCPUProfile(f)
 		defer pprof.StopCPUProfile()
 	}
 

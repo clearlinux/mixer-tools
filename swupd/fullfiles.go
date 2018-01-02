@@ -207,27 +207,27 @@ func createRegularFullfile(input, name, output string) (err error) {
 		err = c.Func(out, uncompressed)
 		if err != nil {
 			log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, c.Name, err)
-			out.Close()
-			os.RemoveAll(candidate)
+			_ = out.Close()
+			_ = os.RemoveAll(candidate)
 			continue
 		}
 		candidateSize, err = out.Seek(0, io.SeekEnd)
 		if err != nil {
 			log.Printf("WARNING: couldn't get size of %s: %s", candidate, err)
-			out.Close()
-			os.RemoveAll(candidate)
+			_ = out.Close()
+			_ = os.RemoveAll(candidate)
 			continue
 		}
-		out.Close()
+		_ = out.Close()
 
 		if candidateSize < bestSize {
 			if best != "" {
-				os.RemoveAll(best)
+				_ = os.RemoveAll(best)
 			}
 			best = candidate
 			bestSize = candidateSize
 		} else {
-			os.RemoveAll(candidate)
+			_ = os.RemoveAll(candidate)
 		}
 
 		if debugFullfiles {
@@ -267,7 +267,13 @@ func tarRegularFullfile(w io.Writer, input, name string, fi os.FileInfo) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() {
+		cerr := in.Close()
+		if err == nil {
+			err = cerr
+		}
+	}()
+
 	_, err = io.Copy(tw, in)
 	if err != nil {
 		return err

@@ -66,9 +66,5 @@ func (er *externalReader) Read(p []byte) (int, error) {
 }
 
 func (er *externalReader) Close() error {
-	err := er.output.Close()
-	if err != nil {
-		return err
-	}
 	return er.cmd.Wait()
 }

@@ -246,7 +246,7 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 			return err
 		}
 
-		if newMoM.createManifestRecord(verOutput, manPath, fi, version); err != nil {
+		if err = newMoM.createManifestRecord(verOutput, manPath, fi, version); err != nil {
 			return err
 		}
 	}

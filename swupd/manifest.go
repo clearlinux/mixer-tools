@@ -301,7 +301,7 @@ func (m *Manifest) WriteManifestFile(path string) error {
 	}
 	err = m.WriteManifest(f)
 	if err != nil {
-		f.Close()
+		_ = f.Close()
 		_ = os.Remove(path)
 		return err
 	}

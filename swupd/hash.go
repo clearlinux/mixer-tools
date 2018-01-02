@@ -100,7 +100,7 @@ func hmacSha256ForData(key []byte, data []byte) []byte {
 	var result [64]byte
 
 	mac := hmac.New(sha256.New, key)
-	mac.Write(data)
+	_, _ = mac.Write(data)
 	hex.Encode(result[:], mac.Sum(nil))
 	return result[:]
 }

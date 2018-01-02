@@ -21,7 +21,7 @@ func newExternalWriter(w io.Writer, program string, args ...string) (*externalWr
 	cmd.Stdout = w
 	err = cmd.Start()
 	if err != nil {
-		input.Close()
+		_ = input.Close()
 		return nil, err
 	}
 	return &externalWriter{cmd, input}, nil
@@ -55,7 +55,7 @@ func newExternalReader(r io.Reader, program string, args ...string) (*externalRe
 	}
 	err = cmd.Start()
 	if err != nil {
-		output.Close()
+		_ = output.Close()
 		return nil, err
 	}
 	return &externalReader{cmd, output}, nil

@@ -276,7 +276,9 @@ func TestWriteManifestFile(t *testing.T) {
 
 	// do not use a tempfile here, we just need the unique name
 	newpath := "testdata/manifest.good.result"
-	defer os.Remove(newpath)
+	defer func() {
+		_ = os.Remove(newpath)
+	}()
 	if err := m.WriteManifestFile(newpath); err != nil {
 		t.Error(err)
 	}

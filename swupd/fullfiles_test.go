@@ -12,7 +12,7 @@ func TestCreateFullfiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(dir)
+	defer removeAllIgnoreErr(dir)
 
 	chrootDir := filepath.Join(dir, "chroot")
 	mustMkdir(t, chrootDir)
@@ -41,7 +41,7 @@ func TestCreateFullfiles(t *testing.T) {
 
 	unique := make(map[Hashval]bool)
 	for name, desc := range files {
-		err := ioutil.WriteFile(filepath.Join(chrootDir, name), desc.data, 0644)
+		err = ioutil.WriteFile(filepath.Join(chrootDir, name), desc.data, 0644)
 		if err != nil {
 			t.Fatal(err)
 		}

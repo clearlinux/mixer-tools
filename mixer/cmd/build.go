@@ -104,7 +104,10 @@ var buildAllCmd = &cobra.Command{
 		b := builder.NewFromConfig(config)
 		rpms, err := ioutil.ReadDir(b.Rpmdir)
 		if err == nil {
-			b.AddRPMList(rpms)
+			err = b.AddRPMList(rpms)
+			if err != nil {
+				return errors.Wrap(err, "couldn't add the RPMs")
+			}
 		}
 		err = buildChroots(b, buildFlags.noSigning)
 		if err != nil {

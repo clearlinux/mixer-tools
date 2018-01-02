@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -29,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/pkg/errors"
 )
 
 // A Builder contains all configurable fields required to perform a full mix
@@ -689,46 +689,51 @@ func (b *Builder) BuildImage(format string, template string) error {
 
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to
 // generate a yum-consumable repository for the chroot builder to use.
-func (b *Builder) AddRPMList(rpms []os.FileInfo) {
+func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
+	if b.Repodir == "" {
+		return errors.Errorf("REPODIR not set in configuration")
+	}
+	err := os.MkdirAll(b.Repodir, 0755)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't create REPODIR")
+	}
 	for _, rpm := range rpms {
-		if err := helpers.CheckRPM(b.Rpmdir + "/" + rpm.Name()); err != nil {
-			fmt.Println("ERROR: RPM is not valid! Please make sure it was built correctly.")
-			os.Exit(1)
-		} else {
-			if _, err = os.Stat(b.Repodir + "/" + rpm.Name()); err == nil {
-				continue
-			}
+		localPath := filepath.Join(b.Rpmdir, rpm.Name())
+		if err := checkRPM(localPath); err != nil {
+			return err
+		}
+		// Skip RPM already in repo.
+		repoPath := filepath.Join(b.Repodir, rpm.Name())
+		if _, err := os.Stat(repoPath); err == nil {
+			continue
 		}
 		fmt.Printf("Hardlinking %s to repodir\n", rpm.Name())
-		err := os.Link(b.Rpmdir+"/"+rpm.Name(), b.Repodir+"/"+rpm.Name())
-		if err != nil {
-			err = helpers.CopyFile(b.Repodir+"/"+rpm.Name(), b.Rpmdir+"/"+rpm.Name())
+		if err := os.Link(localPath, repoPath); err != nil {
+			// Fallback to copying the file if hardlink fails.
+			err = helpers.CopyFile(repoPath, localPath)
 			if err != nil {
-				helpers.PrintError(err)
-				os.Exit(1)
+				return err
 			}
 		}
 	}
-	// Save current dir so we can get back to it
-	curr, err := os.Getwd()
+
+	cmd := exec.Command("createrepo_c", ".")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = b.Repodir
+
+	return cmd.Run()
+}
+
+// checkRPM returns nil if path contains a valid RPM file.
+func checkRPM(path string) error {
+	output, err := exec.Command("file", path).Output()
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return errors.Wrapf(err, "couldn't check if %s is a RPM", path)
 	}
-	if err = os.Chdir(b.Repodir); err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+	if !bytes.Contains(output, []byte("RPM v")) {
+		output = bytes.TrimSpace(output)
+		return errors.Errorf("file is not a RPM: %s", string(output))
 	}
-	createcmd := exec.Command("createrepo_c", ".")
-	createcmd.Stdout = os.Stdout
-	createcmd.Stderr = os.Stderr
-	err = createcmd.Run()
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
-	}
-	if err = os.Chdir(curr); err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
-	}
+	return nil
 }

@@ -38,7 +38,7 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	}
 
 	if filenameBlacklisted(filepath.Base(fname)) {
-		return fmt.Errorf("%s is a blacklisted file name\n", fname)
+		return fmt.Errorf("%s is a blacklisted file name", fname)
 	}
 
 	file = &File{
@@ -54,7 +54,7 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	case mode&os.ModeSymlink != 0:
 		file.Type = typeLink
 	default:
-		return fmt.Errorf("%v is an unsupported file type\n", file.Name)
+		return fmt.Errorf("%v is an unsupported file type", file.Name)
 	}
 
 	fh, err := Hashcalc(rootPath + file.Name)

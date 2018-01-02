@@ -8,8 +8,8 @@ go_import_path: github.com/clearlinux/mixer-tools
 
 before_install:
     - sudo apt-get update -qq
-    - go get -u gopkg.in/alecthomas/gometalinter.v1
-    - gometalinter.v1 --install
+    - go get -u gopkg.in/alecthomas/gometalinter.v2
+    - gometalinter.v2 --install
 
 script:
     - make lint

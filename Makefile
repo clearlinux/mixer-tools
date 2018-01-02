@@ -49,7 +49,7 @@ check: gopath
 
 .PHONY: lint
 lint: gopath
-	@gometalinter.v1 --deadline=10m --tests --vendor --disable-all \
+	@gometalinter.v2 --deadline=10m --tests --vendor --disable-all \
 	--enable=misspell \
 	--enable=vet \
 	--enable=ineffassign \

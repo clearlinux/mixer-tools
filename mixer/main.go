@@ -21,10 +21,7 @@ import (
 	"github.com/clearlinux/mixer-tools/mixer/cmd"
 )
 
-const version = "3.2.1"
-
 func main() {
-	fmt.Printf("Mixer %s\n", version)
 	if err := os.Setenv("LD_PRELOAD", "/usr/lib64/nosync/nosync.so"); err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load nosync.so, mixing may take longer\n")
 	}

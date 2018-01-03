@@ -25,16 +25,9 @@ import (
 
 var addRPMCmd = &cobra.Command{
 	Use:   "add-rpms",
-	Short: "Add rpms to local yum repository",
-	Long:  `Add rpms to local yum repository`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		b := builder.NewFromConfig(config)
-		rpms, err := ioutil.ReadDir(b.Rpmdir)
-		if err != nil {
-			return errors.Wrapf(err, "Error cannot read %s\n", b.Rpmdir)
-		}
-		return b.AddRPMList(rpms)
-	},
+	Short: "Add RPMs to local yum repository",
+	Long:  `Add RPMS from the configured RPMDIR to local yum repository`,
+	RunE:  runAddRPM,
 }
 
 var rpmCmds = []*cobra.Command{
@@ -46,4 +39,16 @@ func init() {
 		RootCmd.AddCommand(cmd)
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
+}
+
+func runAddRPM(cmd *cobra.Command, args []string) error {
+	b := builder.NewFromConfig(config)
+	if b.Rpmdir == "" {
+		return errors.Errorf("RPMDIR not set in configuration")
+	}
+	rpms, err := ioutil.ReadDir(b.Rpmdir)
+	if err != nil {
+		return errors.Wrapf(err, "cannot read RPMDIR")
+	}
+	return b.AddRPMList(rpms)
 }

@@ -102,7 +102,7 @@ var buildAllCmd = &cobra.Command{
 	Long:  `Build all content for mix with default options`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		b := builder.NewFromConfig(config)
-		rpms, err := ioutil.ReadDir(b.Rpmdir)
+		rpms, err := ioutil.ReadDir(b.RPMdir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
 			if err != nil {

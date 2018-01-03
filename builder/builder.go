@@ -43,7 +43,7 @@ type Builder struct {
 	Format      string
 	Mixver      string
 	Repodir     string
-	Rpmdir      string
+	RPMdir      string
 	Statedir    string
 	Versiondir  string
 	Yumconf     string
@@ -122,7 +122,7 @@ func (b *Builder) ReadBuilderConf() {
 		{`^FORMAT\s*=\s*`, &b.Format},
 		{`^MIXVER\s*=\s*`, &b.Mixver},
 		{`^REPODIR\s*=\s*`, &b.Repodir},
-		{`^RPMDIR\s*=\s*`, &b.Rpmdir},
+		{`^RPMDIR\s*=\s*`, &b.RPMdir},
 		{`^SERVER_STATE_DIR\s*=\s*`, &b.Statedir},
 		{`^VERSIONS_PATH\s*=\s*`, &b.Versiondir},
 		{`^YUM_CONF\s*=\s*`, &b.Yumconf},
@@ -698,7 +698,7 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
 		return errors.Wrapf(err, "couldn't create REPODIR")
 	}
 	for _, rpm := range rpms {
-		localPath := filepath.Join(b.Rpmdir, rpm.Name())
+		localPath := filepath.Join(b.RPMdir, rpm.Name())
 		if err := checkRPM(localPath); err != nil {
 			return err
 		}

@@ -25,13 +25,29 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Version of Mixer. Also used by the Makefile for releases.
+const Version = "3.2.1"
+
 var config string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:  "mixer",
 	Long: `Mixer is a tool used to compose OS update content and images.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		if rootCmdFlags.version {
+			fmt.Printf("Mixer %s\n", Version)
+			os.Exit(0)
+		}
+		// Use cmd here to print exactly like other prints of Usage (that might be
+		// configurable).
+		cmd.Print(cmd.UsageString())
+	},
 }
+
+var rootCmdFlags = struct {
+	version bool
+}{}
 
 type initCmdFlags struct {
 	all         bool
@@ -89,6 +105,7 @@ func init() {
 	}
 
 	RootCmd.AddCommand(initCmd)
+	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
 
 	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Create a mix with all Clear bundles included")
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")

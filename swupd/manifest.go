@@ -400,6 +400,7 @@ func (m *Manifest) newDeleted(oldManifest *Manifest) int {
 			df.Status = statusDeleted
 			df.Modifier = modifierUnset
 			df.Type = typeUnset
+			df.Hash = internHash(AllZeroHash)
 			m.Files = append(m.Files, df)
 			m.DeletedFiles = append(m.DeletedFiles, df)
 			deleted++

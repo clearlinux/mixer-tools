@@ -2,7 +2,6 @@ package swupd
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -85,28 +84,4 @@ func TestCreateFullfiles(t *testing.T) {
 	}
 
 	// TODO: Extract the tar files and retake the hash to see if it matches.
-}
-
-func mustMkdir(t *testing.T, name string) {
-	err := os.Mkdir(name, 0755)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func mustExist(t *testing.T, name string) {
-	_, err := os.Stat(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func mustNotExist(t *testing.T, name string) {
-	_, err := os.Stat(name)
-	if !os.IsNotExist(err) {
-		if err == nil {
-			t.Fatalf("file %s exists, but want file not to exist", name)
-		}
-		t.Fatalf("got error %q, but want file does not exist error", err)
-	}
 }

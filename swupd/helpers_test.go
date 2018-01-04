@@ -161,3 +161,32 @@ func fileContainsRe(path string, re *regexp.Regexp) string {
 
 	return string(re.Find(b))
 }
+
+func resetHash() {
+	Hashes = []*string{&AllZeroHash}
+	invHash = map[string]Hashval{AllZeroHash: 0}
+}
+
+func mustMkdir(t *testing.T, name string) {
+	err := os.Mkdir(name, 0755)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustExist(t *testing.T, name string) {
+	_, err := os.Stat(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustNotExist(t *testing.T, name string) {
+	_, err := os.Stat(name)
+	if !os.IsNotExist(err) {
+		if err == nil {
+			t.Fatalf("file %s exists, but want file not to exist", name)
+		}
+		t.Fatalf("got error %q, but want file does not exist error", err)
+	}
+}

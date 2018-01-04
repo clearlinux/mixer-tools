@@ -324,3 +324,77 @@ func TestCreateManifestDeletes(t *testing.T) {
 		t.Error("file not properly deleted")
 	}
 }
+
+func TestCreateManifestIncludeVersionBump(t *testing.T) {
+	testDir := mustSetupTestDir(t, "includeverbump")
+	defer removeIfNoErrors(t, testDir)
+	bundles := []string{"test-bundle", "included", "included2", "included-nested"}
+	mustInitStandardTest(t, testDir, "0", "10", bundles)
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
+	// no includes file for first update
+	if err := CreateManifests(10, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{"includes:\tos-core\n", "10\t/foo\n"}
+	for _, s := range expected {
+		if !fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte(s)) {
+			t.Errorf("Manifest.test-bundle did not include expected string '%s'", s)
+		}
+	}
+
+	mustInitStandardTest(t, testDir, "10", "20", bundles)
+	// same file as last update, now manifest creation must be triggered by new includes
+	mustGenFile(t, testDir, "20", "test-bundle", "foo", "foo")
+	mustGenFile(t, testDir, "20", "included", "bar", "bar")
+	mustGenFile(t, testDir, "20", "included2", "baz", "baz")
+	mustInitIncludesFile(t, testDir, "20", "test-bundle", []string{"included", "included2"})
+	if err := CreateManifests(20, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		exp   string
+		bname string
+	}{
+		{"includes:\tos-core\n", "test-bundle"},
+		{"includes:\tincluded\n", "test-bundle"},
+		{"includes:\tincluded2\n", "test-bundle"},
+		{"20\t/bar\n", "included"},
+		{"20\t/baz\n", "included2"},
+	}
+	for _, tc := range cases {
+		if !fileContains(filepath.Join(testDir, "www/20/Manifest."+tc.bname), []byte(tc.exp)) {
+			t.Errorf("Manifest.%s did not include expected string '%s'", tc.bname, tc.exp)
+		}
+	}
+
+	mustInitStandardTest(t, testDir, "20", "30", bundles)
+	// again, same files
+	mustGenFile(t, testDir, "30", "test-bundle", "foo", "foo")
+	mustGenFile(t, testDir, "30", "included", "bar", "bar")
+	mustGenFile(t, testDir, "30", "included2", "baz", "baz")
+	mustGenFile(t, testDir, "30", "included-nested", "foobarbaz", "foobarbaz")
+	mustInitIncludesFile(t, testDir, "30", "test-bundle", []string{"included", "included2"})
+	mustInitIncludesFile(t, testDir, "30", "included", []string{"included-nested"})
+	if err := CreateManifests(30, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	cases = []struct {
+		exp   string
+		bname string
+	}{
+		{"includes:\tincluded-nested\n", "included"},
+		{"30\t/foobarbaz\n", "included-nested"},
+		{"20\t/bar\n", "included"},
+	}
+	for _, tc := range cases {
+		if !fileContains(filepath.Join(testDir, "www/30/Manifest."+tc.bname), []byte(tc.exp)) {
+			t.Errorf("Manifest.%s did not include expected string '%s'", tc.bname, tc.exp)
+		}
+	}
+
+	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.test-bundle"))
+	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.included2"))
+}

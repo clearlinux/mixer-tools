@@ -62,68 +62,66 @@ func initBuildDirs(version uint32, groups []string, imageBase string) error {
 	return nil
 }
 
-func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
-	newManifests := []*Manifest{}
-	for _, bundle := range ui.bundles {
-		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle)
-		oldM, err := ParseManifestFile(oldMPath)
-		if err != nil {
-			// throw away read manifest if it is invalid
-			if strings.Contains(err.Error(), "invalid manifest") {
-				fmt.Fprintf(os.Stderr, "%s: %s\n", oldM.Name, err)
-			}
-			oldM = &Manifest{}
+func getOldManifest(path string) *Manifest {
+	oldM, err := ParseManifestFile(path)
+	if err != nil {
+		// throw away read manifest if it is invalid
+		if strings.Contains(err.Error(), "invalid manifest") {
+			fmt.Fprintf(os.Stderr, "%s: %s\n", oldM.Name, err)
 		}
+		oldM = &Manifest{}
+	}
 
-		newM := &Manifest{
+	return oldM
+}
+
+func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
+	tmpManifests := []*Manifest{}
+	// first loop sets up initial bundle manifests and adds files to them
+	for _, bundleName := range ui.bundles {
+		bundle := &Manifest{
 			Header: ManifestHeader{
 				Format:    ui.format,
 				Version:   ui.version,
 				Previous:  ui.lastVersion,
 				TimeStamp: ui.timeStamp,
 			},
-			Name: bundle,
+			Name: bundleName,
 		}
 
-		newMChroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), newM.Name)
-		if err := newM.addFilesFromChroot(newMChroot); err != nil {
-			return newManifests, err
-		}
-
-		if ui.oldFormat == ui.format {
-			newM.addDeleted(oldM)
-		}
-
-		changedIncludes := compareIncludes(newM, oldM)
-		changedFiles := newM.linkPeersAndChange(oldM)
-		added := newM.filesAdded(oldM)
-		deleted := newM.newDeleted(oldM)
-		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
-			continue
-		}
-
-		if c.debuginfo.banned {
-			newM.removeDebuginfo(c.debuginfo)
+		bundleChroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name)
+		if err := bundle.addFilesFromChroot(bundleChroot); err != nil {
+			return nil, err
 		}
 
 		// detect type changes
 		// fail out here if a type change is detected since this is not yet supported in client
-		if newM.hasUnsupportedTypeChanges() {
-			return newManifests, errors.New("type changes not yet supported")
+		if bundle.hasUnsupportedTypeChanges() {
+			return nil, errors.New("type changes not yet supported")
 		}
 
-		// detect modifier flag for all files in the manifest
-		newM.applyHeuristics()
+		// remove banned debuginfo if configured to do so
+		if c.debuginfo.banned {
+			bundle.removeDebuginfo(c.debuginfo)
+		}
 
-		// if we get this far we need to actually write this manifest because it has changes
-		newManifests = append(newManifests, newM)
+		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle.Name)
+		oldM := getOldManifest(oldMPath)
+		// add old deleted files if the format has incremented
+		if ui.oldFormat == ui.format {
+			bundle.addDeleted(oldM)
+		}
+
+		tmpManifests = append(tmpManifests, bundle)
 	}
 
-	for _, bundle := range newManifests {
+	// second loop reads includes and then subtracts manifests using the file lists
+	// populated in the last step
+	for _, bundle := range tmpManifests {
 		if bundle.Name != "os-core" && bundle.Name != "full" {
 			// read in bundle includes
-			if err := bundle.readIncludes(newManifests, c); err != nil {
-				return newManifests, err
+			if err := bundle.readIncludes(tmpManifests, c); err != nil {
+				return nil, err
 			}
 
 			// subtract manifests
@@ -131,12 +129,34 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 	}
 
-	for _, bundle := range newManifests {
+	// final loop detects changes, applies heuristics to files, and sorts the file lists
+	newManifests := []*Manifest{}
+	for _, bundle := range tmpManifests {
+		// Check for changed includes, changed or added or deleted files
+		// must be done after subtractManifests because the oldM is a subtracted
+		// manifest
+		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle.Name)
+		oldM := getOldManifest(oldMPath)
+		changedIncludes := compareIncludes(bundle, oldM)
+		changedFiles := bundle.linkPeersAndChange(oldM)
+		added := bundle.filesAdded(oldM)
+		deleted := bundle.newDeleted(oldM)
+		// if nothing changed, skip
+		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
+			continue
+		}
+
+		// detect modifier flag for all files in the manifest
+		// must happen after finding newDeleted files to catch ghosted files.
+		bundle.applyHeuristics()
 		// sort manifest by version (then by filename)
 		// this must be done after subtractManifests has been done for all manifests
 		// because subtractManifests sorts the file lists by filename alone
 		bundle.sortFilesVersionName()
+		// Assign final FileCount based on the files that made it this far
 		bundle.Header.FileCount = uint32(len(bundle.Files))
+		// If we made it this far, this bundle has a change and should be written
+		newManifests = append(newManifests, bundle)
 	}
 
 	return newManifests, nil

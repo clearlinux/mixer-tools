@@ -7,11 +7,6 @@ import (
 	"testing"
 )
 
-func resetHash() {
-	Hashes = []*string{&AllZeroHash}
-	invHash = map[string]Hashval{AllZeroHash: 0}
-}
-
 func TestInternHash(t *testing.T) {
 	// reset Hashes so we get the expected indices
 	resetHash()

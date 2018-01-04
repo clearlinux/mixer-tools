@@ -18,10 +18,13 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -34,11 +37,27 @@ var config string
 var RootCmd = &cobra.Command{
 	Use:  "mixer",
 	Long: `Mixer is a tool used to compose OS update content and images.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if rootCmdFlags.version {
-			fmt.Printf("Mixer %s\n", Version)
-			os.Exit(0)
+
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Both --version and --check should work regardless of the regular
+		// check for external programs.
+		if cmd.Parent() == nil { // This is RootCmd.
+			if rootCmdFlags.version {
+				fmt.Printf("Mixer %s\n", Version)
+				os.Exit(0)
+			}
+			if rootCmdFlags.check {
+				ok := checkAllDeps()
+				if !ok {
+					os.Exit(1)
+				}
+				os.Exit(0)
+			}
 		}
+		return checkCmdDeps(cmd)
+	},
+
+	Run: func(cmd *cobra.Command, args []string) {
 		// Use cmd here to print exactly like other prints of Usage (that might be
 		// configurable).
 		cmd.Print(cmd.UsageString())
@@ -47,6 +66,7 @@ var RootCmd = &cobra.Command{
 
 var rootCmdFlags = struct {
 	version bool
+	check   bool
 }{}
 
 type initCmdFlags struct {
@@ -81,39 +101,80 @@ func Execute() {
 	}
 }
 
-func checkDeps() error {
-	deps := []string{
-		"createrepo_c",
-		"git",
-		"hardlink",
-		"m4",
-		"openssl",
-		"parallel",
-		"rpm",
-		"yum",
-	}
-	for _, dep := range deps {
-		if _, err := exec.LookPath(dep); err != nil {
-			return fmt.Errorf("failed to find program %q: %v", dep, err)
-		}
-	}
-	return nil
-}
-
 func init() {
-	if err := checkDeps(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-		os.Exit(1)
-	}
-
 	RootCmd.AddCommand(initCmd)
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
+	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")
 
 	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Create a mix with all Clear bundles included")
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
+
+	externalDeps[initCmd] = []string{
+		"git",
+	}
+}
+
+// externalDeps let commands keep track of their external program dependencies. Those will be
+// verified when the command is executed, just make sure it is filled at initialization.
+var externalDeps = make(map[*cobra.Command][]string)
+
+func checkCmdDeps(cmd *cobra.Command) error {
+	var deps []string
+	for ; cmd != nil; cmd = cmd.Parent() {
+		deps = append(deps, externalDeps[cmd]...)
+	}
+	sort.Strings(deps)
+
+	var missing []string
+	for i, dep := range deps {
+		if i > 0 && deps[i] == deps[i-1] {
+			// Skip duplicate.
+			continue
+		}
+		_, err := exec.LookPath(dep)
+		if err != nil {
+			missing = append(missing, dep)
+		}
+	}
+	if len(missing) > 0 {
+		return errors.Errorf("missing following external programs: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func checkAllDeps() bool {
+	var allDeps []string
+	for _, deps := range externalDeps {
+		allDeps = append(allDeps, deps...)
+	}
+	sort.Strings(allDeps)
+
+	var max int
+	for _, dep := range allDeps {
+		if len(dep) > max {
+			max = len(dep)
+		}
+	}
+
+	fmt.Println("Programs used by Mixer commands:")
+	ok := true
+	for i, dep := range allDeps {
+		if i > 0 && allDeps[i] == allDeps[i-1] {
+			// Skip duplicate.
+			continue
+		}
+		_, err := exec.LookPath(dep)
+		if err != nil {
+			fmt.Printf("  %-*s not found\n", max, dep)
+			ok = false
+		} else {
+			fmt.Printf("  %-*s ok\n", max, dep)
+		}
+	}
+	return ok
 }
 
 func fail(err error) {

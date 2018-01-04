@@ -38,6 +38,11 @@ func init() {
 		RootCmd.AddCommand(cmd)
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
+
+	externalDeps[addRPMCmd] = []string{
+		"createrepo_c",
+		"hardlink",
+	}
 }
 
 func runAddRPM(cmd *cobra.Command, args []string) {

@@ -169,4 +169,23 @@ func init() {
 
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)
+
+	externalDeps[buildChrootsCmd] = []string{
+		"m4",
+		"rpm",
+		"yum",
+	}
+	externalDeps[buildUpdateCmd] = []string{
+		"hardlink",
+		"mixer-pack-maker.sh",
+		"openssl",
+		"parallel", // Used by pack-maker.
+	}
+	externalDeps[buildImageCmd] = []string{
+		"ister.py",
+	}
+	externalDeps[buildAllCmd] = append(
+		externalDeps[buildChrootsCmd],
+		append(externalDeps[buildUpdateCmd],
+			externalDeps[buildImageCmd]...)...)
 }

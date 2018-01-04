@@ -398,3 +398,38 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.test-bundle"))
 	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.included2"))
 }
+
+func TestCreateManifestsState(t *testing.T) {
+	testDir := mustSetupTestDir(t, "state")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{})
+	mustGenFile(t, testDir, "10", "os-core", "var/lib/test", "test")
+	if err := CreateManifests(10, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	re := regexp.MustCompile("D\\.s\\.\t.*\t10\t/var/lib\n")
+	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
+		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
+	}
+
+	re = regexp.MustCompile("F\\.s\\.\t.*\t10\t/var/lib/test\n")
+	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
+		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
+	}
+}
+
+func TestCreateManifestsEmptyDir(t *testing.T) {
+	testDir := mustSetupTestDir(t, "emptydir")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{})
+	mustGenBundleDir(t, testDir, "10", "os-core", "emptydir")
+	if err := CreateManifests(10, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	re := regexp.MustCompile("D\\.\\.\\.\t.*\t10\t/emptydir\n")
+	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
+		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
+	}
+}

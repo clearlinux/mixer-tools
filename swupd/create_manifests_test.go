@@ -276,3 +276,31 @@ func TestCreateManifestGhosted(t *testing.T) {
 		t.Errorf("%v not found in 30/Manifest.full", re.String())
 	}
 }
+
+func TestCreateManifestIncludesDeduplicate(t *testing.T) {
+	testDir := mustSetupTestDir(t, "includes-dedup")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle1", "test-bundle2"})
+	mustInitIncludesFile(t, testDir, "10", "test-bundle2", []string{"test-bundle1", "test-bundle1"})
+	mustGenFile(t, testDir, "10", "test-bundle1", "test1", "test1")
+	mustGenFile(t, testDir, "10", "test-bundle2", "test2", "test2")
+
+	if err := CreateManifests(10, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	dualIncludes := []byte("includes:\ttest-bundle1\nincludes:\ttest-bundle1")
+	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle2"), dualIncludes) {
+		t.Error("includes not deduplicated for version 10")
+	}
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
+	mustInitIncludesFile(t, testDir, "20", "test-bundle2", []string{"test-bundle1", "test-bundle1"})
+	if err := CreateManifests(20, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	if fileContains(filepath.Join(testDir, "www/20/Manifest.test-bundle2"), dualIncludes) {
+		t.Error("includes not deduplicated for version 20")
+	}
+}

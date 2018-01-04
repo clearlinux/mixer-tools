@@ -3,29 +3,10 @@ package swupd
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"testing"
 )
-
-func removeAllIgnoreErr(dir string) {
-	_ = os.RemoveAll(dir)
-}
-
-func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
-	var err error
-	var info os.FileInfo
-	if info, err = os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-
-	// check if it is a directory or the perms don't match
-	if !info.Mode().IsDir() || info.Mode().Perm() != perm {
-		t.Fatal(err)
-	}
-}
 
 func TestInitBuildEnv(t *testing.T) {
 	var err error
@@ -67,52 +48,20 @@ func TestInitBuildDirs(t *testing.T) {
 	}
 }
 
-func fileContains(path string, sub []byte) bool {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return false
-	}
-
-	return bytes.Contains(b, sub)
-}
-
-func fileContainsRe(path string, re *regexp.Regexp) string {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-
-	return string(re.Find(b))
-}
-
-func mustCopyDir(t *testing.T, testDir string) {
-	cmd := exec.Command("cp", "-a", testDir+".in", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("Unable to copy %s.in to %s", testDir, testDir)
-	}
-}
-
-func mustRemoveAll(t *testing.T, testDir string) {
-	if err := os.RemoveAll(testDir); err != nil {
-		t.Fatalf("unable to remove old %s for testing", testDir)
-	}
-}
-
 func TestCreateManifests(t *testing.T) {
-	testDir := "./testdata/testdata-basic"
-	mustRemoveAll(t, testDir)
-	mustCopyDir(t, testDir)
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
+	var err error
+	testDir := mustSetupTestDir(t, "basic")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", "content")
+	if err = CreateManifests(10, false, 1, testDir); err != nil {
 		t.Fatal(err)
 	}
 
 	// set last version to 10
-	ver := []byte("10\n")
-	if err := ioutil.WriteFile(filepath.Join(testDir, "image/LAST_VER"), ver, 0755); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "foo", "new content")
+	if err = CreateManifests(20, false, 1, testDir); err != nil {
 		t.Error(err)
 	}
 
@@ -182,19 +131,17 @@ func TestCreateManifests(t *testing.T) {
 }
 
 func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
-	// init test dir
-	testDir := "./testdata/testdata-delete-no-version-bump"
-	mustRemoveAll(t, testDir)
-	mustCopyDir(t, testDir)
+	testDir := mustSetupTestDir(t, "deletenoverbump")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle1", "test-bundle2"})
+	mustGenFile(t, testDir, "10", "test-bundle1", "foo", "content")
+	mustGenFile(t, testDir, "10", "test-bundle2", "foo", "content")
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Fatal(err)
 	}
 
-	ver := []byte("10\n")
-	if err := ioutil.WriteFile(filepath.Join(testDir, "image", "LAST_VER"), ver, 0755); err != nil {
-		t.Fatal(err)
-	}
-
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
+	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "content")
 	if err := CreateManifests(20, false, 1, testDir); err != nil {
 		t.Error(err)
 	}
@@ -213,9 +160,10 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 }
 
 func TestCreateManifestIllegalChar(t *testing.T) {
-	testDir := "./testdata/testdata-filename-blacklisted"
-	mustRemoveAll(t, testDir)
-	mustCopyDir(t, testDir)
+	testDir := mustSetupTestDir(t, "illegalfname")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{})
+	mustGenFile(t, testDir, "10", "os-core", "semicolon;", "")
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Error(err)
 	}
@@ -226,11 +174,20 @@ func TestCreateManifestIllegalChar(t *testing.T) {
 }
 
 func TestCreateManifestDebuginfo(t *testing.T) {
-	testDir := "./testdata/testdata-filename-debuginfo"
-	mustRemoveAll(t, testDir)
-	mustCopyDir(t, testDir)
+	testDir := mustSetupTestDir(t, "debuginfo")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	files := []string{"usr/bin/foobar", "usr/lib/debug/foo", "usr/src/debug/bar"}
+	for _, f := range files {
+		mustGenFile(t, testDir, "10", "test-bundle", f, "content")
+	}
+
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Error(err)
+	}
+
+	if !fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/bin/foobar")) {
+		t.Error("non-debuginfo file '/usr/bin/foobar' banned")
 	}
 
 	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/lib/debug/foo")) {
@@ -243,45 +200,32 @@ func TestCreateManifestDebuginfo(t *testing.T) {
 }
 
 func TestCreateManifestFormatNoDecrement(t *testing.T) {
-	testDir := "./testdata/testdata-format-no-decrement"
-	mustRemoveAll(t, testDir)
-	cmd := exec.Command("cp", "-a", "./testdata/testdata-format.in", testDir)
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy %s.in to %s", testDir, testDir)
-	}
-
-	cmd = exec.Command("/bin/cp", "./testdata/format-no-dec-server.ini",
-		testDir+"/server.ini")
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("unable to copy server.ini to %s", testDir)
-	}
-
+	testDir := mustSetupTestDir(t, "format-no-decrement")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{})
+	mustGenFile(t, testDir, "10", "os-core", "baz", "bazcontent")
+	mustGenFile(t, testDir, "10", "os-core", "foo", "foocontent")
 	if err := CreateManifests(10, false, 2, testDir); err != nil {
 		t.Fatal(err)
 	}
 
-	ver := []byte("10\n")
-	if err := ioutil.WriteFile(filepath.Join(testDir, "image", "LAST_VER"), ver, 0755); err != nil {
-		t.Fatal(err)
-	}
-
+	mustInitStandardTest(t, testDir, "10", "20", []string{})
 	if err := CreateManifests(20, true, 1, testDir); err == nil {
 		t.Error("CreateManifests successful when decrementing format (error expected)")
 	}
 }
 
 func TestCreateManifestFormat(t *testing.T) {
-	testDir := "./testdata/testdata-format"
-	mustRemoveAll(t, testDir)
-	mustCopyDir(t, testDir)
+	testDir := mustSetupTestDir(t, "format")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{})
+	mustGenFile(t, testDir, "10", "os-core", "baz", "bazcontent")
+	mustGenFile(t, testDir, "10", "os-core", "foo", "foocontent")
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Fatal(err)
 	}
 
-	ver := []byte("10\n")
-	if err := ioutil.WriteFile(filepath.Join(testDir, "image", "LAST_VER"), ver, 0755); err != nil {
-		t.Fatal(err)
-	}
+	mustInitStandardTest(t, testDir, "10", "20", []string{})
 
 	if err := CreateManifests(20, true, 2, testDir); err != nil {
 		t.Error(err)
@@ -289,27 +233,21 @@ func TestCreateManifestFormat(t *testing.T) {
 }
 
 func TestCreateManifestGhosted(t *testing.T) {
-	testDir := "./testdata/testdata-ghosting"
-	mustRemoveAll(t, testDir)
-	mustCopyDir(t, testDir)
+	testDir := mustSetupTestDir(t, "format")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "usr/lib/kernel/bar", "bar")
 	if err := CreateManifests(10, false, 1, testDir); err != nil {
 		t.Fatal(err)
 	}
 
-	ver := []byte("10\n")
-	if err := ioutil.WriteFile(filepath.Join(testDir, "image", "LAST_VER"), ver, 0755); err != nil {
-		t.Fatal(err)
-	}
-
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "usr/lib/kernel/baz", "baz")
 	if err := CreateManifests(20, false, 1, testDir); err != nil {
 		t.Fatal(err)
 	}
 
-	ver = []byte("20\n")
-	if err := ioutil.WriteFile(filepath.Join(testDir, "image", "LAST_VER"), ver, 0755); err != nil {
-		t.Fatal(err)
-	}
-
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
 	if err := CreateManifests(30, false, 1, testDir); err != nil {
 		t.Error(err)
 	}

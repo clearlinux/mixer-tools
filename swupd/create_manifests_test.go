@@ -304,3 +304,23 @@ func TestCreateManifestIncludesDeduplicate(t *testing.T) {
 		t.Error("includes not deduplicated for version 20")
 	}
 }
+
+func TestCreateManifestDeletes(t *testing.T) {
+	testDir := mustSetupTestDir(t, "deletes")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "test", "test")
+	if err := CreateManifests(10, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	if err := CreateManifests(20, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	deletedLine := []byte(".d..\t" + AllZeroHash + "\t20\t/test")
+	if !fileContains(filepath.Join(testDir, "www/20/Manifest.test-bundle"), deletedLine) {
+		t.Error("file not properly deleted")
+	}
+}

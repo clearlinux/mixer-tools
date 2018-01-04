@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 	"text/template"
 )
@@ -140,6 +141,18 @@ func mustInitOSRelease(t *testing.T, testDir, ver string) {
 func mustSetLatestVer(t *testing.T, testDir, ver string) {
 	err := ioutil.WriteFile(filepath.Join(testDir, "image/LAST_VER"), []byte(ver), 0644)
 	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustInitIncludesFile(t *testing.T, testDir, ver, bundle string, includes []string) {
+	noshipDir := filepath.Join(testDir, "image", ver, "noship")
+	if err := os.MkdirAll(noshipDir, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+
+	ib := []byte(strings.Join(includes, "\n") + "\n")
+	if err := ioutil.WriteFile(filepath.Join(noshipDir, bundle+"-includes"), ib, 0644); err != nil {
 		t.Fatal(err)
 	}
 }

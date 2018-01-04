@@ -161,6 +161,16 @@ func readLastVerFile(path string) (uint32, error) {
 	return uint32(parsed), nil
 }
 
+func appendUnique(ss []string, s string) []string {
+	for _, e := range ss {
+		if e == s {
+			return ss
+		}
+	}
+
+	return append(ss, s)
+}
+
 func readIncludesFile(path string) ([]string, error) {
 	if !exists(path) {
 		return []string{}, nil
@@ -172,10 +182,11 @@ func readIncludesFile(path string) ([]string, error) {
 		return []string{}, err
 	}
 
-	includes := strings.Split(string(allIncludes), "\n")
-	if includes[len(includes)-1] == "" {
-		// remove trailing empty string caused by trailing newline
-		includes = includes[:len(includes)-1]
+	includes := []string{}
+	for _, s := range strings.Split(string(allIncludes), "\n") {
+		if s != "" {
+			includes = appendUnique(includes, s)
+		}
 	}
 
 	return includes, nil

@@ -89,6 +89,11 @@ func removeIfNoErrors(t *testing.T, testDir string) {
 	}
 }
 
+func mustGenBundleDir(t *testing.T, testDir, ver, bundle, dirName string) {
+	dirPath := filepath.Join(testDir, "image", ver, bundle, dirName)
+	mustMkdir(t, dirPath)
+}
+
 var serverINITemplate = template.Must(template.New("server.ini").Parse(`
 [Server]
 emptydir={{.testDir}}/empty/

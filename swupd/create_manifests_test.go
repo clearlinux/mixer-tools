@@ -1,7 +1,6 @@
 package swupd
 
 import (
-	"bytes"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -49,81 +48,46 @@ func TestInitBuildDirs(t *testing.T) {
 }
 
 func TestCreateManifests(t *testing.T) {
-	var err error
 	testDir := mustSetupTestDir(t, "basic")
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
 	mustGenFile(t, testDir, "10", "test-bundle", "foo", "content")
 	mustCreateManifestsStandard(t, 10, testDir)
 
+	expSubs := []string{
+		"MANIFEST\t1",
+		"version:\t10",
+		"previous:\t0",
+		"filecount:\t5",
+		"timestamp:\t",
+		"contentsize:\t",
+		"includes:\tos-core",
+		"10\t/foo",
+		"10\t/usr/share",
+	}
+	checkManifestContains(t, testDir, "10", "test-bundle", expSubs...)
+
+	nExpSubs := []string{
+		"\t0\t/foo",
+		".d..\t",
+	}
+	checkManifestNotContains(t, testDir, "10", "test-bundle", nExpSubs...)
+
 	// set last version to 10
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
 	mustGenFile(t, testDir, "20", "test-bundle", "foo", "new content")
 	mustCreateManifestsStandard(t, 20, testDir)
 
-	lines := []struct {
-		sub      []byte
-		expected bool
-	}{
-		{[]byte("MANIFEST\t1"), true},
-		{[]byte("version:\t10"), true},
-		{[]byte("previous:\t0"), true},
-		{[]byte("filecount:\t5"), true},
-		{[]byte("timestamp:\t"), true},
-		{[]byte("contentsize:\t"), true},
-		{[]byte("includes:\tos-core"), true},
-		{[]byte("10\t/foo"), true},
-		{[]byte("\t0\t/foo"), false},
-		{[]byte("10\t/usr/share"), true},
-		{[]byte(".d..\t"), false},
+	expSubs = []string{
+		"MANIFEST\t1",
+		"version:\t20",
+		"previous:\t10",
+		"filecount:\t5",
+		"includes:\tos-core",
+		"20\t/foo",
 	}
-
-	// do not use the fileContains helper for this because we are checking a lot
-	// of strings in the same file
-	b, err := ioutil.ReadFile(filepath.Join(testDir, "www/10/Manifest.test-bundle"))
-	if err != nil {
-		t.Fatal("could not read test file for checking")
-	}
-
-	for _, l := range lines {
-		if bytes.Contains(b, l.sub) != l.expected {
-			if l.expected {
-				t.Errorf("'%s' not found in 10/Manifest.test-bundle", l.sub)
-			} else {
-				t.Errorf("invalid '%s' found in 10/Manifest.test-bundle", l.sub)
-			}
-		}
-	}
-
-	lines20 := []struct {
-		sub      []byte
-		expected bool
-	}{
-		{[]byte("MANIFEST\t1"), true},
-		{[]byte("version:\t20"), true},
-		{[]byte("previous:\t10"), true},
-		{[]byte("filecount:\t5"), true},
-		{[]byte("includes:\tos-core"), true},
-		{[]byte("20\t/foo"), true},
-		{[]byte("10\t/foo"), false},
-	}
-
-	// do not use the fileContains helper for this because we are checking a lot
-	// of strings in the same file
-	b, err = ioutil.ReadFile(filepath.Join(testDir, "www/20/Manifest.test-bundle"))
-	if err != nil {
-		t.Fatal("could not read test file for checking")
-	}
-
-	for _, l := range lines20 {
-		if bytes.Contains(b, l.sub) != l.expected {
-			if l.expected {
-				t.Errorf("'%s' not found in 20/Manifest.test-bundle", l.sub)
-			} else {
-				t.Errorf("invalid '%s' found in 20/Manifest.test-bundle", l.sub)
-			}
-		}
-	}
+	checkManifestContains(t, testDir, "20", "test-bundle", expSubs...)
+	checkManifestNotContains(t, testDir, "20", "test-bundle", "10\t/foo")
 }
 
 func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
@@ -134,21 +98,14 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 	mustGenFile(t, testDir, "10", "test-bundle2", "foo", "content")
 	mustCreateManifestsStandard(t, 10, testDir)
 
+	checkManifestContains(t, testDir, "10", "full", "10\t/foo")
+
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
 	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "content")
 	mustCreateManifestsStandard(t, 20, testDir)
 
-	if !fileContains(filepath.Join(testDir, "www/10/Manifest.full"), []byte("10\t/foo")) {
-		t.Error("'10\t/foo' not found in 10/Manifest.full")
-	}
-
-	if !fileContains(filepath.Join(testDir, "www/20/Manifest.full"), []byte("10\t/foo")) {
-		t.Error("'10\t/foo' not found in 20/Manifest.full")
-	}
-
-	if fileContains(filepath.Join(testDir, "www/20/Manifest.full"), []byte("20\t/foo")) {
-		t.Error("invalid '20\t/foo' found in 20/Manifest.full")
-	}
+	checkManifestContains(t, testDir, "20", "full", "10\t/foo")
+	checkManifestNotContains(t, testDir, "20", "full", "20\t/foo")
 }
 
 func TestCreateManifestIllegalChar(t *testing.T) {
@@ -158,9 +115,7 @@ func TestCreateManifestIllegalChar(t *testing.T) {
 	mustGenFile(t, testDir, "10", "os-core", "semicolon;", "")
 	mustCreateManifestsStandard(t, 10, testDir)
 
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.os-core"), []byte("semicolon;")) {
-		t.Error("illegal filename 'semicolon;' not blacklisted")
-	}
+	checkManifestNotContains(t, testDir, "10", "os-core", "semicolon;")
 }
 
 func TestCreateManifestDebuginfo(t *testing.T) {
@@ -174,17 +129,10 @@ func TestCreateManifestDebuginfo(t *testing.T) {
 
 	mustCreateManifestsStandard(t, 10, testDir)
 
-	if !fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/bin/foobar")) {
-		t.Error("non-debuginfo file '/usr/bin/foobar' banned")
-	}
+	checkManifestContains(t, testDir, "10", "test-bundle", "/usr/bin/foobar")
 
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/lib/debug/foo")) {
-		t.Error("debuginfo file '/usr/lib/debug/foo' not banned")
-	}
-
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/src/debug/bar")) {
-		t.Error("debuginfo file '/usr/src/debug/bar' not banned")
-	}
+	subs := []string{"/usr/lib/debug/foo", "/usr/src/debug/bar"}
+	checkManifestNotContains(t, testDir, "10", "test-bundle", subs...)
 }
 
 func TestCreateManifestFormatNoDecrement(t *testing.T) {
@@ -218,36 +166,26 @@ func TestCreateManifestGhosted(t *testing.T) {
 	mustGenFile(t, testDir, "10", "test-bundle", "usr/lib/kernel/bar", "bar")
 	mustCreateManifestsStandard(t, 10, testDir)
 
+	re := regexp.MustCompile("F\\.b\\.\t.*\t10\t/usr/lib/kernel/bar")
+	checkManifestMatches(t, testDir, "10", "full", re)
+
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
 	mustGenFile(t, testDir, "20", "test-bundle", "usr/lib/kernel/baz", "baz")
 	mustCreateManifestsStandard(t, 20, testDir)
 
+	res := []*regexp.Regexp{
+		regexp.MustCompile("\\.gb\\.\t.*\t20\t/usr/lib/kernel/bar"),
+		regexp.MustCompile("F\\.b\\.\t.*\t20\t/usr/lib/kernel/baz"),
+	}
+	checkManifestMatches(t, testDir, "20", "full", res...)
+
 	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
 	mustCreateManifestsStandard(t, 30, testDir)
 
-	re := regexp.MustCompile("F\\.b\\.\t.*\t10\t/usr/lib/kernel/bar")
-	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.full"), re) == "" {
-		t.Errorf("%v not found in 10/Manifest.full", re.String())
-	}
-
-	re = regexp.MustCompile("\\.gb\\.\t.*\t20\t/usr/lib/kernel/bar")
-	if fileContainsRe(filepath.Join(testDir, "www/20/Manifest.full"), re) == "" {
-		t.Errorf("%v not found in 20/Manifest.full", re.String())
-	}
-
-	re = regexp.MustCompile("F\\.b\\.\t.*\t20\t/usr/lib/kernel/baz")
-	if fileContainsRe(filepath.Join(testDir, "www/20/Manifest.full"), re) == "" {
-		t.Errorf("%v not found in 20/Manifest.full", re.String())
-	}
-
-	if fileContains(filepath.Join(testDir, "www/30/Manifest.full"), []byte("/usr/lib/kernel/bar")) {
-		t.Error("/usr/lib/kernel/bar not cleaned up in 30/Manifest.full")
-	}
+	checkManifestNotContains(t, testDir, "30", "full", "/usr/lib/kernel/bar")
 
 	re = regexp.MustCompile("\\.gb\\.\t.*\t30\t/usr/lib/kernel/baz")
-	if fileContainsRe(filepath.Join(testDir, "www/30/Manifest.full"), re) == "" {
-		t.Errorf("%v not found in 30/Manifest.full", re.String())
-	}
+	checkManifestMatches(t, testDir, "30", "full", re)
 }
 
 func TestCreateManifestIncludesDeduplicate(t *testing.T) {
@@ -259,18 +197,14 @@ func TestCreateManifestIncludesDeduplicate(t *testing.T) {
 	mustGenFile(t, testDir, "10", "test-bundle2", "test2", "test2")
 	mustCreateManifestsStandard(t, 10, testDir)
 
-	dualIncludes := []byte("includes:\ttest-bundle1\nincludes:\ttest-bundle1")
-	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle2"), dualIncludes) {
-		t.Error("includes not deduplicated for version 10")
-	}
+	dualIncludes := "includes:\ttest-bundle1\nincludes:\ttest-bundle1"
+	checkManifestNotContains(t, testDir, "10", "test-bundle2", dualIncludes)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
 	mustInitIncludesFile(t, testDir, "20", "test-bundle2", []string{"test-bundle1", "test-bundle1"})
 	mustCreateManifestsStandard(t, 20, testDir)
 
-	if fileContains(filepath.Join(testDir, "www/20/Manifest.test-bundle2"), dualIncludes) {
-		t.Error("includes not deduplicated for version 20")
-	}
+	checkManifestNotContains(t, testDir, "20", "test-bundle2", dualIncludes)
 }
 
 func TestCreateManifestDeletes(t *testing.T) {
@@ -283,10 +217,8 @@ func TestCreateManifestDeletes(t *testing.T) {
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
 	mustCreateManifestsStandard(t, 20, testDir)
 
-	deletedLine := []byte(".d..\t" + AllZeroHash + "\t20\t/test")
-	if !fileContains(filepath.Join(testDir, "www/20/Manifest.test-bundle"), deletedLine) {
-		t.Error("file not properly deleted")
-	}
+	deletedLine := ".d..\t" + AllZeroHash + "\t20\t/test"
+	checkManifestContains(t, testDir, "20", "test-bundle", deletedLine)
 }
 
 func TestCreateManifestIncludeVersionBump(t *testing.T) {
@@ -299,11 +231,7 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustCreateManifestsStandard(t, 10, testDir)
 
 	expected := []string{"includes:\tos-core\n", "10\t/foo\n"}
-	for _, s := range expected {
-		if !fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte(s)) {
-			t.Errorf("Manifest.test-bundle did not include expected string '%s'", s)
-		}
-	}
+	checkManifestContains(t, testDir, "10", "test-bundle", expected...)
 
 	mustInitStandardTest(t, testDir, "10", "20", bundles)
 	// same file as last update, now manifest creation must be triggered by new includes
@@ -314,19 +242,20 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustCreateManifestsStandard(t, 20, testDir)
 
 	cases := []struct {
-		exp   string
+		exp   []string
 		bname string
 	}{
-		{"includes:\tos-core\n", "test-bundle"},
-		{"includes:\tincluded\n", "test-bundle"},
-		{"includes:\tincluded2\n", "test-bundle"},
-		{"20\t/bar\n", "included"},
-		{"20\t/baz\n", "included2"},
+		{[]string{
+			"includes:\tos-core\n",
+			"includes:\tincluded\n",
+			"includes:\tincluded2\n",
+		},
+			"test-bundle"},
+		{[]string{"20\t/bar\n"}, "included"},
+		{[]string{"20\t/baz\n"}, "included2"},
 	}
 	for _, tc := range cases {
-		if !fileContains(filepath.Join(testDir, "www/20/Manifest."+tc.bname), []byte(tc.exp)) {
-			t.Errorf("Manifest.%s did not include expected string '%s'", tc.bname, tc.exp)
-		}
+		checkManifestContains(t, testDir, "20", tc.bname, tc.exp...)
 	}
 
 	mustInitStandardTest(t, testDir, "20", "30", bundles)
@@ -340,17 +269,14 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustCreateManifestsStandard(t, 30, testDir)
 
 	cases = []struct {
-		exp   string
+		exp   []string
 		bname string
 	}{
-		{"includes:\tincluded-nested\n", "included"},
-		{"30\t/foobarbaz\n", "included-nested"},
-		{"20\t/bar\n", "included"},
+		{[]string{"includes:\tincluded-nested\n", "20\t/bar\n"}, "included"},
+		{[]string{"30\t/foobarbaz\n"}, "included-nested"},
 	}
 	for _, tc := range cases {
-		if !fileContains(filepath.Join(testDir, "www/30/Manifest."+tc.bname), []byte(tc.exp)) {
-			t.Errorf("Manifest.%s did not include expected string '%s'", tc.bname, tc.exp)
-		}
+		checkManifestContains(t, testDir, "30", tc.bname, tc.exp...)
 	}
 
 	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.test-bundle"))
@@ -364,15 +290,11 @@ func TestCreateManifestsState(t *testing.T) {
 	mustGenFile(t, testDir, "10", "os-core", "var/lib/test", "test")
 	mustCreateManifestsStandard(t, 10, testDir)
 
-	re := regexp.MustCompile("D\\.s\\.\t.*\t10\t/var/lib\n")
-	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
-		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
+	res := []*regexp.Regexp{
+		regexp.MustCompile("D\\.s\\.\t.*\t10\t/var/lib\n"),
+		regexp.MustCompile("F\\.s\\.\t.*\t10\t/var/lib/test\n"),
 	}
-
-	re = regexp.MustCompile("F\\.s\\.\t.*\t10\t/var/lib/test\n")
-	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
-		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
-	}
+	checkManifestMatches(t, testDir, "10", "os-core", res...)
 }
 
 func TestCreateManifestsEmptyDir(t *testing.T) {
@@ -383,9 +305,7 @@ func TestCreateManifestsEmptyDir(t *testing.T) {
 	mustCreateManifestsStandard(t, 10, testDir)
 
 	re := regexp.MustCompile("D\\.\\.\\.\t.*\t10\t/emptydir\n")
-	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
-		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
-	}
+	checkManifestMatches(t, testDir, "10", "os-core", re)
 }
 
 func TestCreateManifestsMoM(t *testing.T) {
@@ -402,11 +322,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 		"10\ttest-bundle3",
 		"10\ttest-bundle4",
 	}
-	for _, s := range subs {
-		if !fileContains(filepath.Join(testDir, "www/10/Manifest.MoM"), []byte(s)) {
-			t.Errorf("10/Manifest.MoM did not contain expected '%s'", s)
-		}
-	}
+	checkManifestContains(t, testDir, "10", "MoM", subs...)
 
 	mustInitStandardTest(t, testDir, "10", "20", bundles)
 	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "foo")
@@ -421,11 +337,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 		"20\ttest-bundle3",
 		"10\ttest-bundle4",
 	}
-	for _, s := range subs {
-		if !fileContains(filepath.Join(testDir, "www/20/Manifest.MoM"), []byte(s)) {
-			t.Errorf("20/Manifest.MoM did not contain expected '%s'", s)
-		}
-	}
+	checkManifestContains(t, testDir, "20", "MoM", subs...)
 
 	mustInitStandardTest(t, testDir, "20", "30", bundles)
 	mustGenFile(t, testDir, "30", "test-bundle1", "foo", "foo20")
@@ -440,11 +352,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 		"30\ttest-bundle3",
 		"10\ttest-bundle4",
 	}
-	for _, s := range subs {
-		if !fileContains(filepath.Join(testDir, "www/30/Manifest.MoM"), []byte(s)) {
-			t.Errorf("30/Manifest.MoM did not contain expected '%s'", s)
-		}
-	}
+	checkManifestContains(t, testDir, "30", "MoM", subs...)
 
 	mustInitStandardTest(t, testDir, "30", "40", bundles)
 	mustGenFile(t, testDir, "40", "test-bundle1", "foo", "foo30")
@@ -458,9 +366,5 @@ func TestCreateManifestsMoM(t *testing.T) {
 		"30\ttest-bundle2",
 		"10\ttest-bundle4",
 	}
-	for _, s := range subs {
-		if !fileContains(filepath.Join(testDir, "www/40/Manifest.MoM"), []byte(s)) {
-			t.Errorf("40/Manifest.MoM did not contain expected '%s'", s)
-		}
-	}
+	checkManifestContains(t, testDir, "40", "MoM", subs...)
 }

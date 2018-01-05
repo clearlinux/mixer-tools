@@ -28,17 +28,34 @@ func filenameBlacklisted(fname string) bool {
 }
 
 // createFileRecord creates a manifest File entry from a file
-// this function sets the Name, Info, Type, and Hash fields
-// the Version field is additionally set using the global toVersion variable
 func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo) error {
-	var file *File
-	fname := strings.TrimPrefix(path, rootPath)
-	if fname == "" {
+	file, err := recordFromFile(rootPath, path, fi)
+	if err != nil {
+		return err
+	}
+
+	// this is a file to skip
+	if file == nil {
 		return nil
 	}
 
+	m.Files = append(m.Files, file)
+	m.Header.ContentSize += uint64(fi.Size())
+
+	return nil
+}
+
+// recordFromFile creates a struct File record from an os.FileInfo object
+// this function sets the Name, Info, Type, and Hash fields
+func recordFromFile(rootPath, path string, fi os.FileInfo) (*File, error) {
+	var file *File
+	fname := strings.TrimPrefix(path, rootPath)
+	if fname == "" {
+		return nil, nil
+	}
+
 	if filenameBlacklisted(filepath.Base(fname)) {
-		return fmt.Errorf("%s is a blacklisted file name", fname)
+		return nil, fmt.Errorf("%s is a blacklisted file name", fname)
 	}
 
 	file = &File{
@@ -54,37 +71,39 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 	case mode&os.ModeSymlink != 0:
 		file.Type = typeLink
 	default:
-		return fmt.Errorf("%v is an unsupported file type", file.Name)
+		return nil, fmt.Errorf("%v is an unsupported file type", file.Name)
 	}
 
 	fh, err := Hashcalc(rootPath + file.Name)
 	if err != nil {
-		return fmt.Errorf("hash calculation error: %v", err)
+		return nil, fmt.Errorf("hash calculation error: %v", err)
 	}
 
 	file.Hash = fh
 
-	m.Files = append(m.Files, file)
-	m.Header.ContentSize += uint64(fi.Size())
-
-	return nil
+	return file, nil
 }
 
 // createManifestRecord wraps createFileRecord to create a Manifest record for a MoM
 func (m *Manifest) createManifestRecord(rootPath string, path string, fi os.FileInfo, version uint32) error {
-	if err := m.createFileRecord(rootPath, path, fi); err != nil {
+	file, err := recordFromFile(rootPath, path, fi)
+	if err != nil {
 		if strings.Contains(err.Error(), "hash calculation error") {
 			return err
 		}
 		fmt.Fprint(os.Stderr, err)
 	}
 
-	// the most recently added file is the one we need to update
-	f := m.Files[len(m.Files)-1]
+	// this is a file to skip
+	if file == nil {
+		return nil
+	}
+
 	// Only the bundle name should be part of the name in the manifest
-	f.Name = strings.Replace(f.Name, "/Manifest.", "", -1)
-	f.Type = typeManifest
-	f.Version = version
+	file.Name = strings.Replace(file.Name, "/Manifest.", "", -1)
+	file.Type = typeManifest
+	file.Version = version
+	m.Files = append(m.Files, file)
 	return nil
 }
 

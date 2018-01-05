@@ -31,6 +31,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+// UseNewSwupdServer controls whether to use the new implementation of
+// swupd-server (package swupd) when possible. This is an experimental feature.
+var UseNewSwupdServer = false
+
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {

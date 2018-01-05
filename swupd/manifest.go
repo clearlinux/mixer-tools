@@ -520,3 +520,14 @@ func (m *Manifest) removeDebuginfo(d dbgConfig) {
 		}
 	}
 }
+
+// getManifestVerFromMoM Find last version for b manifest from mom
+func getManifestVerFromMoM(mom *Manifest, b *Manifest) uint32 {
+	for _, m := range mom.Files {
+		if m.Name == b.Name {
+			return m.Version
+		}
+	}
+
+	return 0
+}

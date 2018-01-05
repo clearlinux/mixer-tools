@@ -79,9 +79,10 @@ func (m *Manifest) createManifestRecord(rootPath string, path string, fi os.File
 		fmt.Fprint(os.Stderr, err)
 	}
 
-	// remove leading "/" from manifest record
+	// the most recently added file is the one we need to update
 	f := m.Files[len(m.Files)-1]
-	f.Name = strings.TrimLeft(f.Name, "/")
+	// Only the bundle name should be part of the name in the manifest
+	f.Name = strings.Replace(f.Name, "/Manifest.", "", -1)
 	f.Type = typeManifest
 	f.Version = version
 	return nil

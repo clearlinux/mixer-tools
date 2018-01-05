@@ -129,13 +129,22 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 	}
 
+	// Need old MoM to get version of last bundle manifest
+	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
+	oldMoM := getOldManifest(oldMoMPath)
+
 	// final loop detects changes, applies heuristics to files, and sorts the file lists
 	newManifests := []*Manifest{}
 	for _, bundle := range tmpManifests {
 		// Check for changed includes, changed or added or deleted files
 		// must be done after subtractManifests because the oldM is a subtracted
 		// manifest
-		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle.Name)
+		ver := getManifestVerFromMoM(oldMoM, bundle)
+		if ver == 0 {
+			ver = ui.lastVersion
+		}
+
+		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
 		oldM := getOldManifest(oldMPath)
 		changedIncludes := compareIncludes(bundle, oldM)
 		changedFiles := bundle.linkPeersAndChange(oldM)
@@ -214,16 +223,8 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 	}
 
 	timeStamp := time.Now()
-	oldMoMPath := filepath.Join(c.stateDir, fmt.Sprint(lastVersion), "Manifest.MoM")
-	oldMoM, err := ParseManifestFile(oldMoMPath)
-	if err != nil {
-		// throw away read manifest if it is invalid
-		if strings.Contains(err.Error(), "invalid manifest") {
-			fmt.Fprintf(os.Stderr, "MoM: %s\n", err)
-		}
-		oldMoM = &Manifest{Header: ManifestHeader{Version: lastVersion}}
-	}
-
+	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.MoM")
+	oldMoM := getOldManifest(oldMoMPath)
 	oldFormat := oldMoM.Header.Format
 
 	// PROCESS BUNDLES
@@ -255,10 +256,16 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		},
 	}
 
+	// write manifests then add them to the MoM
 	for _, bMan := range newManifests {
 		manPath := filepath.Join(verOutput, "Manifest."+bMan.Name)
 		if err = bMan.WriteManifestFile(manPath); err != nil {
 			return err
+		}
+
+		// don't need to add full to the MoM
+		if bMan.Name == "full" {
+			continue
 		}
 
 		var fi os.FileInfo
@@ -271,9 +278,10 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		}
 	}
 
+	// copy over unchanged manifests
 	for _, m := range oldMoM.Files {
-		if match := m.findFileNameInSlice(newMoM.Files); match != nil {
-			newMoM.Files = append(newMoM.Files, match)
+		if m.findFileNameInSlice(newMoM.Files) == nil {
+			newMoM.Files = append(newMoM.Files, m)
 		}
 	}
 

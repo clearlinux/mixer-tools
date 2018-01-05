@@ -522,136 +522,119 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 	return nil
 }
 
-// Set the published versions to what was just built
-func (b *Builder) setVersion(publish bool) {
-	if publish == false {
-		return
-	}
-
-	// Create the www/version/format# dir if it doesn't exist
-	formatdir := b.Statedir + "/www/version/format" + b.Format
-	if _, err := os.Stat(formatdir); os.IsNotExist(err) {
-		if err = os.MkdirAll(formatdir, 0777); err != nil {
-			helpers.PrintError(err)
-			os.Exit(1)
-		}
-	}
-
-	fmt.Println("Setting latest version to " + b.Mixver)
-	err := ioutil.WriteFile(formatdir+"/latest", []byte(b.Mixver), 0644)
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
-	}
-
-	err = ioutil.WriteFile(b.Statedir+"/image/LAST_VER", []byte(b.Mixver), 0644)
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
-	}
-
-	if b.Upstreamurl != "" {
-		fmt.Println("Saving the upstream version URL " + b.Upstreamurl)
-		upstreamurl := b.Statedir + "/www/" + b.Mixver + "/upstreamurl"
-		err = ioutil.WriteFile(upstreamurl, []byte(b.Upstreamurl), 0644)
-		if err != nil {
-			helpers.PrintError(err)
-			os.Exit(1)
-		}
-	}
-	fmt.Println("Saving the upstream version " + b.Clearver)
-	upstreamver := b.Statedir + "/www/" + b.Mixver + "/upstreamver"
-	err = ioutil.WriteFile(upstreamver, []byte(b.Clearver), 0644)
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
-	}
-
-}
-
-// CleanChroots will remove chroots based on what bundles are defined
-func (b *Builder) CleanChroots() {
-	files := helpers.GetDirContents(b.Bundledir)
-	basedir := b.Statedir + "/image/" + b.Mixver + "/"
-
-	for _, f := range files {
-		if f.Name() == "full" {
-			continue
-		}
-		err := os.RemoveAll(basedir + f.Name())
-		if err != nil {
-			helpers.PrintError(err)
-		}
-	}
-}
-
 // BuildUpdate will produce an update consumable by the swupd client
-func (b *Builder) BuildUpdate(prefixflag string, minvflag int, formatflag string, signflag bool, publishflag bool, keepchrootsflag bool) error {
-	if formatflag != "" {
-		b.Format = formatflag
+func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, skipSigning bool, publish bool, keepChroots bool) error {
+	if format != "" {
+		b.Format = format
 	}
 
-	if _, err := os.Stat(b.Statedir + "/www/version/format" + b.Format); os.IsNotExist(err) {
-		if err = os.MkdirAll(b.Statedir+"/www/version/format"+b.Format, 0777); err != nil {
-			helpers.PrintError(err)
-			return err
-		}
+	// Ensure the format dir exists.
+	formatDir := filepath.Join(b.Statedir, "www", "version", "format"+b.Format)
+	err := os.MkdirAll(formatDir, 0777)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't create the format directory")
 	}
 
-	// Step 1: create update content for the current mix
-	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Statedir, "--minversion", strconv.Itoa(minvflag), "-F", b.Format, "--osversion", b.Mixver)
+	// Create update metadata for the mix.
+	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Statedir, "--minversion", strconv.Itoa(minVersion), "-F", b.Format, "--osversion", b.Mixver)
 	updatecmd.Stdout = os.Stdout
 	updatecmd.Stderr = os.Stderr
-	err := updatecmd.Run()
+	err = updatecmd.Run()
 	if err != nil {
-		helpers.PrintError(err)
-		return err
+		return errors.Wrapf(err, "failed to create update metadata")
 	}
 
-	// We only need the full chroot from this point on, so cleanup the others to save space
-	if keepchrootsflag == false {
-		b.CleanChroots()
+	// Clean up the bundle chroots as only the full chroot is needed from this point on.
+	if !keepChroots {
+		var files []os.FileInfo
+		files, err = ioutil.ReadDir(b.Bundledir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
+		}
+		basedir := filepath.Join(b.Statedir, "image", b.Mixver)
+		for _, f := range files {
+			if f.Name() == "full" {
+				continue
+			}
+			err = os.RemoveAll(filepath.Join(basedir, f.Name()))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
+			}
+		}
 	}
 
-	// Step 1.5: sign the Manifest.MoM that was just created
-	if signflag == false {
+	// Sign the Manifest.MoM that was just created.
+	if !skipSigning {
 		err = b.SignManifestMoM()
 		if err != nil {
-			helpers.PrintError(err)
 			return err
 		}
 		fmt.Println("Signed Manifest.MoM")
 	}
 
-	// Step 2: create fullfiles
-	output, err := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Statedir, b.Mixver).Output()
+	// Create full files.
+	fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Statedir, b.Mixver)
+	fullfilecmd.Stdout = os.Stdout
+	fullfilecmd.Stderr = os.Stderr
+	err = fullfilecmd.Run()
 	if err != nil {
-		helpers.PrintError(err)
-		return err
-	}
-	fmt.Println(string(output))
-
-	// Step 3: create zero packs
-	if prefixflag == "" {
-		output, err = exec.Command("mixer-pack-maker.sh", "--to", b.Mixver, "-S", b.Statedir).Output()
-	} else {
-		output, err = exec.Command("mixer-pack-maker.sh", "--to", b.Mixver, "-S", b.Statedir, "--repodir", prefixflag).Output()
-	}
-	if err != nil {
-		helpers.PrintError(err)
-		return err
-	}
-	fmt.Println(string(output))
-
-	// Step 4: hardlink relevant dirs
-	_, err = exec.Command("hardlink", "-f", b.Statedir+"/image/"+b.Mixver+"/").Output()
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return errors.Wrapf(err, "couldn't create fullfiles")
 	}
 
-	// Step 5: update the latest version
-	b.setVersion(publishflag)
+	// Create zero packs.
+	zeropackArgs := []string{"--to", b.Mixver, "-S", b.Statedir}
+	if prefixflag != "" {
+		zeropackArgs = append(zeropackArgs, "--repodir", prefixflag)
+	}
+	zeropackcmd := exec.Command("mixer-pack-maker.sh", zeropackArgs...)
+	zeropackcmd.Stdout = os.Stdout
+	zeropackcmd.Stderr = os.Stderr
+	err = zeropackcmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "couldn't create zero packs")
+	}
+
+	// Hardlink the duplicate files. This helps when keeping the bundle chroots.
+	hardlinkcmd := exec.Command("hardlink", "-f", b.Statedir+"/image/"+b.Mixver+"/")
+	hardlinkcmd.Stdout = os.Stdout
+	hardlinkcmd.Stderr = os.Stderr
+	err = hardlinkcmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "couldn't perform hardlink step")
+	}
+
+	// Save upstream information.
+	if b.Upstreamurl != "" {
+		fmt.Printf("Saving the upstream URL: %s\n", b.Upstreamurl)
+		upstreamURLFile := filepath.Join(b.Statedir, "www", b.Mixver, "/upstreamurl")
+		err = ioutil.WriteFile(upstreamURLFile, []byte(b.Upstreamurl), 0644)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't write upstreamurl file")
+		}
+		fmt.Printf("Saving the upstream version: %s\n", b.Clearver)
+		upstreamVerFile := filepath.Join(b.Statedir, "www", b.Mixver, "upstreamver")
+		err = ioutil.WriteFile(upstreamVerFile, []byte(b.Clearver), 0644)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't write upstreamver file")
+		}
+	}
+
+	// Publish. Update the latest version both in the format (used by update itself) and in LAST_VER
+	// (used to create newer manifests).
+	if !publish {
+		return nil
+	}
+
+	fmt.Printf("Setting latest version to %s\n", b.Mixver)
+
+	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.Mixver), 0644)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't update the latest version")
+	}
+	err = ioutil.WriteFile(filepath.Join(b.Statedir, "image", "LAST_VER"), []byte(b.Mixver), 0644)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't update the latest version")
+	}
 
 	return nil
 }

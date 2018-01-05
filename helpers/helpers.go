@@ -222,18 +222,6 @@ func Download(filename string, url string) (err error) {
 	return nil
 }
 
-// GetDirContents is an an assert-style helper to get the contents of a
-// directory, or to exit on failure.
-func GetDirContents(dirname string) []os.FileInfo {
-	files, err := ioutil.ReadDir(dirname)
-	if err != nil {
-		PrintError(err)
-		os.Exit(1)
-	}
-
-	return files
-}
-
 // Git runs git with arguments and exits in case of failure.
 // IMPORTANT: the 'args' passed to this function _must_ be validated,
 // as to avoid cases where input is received from a third party source.

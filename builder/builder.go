@@ -524,6 +524,9 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 
 // BuildUpdate will produce an update consumable by the swupd client
 func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, skipSigning bool, publish bool, keepChroots bool) error {
+	var timer stopWatch
+	defer timer.WriteSummary(os.Stdout)
+
 	if format != "" {
 		b.Format = format
 	}
@@ -536,6 +539,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	}
 
 	// Create update metadata for the mix.
+	timer.Start("create update")
 	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Statedir, "--minversion", strconv.Itoa(minVersion), "-F", b.Format, "--osversion", b.Mixver)
 	updatecmd.Stdout = os.Stdout
 	updatecmd.Stderr = os.Stderr
@@ -543,6 +547,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	if err != nil {
 		return errors.Wrapf(err, "failed to create update metadata")
 	}
+	timer.Stop()
 
 	// Clean up the bundle chroots as only the full chroot is needed from this point on.
 	if !keepChroots {
@@ -573,6 +578,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	}
 
 	// Create full files.
+	timer.Start("create fullfiles")
 	fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Statedir, b.Mixver)
 	fullfilecmd.Stdout = os.Stdout
 	fullfilecmd.Stderr = os.Stderr
@@ -580,8 +586,10 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create fullfiles")
 	}
+	timer.Stop()
 
 	// Create zero packs.
+	timer.Start("create zero packs")
 	zeropackArgs := []string{"--to", b.Mixver, "-S", b.Statedir}
 	if prefixflag != "" {
 		zeropackArgs = append(zeropackArgs, "--repodir", prefixflag)
@@ -593,8 +601,10 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create zero packs")
 	}
+	timer.Stop()
 
 	// Hardlink the duplicate files. This helps when keeping the bundle chroots.
+	timer.Start("hardlink")
 	hardlinkcmd := exec.Command("hardlink", "-f", b.Statedir+"/image/"+b.Mixver+"/")
 	hardlinkcmd.Stdout = os.Stdout
 	hardlinkcmd.Stderr = os.Stderr
@@ -602,6 +612,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	if err != nil {
 		return errors.Wrapf(err, "couldn't perform hardlink step")
 	}
+	timer.Stop()
 
 	// Save upstream information.
 	if b.Upstreamurl != "" {

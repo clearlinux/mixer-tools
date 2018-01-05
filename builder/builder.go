@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/swupd"
 	"github.com/pkg/errors"
 )
 
@@ -583,12 +584,37 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 
 	// Create full files.
 	timer.Start("create fullfiles")
-	fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Statedir, b.Mixver)
-	fullfilecmd.Stdout = os.Stdout
-	fullfilecmd.Stderr = os.Stderr
-	err = fullfilecmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "couldn't create fullfiles")
+	if UseNewSwupdServer {
+		chrootDir := filepath.Join(b.Statedir, "image", b.Mixver, "full")
+		if _, err = os.Stat(chrootDir); err != nil {
+			return errors.Wrapf(err, "couldn't access the full chroot")
+		}
+		manifestFile := filepath.Join(b.Statedir, "www", b.Mixver, "Manifest.full")
+		if _, err = os.Stat(manifestFile); err != nil {
+			return errors.Wrapf(err, "couldn't access the full manifest")
+		}
+		var m *swupd.Manifest
+		m, err = swupd.ParseManifestFile(manifestFile)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't read full manifest")
+		}
+		outputDir := filepath.Join(b.Statedir, "www", b.Mixver, "files")
+		err = os.MkdirAll(outputDir, 0777)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't create the output directory")
+		}
+		err = swupd.CreateFullfiles(m, chrootDir, outputDir)
+		if err != nil {
+			return err
+		}
+	} else {
+		fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Statedir, b.Mixver)
+		fullfilecmd.Stdout = os.Stdout
+		fullfilecmd.Stderr = os.Stderr
+		err = fullfilecmd.Run()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't create fullfiles")
+		}
 	}
 	timer.Stop()
 

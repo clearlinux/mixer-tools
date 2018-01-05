@@ -54,16 +54,12 @@ func TestCreateManifests(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
 	mustGenFile(t, testDir, "10", "test-bundle", "foo", "content")
-	if err = CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	// set last version to 10
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
 	mustGenFile(t, testDir, "20", "test-bundle", "foo", "new content")
-	if err = CreateManifests(20, false, 1, testDir); err != nil {
-		t.Error(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	lines := []struct {
 		sub      []byte
@@ -136,15 +132,11 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle1", "test-bundle2"})
 	mustGenFile(t, testDir, "10", "test-bundle1", "foo", "content")
 	mustGenFile(t, testDir, "10", "test-bundle2", "foo", "content")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
 	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "content")
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Error(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	if !fileContains(filepath.Join(testDir, "www/10/Manifest.full"), []byte("10\t/foo")) {
 		t.Error("'10\t/foo' not found in 10/Manifest.full")
@@ -164,9 +156,7 @@ func TestCreateManifestIllegalChar(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{})
 	mustGenFile(t, testDir, "10", "os-core", "semicolon;", "")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Error(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	if fileContains(filepath.Join(testDir, "www/10/Manifest.os-core"), []byte("semicolon;")) {
 		t.Error("illegal filename 'semicolon;' not blacklisted")
@@ -182,9 +172,7 @@ func TestCreateManifestDebuginfo(t *testing.T) {
 		mustGenFile(t, testDir, "10", "test-bundle", f, "content")
 	}
 
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Error(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	if !fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle"), []byte("/usr/bin/foobar")) {
 		t.Error("non-debuginfo file '/usr/bin/foobar' banned")
@@ -205,14 +193,10 @@ func TestCreateManifestFormatNoDecrement(t *testing.T) {
 	mustInitStandardTest(t, testDir, "0", "10", []string{})
 	mustGenFile(t, testDir, "10", "os-core", "baz", "bazcontent")
 	mustGenFile(t, testDir, "10", "os-core", "foo", "foocontent")
-	if err := CreateManifests(10, false, 2, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{})
-	if err := CreateManifests(20, true, 1, testDir); err == nil {
-		t.Error("CreateManifests successful when decrementing format (error expected)")
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 }
 
 func TestCreateManifestFormat(t *testing.T) {
@@ -221,15 +205,10 @@ func TestCreateManifestFormat(t *testing.T) {
 	mustInitStandardTest(t, testDir, "0", "10", []string{})
 	mustGenFile(t, testDir, "10", "os-core", "baz", "bazcontent")
 	mustGenFile(t, testDir, "10", "os-core", "foo", "foocontent")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{})
-
-	if err := CreateManifests(20, true, 2, testDir); err != nil {
-		t.Error(err)
-	}
+	mustCreateManifests(t, 20, true, 2, testDir)
 }
 
 func TestCreateManifestGhosted(t *testing.T) {
@@ -237,20 +216,14 @@ func TestCreateManifestGhosted(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
 	mustGenFile(t, testDir, "10", "test-bundle", "usr/lib/kernel/bar", "bar")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
 	mustGenFile(t, testDir, "20", "test-bundle", "usr/lib/kernel/baz", "baz")
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
-	if err := CreateManifests(30, false, 1, testDir); err != nil {
-		t.Error(err)
-	}
+	mustCreateManifestsStandard(t, 30, testDir)
 
 	re := regexp.MustCompile("F\\.b\\.\t.*\t10\t/usr/lib/kernel/bar")
 	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.full"), re) == "" {
@@ -284,10 +257,7 @@ func TestCreateManifestIncludesDeduplicate(t *testing.T) {
 	mustInitIncludesFile(t, testDir, "10", "test-bundle2", []string{"test-bundle1", "test-bundle1"})
 	mustGenFile(t, testDir, "10", "test-bundle1", "test1", "test1")
 	mustGenFile(t, testDir, "10", "test-bundle2", "test2", "test2")
-
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	dualIncludes := []byte("includes:\ttest-bundle1\nincludes:\ttest-bundle1")
 	if fileContains(filepath.Join(testDir, "www/10/Manifest.test-bundle2"), dualIncludes) {
@@ -296,9 +266,7 @@ func TestCreateManifestIncludesDeduplicate(t *testing.T) {
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
 	mustInitIncludesFile(t, testDir, "20", "test-bundle2", []string{"test-bundle1", "test-bundle1"})
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	if fileContains(filepath.Join(testDir, "www/20/Manifest.test-bundle2"), dualIncludes) {
 		t.Error("includes not deduplicated for version 20")
@@ -310,14 +278,10 @@ func TestCreateManifestDeletes(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
 	mustGenFile(t, testDir, "10", "test-bundle", "test", "test")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	deletedLine := []byte(".d..\t" + AllZeroHash + "\t20\t/test")
 	if !fileContains(filepath.Join(testDir, "www/20/Manifest.test-bundle"), deletedLine) {
@@ -332,9 +296,7 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustInitStandardTest(t, testDir, "0", "10", bundles)
 	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
 	// no includes file for first update
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	expected := []string{"includes:\tos-core\n", "10\t/foo\n"}
 	for _, s := range expected {
@@ -349,9 +311,7 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustGenFile(t, testDir, "20", "included", "bar", "bar")
 	mustGenFile(t, testDir, "20", "included2", "baz", "baz")
 	mustInitIncludesFile(t, testDir, "20", "test-bundle", []string{"included", "included2"})
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	cases := []struct {
 		exp   string
@@ -377,9 +337,7 @@ func TestCreateManifestIncludeVersionBump(t *testing.T) {
 	mustGenFile(t, testDir, "30", "included-nested", "foobarbaz", "foobarbaz")
 	mustInitIncludesFile(t, testDir, "30", "test-bundle", []string{"included", "included2"})
 	mustInitIncludesFile(t, testDir, "30", "included", []string{"included-nested"})
-	if err := CreateManifests(30, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 30, testDir)
 
 	cases = []struct {
 		exp   string
@@ -404,9 +362,7 @@ func TestCreateManifestsState(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{})
 	mustGenFile(t, testDir, "10", "os-core", "var/lib/test", "test")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	re := regexp.MustCompile("D\\.s\\.\t.*\t10\t/var/lib\n")
 	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
@@ -424,9 +380,7 @@ func TestCreateManifestsEmptyDir(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{})
 	mustGenBundleDir(t, testDir, "10", "os-core", "emptydir")
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	re := regexp.MustCompile("D\\.\\.\\.\t.*\t10\t/emptydir\n")
 	if fileContainsRe(filepath.Join(testDir, "www/10/Manifest.os-core"), re) == "" {
@@ -439,9 +393,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 	defer removeIfNoErrors(t, testDir)
 	bundles := []string{"test-bundle1", "test-bundle2", "test-bundle3", "test-bundle4"}
 	mustInitStandardTest(t, testDir, "0", "10", bundles)
-	if err := CreateManifests(10, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 10, testDir)
 
 	// initial update, all manifests should be present at this version
 	subs := []string{
@@ -460,9 +412,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "foo")
 	mustGenFile(t, testDir, "20", "test-bundle2", "bar", "bar")
 	mustGenFile(t, testDir, "20", "test-bundle3", "baz", "baz")
-	if err := CreateManifests(20, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 20, testDir)
 
 	// no update to test-bundle4
 	subs = []string{
@@ -481,9 +431,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 	mustGenFile(t, testDir, "30", "test-bundle1", "foo", "foo20")
 	mustGenFile(t, testDir, "30", "test-bundle2", "bar", "bar20")
 	mustGenFile(t, testDir, "30", "test-bundle3", "foobar", "foobar")
-	if err := CreateManifests(30, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 30, testDir)
 
 	// again no update to test-bundle4
 	subs = []string{
@@ -501,9 +449,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 	mustInitStandardTest(t, testDir, "30", "40", bundles)
 	mustGenFile(t, testDir, "40", "test-bundle1", "foo", "foo30")
 	mustGenFile(t, testDir, "40", "test-bundle2", "bar", "bar20")
-	if err := CreateManifests(40, false, 1, testDir); err != nil {
-		t.Fatal(err)
-	}
+	mustCreateManifestsStandard(t, 40, testDir)
 
 	// update only to test-bundle1, test-bundle3 has another deleted file now too
 	subs = []string{

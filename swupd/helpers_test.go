@@ -208,3 +208,13 @@ func mustNotExist(t *testing.T, name string) {
 		t.Fatalf("got error %q, but want file does not exist error", err)
 	}
 }
+
+func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) {
+	mustCreateManifests(t, ver, false, 1, testDir)
+}
+
+func mustCreateManifests(t *testing.T, ver uint32, minVer bool, format uint, testDir string) {
+	if err := CreateManifests(ver, minVer, format, testDir); err != nil {
+		t.Fatal(err)
+	}
+}

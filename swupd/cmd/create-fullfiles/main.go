@@ -63,16 +63,16 @@ func main() {
 	}
 
 	if *outputDir == "" {
-		tempDir, err := ioutil.TempDir(".", "fullfiles-")
-		if err != nil {
-			log.Fatalf("couldn't create output directory: %s", err)
+		tempDir, terr := ioutil.TempDir(".", "fullfiles-")
+		if terr != nil {
+			log.Fatalf("couldn't create output directory: %s", terr)
 		}
 		*outputDir = tempDir
 	} else {
-		if _, err := os.Stat(*outputDir); err == nil {
+		if _, err = os.Stat(*outputDir); err == nil {
 			log.Fatalf("output dir already exists, exiting to not overwrite files")
 		}
-		err := os.MkdirAll(*outputDir, 0755)
+		err = os.MkdirAll(*outputDir, 0755)
 		if err != nil {
 			log.Fatalf("couldn't create output directory: %s", err)
 		}

@@ -433,3 +433,88 @@ func TestCreateManifestsEmptyDir(t *testing.T) {
 		t.Errorf("%v not found in 10/Manifest.os-core", re.String())
 	}
 }
+
+func TestCreateManifestsMoM(t *testing.T) {
+	testDir := mustSetupTestDir(t, "MoM")
+	defer removeIfNoErrors(t, testDir)
+	bundles := []string{"test-bundle1", "test-bundle2", "test-bundle3", "test-bundle4"}
+	mustInitStandardTest(t, testDir, "0", "10", bundles)
+	if err := CreateManifests(10, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// initial update, all manifests should be present at this version
+	subs := []string{
+		"10\ttest-bundle1",
+		"10\ttest-bundle2",
+		"10\ttest-bundle3",
+		"10\ttest-bundle4",
+	}
+	for _, s := range subs {
+		if !fileContains(filepath.Join(testDir, "www/10/Manifest.MoM"), []byte(s)) {
+			t.Errorf("10/Manifest.MoM did not contain expected '%s'", s)
+		}
+	}
+
+	mustInitStandardTest(t, testDir, "10", "20", bundles)
+	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "foo")
+	mustGenFile(t, testDir, "20", "test-bundle2", "bar", "bar")
+	mustGenFile(t, testDir, "20", "test-bundle3", "baz", "baz")
+	if err := CreateManifests(20, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// no update to test-bundle4
+	subs = []string{
+		"20\ttest-bundle1",
+		"20\ttest-bundle2",
+		"20\ttest-bundle3",
+		"10\ttest-bundle4",
+	}
+	for _, s := range subs {
+		if !fileContains(filepath.Join(testDir, "www/20/Manifest.MoM"), []byte(s)) {
+			t.Errorf("20/Manifest.MoM did not contain expected '%s'", s)
+		}
+	}
+
+	mustInitStandardTest(t, testDir, "20", "30", bundles)
+	mustGenFile(t, testDir, "30", "test-bundle1", "foo", "foo20")
+	mustGenFile(t, testDir, "30", "test-bundle2", "bar", "bar20")
+	mustGenFile(t, testDir, "30", "test-bundle3", "foobar", "foobar")
+	if err := CreateManifests(30, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// again no update to test-bundle4
+	subs = []string{
+		"30\ttest-bundle1",
+		"30\ttest-bundle2",
+		"30\ttest-bundle3",
+		"10\ttest-bundle4",
+	}
+	for _, s := range subs {
+		if !fileContains(filepath.Join(testDir, "www/30/Manifest.MoM"), []byte(s)) {
+			t.Errorf("30/Manifest.MoM did not contain expected '%s'", s)
+		}
+	}
+
+	mustInitStandardTest(t, testDir, "30", "40", bundles)
+	mustGenFile(t, testDir, "40", "test-bundle1", "foo", "foo30")
+	mustGenFile(t, testDir, "40", "test-bundle2", "bar", "bar20")
+	if err := CreateManifests(40, false, 1, testDir); err != nil {
+		t.Fatal(err)
+	}
+
+	// update only to test-bundle1, test-bundle3 has another deleted file now too
+	subs = []string{
+		"40\ttest-bundle1",
+		"40\ttest-bundle3",
+		"30\ttest-bundle2",
+		"10\ttest-bundle4",
+	}
+	for _, s := range subs {
+		if !fileContains(filepath.Join(testDir, "www/40/Manifest.MoM"), []byte(s)) {
+			t.Errorf("40/Manifest.MoM did not contain expected '%s'", s)
+		}
+	}
+}

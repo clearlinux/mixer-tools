@@ -162,24 +162,6 @@ func mustInitIncludesFile(t *testing.T, testDir, ver, bundle string, includes []
 	}
 }
 
-func fileContains(path string, sub []byte) bool {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return false
-	}
-
-	return bytes.Contains(b, sub)
-}
-
-func fileContainsRe(path string, re *regexp.Regexp) string {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return ""
-	}
-
-	return string(re.Find(b))
-}
-
 func resetHash() {
 	Hashes = []*string{&AllZeroHash}
 	invHash = map[string]Hashval{AllZeroHash: 0}
@@ -216,5 +198,50 @@ func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) {
 func mustCreateManifests(t *testing.T, ver uint32, minVer bool, format uint, testDir string) {
 	if err := CreateManifests(ver, minVer, format, testDir); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...string) {
+	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
+	b, err := ioutil.ReadFile(manFpath)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, sub := range subs {
+		if !bytes.Contains(b, []byte(sub)) {
+			t.Errorf("%s/Manifest.%s did not contain expected '%s'", ver, name, sub)
+		}
+	}
+}
+
+func checkManifestNotContains(t *testing.T, testDir, ver, name string, subs ...string) {
+	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
+	b, err := ioutil.ReadFile(manFpath)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, sub := range subs {
+		if bytes.Contains(b, []byte(sub)) {
+			t.Errorf("%s/Manifest.%s contained unexpected '%s'", ver, name, sub)
+		}
+	}
+}
+
+func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regexp.Regexp) {
+	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
+	b, err := ioutil.ReadFile(manFpath)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, re := range res {
+		if !re.Match(b) {
+			t.Errorf("%v not found in %s/Manifest.%s", re.String(), ver, name)
+		}
 	}
 }

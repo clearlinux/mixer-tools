@@ -86,7 +86,7 @@ var buildUpdateCmd = &cobra.Command{
 		b := builder.NewFromConfig(config)
 		err := b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
-			return errors.Wrap(err, "Error building update")
+			return errors.Wrap(err, "couldn't build update")
 		}
 
 		if buildFlags.increment {

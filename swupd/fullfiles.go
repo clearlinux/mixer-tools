@@ -27,7 +27,7 @@ var fullfileCompressors = []struct {
 }
 
 // CreateFullfiles creates full file compressed tars for files in chrootDir and places them
-// in outputDir
+// in outputDir. It doesn't regenerate full files that already exist.
 func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 	// TODO: Parametrize or pick a better value based on system.
 	const GoroutineCount = 3
@@ -48,6 +48,12 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 			// NOTE: to make life simpler for the client, always use .tar extension even
 			// if the file could be compressed.
 			output := filepath.Join(outputDir, name+".tar")
+
+			// Don't regenerate if file exists.
+			if _, err := os.Stat(output); err == nil {
+				// TODO: Should we validate it?
+				continue
+			}
 
 			var err error
 			switch f.Type {

@@ -102,6 +102,9 @@ func Execute() {
 }
 
 func init() {
+	// TODO: Remove this once we migrate to new implementation.
+	RootCmd.PersistentFlags().BoolVar(&builder.UseNewSwupdServer, "new-swupd", false, "EXPERIMENTAL: Use new implementation of swupd-server when possible")
+
 	RootCmd.AddCommand(initCmd)
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
 	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")

@@ -20,7 +20,6 @@ var fullfileCompressors = []struct {
 	Name string
 	Func compressFunc
 }{
-	{"gzip", compressGzip},
 	{"external-bzip2", externalCompressFunc("bzip2")},
 	{"external-gzip", externalCompressFunc("gzip")},
 	{"external-xz", externalCompressFunc("xz")},
@@ -333,13 +332,4 @@ func externalCompressFunc(program string, args ...string) compressFunc {
 		}
 		return w.Close()
 	}
-}
-
-func compressGzip(dst io.Writer, src io.Reader) error {
-	gw := gzip.NewWriter(dst)
-	_, err := io.Copy(gw, src)
-	if err != nil {
-		return err
-	}
-	return gw.Close()
 }

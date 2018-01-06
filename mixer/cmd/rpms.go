@@ -19,7 +19,6 @@ import (
 
 	"github.com/clearlinux/mixer-tools/builder"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +26,7 @@ var addRPMCmd = &cobra.Command{
 	Use:   "add-rpms",
 	Short: "Add RPMs to local yum repository",
 	Long:  `Add RPMS from the configured RPMDIR to local yum repository`,
-	RunE:  runAddRPM,
+	Run:   runAddRPM,
 }
 
 var rpmCmds = []*cobra.Command{
@@ -41,14 +40,17 @@ func init() {
 	}
 }
 
-func runAddRPM(cmd *cobra.Command, args []string) error {
+func runAddRPM(cmd *cobra.Command, args []string) {
 	b := builder.NewFromConfig(config)
 	if b.RPMdir == "" {
-		return errors.Errorf("RPMDIR not set in configuration")
+		failf("RPMDIR not set in configuration")
 	}
 	rpms, err := ioutil.ReadDir(b.RPMdir)
 	if err != nil {
-		return errors.Wrapf(err, "cannot read RPMDIR")
+		failf("cannot read RPMDIR: %s", err)
 	}
-	return b.AddRPMList(rpms)
+	err = b.AddRPMList(rpms)
+	if err != nil {
+		fail(err)
+	}
 }

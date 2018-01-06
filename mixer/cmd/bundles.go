@@ -20,7 +20,6 @@ import (
 
 	"github.com/clearlinux/mixer-tools/builder"
 
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -41,10 +40,10 @@ var addBundlesCmd = &cobra.Command{
 	Use:   "add [bundle(s)]",
 	Short: "Add clr-bundles to your mix",
 	Long:  `Add clr-bundles to your mix`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		if bundleFlags.all == false {
 			if len(args) <= 0 {
-				return errors.New("bundle add requires at least 1 argument if --all is not passed")
+				failf("bundle add requires at least 1 argument if --all is not passed")
 			}
 		}
 		bundles := strings.Split(args[0], ",")
@@ -52,7 +51,6 @@ var addBundlesCmd = &cobra.Command{
 		// TODO change this to return (int, error)
 		numadded := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
 		fmt.Println(numadded, " bundles were added")
-		return nil
 	},
 }
 
@@ -60,12 +58,11 @@ var getBundlesCmd = &cobra.Command{
 	Use:   "get",
 	Short: "Get the clr-bundles from upstream",
 	Long:  `Get the clr-bundles from upstream`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.NewFromConfig(config)
 		fmt.Println("Getting clr-bundles for version " + b.Clearver)
 		// TODO change this to return an error
 		b.UpdateRepo(b.Clearver, false)
-		return nil
 	},
 }
 

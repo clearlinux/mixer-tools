@@ -46,11 +46,14 @@ var initCmd = &cobra.Command{
 	Use:   "init-mix",
 	Short: "Initialize the mixer and workspace",
 	Long:  `Initialize the mixer and workspace`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.New()
 		b.LoadBuilderConf(config)
 		b.ReadBuilderConf()
-		return b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
+		err := b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
+		if err != nil {
+			fail(err)
+		}
 	},
 }
 
@@ -58,7 +61,6 @@ var initCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	if err := RootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Mixer Error: %s\n", err)
 		os.Exit(1)
 	}
 }
@@ -95,4 +97,14 @@ func init() {
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
+}
+
+func fail(err error) {
+	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+	os.Exit(1)
+}
+
+func failf(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, fmt.Sprintf("ERROR: %s\n", format), a...)
+	os.Exit(1)
 }

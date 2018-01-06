@@ -72,9 +72,12 @@ var buildChrootsCmd = &cobra.Command{
 	Use:   "chroots",
 	Short: "Build the chroots for your mix",
 	Long:  `Build the chroots for your mix`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.NewFromConfig(config)
-		return buildChroots(b, buildFlags.noSigning)
+		err := buildChroots(b, buildFlags.noSigning)
+		if err != nil {
+			fail(err)
+		}
 	},
 }
 
@@ -82,17 +85,16 @@ var buildUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Build the update content for your mix",
 	Long:  `Build the update content for your mix`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.NewFromConfig(config)
 		err := b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
-			return errors.Wrap(err, "couldn't build update")
+			failf("couldn't build update: %s", err)
 		}
 
 		if buildFlags.increment {
 			b.UpdateMixVer()
 		}
-		return nil
 	},
 }
 
@@ -100,26 +102,25 @@ var buildAllCmd = &cobra.Command{
 	Use:   "all",
 	Short: "Build all content for mix with default options",
 	Long:  `Build all content for mix with default options`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.NewFromConfig(config)
 		rpms, err := ioutil.ReadDir(b.RPMdir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
 			if err != nil {
-				return errors.Wrap(err, "couldn't add the RPMs")
+				failf("couldn't add the RPMs: %s", err)
 			}
 		}
 		err = buildChroots(b, buildFlags.noSigning)
 		if err != nil {
-			return errors.Wrap(err, "Error building chroots")
+			failf("couldn't build chroots: %s", err)
 		}
 		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
-			return errors.Wrap(err, "Error building update")
+			failf("couldn't build update: %s", err)
 		}
 
 		b.UpdateMixVer()
-		return nil
 	},
 }
 
@@ -127,13 +128,12 @@ var buildImageCmd = &cobra.Command{
 	Use:   "image",
 	Short: "Build an image from the mix content",
 	Long:  `Build an image from the mix content`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.NewFromConfig(config)
 		err := b.BuildImage(buildFlags.format, buildFlags.template)
 		if err != nil {
-			return errors.Wrap(err, "Error building image")
+			failf("couldn't build image: %s", err)
 		}
-		return nil
 	},
 }
 

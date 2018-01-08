@@ -141,7 +141,7 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 	}
 
 	// add file to manifest
-	m.Files = append(m.Files, file)
+	m.appendFile(file)
 
 	// track deleted file
 	if file.Status == statusDeleted {
@@ -345,10 +345,18 @@ func (m *Manifest) sortFilesVersionName() {
 func (m *Manifest) addDeleted(oldManifest *Manifest) {
 	for _, df := range oldManifest.DeletedFiles {
 		if df.findFileNameInSlice(m.Files) == nil {
-			m.Files = append(m.Files, df)
+			m.appendFile(df)
 			m.DeletedFiles = append(m.DeletedFiles, df)
 		}
 	}
+}
+
+func (m *Manifest) appendFile(f *File) {
+	m.Files = append(m.Files, f)
+}
+
+func (m *Manifest) prependFile(f *File) {
+	m.Files = append([]*File{f}, m.Files...)
 }
 
 // linkPeersAndChange
@@ -401,7 +409,7 @@ func (m *Manifest) newDeleted(oldManifest *Manifest) int {
 			df.Modifier = modifierUnset
 			df.Type = typeUnset
 			df.Hash = internHash(AllZeroHash)
-			m.Files = append(m.Files, df)
+			m.appendFile(df)
 			m.DeletedFiles = append(m.DeletedFiles, df)
 			deleted++
 		}

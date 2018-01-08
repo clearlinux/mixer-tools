@@ -30,7 +30,12 @@ func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
 }
 
 func mustSetupTestDir(t *testing.T, testName string) string {
-	testDir, err := ioutil.TempDir("./testdata", "cmtest-"+testName)
+	oldDirs, _ := filepath.Glob("./testdata/cmtest-" + testName + ".*")
+	for _, d := range oldDirs {
+		removeAllIgnoreErr(d)
+	}
+
+	testDir, err := ioutil.TempDir("./testdata", "cmtest-"+testName+".")
 	if err != nil {
 		t.Fatal(err)
 	}

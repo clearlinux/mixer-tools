@@ -72,8 +72,8 @@ func TestCreateManifests(t *testing.T) {
 		".d..\t",
 	}
 	checkManifestNotContains(t, testDir, "10", "test-bundle", nExpSubs...)
+	checkManifestNotContains(t, testDir, "10", "MoM", "10\tManifest.full")
 
-	// set last version to 10
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
 	mustGenFile(t, testDir, "20", "test-bundle", "foo", "new content")
 	mustCreateManifestsStandard(t, 20, testDir)
@@ -88,6 +88,7 @@ func TestCreateManifests(t *testing.T) {
 	}
 	checkManifestContains(t, testDir, "20", "test-bundle", expSubs...)
 	checkManifestNotContains(t, testDir, "20", "test-bundle", "10\t/foo")
+	checkManifestNotContains(t, testDir, "20", "MoM", "20\tManifest.full")
 }
 
 func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
@@ -160,7 +161,7 @@ func TestCreateManifestFormat(t *testing.T) {
 }
 
 func TestCreateManifestGhosted(t *testing.T) {
-	testDir := mustSetupTestDir(t, "format")
+	testDir := mustSetupTestDir(t, "ghosted")
 	defer removeIfNoErrors(t, testDir)
 	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
 	mustGenFile(t, testDir, "10", "test-bundle", "usr/lib/kernel/bar", "bar")

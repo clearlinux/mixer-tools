@@ -442,7 +442,7 @@ func TestLinkPeersAndChange(t *testing.T) {
 	for _, f := range mNew.Files {
 		if testCases[f.Name].hasPeer {
 			if f.DeltaPeer == nil {
-				t.Errorf("File %v does not have delta peer when expected", f.Name)
+				t.Fatalf("File %v does not have delta peer when expected", f.Name)
 			}
 
 			if f.DeltaPeer.Name != testCases[f.Name].expected {

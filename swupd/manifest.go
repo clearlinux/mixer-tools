@@ -363,59 +363,100 @@ func (m *Manifest) prependFile(f *File) {
 // At this point Manifest m should only have the files that were present
 // in the chroot for that manifest. Link delta peers with the oldManifest
 // if the file in the oldManifest is not deleted or ghosted
-func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) int {
+func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
+	m.sortFilesName()
+	oldManifest.sortFilesName()
+
 	changed := 0
-	for _, of := range oldManifest.Files {
-		if match := of.findFileNameInSlice(m.Files); match != nil {
+	added := 0
+	deleted := 0
+	i := 0
+	j := 0
+	for i < len(m.Files) && j < len(oldManifest.Files) {
+		nf := m.Files[i]
+		of := oldManifest.Files[j]
+		if nf.Name == of.Name {
+			// if it is the same name check if anything about the file has changed.
+			// if something has changed update the version to current version and
+			// record that the file has changed
 			if of.Status == statusDeleted || of.Status == statusGhosted {
+				// don't worry about ghosted or deleted files
+				i++
+				j++
 				continue
 			}
 
-			match.DeltaPeer = of
-			of.DeltaPeer = match
-			if !sameFile(match, of) {
-				match.Version = m.Header.Version
+			// set up peers
+			nf.DeltaPeer = of
+			of.DeltaPeer = nf
+			if !sameFile(nf, of) {
+				// if the file isn't exactly the same, record the change
+				// and update the version
+				nf.Version = m.Header.Version
 				changed++
 			} else {
-				match.Version = of.Version
+				// otherwise the version is the same as the old file
+				nf.Version = of.Version
 			}
-		}
-	}
-
-	return changed
-}
-
-func (m *Manifest) filesAdded(oldManifest *Manifest) int {
-	added := 0
-	for _, af := range m.Files {
-		if af.findFileNameInSlice(oldManifest.Files) == nil {
-			af.Version = m.Header.Version
+			// advance indices for both file lists since we had a match
+			i++
+			j++
+		} else if nf.Name < of.Name {
+			// if the file does not exist in the old manifest it is a new
+			// file in this manifest. Update the version and record that
+			// it is added.
+			nf.Version = m.Header.Version
 			added++
-		}
-	}
-
-	return added
-}
-
-func (m *Manifest) newDeleted(oldManifest *Manifest) int {
-	deleted := 0
-	for _, df := range oldManifest.Files {
-		if df.Status != statusDeleted && df.findFileNameInSlice(m.Files) == nil {
-			if df.Status == statusGhosted {
+			// look at next file in current manifest
+			i++
+		} else {
+			// if the file exists in the old manifest and does not *yet* exist
+			// in the new manifest, it was deleted. Set up the deleted file
+			// and prepend it to the files list via newDeleted()
+			if of.Status == statusDeleted || of.Status == statusGhosted {
+				j++
 				continue
 			}
-			df.Version = m.Header.Version
-			df.Status = statusDeleted
-			df.Modifier = modifierUnset
-			df.Type = typeUnset
-			df.Hash = internHash(AllZeroHash)
-			m.appendFile(df)
-			m.DeletedFiles = append(m.DeletedFiles, df)
+			m.newDeleted(of)
 			deleted++
+			// look at next file in old manifest
+			j++
+			// increment the index into m.Files as well since we increased
+			// length by prepending of
+			i++
 		}
 	}
 
-	return deleted
+	// anything remaining in m does not exist in oldManifest
+	for _, nf := range m.Files[i:] {
+		nf.Version = m.Header.Version
+		added++
+	}
+
+	// anything remaining in oldManifest is newly deleted in the new manifest
+	for _, of := range oldManifest.Files[j:] {
+		if of.Status == statusDeleted || of.Status == statusGhosted {
+			continue
+		}
+		m.newDeleted(of)
+		deleted++
+	}
+
+	// return the number of changed, added, or deleted files in this
+	// manifest
+	return changed, added, deleted
+}
+
+func (m *Manifest) newDeleted(df *File) {
+	df.Version = m.Header.Version
+	df.Status = statusDeleted
+	df.Modifier = modifierUnset
+	df.Type = typeUnset
+	df.Hash = internHash(AllZeroHash)
+	// prepend so we don't re-process this file
+	m.prependFile(df)
+	// we aren't processing this so we can append
+	m.DeletedFiles = append(m.DeletedFiles, df)
 }
 
 func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {

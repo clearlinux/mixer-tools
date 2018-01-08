@@ -147,9 +147,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
 		oldM := getOldManifest(oldMPath)
 		changedIncludes := compareIncludes(bundle, oldM)
-		changedFiles := bundle.linkPeersAndChange(oldM)
-		added := bundle.filesAdded(oldM)
-		deleted := bundle.newDeleted(oldM)
+		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM)
 		// if nothing changed, skip
 		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
 			continue

@@ -368,3 +368,22 @@ func TestCreateManifestsMoM(t *testing.T) {
 	}
 	checkManifestContains(t, testDir, "40", "MoM", subs...)
 }
+
+func TestCreateManifestMaximizeFull(t *testing.T) {
+	testDir := mustSetupTestDir(t, "max-full")
+	defer removeIfNoErrors(t, testDir)
+	bundles := []string{"test-bundle1", "test-bundle2"}
+	mustInitStandardTest(t, testDir, "0", "10", bundles)
+	mustGenFile(t, testDir, "10", "test-bundle1", "foo", "foo")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	checkManifestContains(t, testDir, "10", "full", "10\t/foo\n")
+
+	mustInitStandardTest(t, testDir, "10", "20", bundles)
+	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "foo")
+	mustGenFile(t, testDir, "20", "test-bundle2", "foo", "foo")
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	checkManifestContains(t, testDir, "20", "full", "20\t/foo\n")
+	checkManifestNotContains(t, testDir, "20", "full", "10\t/foo\n")
+}

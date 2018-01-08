@@ -158,10 +158,6 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		// detect modifier flag for all files in the manifest
 		// must happen after finding newDeleted files to catch ghosted files.
 		bundle.applyHeuristics()
-		// sort manifest by version (then by filename)
-		// this must be done after subtractManifests has been done for all manifests
-		// because subtractManifests sorts the file lists by filename alone
-		bundle.sortFilesVersionName()
 		// Assign final FileCount based on the files that made it this far
 		bundle.Header.FileCount = uint32(len(bundle.Files))
 		// If we made it this far, this bundle has a change and should be written
@@ -258,6 +254,14 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 
 	// write manifests then add them to the MoM
 	for _, bMan := range newManifests {
+		// full is just another manifest, grab it from here and maximize versions
+		if bMan.Name == "full" {
+			maximizeFull(bMan, newManifests)
+		}
+
+		// sort by version then by filename, previously to this sort these bundles
+		// were sorted by file name only to make processing easier
+		bMan.sortFilesVersionName()
 		manPath := filepath.Join(verOutput, "Manifest."+bMan.Name)
 		if err = bMan.WriteManifestFile(manPath); err != nil {
 			return err

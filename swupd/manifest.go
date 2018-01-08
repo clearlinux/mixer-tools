@@ -531,3 +531,38 @@ func getManifestVerFromMoM(mom *Manifest, b *Manifest) uint32 {
 
 	return 0
 }
+
+// maxFullFromManifest maximizes all file entries in mf that are also in bundle
+func maxFullFromManifest(mf *Manifest, bundle *Manifest) {
+	mf.sortFilesName()
+	bundle.sortFilesName()
+	i := 0
+	j := 0
+
+	for i < len(mf.Files) && j < len(bundle.Files) {
+		ff := mf.Files[i]
+		bf := bundle.Files[j]
+		if ff.Name == bf.Name {
+			// files match, maximize versions if appropriate
+			if bf.Status != statusDeleted && bf.Version > ff.Version {
+				ff.Version = bf.Version
+			}
+			// advance both indices
+			i++
+			j++
+		} else if ff.Name < bf.Name {
+			// check next filename in mf
+			i++
+		} else {
+			// check next filename in bundle
+			j++
+		}
+	}
+}
+
+// maximizeFull maximizes all file entries in mf for each bundle in bundles
+func maximizeFull(mf *Manifest, bundles []*Manifest) {
+	for _, b := range bundles {
+		maxFullFromManifest(mf, b)
+	}
+}

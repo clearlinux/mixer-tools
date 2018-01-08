@@ -435,8 +435,15 @@ func TestLinkPeersAndChange(t *testing.T) {
 		"6": {false, ""},
 	}
 
-	if changed := mNew.linkPeersAndChange(&mOld); changed != 1 {
+	changed, added, deleted := mNew.linkPeersAndChange(&mOld)
+	if changed != 1 {
 		t.Errorf("%v files detected as changed when only 1 was expected", changed)
+	}
+	if added != 1 {
+		t.Errorf("%v files detected as added when only 1 was expected", added)
+	}
+	if deleted != 1 {
+		t.Errorf("%v files detected as deleted when only 1 was expected", deleted)
 	}
 
 	for _, f := range mNew.Files {
@@ -452,53 +459,6 @@ func TestLinkPeersAndChange(t *testing.T) {
 					testCases[f.Name].expected)
 			}
 		}
-	}
-}
-
-func TestFilesAdded(t *testing.T) {
-	mOld := Manifest{
-		Files: []*File{
-			{Name: "1"},
-			{Name: "2"},
-			{Name: "4"},
-		},
-	}
-
-	mNew := Manifest{
-		Files: []*File{
-			{Name: "1"},
-			{Name: "2"},
-			{Name: "3"},
-			{Name: "4"},
-			{Name: "5"},
-		},
-	}
-
-	if added := mNew.filesAdded(&mOld); added != 2 {
-		t.Errorf("filesAdded detected %v added files when 2 was expected", added)
-	}
-}
-
-func TestNewDeleted(t *testing.T) {
-	mOld := Manifest{
-		Files: []*File{
-			{Name: "1"},
-			{Name: "2", Status: statusDeleted},
-			{Name: "4"},
-		},
-	}
-
-	mNew := Manifest{
-		Files: []*File{
-			{Name: "1"},
-			{Name: "2"},
-			{Name: "3"},
-		},
-	}
-
-	// file 1 is the only new deleted file
-	if deleted := mNew.newDeleted(&mOld); deleted != 1 {
-		t.Errorf("newDeleted detected %v new deleted files when 1 was expected", deleted)
 	}
 }
 

@@ -362,11 +362,9 @@ func (m *Manifest) prependFile(f *File) {
 // linkPeersAndChange
 // At this point Manifest m should only have the files that were present
 // in the chroot for that manifest. Link delta peers with the oldManifest
-// if the file in the oldManifest is not deleted or ghosted
+// if the file in the oldManifest is not deleted or ghosted.
+// Expects m and oldManifest files lists to be sorted by name only
 func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
-	m.sortFilesName()
-	oldManifest.sortFilesName()
-
 	changed := 0
 	added := 0
 	deleted := 0
@@ -442,6 +440,8 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 		deleted++
 	}
 
+	// finally re-sort since we changed the order
+	m.sortFilesName()
 	// return the number of changed, added, or deleted files in this
 	// manifest
 	return changed, added, deleted
@@ -501,10 +501,9 @@ func (m *Manifest) hasUnsupportedTypeChanges() bool {
 	return false
 }
 
+// subtractManifestFromManifest removes all files present in m2 from m.
+// Expects m and m2 files lists to be sorted by name only
 func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
-	m.sortFilesName()
-	m2.sortFilesName()
-
 	i := 0
 	j := 0
 	for i < len(m.Files) && j < len(m2.Files) {
@@ -582,9 +581,8 @@ func getManifestVerFromMoM(mom *Manifest, b *Manifest) uint32 {
 }
 
 // maxFullFromManifest maximizes all file entries in mf that are also in bundle
+// Expects mf and bundle file lists to be sorted by name only.
 func maxFullFromManifest(mf *Manifest, bundle *Manifest) {
-	mf.sortFilesName()
-	bundle.sortFilesName()
 	i := 0
 	j := 0
 
@@ -610,6 +608,7 @@ func maxFullFromManifest(mf *Manifest, bundle *Manifest) {
 }
 
 // maximizeFull maximizes all file entries in mf for each bundle in bundles
+// Expects mf and bundles file lists to be sorted by name only.
 func maximizeFull(mf *Manifest, bundles []*Manifest) {
 	for _, b := range bundles {
 		maxFullFromManifest(mf, b)

@@ -76,6 +76,7 @@ func getOldManifest(path string) *Manifest {
 }
 
 func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
+	var newFull *Manifest
 	tmpManifests := []*Manifest{}
 	// first loop sets up initial bundle manifests and adds files to them
 	for _, bundleName := range ui.bundles {
@@ -87,6 +88,12 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 				TimeStamp: ui.timeStamp,
 			},
 			Name: bundleName,
+		}
+
+		if bundleName == "full" {
+			// track full manifest so we can do extra processing later
+			// (maximizeFull)
+			newFull = bundle
 		}
 
 		bundleChroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name)
@@ -112,13 +119,14 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			bundle.addDeleted(oldM)
 		}
 
+		bundle.sortFilesName()
 		tmpManifests = append(tmpManifests, bundle)
 	}
 
 	// second loop reads includes and then subtracts manifests using the file lists
 	// populated in the last step
 	for _, bundle := range tmpManifests {
-		if bundle.Name != "os-core" && bundle.Name != "full" {
+		if bundle.Name != "os-core" && bundle != newFull {
 			// read in bundle includes
 			if err := bundle.readIncludes(tmpManifests, c); err != nil {
 				return nil, err
@@ -147,6 +155,8 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
 		oldM := getOldManifest(oldMPath)
 		changedIncludes := compareIncludes(bundle, oldM)
+		bundle.sortFilesName()
+		oldM.sortFilesName()
 		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM)
 		// if nothing changed, skip
 		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
@@ -161,6 +171,9 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		// If we made it this far, this bundle has a change and should be written
 		newManifests = append(newManifests, bundle)
 	}
+
+	// maximize full manifest while all the manifests are still sorted by name
+	maximizeFull(newFull, newManifests)
 
 	return newManifests, nil
 }
@@ -252,11 +265,6 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 
 	// write manifests then add them to the MoM
 	for _, bMan := range newManifests {
-		// full is just another manifest, grab it from here and maximize versions
-		if bMan.Name == "full" {
-			maximizeFull(bMan, newManifests)
-		}
-
 		// sort by version then by filename, previously to this sort these bundles
 		// were sorted by file name only to make processing easier
 		bMan.sortFilesVersionName()

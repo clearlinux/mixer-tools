@@ -347,7 +347,7 @@ func (m *Manifest) sortFilesVersionName() {
 // in the chroot for that manifest. Link delta peers with the oldManifest
 // if the file in the oldManifest is not deleted or ghosted.
 // Expects m and oldManifest files lists to be sorted by name only
-func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
+func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) (int, int, int) {
 	// set previous version to oldManifest version
 	m.Header.Previous = oldManifest.Header.Version
 
@@ -373,15 +373,17 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 			// set up peers since old file exists
 			nf.DeltaPeer = of
 			of.DeltaPeer = nf
-			if !sameFile(nf, of) {
-				// if the file isn't exactly the same, record the change
-				// and update the version
-				nf.Version = m.Header.Version
-				changed = append(changed, nf)
-			} else {
-				// otherwise the version is the same as the old file
+			if sameFile(nf, of) && of.Version >= minVersion {
+				// file did not change, set version to the old version
 				nf.Version = of.Version
 				unchanged = append(unchanged, nf)
+			} else {
+				// if the file isn't exactly the same, record the change
+				// and update the version
+				// this case is also hit when the old file is older than the
+				// minversion
+				nf.Version = m.Header.Version
+				changed = append(changed, nf)
 			}
 			// advance indices for both file lists since we had a match
 			nx++

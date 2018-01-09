@@ -28,6 +28,7 @@ type UpdateInfo struct {
 	oldFormat   uint
 	format      uint
 	lastVersion uint32
+	minVersion  uint32
 	version     uint32
 	bundles     []string
 	timeStamp   time.Time
@@ -149,7 +150,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		oldM := getOldManifest(oldMPath)
 		changedIncludes := compareIncludes(bundle, oldM)
 		oldM.sortFilesName()
-		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM)
+		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM, ui.minVersion)
 		// if nothing changed, skip
 		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
 			continue
@@ -171,9 +172,15 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 }
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
-func CreateManifests(version uint32, minVersion bool, format uint, statedir string) error {
+func CreateManifests(version uint32, minVersion uint32, format uint, statedir string) error {
 	var err error
 	var c config
+
+	if minVersion > version {
+		return fmt.Errorf("minVersion (%v), must be between 0 and %v (inclusive)",
+			minVersion, version)
+	}
+
 	c, err = getConfig(statedir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Found server.ini, but was unable to read it. "+
@@ -231,6 +238,7 @@ func CreateManifests(version uint32, minVersion bool, format uint, statedir stri
 		oldFormat:   oldFormat,
 		format:      format,
 		lastVersion: lastVersion,
+		minVersion:  minVersion,
 		version:     version,
 		bundles:     groups,
 		timeStamp:   timeStamp,

@@ -47,6 +47,12 @@ func TestInitBuildDirs(t *testing.T) {
 	}
 }
 
+func TestCreateManifestsBadMinVersion(t *testing.T) {
+	if err := CreateManifests(10, 20, 1, "testdir"); err == nil {
+		t.Error("No error raised with invalid minVersion (20) for version 10")
+	}
+}
+
 func TestCreateManifests(t *testing.T) {
 	testDir := mustSetupTestDir(t, "basic")
 	defer removeIfNoErrors(t, testDir)
@@ -157,7 +163,7 @@ func TestCreateManifestFormat(t *testing.T) {
 	mustCreateManifestsStandard(t, 10, testDir)
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{})
-	mustCreateManifests(t, 20, true, 2, testDir)
+	mustCreateManifests(t, 20, 20, 2, testDir)
 }
 
 func TestCreateManifestGhosted(t *testing.T) {
@@ -432,4 +438,29 @@ func TestCreateManifestsManifestVersion(t *testing.T) {
 	// previous version should be 10, not 20, since there was no manifest
 	// generated for version 20
 	checkManifestContains(t, testDir, "30", "test-bundle", "previous:\t10\n")
+}
+
+func TestCreateManifestsMinVersion(t *testing.T) {
+	testDir := mustSetupTestDir(t, "minVersion")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	checkManifestContains(t, testDir, "10", "test-bundle", "10\t/foo\n")
+	checkManifestContains(t, testDir, "10", "full", "10\t/foo\n")
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	// same file and same contents
+	mustGenFile(t, testDir, "20", "test-bundle", "foo", "foo")
+	mustCreateManifests(t, 20, 20, 1, testDir)
+
+	// since the minVersion was set to this version the file version should
+	// be updated despite there being no change to the file.
+	checkManifestContains(t, testDir, "20", "test-bundle", "20\t/foo\n")
+	checkManifestContains(t, testDir, "20", "full", "20\t/foo\n")
+	checkManifestNotContains(t, testDir, "20", "test-bundle", "10\t/foo\n")
+	checkManifestNotContains(t, testDir, "20", "full", "10\t/foo\n")
+	// we can even check that there are NO files left at version 10
+	checkManifestNotContains(t, testDir, "20", "full", "\t10\t")
 }

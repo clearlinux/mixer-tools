@@ -402,7 +402,7 @@ func TestLinkPeersAndChange(t *testing.T) {
 	// by name.
 	mNew.sortFilesName()
 	mOld.sortFilesName()
-	changed, added, deleted := mNew.linkPeersAndChange(&mOld)
+	changed, added, deleted := mNew.linkPeersAndChange(&mOld, 0)
 	if changed != 1 {
 		t.Errorf("%v files detected as changed when 1 was expected", changed)
 	}

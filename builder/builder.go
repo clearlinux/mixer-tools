@@ -212,6 +212,69 @@ func (b *Builder) SignManifestMoM() error {
 	return nil
 }
 
+const (
+	upstreamBundlesBaseDir   = ".mixer/upstream-bundles/"
+	upstreamBundlesVerDirFmt = "clr-bundles-%s"
+	upstreamBundlesBundleDir = "bundles"
+)
+
+func getUpstreamBundlesVerDir(ver string) string {
+	return fmt.Sprintf(upstreamBundlesVerDirFmt, ver)
+}
+func getUpstreamBundlesPath(ver string) string {
+	return filepath.Join(upstreamBundlesBaseDir, fmt.Sprintf(upstreamBundlesVerDirFmt, ver), upstreamBundlesBundleDir)
+}
+
+func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
+	// Make the folder to store upstream bundles if does not exist
+	if err := os.MkdirAll(upstreamBundlesBaseDir, 0777); err != nil {
+		return errors.Wrap(err, "Failed to create upstream-bundles dir.")
+	}
+
+	bundleDir := getUpstreamBundlesPath(ver)
+
+	// Clear out other bundle dirs if needed
+	if prune {
+		files, err := ioutil.ReadDir(upstreamBundlesBaseDir)
+		if err != nil {
+			return errors.Wrap(err, "Failed to read bundles for pruning.")
+		}
+		curver := getUpstreamBundlesVerDir(ver)
+		for _, file := range files {
+			// Skip the current version cache, but delete all others
+			if file.Name() != curver {
+				if err = os.RemoveAll(filepath.Join(upstreamBundlesBaseDir, file.Name())); err != nil {
+					return errors.Wrapf(err, "Failed to remove %s while pruning bundles", file.Name())
+				}
+			}
+		}
+	}
+
+	// Check if bundles already exist
+	if _, err := os.Stat(bundleDir); err == nil {
+		return nil
+	}
+
+	tmptarfile := filepath.Join(upstreamBundlesBaseDir, ver+".tar.gz")
+	URL := "https://github.com/clearlinux/clr-bundles/archive/" + ver + ".tar.gz"
+	if err := helpers.Download(tmptarfile, URL); err != nil {
+		return errors.Wrapf(err, "Failed to download bundles for upstream version %s", ver)
+	}
+
+	if err := helpers.UnpackFile(tmptarfile, upstreamBundlesBaseDir); err != nil {
+		err = errors.Wrapf(err, "Error unpacking bundles for upstream version %s\n%s left for debuging", ver, tmptarfile)
+
+		// Clean up upstream bundle dir, since unpack failed
+		path := filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(ver))
+		if rerr := os.RemoveAll(path); rerr != nil {
+			err = errors.Wrapf(err, "Error cleaning up upstream bundle dir: %s", path)
+		}
+		return err
+	}
+
+	return errors.Wrapf(os.Remove(tmptarfile), "Failed to remove temp bundle archive: %s", tmptarfile)
+}
+
 // UpdateRepo will fetch the clr-bundles for our configured Clear Linux version
 func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 	// Make the folder to store all clr-bundles version
@@ -276,10 +339,19 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 			helpers.PrintError(err)
 			os.Exit(1)
 		}
-		helpers.Git("init")
-		helpers.Git("add", ".")
+		if err = helpers.Git("init"); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
+		if err = helpers.Git("add", "."); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 		commitMsg := fmt.Sprintf("Initial Mix Version %s from Clear Version %s", b.Mixver, b.Clearver)
-		helpers.Git("commit", "-m", commitMsg)
+		if err = helpers.Git("commit", "-m", commitMsg); err != nil {
+			helpers.PrintError(err)
+			os.Exit(1)
+		}
 		if err = os.Chdir(curr); err != nil {
 			helpers.PrintError(err)
 			os.Exit(1)
@@ -289,42 +361,37 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 	fmt.Println("Downloaded " + repo)
 }
 
-// AddBundles will copy the specified clr-bundles from the configured Clear
-// Linux version to the mix-bundles directory
+
+// AddBundles will copy the specified upstream bundles from the configured
+// upstream version to the mix-bundles directory. In error event, the int value
+// returned will contain the number of bundles added thus far.
 // bundles: array slice of bundle names
 // force: override bundle in mix-dir when present
 // all: include all CLR bundles. Overrides bundles.
 // git: automatically git commit with bundles added
-func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git bool) int {
+func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git bool) (int, error) {
 	var bundleAddCount int
 
-	bundledir := b.Bundledir
-	if !strings.HasSuffix(bundledir, "/") {
-		bundledir = bundledir + "/"
-	}
-
 	// Check if mix bundles dir exists
-	if _, err := os.Stat(bundledir); os.IsNotExist(err) {
-		helpers.PrintError(errors.New("Mix bundles directory does not exist. Run mixer init-mix"))
-		os.Exit(1)
+	if _, err := os.Stat(b.Bundledir); os.IsNotExist(err) {
+		return bundleAddCount, errors.New("Mix bundles directory does not exist. Run mixer init-mix")
 	}
 
-	clrbundledir := "clr-bundles/clr-bundles-" + b.Clearver + "/bundles/"
+	clrbundledir := getUpstreamBundlesPath(b.Clearver)
 
-	// Check if CLR bundles exist, download if not
-	if _, err := os.Stat(clrbundledir); os.IsNotExist(err) {
-		b.UpdateRepo(b.Clearver, false)
+	// Fetch upstream bundles if needed
+	if err := b.getUpstreamBundles(b.Clearver, true); err != nil {
+		return bundleAddCount, err
 	}
 
-	// Add all bundles if -all passed
+	// Add all bundles to list if --all passed
 	if allbundles {
 		files, err := ioutil.ReadDir(clrbundledir)
 		if err != nil {
-			helpers.PrintError(err)
-			os.Exit(1)
+			return bundleAddCount, err
 		}
 
-		// Clear out bundles if not empty
+		// Clear out bundles list if not empty
 		if len(bundles) > 0 {
 			bundles = make([]string, len(files))
 		}
@@ -337,27 +404,24 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 	var includes []string
 	for _, bundle := range bundles {
 		// Check if bundle exists in clrbundledir
-		if _, err := os.Stat(clrbundledir + bundle); os.IsNotExist(err) {
-			helpers.PrintError(errors.New("Bundle " + bundle + " does not exist in CLR version " + b.Clearver))
-			os.Exit(1)
+		if _, err := os.Stat(filepath.Join(clrbundledir, bundle)); os.IsNotExist(err) {
+			return bundleAddCount, errors.Errorf("Bundle %s does not exist in CLR version %s", bundle, b.Clearver)
 		}
 		// Check if bundle exists in mix bundles dir
-		if _, err := os.Stat(bundledir + bundle); os.IsNotExist(err) || force {
+		if _, err := os.Stat(filepath.Join(b.Bundledir, bundle)); os.IsNotExist(err) || force {
 			if !allbundles {
 				var ib []string
 				// Parse bundle to get all includes
-				if ib, err = helpers.GetIncludedBundles(clrbundledir + bundle); err != nil {
-					helpers.PrintError(errors.New("Cannot parse bundle " + bundle + " from CLR version " + b.Clearver))
-					os.Exit(1)
+				if ib, err = helpers.GetIncludedBundles(filepath.Join(clrbundledir, bundle)); err != nil {
+					return bundleAddCount, errors.Errorf("Cannot parse bundle %s from CLR version %s", bundle, b.Clearver)
 				} else if len(ib) > 0 {
 					includes = append(includes, ib...)
 				}
 			}
 
 			fmt.Printf("Adding bundle %q\n", bundle)
-			if err = helpers.CopyFile(bundledir+bundle, clrbundledir+bundle); err != nil {
-				helpers.PrintError(err)
-				os.Exit(1)
+			if err = helpers.CopyFile(filepath.Join(b.Bundledir, bundle), filepath.Join(clrbundledir, bundle)); err != nil {
+				return bundleAddCount, err
 			}
 			bundleAddCount++
 		} else {
@@ -366,57 +430,79 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 	}
 	// Recurse on included bundles
 	if len(includes) > 0 {
-		bundleAddCount += b.AddBundles(includes, force, false, false)
+		ib, err := b.AddBundles(includes, force, false, false)
+		if err != nil {
+			return bundleAddCount, err
+		}
+		bundleAddCount += ib
 	}
 
 	if git && bundleAddCount > 0 {
 		// Save current dir so we can get back to it
-		curr, err := os.Getwd()
-		if err != nil {
-			helpers.PrintError(err)
-			os.Exit(1)
-		}
 		fmt.Println("Adding git commit")
-		if err = os.Chdir(bundledir); err != nil {
-			helpers.PrintError(err)
-			os.Exit(1)
+		if err := helpers.Git("-C", b.Bundledir, "add", "."); err != nil {
+			return bundleAddCount, err
 		}
-		helpers.Git("add", ".")
 		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.Clearver, bundles)
-		helpers.Git("commit", "-q", "-m", commitMsg)
-		if err = os.Chdir(curr); err != nil {
-			helpers.PrintError(err)
-			os.Exit(1)
+		if err := helpers.Git("-C", b.Bundledir, "commit", "-q", "-m", commitMsg); err != nil {
+			return bundleAddCount, err
 		}
 	}
-	return bundleAddCount
+	return bundleAddCount, nil
 }
 
 // InitMix will initialise a new swupd-client consumable "mix" with the given
 // based Clear Linux version and specified mix version.
 func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl string) error {
+	// Set up metadata
 	err := ioutil.WriteFile(b.Versiondir+"/.clearurl", []byte(upstreamurl), 0644)
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return err
 	}
 	b.Upstreamurl = upstreamurl
 
 	err = ioutil.WriteFile(b.Versiondir+"/.clearversion", []byte(clearver), 0644)
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return err
 	}
 	b.Clearver = clearver
 
 	err = ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(mixver), 0644)
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return err
 	}
 	b.Mixver = mixver
 
-	b.UpdateRepo(clearver, all)
+	// Get upstream bundles
+	if err := b.getUpstreamBundles(clearver, true); err != nil {
+		return err
+	}
+
+	// Set up mix-bundles dir
+	if _, err := os.Stat(b.Bundledir); os.IsNotExist(err) {
+		if err = os.MkdirAll(b.Bundledir, 0777); err != nil {
+			return errors.Wrap(err, "Failed to create mix-bundles dir")
+		}
+
+		// Add default bundles (or all)
+		// Note: os-core-update already includes os-core, and kernel-native already includes bootloader
+		defaultBundles := []string{"os-core-update", "kernel-native"}
+		if _, err := b.AddBundles(defaultBundles, false, all, false); err != nil {
+			return err
+		}
+
+		// Init the mix-bundles git repo
+		if err := helpers.Git("-C", b.Bundledir, "init"); err != nil {
+			return err
+		}
+		if err := helpers.Git("-C", b.Bundledir, "add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Initial mix version %s from upstream version %s", b.Mixver, b.Clearver)
+		if err := helpers.Git("-C", b.Bundledir, "commit", "-m", commitMsg); err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

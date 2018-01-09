@@ -15,12 +15,13 @@
 package helpers
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -32,6 +33,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 // PrintError is a utility function to emit an error to the console
@@ -151,6 +154,71 @@ func GetIncludedBundles(filename string) ([]string, error) {
 		}
 	}
 	return includes, nil
+}
+
+// UnpackFile unpacks a .tar or .tar.gz/.tgz file to a given directory.
+// Should be roughly equivalent to "tar -x[z]f file -C dest". Does not
+// overwrite; returns error if file being unpacked already exists.
+func UnpackFile(file string, dest string) error {
+	fr, err := os.Open(file)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = fr.Close()
+	}()
+
+	var tr *tar.Reader
+
+	// If it's a compressed tarball
+	if strings.HasSuffix(file, ".tar.gz") || strings.HasSuffix(file, ".tgz") {
+		gzr, err := gzip.NewReader(fr)
+		if err != nil {
+			return errors.Wrapf(err, "Error decompressing tarball: %s", file)
+		}
+		defer func() {
+			_ = gzr.Close()
+		}()
+		tr = tar.NewReader(gzr)
+	} else {
+		tr = tar.NewReader(fr)
+	}
+
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			// end of archive
+			break
+		} else if err != nil {
+			return errors.Wrapf(err, "Error reading contents of tarball: %s", file)
+		}
+
+		out := filepath.Join(dest, hdr.Name)
+
+		switch hdr.Typeflag {
+		// Skip GitHub generated "extended header" file
+		case tar.TypeXGlobalHeader:
+			continue
+		case tar.TypeDir:
+			if err = os.MkdirAll(out, os.FileMode(hdr.Mode)); err != nil {
+				return errors.Wrapf(err, "Error unpacking directory: %s", out)
+			}
+		case tar.TypeReg:
+			of, err := os.OpenFile(out, os.O_CREATE|os.O_RDWR|os.O_EXCL, os.FileMode(hdr.Mode))
+			if err != nil {
+				return errors.Wrapf(err, "Error unpacking file: %s", out)
+			}
+
+			_, err = io.Copy(of, tr)
+			_ = of.Close()
+			if err != nil {
+				return errors.Wrapf(err, "Error unpacking file: %s", out)
+			}
+		default:
+			return errors.Errorf("Error unpacking file: %s", out)
+		}
+	}
+	return nil
 }
 
 // CopyFile is used during the build process to copy a given file to the target

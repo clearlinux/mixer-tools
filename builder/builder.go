@@ -246,9 +246,7 @@ func (b *Builder) UpdateRepo(ver string, allbundles bool) {
 		os.Exit(1)
 	}
 
-	// FIXME: Maybe use Go's tar or compress packages to do this
-	_, err = exec.Command("tar", "-xzf", repo, "-C", "clr-bundles/").Output()
-	if err != nil {
+	if err = helpers.UnpackFile(repo, "clr-bundles/"); err != nil {
 		helpers.PrintError(err)
 		os.Exit(1)
 	}

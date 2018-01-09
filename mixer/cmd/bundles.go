@@ -20,6 +20,7 @@ import (
 
 	"github.com/clearlinux/mixer-tools/builder"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -40,17 +41,20 @@ var addBundlesCmd = &cobra.Command{
 	Use:   "add [bundle(s)]",
 	Short: "Add clr-bundles to your mix",
 	Long:  `Add clr-bundles to your mix`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		if bundleFlags.all == false {
 			if len(args) <= 0 {
-				failf("bundle add requires at least 1 argument if --all is not passed")
+				return errors.New("bundle add requires at least 1 argument if --all is not passed")
 			}
 		}
 		bundles := strings.Split(args[0], ",")
 		b := builder.NewFromConfig(config)
-		// TODO change this to return (int, error)
-		numadded := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
+		numadded, err := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
 		fmt.Println(numadded, " bundles were added")
+		if err != nil {
+			fail(err)
+		}
+		return nil
 	},
 }
 

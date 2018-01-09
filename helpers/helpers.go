@@ -290,18 +290,18 @@ func Download(filename string, url string) (err error) {
 	return nil
 }
 
-// Git runs git with arguments and exits in case of failure.
+// Git runs git with arguments and returns in case of failure.
 // IMPORTANT: the 'args' passed to this function _must_ be validated,
 // as to avoid cases where input is received from a third party source.
 // Such inputs could be something the likes of 'status; rm -rf .*'
 // and need to be escaped or avoided properly.
-func Git(args ...string) {
+func Git(args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: failed to run git %s: %v\n", strings.Join(args, " "), err)
-		os.Exit(1)
+		return errors.Wrapf(err, "ERROR: failed to run: git %s", strings.Join(args, " "))
 	}
+	return nil
 }

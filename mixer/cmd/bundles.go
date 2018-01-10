@@ -59,21 +59,9 @@ var addBundlesCmd = &cobra.Command{
 	},
 }
 
-var getBundlesCmd = &cobra.Command{
-	Use:   "get",
-	Short: "Get the clr-bundles from upstream",
-	Long:  `Get the clr-bundles from upstream`,
-	Run: func(cmd *cobra.Command, args []string) {
-		b := builder.NewFromConfig(config)
-		fmt.Println("Getting clr-bundles for version " + b.Clearver)
-		// TODO change this to return an error
-		b.UpdateRepo(b.Clearver, false)
-	},
-}
-
 var bundlesCmds = []*cobra.Command{
 	addBundlesCmd,
-	getBundlesCmd,
+	// Leaving this in place because more are coming soon
 }
 
 func init() {

@@ -112,13 +112,6 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			bundle.removeDebuginfo(c.debuginfo)
 		}
 
-		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest."+bundle.Name)
-		oldM := getOldManifest(oldMPath)
-		// add old deleted files if the format has incremented
-		if ui.oldFormat == ui.format {
-			bundle.addDeleted(oldM)
-		}
-
 		bundle.sortFilesName()
 		tmpManifests = append(tmpManifests, bundle)
 	}

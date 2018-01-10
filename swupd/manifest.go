@@ -342,15 +342,6 @@ func (m *Manifest) sortFilesVersionName() {
 	})
 }
 
-func (m *Manifest) addDeleted(oldManifest *Manifest) {
-	for _, df := range oldManifest.DeletedFiles {
-		if df.findFileNameInSlice(m.Files) == nil {
-			m.appendFile(df)
-			m.DeletedFiles = append(m.DeletedFiles, df)
-		}
-	}
-}
-
 func (m *Manifest) appendFile(f *File) {
 	m.Files = append(m.Files, f)
 }
@@ -455,8 +446,6 @@ func (m *Manifest) newDeleted(df *File) {
 	df.Hash = internHash(AllZeroHash)
 	// prepend so we don't re-process this file
 	m.prependFile(df)
-	// we aren't processing this so we can append
-	m.DeletedFiles = append(m.DeletedFiles, df)
 }
 
 func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {

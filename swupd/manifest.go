@@ -141,7 +141,7 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 	}
 
 	// add file to manifest
-	m.appendFile(file)
+	m.Files = append(m.Files, file)
 
 	// track deleted file
 	if file.Status == statusDeleted {
@@ -342,26 +342,18 @@ func (m *Manifest) sortFilesVersionName() {
 	})
 }
 
-func (m *Manifest) appendFile(f *File) {
-	m.Files = append(m.Files, f)
-}
-
-func (m *Manifest) prependFile(f *File) {
-	m.Files = append([]*File{f}, m.Files...)
-}
-
 // linkPeersAndChange
 // At this point Manifest m should only have the files that were present
 // in the chroot for that manifest. Link delta peers with the oldManifest
 // if the file in the oldManifest is not deleted or ghosted.
 // Expects m and oldManifest files lists to be sorted by name only
 func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
-	changed := 0
-	added := 0
-	deleted := 0
+	var unchanged, changed, removed, added []*File
 	i := 0
 	j := 0
-	for i < len(m.Files) && j < len(oldManifest.Files) {
+	mFilesLen := len(m.Files)
+	omFilesLen := len(oldManifest.Files)
+	for i < mFilesLen && j < omFilesLen {
 		nf := m.Files[i]
 		of := oldManifest.Files[j]
 		if nf.Name == of.Name {
@@ -382,10 +374,11 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 				// if the file isn't exactly the same, record the change
 				// and update the version
 				nf.Version = m.Header.Version
-				changed++
+				changed = append(changed, nf)
 			} else {
 				// otherwise the version is the same as the old file
 				nf.Version = of.Version
+				unchanged = append(unchanged, nf)
 			}
 			// advance indices for both file lists since we had a match
 			i++
@@ -395,57 +388,62 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 			// file in this manifest. Update the version and record that
 			// it is added.
 			nf.Version = m.Header.Version
-			added++
+			added = append(added, nf)
 			// look at next file in current manifest
 			i++
 		} else {
 			// if the file exists in the old manifest and does not *yet* exist
-			// in the new manifest, it was deleted. Set up the deleted file
-			// and prepend it to the files list via newDeleted()
+			// in the new manifest, it was deleted.
 			if of.Status == statusDeleted || of.Status == statusGhosted {
 				j++
 				continue
 			}
 			m.newDeleted(of)
-			deleted++
+			removed = append(removed, of)
 			// look at next file in old manifest
 			j++
-			// increment the index into m.Files as well since we increased
-			// length by prepending of
-			i++
 		}
 	}
 
 	// anything remaining in m does not exist in oldManifest
-	for _, nf := range m.Files[i:] {
+	for _, nf := range m.Files[i:mFilesLen] {
 		nf.Version = m.Header.Version
-		added++
+		added = append(added, nf)
 	}
 
 	// anything remaining in oldManifest is newly deleted in the new manifest
-	for _, of := range oldManifest.Files[j:] {
+	for _, of := range oldManifest.Files[j:omFilesLen] {
 		if of.Status == statusDeleted || of.Status == statusGhosted {
 			continue
 		}
 		m.newDeleted(of)
-		deleted++
+		removed = append(removed, of)
+	}
+
+	// TODO: call rename detection with added and removed here
+
+	// if a file still has deleted status here and is not a rename
+	// the has needs to be set to all zeros
+	for _, f := range removed {
+		if f.Status == statusDeleted && !f.Rename {
+			f.Hash = internHash(AllZeroHash)
+			f.Type = typeUnset
+		}
 	}
 
 	// finally re-sort since we changed the order
 	m.sortFilesName()
 	// return the number of changed, added, or deleted files in this
 	// manifest
-	return changed, added, deleted
+	return len(changed), len(added), len(removed)
 }
 
 func (m *Manifest) newDeleted(df *File) {
 	df.Version = m.Header.Version
 	df.Status = statusDeleted
 	df.Modifier = modifierUnset
-	df.Type = typeUnset
-	df.Hash = internHash(AllZeroHash)
-	// prepend so we don't re-process this file
-	m.prependFile(df)
+	// Add file to manifest
+	m.Files = append(m.Files, df)
 }
 
 func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {

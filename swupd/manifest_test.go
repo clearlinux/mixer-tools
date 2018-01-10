@@ -366,43 +366,6 @@ func TestSortFilesVersionName(t *testing.T) {
 	}
 }
 
-func TestAddDeleted(t *testing.T) {
-	mOld := Manifest{
-		DeletedFiles: []*File{
-			{Name: "1"},
-			{Name: "2"},
-			{Name: "3"},
-			{Name: "4"},
-		},
-	}
-
-	mNew := Manifest{
-		Files: []*File{
-			{Name: "1"},
-			{Name: "3"},
-			{Name: "5"},
-		},
-	}
-
-	expectedFileNames := []string{"1", "2", "3", "4", "5"}
-	expectedDeletedFileNames := []string{"2", "4"}
-
-	mNew.addDeleted(&mOld)
-	// sort to easily compare
-	mNew.sortFilesName()
-	for i, f := range mNew.Files {
-		if f.Name != expectedFileNames[i] {
-			t.Errorf("%v did not match expected %v", f.Name, expectedFileNames[i])
-		}
-	}
-
-	for i, f := range mNew.DeletedFiles {
-		if f.Name != expectedDeletedFileNames[i] {
-			t.Errorf("%v did not match expected %v", f.Name, expectedDeletedFileNames[i])
-		}
-	}
-}
-
 func TestLinkPeersAndChange(t *testing.T) {
 	mOld := Manifest{
 		Files: []*File{

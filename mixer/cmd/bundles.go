@@ -42,12 +42,13 @@ var addBundlesCmd = &cobra.Command{
 	Short: "Add clr-bundles to your mix",
 	Long:  `Add clr-bundles to your mix`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var bundles []string
 		if bundleFlags.all == false {
-			if len(args) <= 0 {
+			if len(args) == 0 {
 				return errors.New("bundle add requires at least 1 argument if --all is not passed")
 			}
+			bundles = strings.Split(args[0], ",")
 		}
-		bundles := strings.Split(args[0], ",")
 		b := builder.NewFromConfig(config)
 		numadded, err := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
 		fmt.Println(numadded, " bundles were added")

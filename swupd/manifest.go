@@ -361,13 +361,13 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 			// if something has changed update the version to current version and
 			// record that the file has changed
 			if of.Status == statusDeleted || of.Status == statusGhosted {
-				// don't worry about ghosted or deleted files
-				nx++
+				nf.Version = m.Header.Version
+				added = append(added, nf)
 				ox++
+				nx++
 				continue
 			}
-
-			// set up peers
+			// set up peers since old file exists
 			nf.DeltaPeer = of
 			of.DeltaPeer = nf
 			if !sameFile(nf, of) {

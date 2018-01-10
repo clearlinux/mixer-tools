@@ -388,3 +388,23 @@ func TestCreateManifestMaximizeFull(t *testing.T) {
 	checkManifestContains(t, testDir, "20", "full", "20\t/foo\n")
 	checkManifestNotContains(t, testDir, "20", "full", "10\t/foo\n")
 }
+
+func TestCreateManifestResurrect(t *testing.T) {
+	testDir := mustSetupTestDir(t, "resurrect-file")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
+	mustGenFile(t, testDir, "10", "test-bundle", "foo1", "foo1")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "foo1", "foo1")
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
+	mustGenFile(t, testDir, "30", "test-bundle", "foo", "foo1")
+	mustCreateManifestsStandard(t, 30, testDir)
+
+	checkManifestContains(t, testDir, "30", "test-bundle", AllZeroHash+"\t30\t/foo1\n")
+	checkManifestContains(t, testDir, "30", "test-bundle", "\t30\t/foo\n")
+}

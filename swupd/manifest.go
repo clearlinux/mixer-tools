@@ -349,21 +349,21 @@ func (m *Manifest) sortFilesVersionName() {
 // Expects m and oldManifest files lists to be sorted by name only
 func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 	var unchanged, changed, removed, added []*File
-	i := 0
-	j := 0
+	nx := 0 // new manifest file index
+	ox := 0 // old manifest file index
 	mFilesLen := len(m.Files)
 	omFilesLen := len(oldManifest.Files)
-	for i < mFilesLen && j < omFilesLen {
-		nf := m.Files[i]
-		of := oldManifest.Files[j]
+	for nx < mFilesLen && ox < omFilesLen {
+		nf := m.Files[nx]
+		of := oldManifest.Files[ox]
 		if nf.Name == of.Name {
 			// if it is the same name check if anything about the file has changed.
 			// if something has changed update the version to current version and
 			// record that the file has changed
 			if of.Status == statusDeleted || of.Status == statusGhosted {
 				// don't worry about ghosted or deleted files
-				i++
-				j++
+				nx++
+				ox++
 				continue
 			}
 
@@ -381,8 +381,8 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 				unchanged = append(unchanged, nf)
 			}
 			// advance indices for both file lists since we had a match
-			i++
-			j++
+			nx++
+			ox++
 		} else if nf.Name < of.Name {
 			// if the file does not exist in the old manifest it is a new
 			// file in this manifest. Update the version and record that
@@ -390,29 +390,29 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 			nf.Version = m.Header.Version
 			added = append(added, nf)
 			// look at next file in current manifest
-			i++
+			nx++
 		} else {
 			// if the file exists in the old manifest and does not *yet* exist
 			// in the new manifest, it was deleted.
 			if of.Status == statusDeleted || of.Status == statusGhosted {
-				j++
+				ox++
 				continue
 			}
 			m.newDeleted(of)
 			removed = append(removed, of)
 			// look at next file in old manifest
-			j++
+			ox++
 		}
 	}
 
 	// anything remaining in m does not exist in oldManifest
-	for _, nf := range m.Files[i:mFilesLen] {
+	for _, nf := range m.Files[nx:mFilesLen] {
 		nf.Version = m.Header.Version
 		added = append(added, nf)
 	}
 
 	// anything remaining in oldManifest is newly deleted in the new manifest
-	for _, of := range oldManifest.Files[j:omFilesLen] {
+	for _, of := range oldManifest.Files[ox:omFilesLen] {
 		if of.Status == statusDeleted || of.Status == statusGhosted {
 			continue
 		}
@@ -426,7 +426,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
 	// the has needs to be set to all zeros
 	for _, f := range removed {
 		if f.Status == statusDeleted && !f.Rename {
-			f.Hash = internHash(AllZeroHash)
+			f.Hash = 0
 			f.Type = typeUnset
 		}
 	}

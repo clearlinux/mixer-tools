@@ -94,7 +94,7 @@ type initCmdFlags struct {
 var initFlags initCmdFlags
 
 var initCmd = &cobra.Command{
-	Use:   "init-mix",
+	Use:   "init",
 	Short: "Initialize the mixer and workspace",
 	Long:  `Initialize the mixer and workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -127,7 +127,7 @@ func init() {
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
 	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")
 
-	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Create a mix with all Clear bundles included")
+	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Initialize mix with all upstream bundles automatically included")
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")

@@ -380,7 +380,7 @@ func TestLinkPeersAndChange(t *testing.T) {
 	mNew := Manifest{
 		Files: []*File{
 			{Name: "1", Status: statusUnset},
-			{Name: "2", Status: statusDeleted},
+			{Name: "2", Status: statusUnset},
 			{Name: "3", Status: statusUnset},
 			{Name: "5", Status: statusUnset, Hash: 2},
 			{Name: "6", Status: statusUnset},
@@ -404,10 +404,10 @@ func TestLinkPeersAndChange(t *testing.T) {
 	mOld.sortFilesName()
 	changed, added, deleted := mNew.linkPeersAndChange(&mOld)
 	if changed != 1 {
-		t.Errorf("%v files detected as changed when only 1 was expected", changed)
+		t.Errorf("%v files detected as changed when 1 was expected", changed)
 	}
-	if added != 1 {
-		t.Errorf("%v files detected as added when only 1 was expected", added)
+	if added != 3 {
+		t.Errorf("%v files detected as added when 3 were expected", added)
 	}
 	if deleted != 1 {
 		t.Errorf("%v files detected as deleted when only 1 was expected", deleted)

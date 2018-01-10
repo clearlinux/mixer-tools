@@ -311,3 +311,29 @@ func Git(args ...string) error {
 	}
 	return nil
 }
+
+// RunCommand runs the given command with args and prints output
+func RunCommand(cmdname string, args ...string) error {
+	cmd := exec.Command(cmdname, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "Failed to run %s %s: %v\n", cmdname, strings.Join(args, " "), err)
+	}
+
+	return nil
+}
+
+// RunCommandSilent runs the given command with args and does not print output
+func RunCommandSilent(cmdname string, args ...string) error {
+	cmd := exec.Command(cmdname, args...)
+	// Automatically connected to os.DevNull by implementation
+	// because cmd.Stdout/Stderr are nil in this case
+	err := cmd.Run()
+	if err != nil {
+		return errors.Wrapf(err, "Failed to run %s %s: %v\n", cmdname, strings.Join(args, " "), err)
+	}
+
+	return nil
+}

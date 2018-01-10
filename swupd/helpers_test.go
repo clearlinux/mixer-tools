@@ -186,6 +186,27 @@ func mustExist(t *testing.T, name string) {
 	}
 }
 
+func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
+	var fromFull *Manifest
+	var toFull *Manifest
+	var err error
+	if fromFull, err = ParseManifestFile(filepath.Join(testDir, "www", fmt.Sprintf("%d", from), "Manifest.full")); err != nil {
+		t.Fatalf("Failed to load from manifest to read hash from: %q", err)
+	}
+	if toFull, err = ParseManifestFile(filepath.Join(testDir, "www", fmt.Sprintf("%d", to), "Manifest.full")); err != nil {
+		t.Fatalf("Failed to load to manifest to read hash from: %q", err)
+	}
+
+	var fileNeeded = &File{Name: filename}
+	fromHash := fileNeeded.findFileNameInSlice(fromFull.Files).Hash
+	toHash := fileNeeded.findFileNameInSlice(toFull.Files).Hash
+
+	suffix := fmt.Sprintf("%d-%d-%s-%s", from, to, fromHash, toHash)
+	deltafile := filepath.Join(testDir, "www", fmt.Sprintf("%d", to), "delta", suffix)
+
+	mustExist(t, deltafile)
+}
+
 func mustNotExist(t *testing.T, name string) {
 	_, err := os.Stat(name)
 	if !os.IsNotExist(err) {
@@ -248,5 +269,18 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 		if !re.Match(b) {
 			t.Errorf("%v not found in %s/Manifest.%s", re.String(), ver, name)
 		}
+	}
+}
+
+func mustCreateDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
+	failed, err := CreateDeltas(manifest, statedir, from, to)
+	if err != nil {
+		if len(failed) > 0 {
+			t.Fatalf("%s: \n%d deltas did not get created for %s: %v", err, len(failed), manifest, failed)
+			return
+		}
+		t.Fatal(err)
+	} else if len(failed) > 0 {
+		t.Fatalf("CreateDeltas succeeded but %d deltas did not get created for %s: %v", len(failed), manifest, failed)
 	}
 }

@@ -408,3 +408,28 @@ func TestCreateManifestResurrect(t *testing.T) {
 	checkManifestContains(t, testDir, "30", "test-bundle", AllZeroHash+"\t30\t/foo1\n")
 	checkManifestContains(t, testDir, "30", "test-bundle", "\t30\t/foo\n")
 }
+
+func TestCreateManifestsManifestVersion(t *testing.T) {
+	testDir := mustSetupTestDir(t, "manifest-version")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	// same file so no manifest for test-bundle
+	mustGenFile(t, testDir, "20", "test-bundle", "foo", "foo")
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	mustNotExist(t, filepath.Join(testDir, "www/20/Manifest.test-bundle"))
+
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
+	// file changed so should have a manifest for this version
+	mustGenFile(t, testDir, "30", "test-bundle", "foo", "bar")
+	mustCreateManifestsStandard(t, 30, testDir)
+
+	mustExist(t, filepath.Join(testDir, "www/30/Manifest.test-bundle"))
+	// previous version should be 10, not 20, since there was no manifest
+	// generated for version 20
+	checkManifestContains(t, testDir, "30", "test-bundle", "previous:\t10\n")
+}

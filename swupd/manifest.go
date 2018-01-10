@@ -348,6 +348,9 @@ func (m *Manifest) sortFilesVersionName() {
 // if the file in the oldManifest is not deleted or ghosted.
 // Expects m and oldManifest files lists to be sorted by name only
 func (m *Manifest) linkPeersAndChange(oldManifest *Manifest) (int, int, int) {
+	// set previous version to oldManifest version
+	m.Header.Previous = oldManifest.Header.Version
+
 	var unchanged, changed, removed, added []*File
 	nx := 0 // new manifest file index
 	ox := 0 // old manifest file index

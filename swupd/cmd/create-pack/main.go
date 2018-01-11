@@ -125,20 +125,8 @@ func main() {
 			}
 			fmt.Println()
 		}
-
-		// TODO: Move this to the info structure itself?
-		fullfiles := 0
-		deltas := 0
-		for _, e := range info.Entries {
-			switch e.State {
-			case swupd.PackedFullfile:
-				fullfiles++
-			case swupd.PackedDelta:
-				deltas++
-			}
-		}
-		fmt.Printf("  Fullfiles in pack: %d\n", fullfiles)
-		fmt.Printf("  Deltas in pack: %d\n", deltas)
+		fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
+		fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
 	}
 }
 

@@ -536,9 +536,21 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		b.Format = format
 	}
 
+	var err error
+	// TODO: move this to parsing configuration time.
+	var mixVerUint uint32
+	{
+		var parsed uint64
+		parsed, err = strconv.ParseUint(b.Mixver, 10, 32)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't parse mix version value %q", b.Mixver)
+		}
+		mixVerUint = uint32(parsed)
+	}
+
 	// Ensure the format dir exists.
 	formatDir := filepath.Join(b.Statedir, "www", "version", "format"+b.Format)
-	err := os.MkdirAll(formatDir, 0777)
+	err = os.MkdirAll(formatDir, 0777)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create the format directory")
 	}
@@ -582,13 +594,19 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		fmt.Println("Signed Manifest.MoM")
 	}
 
+	fullChrootDir := filepath.Join(b.Statedir, "image", b.Mixver, "full")
+	if _, err = os.Stat(fullChrootDir); err != nil {
+		return errors.Wrapf(err, "couldn't access the full chroot")
+	}
+
+	outputDir := filepath.Join(b.Statedir, "www")
+	if _, err = os.Stat(outputDir); err != nil {
+		return errors.Wrapf(err, "couldn't access the swupd output dir (www)")
+	}
+
 	// Create full files.
 	timer.Start("create fullfiles")
 	if UseNewSwupdServer {
-		chrootDir := filepath.Join(b.Statedir, "image", b.Mixver, "full")
-		if _, err = os.Stat(chrootDir); err != nil {
-			return errors.Wrapf(err, "couldn't access the full chroot")
-		}
 		manifestFile := filepath.Join(b.Statedir, "www", b.Mixver, "Manifest.full")
 		if _, err = os.Stat(manifestFile); err != nil {
 			return errors.Wrapf(err, "couldn't access the full manifest")
@@ -598,12 +616,12 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		if err != nil {
 			return errors.Wrapf(err, "couldn't read full manifest")
 		}
-		outputDir := filepath.Join(b.Statedir, "www", b.Mixver, "files")
-		err = os.MkdirAll(outputDir, 0777)
+		fullfilesDir := filepath.Join(outputDir, b.Mixver, "files")
+		err = os.MkdirAll(fullfilesDir, 0777)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't create the output directory")
+			return errors.Wrapf(err, "couldn't create the full files directory")
 		}
-		err = swupd.CreateFullfiles(m, chrootDir, outputDir)
+		err = swupd.CreateFullfiles(m, fullChrootDir, fullfilesDir)
 		if err != nil {
 			return err
 		}
@@ -620,16 +638,55 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 
 	// Create zero packs.
 	timer.Start("create zero packs")
-	zeropackArgs := []string{"--to", b.Mixver, "-S", b.Statedir}
-	if prefixflag != "" {
-		zeropackArgs = append(zeropackArgs, "--repodir", prefixflag)
-	}
-	zeropackcmd := exec.Command("mixer-pack-maker.sh", zeropackArgs...)
-	zeropackcmd.Stdout = os.Stdout
-	zeropackcmd.Stderr = os.Stderr
-	err = zeropackcmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "couldn't create zero packs")
+	if UseNewSwupdServer {
+		var bundles map[string]*swupd.BundleToPack
+		bundles, err = swupd.FindBundlesToPack(0, mixVerUint, b.Statedir)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't find bundles to pack")
+		}
+
+		// TODO: Use goroutines.
+		for _, b := range bundles {
+			packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
+			_, err = os.Lstat(packPath)
+			if err == nil {
+				fmt.Printf("Pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+				continue
+			}
+			if !os.IsNotExist(err) {
+				return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+			}
+
+			fmt.Printf("Packing %s from %d to %d...\n", b.Name, b.FromVersion, b.ToVersion)
+
+			var info *swupd.PackInfo
+			info, err = swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, fullChrootDir)
+			if err != nil {
+				return errors.Wrapf(err, "couldn't make pack for bundle %s", b.Name)
+			}
+
+			if len(info.Warnings) > 0 {
+				fmt.Println("Warnings during pack:")
+				for _, w := range info.Warnings {
+					fmt.Printf("  %s\n", w)
+				}
+				fmt.Println()
+			}
+			fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
+			fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
+		}
+	} else {
+		zeropackArgs := []string{"--to", b.Mixver, "-S", b.Statedir}
+		if prefixflag != "" {
+			zeropackArgs = append(zeropackArgs, "--repodir", prefixflag)
+		}
+		zeropackcmd := exec.Command("mixer-pack-maker.sh", zeropackArgs...)
+		zeropackcmd.Stdout = os.Stdout
+		zeropackcmd.Stderr = os.Stderr
+		err = zeropackcmd.Run()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't create zero packs")
+		}
 	}
 	timer.Stop()
 

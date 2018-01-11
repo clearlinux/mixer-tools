@@ -20,6 +20,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -539,13 +540,9 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	var err error
 	// TODO: move this to parsing configuration time.
 	var mixVerUint uint32
-	{
-		var parsed uint64
-		parsed, err = strconv.ParseUint(b.Mixver, 10, 32)
-		if err != nil {
-			return errors.Wrapf(err, "couldn't parse mix version value %q", b.Mixver)
-		}
-		mixVerUint = uint32(parsed)
+	mixVerUint, err = parseUint32(b.Mixver)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't parse mix version")
 	}
 
 	// Ensure the format dir exists.
@@ -557,12 +554,30 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 
 	// Create update metadata for the mix.
 	timer.Start("create update")
-	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Statedir, "--minversion", strconv.Itoa(minVersion), "-F", b.Format, "--osversion", b.Mixver)
-	updatecmd.Stdout = os.Stdout
-	updatecmd.Stderr = os.Stderr
-	err = updatecmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "failed to create update metadata")
+	if UseNewSwupdServer {
+		// TODO: move this to parsing configuration / parameter time.
+		if minVersion < 0 || minVersion > math.MaxUint32 {
+			return errors.Errorf("minVersion %d is out of range", minVersion)
+		}
+		// TODO: move this to parsing configuration / parameter time.
+		// TODO: should this be uint64?
+		var formatUint uint32
+		formatUint, err = parseUint32(b.Format)
+		if err != nil {
+			return errors.Errorf("invalid format")
+		}
+		_, err = swupd.CreateManifests(mixVerUint, uint32(minVersion), uint(formatUint), b.Statedir)
+		if err != nil {
+			return errors.Wrapf(err, "failed to create update metadata")
+		}
+	} else {
+		updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Statedir, "--minversion", strconv.Itoa(minVersion), "-F", b.Format, "--osversion", b.Mixver)
+		updatecmd.Stdout = os.Stdout
+		updatecmd.Stderr = os.Stderr
+		err = updatecmd.Run()
+		if err != nil {
+			return errors.Wrapf(err, "failed to create update metadata")
+		}
 	}
 	timer.Stop()
 
@@ -817,4 +832,12 @@ func checkRPM(path string) error {
 		return errors.Errorf("file is not a RPM: %s", string(output))
 	}
 	return nil
+}
+
+func parseUint32(s string) (uint32, error) {
+	parsed, err := strconv.ParseUint(s, 10, 32)
+	if err != nil {
+		return 0, errors.Wrapf(err, "error parsing value %q", s)
+	}
+	return uint32(parsed), nil
 }

@@ -344,3 +344,96 @@ func copyFromFullfile(tw *tar.Writer, outputDir string, f *File) (err error) {
 
 	return nil
 }
+
+// BundleToPack contains a bundle and the to/from versions to pack.
+type BundleToPack struct {
+	Name        string
+	FromVersion uint32
+	ToVersion   uint32
+}
+
+// GetPackFilename returns the filename used for a pack of a bundle from a specific version.
+func GetPackFilename(name string, fromVersion uint32) string {
+	return fmt.Sprintf("pack-%s-from-%d.tar", name, fromVersion)
+}
+
+// FindBundlesToPack will read the Manifest.MoM of two versions and return a set of bundle that must
+// be packed (and their corresponding versions).
+//
+// Note that a MoM can contain bundles in an old version, so each bundle needs its own From/To
+// version pair.
+func FindBundlesToPack(fromVersion, toVersion uint32, stateDir string) (map[string]*BundleToPack, error) {
+	toDir := filepath.Join(stateDir, "www", fmt.Sprint(toVersion))
+	toMoM, err := ParseManifestFile(filepath.Join(toDir, "Manifest.MoM"))
+	if err != nil {
+		return nil, fmt.Errorf("couldn't read MoM of TO_VERSION (%d): %s", toVersion, err)
+	}
+
+	bundles := make(map[string]*BundleToPack, len(toMoM.Files))
+	for _, b := range toMoM.Files {
+		bundles[b.Name] = &BundleToPack{b.Name, 0, b.Version}
+	}
+
+	// If this is not a zero pack, we might be able to skip some bundles.
+	if fromVersion > 0 {
+		fromDir := filepath.Join(stateDir, "www", fmt.Sprint(fromVersion))
+		fromMoM, err := ParseManifestFile(filepath.Join(fromDir, "Manifest.MoM"))
+		if err != nil {
+			return nil, fmt.Errorf("couldn't read MoM of FROM_VERSION (%d): %s", fromVersion, err)
+		}
+
+		for _, oldBundle := range fromMoM.Files {
+			bundle, ok := bundles[oldBundle.Name]
+			if !ok {
+				// Bundle doesn't exist in new version, no pack needed.
+				continue
+			}
+			if bundle.ToVersion == oldBundle.Version {
+				// Versions match, so no pack required.
+				delete(bundles, bundle.Name)
+				continue
+			}
+			if bundle.ToVersion < oldBundle.Version {
+				return nil, fmt.Errorf("invalid bundle versions for bundle %s, check the MoMs", bundle.Name)
+			}
+			bundle.FromVersion = oldBundle.Version
+		}
+	}
+
+	return bundles, nil
+}
+
+// CreatePack creates the pack file for a specific bundle between two versions. The pack is written
+// in the TO version subdirectory of outputDir (e.g. a pack from 10 to 20 is written to "www/20").
+func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string) (*PackInfo, error) {
+	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
+	err := os.MkdirAll(toDir, 0755)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	m, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
+	if err != nil {
+		return nil, err
+	}
+	// TODO: Should ParseManifestFile fill this with whatever comes after "Manifest."?
+	m.Name = name
+
+	packPath := filepath.Join(toDir, GetPackFilename(name, fromVersion))
+	output, err := os.Create(packPath)
+	if err != nil {
+		return nil, err
+	}
+	info, err := WritePack(output, m, fromVersion, outputDir, chrootDir)
+	if err != nil {
+		_ = os.RemoveAll(packPath)
+		return nil, err
+	}
+	err = output.Close()
+	if err != nil {
+		_ = os.RemoveAll(packPath)
+		return nil, err
+	}
+
+	return info, nil
+}

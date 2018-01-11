@@ -47,7 +47,8 @@ type PackEntry struct {
 
 // PackInfo contains detailed information about a pack written.
 type PackInfo struct {
-	// TODO: Add stats.
+	FullfileCount uint64
+	DeltaCount    uint64
 
 	// Entries contains all the files considered for packing and details about its presence in
 	// the pack.
@@ -139,6 +140,7 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 		// TODO: Pack deltas when available.
 		entry.State = PackedFullfile
 		entry.Reason = "from fullfile"
+		info.FullfileCount++
 		if chrootDir != "" {
 			var fallback bool
 			fallback, err = copyFromChrootFile(tw, chrootDir, f)

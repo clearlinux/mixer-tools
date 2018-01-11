@@ -48,7 +48,7 @@ func TestInitBuildDirs(t *testing.T) {
 }
 
 func TestCreateManifestsBadMinVersion(t *testing.T) {
-	if err := CreateManifests(10, 20, 1, "testdir"); err == nil {
+	if _, err := CreateManifests(10, 20, 1, "testdir"); err == nil {
 		t.Error("No error raised with invalid minVersion (20) for version 10")
 	}
 }

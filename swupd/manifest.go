@@ -50,10 +50,17 @@ type Manifest struct {
 	DeletedFiles []*File
 }
 
-// MoM is a manifest of manifests with the same header information
+// MoM is a manifest that holds references to bundle manifests.
 type MoM struct {
-	Header       ManifestHeader
-	SubManifests []*Manifest
+	Manifest
+
+	// UpdatedBundles has the manifests of bundles that are new to this
+	// version. To get a list of all the bundles, use Files from embedded
+	// Manifest struct.
+	UpdatedBundles []*Manifest
+
+	// FullManifest contains information about all the files in this version.
+	FullManifest *Manifest
 }
 
 // readManifestFileHeaderLine Read a header line from a manifest

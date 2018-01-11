@@ -201,7 +201,7 @@ func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) {
 }
 
 func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, testDir string) {
-	if err := CreateManifests(ver, minVer, format, testDir); err != nil {
+	if _, err := CreateManifests(ver, minVer, format, testDir); err != nil {
 		t.Fatal(err)
 	}
 }

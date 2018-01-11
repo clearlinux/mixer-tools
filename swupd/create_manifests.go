@@ -172,12 +172,12 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 }
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
-func CreateManifests(version uint32, minVersion uint32, format uint, statedir string) error {
+func CreateManifests(version uint32, minVersion uint32, format uint, statedir string) (*MoM, error) {
 	var err error
 	var c config
 
 	if minVersion > version {
-		return fmt.Errorf("minVersion (%v), must be between 0 and %v (inclusive)",
+		return nil, fmt.Errorf("minVersion (%v), must be between 0 and %v (inclusive)",
 			minVersion, version)
 	}
 
@@ -188,12 +188,12 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	if err = initBuildEnv(c); err != nil {
-		return err
+		return nil, err
 	}
 
 	var groups []string
 	if groups, err = readGroupsINI(filepath.Join(c.stateDir, "groups.ini")); err != nil {
-		return err
+		return nil, err
 	}
 
 	groups = append(groups, "full")
@@ -201,7 +201,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	var lastVersion uint32
 	lastVersion, err = readLastVerFile(filepath.Join(c.imageBase, "LAST_VER"))
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
@@ -215,17 +215,17 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	if oldFullManifest.Header.Format > format {
-		return fmt.Errorf("new format %v is lower than old format %v", format, oldFullManifest.Header.Format)
+		return nil, fmt.Errorf("new format %v is lower than old format %v", format, oldFullManifest.Header.Format)
 	}
 
 	if err = initBuildDirs(version, groups, c.imageBase); err != nil {
-		return err
+		return nil, err
 	}
 
 	// create new chroot from all bundle chroots
 	// TODO: this should be its own thing that an earlier step in mixer does
 	if err = createNewFullChroot(version, groups, c.imageBase); err != nil {
-		return err
+		return nil, err
 	}
 
 	timeStamp := time.Now()
@@ -245,12 +245,12 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 	var newManifests []*Manifest
 	if newManifests, err = processBundles(ui, c); err != nil {
-		return err
+		return nil, err
 	}
 
 	verOutput := filepath.Join(c.outputDir, fmt.Sprint(version))
 	if err = os.MkdirAll(verOutput, 0755); err != nil {
-		return err
+		return nil, err
 	}
 
 	newMoM := Manifest{
@@ -270,7 +270,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		bMan.sortFilesVersionName()
 		manPath := filepath.Join(verOutput, "Manifest."+bMan.Name)
 		if err = bMan.WriteManifestFile(manPath); err != nil {
-			return err
+			return nil, err
 		}
 
 		// don't need to add full to the MoM
@@ -280,11 +280,11 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 		var fi os.FileInfo
 		if fi, err = os.Lstat(manPath); err != nil {
-			return err
+			return nil, err
 		}
 
 		if err = newMoM.createManifestRecord(verOutput, manPath, fi, version); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -300,8 +300,20 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 	// write MoM
 	if err = newMoM.WriteManifestFile(filepath.Join(verOutput, "Manifest.MoM")); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	// Make the result MoM struct to return.
+	result := &MoM{
+		Manifest:       newMoM,
+		UpdatedBundles: make([]*Manifest, 0, len(newManifests)),
+	}
+	for _, b := range newManifests {
+		if b.Name == "full" {
+			result.FullManifest = b
+		} else {
+			result.UpdatedBundles = append(result.UpdatedBundles, b)
+		}
+	}
+	return result, nil
 }

@@ -15,10 +15,12 @@
 package builder
 
 import (
+	"archive/tar"
 	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math"
 	"os"
@@ -650,9 +652,32 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	for _, f := range mom.Files {
 		fmt.Printf("- %-20s %d\n", f.Name, f.Version)
 	}
+
 	if !skipSigning {
 		fmt.Println("Signing manifest.")
 		err = b.SignManifestMoM()
+		if err != nil {
+			return err
+		}
+	}
+
+	outputDir := filepath.Join(b.Statedir, "www")
+	thisVersionDir := filepath.Join(outputDir, fmt.Sprint(mixVersion))
+	fmt.Println("Compressing Manifest.MoM")
+	momF := filepath.Join(thisVersionDir, "Manifest.MoM")
+	if skipSigning {
+		err = createCompressedArchive(momF+".tar", momF)
+	} else {
+		err = createCompressedArchive(momF+".tar", momF, momF+".sig")
+	}
+	if err != nil {
+		return err
+	}
+	fmt.Println("Compressing bundle manifests")
+	for _, bundle := range mom.UpdatedBundles {
+		fmt.Printf("  %s\n", bundle.Name)
+		f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
+		err = createCompressedArchive(f+".tar", f)
 		if err != nil {
 			return err
 		}
@@ -661,7 +686,6 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Stop()
 
 	timer.Start("CREATE FULLFILES")
-	outputDir := filepath.Join(b.Statedir, "www")
 	fullfilesDir := filepath.Join(outputDir, b.Mixver, "files")
 	fullChrootDir := filepath.Join(b.Statedir, "image", b.Mixver, "full")
 	// TODO: CreateFullfiles should return us feedback on what was
@@ -849,4 +873,66 @@ func parseUint32(s string) (uint32, error) {
 		return 0, errors.Wrapf(err, "error parsing value %q", s)
 	}
 	return uint32(parsed), nil
+}
+
+// createCompressedArchive will use tar and xz to create a compressed
+// file. It does not stream the sources contents, doing all the work
+// in memory before writing the destination file.
+func createCompressedArchive(dst string, srcs ...string) error {
+	err := createCompressedArchiveInternal(dst, srcs...)
+	return errors.Wrapf(err, "couldn't create compressed archive %s", dst)
+}
+
+func createCompressedArchiveInternal(dst string, srcs ...string) error {
+	archive := &bytes.Buffer{}
+	xw, err := swupd.NewExternalWriter(archive, "xz")
+	if err != nil {
+		return err
+	}
+
+	err = archiveFiles(xw, srcs)
+	if err != nil {
+		_ = xw.Close()
+		return err
+	}
+
+	err = xw.Close()
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(dst, archive.Bytes(), 0644)
+}
+
+func archiveFiles(w io.Writer, srcs []string) error {
+	tw := tar.NewWriter(w)
+	for _, src := range srcs {
+		fi, err := os.Lstat(src)
+		if err != nil {
+			return err
+		}
+		if !fi.Mode().IsRegular() {
+			return errors.Errorf("%s has unsupported type of file", src)
+		}
+		var hdr *tar.Header
+		hdr, err = tar.FileInfoHeader(fi, "")
+		if err != nil {
+			return err
+		}
+
+		err = tw.WriteHeader(hdr)
+		if err != nil {
+			return err
+		}
+		var srcData []byte
+		srcData, err = ioutil.ReadFile(src)
+		if err != nil {
+			return err
+		}
+		_, err = tw.Write(srcData)
+		if err != nil {
+			return err
+		}
+	}
+	return tw.Close()
 }

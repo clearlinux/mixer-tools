@@ -173,7 +173,7 @@ func copyFromChrootFile(tw *tar.Writer, chrootDir string, f *File) (fallback boo
 	if err != nil {
 		return true, err
 	}
-	hdr.Name = f.Hash.String()
+	hdr.Name = "staged/" + f.Hash.String()
 
 	// TODO: Also perform this verification for copyFromFullfile?
 

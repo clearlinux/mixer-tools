@@ -581,25 +581,6 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	}
 	timer.Stop()
 
-	// Clean up the bundle chroots as only the full chroot is needed from this point on.
-	if !keepChroots {
-		var files []os.FileInfo
-		files, err = ioutil.ReadDir(b.Bundledir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
-		}
-		basedir := filepath.Join(b.Statedir, "image", b.Mixver)
-		for _, f := range files {
-			if f.Name() == "full" {
-				continue
-			}
-			err = os.RemoveAll(filepath.Join(basedir, f.Name()))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
-			}
-		}
-	}
-
 	// Sign the Manifest.MoM that was just created.
 	if !skipSigning {
 		err = b.SignManifestMoM()
@@ -704,6 +685,25 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		}
 	}
 	timer.Stop()
+
+	// Clean up the bundle chroots as only the full chroot is needed from this point on.
+	if !keepChroots {
+		var files []os.FileInfo
+		files, err = ioutil.ReadDir(b.Bundledir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
+		}
+		basedir := filepath.Join(b.Statedir, "image", b.Mixver)
+		for _, f := range files {
+			if f.Name() == "full" {
+				continue
+			}
+			err = os.RemoveAll(filepath.Join(basedir, f.Name()))
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
+			}
+		}
+	}
 
 	// Hardlink the duplicate files. This helps when keeping the bundle chroots.
 	timer.Start("hardlink")

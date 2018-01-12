@@ -18,7 +18,7 @@ func TestExternalWriter(t *testing.T) {
 	}
 
 	var output bytes.Buffer
-	w, err := newExternalWriter(&output, tr, "e", "a")
+	w, err := NewExternalWriter(&output, tr, "e", "a")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestExternalReader(t *testing.T) {
 	input := "Hello, world!"
 	expected := strings.Replace(input, "e", "a", -1)
 
-	r, err := newExternalReader(strings.NewReader(input), tr, "e", "a")
+	r, err := NewExternalReader(strings.NewReader(input), tr, "e", "a")
 	if err != nil {
 		t.Fatal(err)
 	}

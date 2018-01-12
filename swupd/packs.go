@@ -83,7 +83,7 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 		Entries: make([]PackEntry, len(m.Files)),
 	}
 
-	xw, err := newExternalWriter(w, "xz")
+	xw, err := NewExternalWriter(w, "xz")
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,7 @@ func newCompressedTarReader(rs io.ReadSeeker) (*compressedTarReader, error) {
 		result.compressionCloser = gr
 		result.Reader = tar.NewReader(gr)
 	case bytes.HasPrefix(h[:], xzMagic):
-		xr, err := newExternalReader(rs, "unxz")
+		xr, err := NewExternalReader(rs, "unxz")
 		if err != nil {
 			return nil, fmt.Errorf("couldn't decompress using xz: %s", err)
 		}

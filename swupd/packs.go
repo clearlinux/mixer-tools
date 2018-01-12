@@ -182,6 +182,7 @@ func copyFromChrootFile(tw *tar.Writer, chrootDir string, f *File) (fallback boo
 		if !fi.IsDir() {
 			return true, fmt.Errorf("couldn't use %s for packing: manifest expected a directory but it is not", realname)
 		}
+		hdr.Name = hdr.Name + "/"
 		hdr.Typeflag = tar.TypeDir
 	case typeLink:
 		if fi.Mode()&os.ModeSymlink == 0 {

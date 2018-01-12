@@ -180,6 +180,7 @@ func init() {
 		"mixer-pack-maker.sh",
 		"openssl",
 		"parallel", // Used by pack-maker.
+		"xz",
 	}
 	externalDeps[buildImageCmd] = []string{
 		"ister.py",

@@ -28,6 +28,15 @@ var fullfileCompressors = []struct {
 // CreateFullfiles creates full file compressed tars for files in chrootDir and places them
 // in outputDir. It doesn't regenerate full files that already exist.
 func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
+	var err error
+	if _, err = os.Stat(chrootDir); err != nil {
+		return fmt.Errorf("couldn't access the full chroot: %s", err)
+	}
+	err = os.MkdirAll(outputDir, 0777)
+	if err != nil {
+		return fmt.Errorf("couldn't create the full files directory: %s", err)
+	}
+
 	// TODO: Parametrize or pick a better value based on system.
 	const GoroutineCount = 3
 	var wg sync.WaitGroup
@@ -49,12 +58,11 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 			output := filepath.Join(outputDir, name+".tar")
 
 			// Don't regenerate if file exists.
-			if _, err := os.Stat(output); err == nil {
+			if _, err = os.Stat(output); err == nil {
 				// TODO: Should we validate it?
 				continue
 			}
 
-			var err error
 			switch f.Type {
 			case typeDirectory:
 				err = createDirectoryFullfile(input, name, output)
@@ -78,7 +86,6 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 		go taskRunner()
 	}
 
-	var err error
 	done := make(map[Hashval]bool)
 	for _, f := range m.Files {
 		if done[f.Hash] || f.Version != m.Header.Version || f.Status == statusDeleted || f.Status == statusGhosted {

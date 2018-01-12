@@ -329,7 +329,7 @@ func getHeaderFromFileInfo(fi os.FileInfo) (*tar.Header, error) {
 
 func externalCompressFunc(program string, args ...string) compressFunc {
 	return func(dst io.Writer, src io.Reader) error {
-		w, err := newExternalWriter(dst, program, args...)
+		w, err := NewExternalWriter(dst, program, args...)
 		if err != nil {
 			return err
 		}

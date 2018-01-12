@@ -5,14 +5,17 @@ import (
 	"os/exec"
 )
 
-type externalWriter struct {
+// ExternalWriter filters a Writer with an external program. Every
+// time Write is called, it will write to the program, and then the
+// result written to the underlying Writer.
+type ExternalWriter struct {
 	cmd   *exec.Cmd
 	input io.WriteCloser
 }
 
-// newExternalWriter creates a Writer that will filter the contents in the
-// external program and then write to w.
-func newExternalWriter(w io.Writer, program string, args ...string) (*externalWriter, error) {
+// NewExternalWriter creates an ExternalWriter with the passed
+// underlying Writer and the program to execute as filter.
+func NewExternalWriter(w io.Writer, program string, args ...string) (*ExternalWriter, error) {
 	cmd := exec.Command(program, args...)
 	input, err := cmd.StdinPipe()
 	if err != nil {
@@ -24,14 +27,15 @@ func newExternalWriter(w io.Writer, program string, args ...string) (*externalWr
 		_ = input.Close()
 		return nil, err
 	}
-	return &externalWriter{cmd, input}, nil
+	return &ExternalWriter{cmd, input}, nil
 }
 
-func (ew *externalWriter) Write(p []byte) (int, error) {
+func (ew *ExternalWriter) Write(p []byte) (int, error) {
 	return ew.input.Write(p)
 }
 
-func (ew *externalWriter) Close() error {
+// Close properly finish the execution of an ExternalWriter.
+func (ew *ExternalWriter) Close() error {
 	err := ew.input.Close()
 	if err != nil {
 		return err
@@ -39,14 +43,17 @@ func (ew *externalWriter) Close() error {
 	return ew.cmd.Wait()
 }
 
-type externalReader struct {
+// ExternalReader filters a Reader with an external program. Every
+// time a Read is called, it will read from the output of the program,
+// that reads from the underlying reader.
+type ExternalReader struct {
 	cmd    *exec.Cmd
 	output io.ReadCloser
 }
 
-// newExternalReader creates a Reader that will filter the contents of r in the
-// external program before returning it.
-func newExternalReader(r io.Reader, program string, args ...string) (*externalReader, error) {
+// NewExternalReader creates an ExternalReader with the passed underlying
+// Reader and the program to execute as filter.
+func NewExternalReader(r io.Reader, program string, args ...string) (*ExternalReader, error) {
 	cmd := exec.Command(program, args...)
 	cmd.Stdin = r
 	output, err := cmd.StdoutPipe()
@@ -58,13 +65,14 @@ func newExternalReader(r io.Reader, program string, args ...string) (*externalRe
 		_ = output.Close()
 		return nil, err
 	}
-	return &externalReader{cmd, output}, nil
+	return &ExternalReader{cmd, output}, nil
 }
 
-func (er *externalReader) Read(p []byte) (int, error) {
+func (er *ExternalReader) Read(p []byte) (int, error) {
 	return er.output.Read(p)
 }
 
-func (er *externalReader) Close() error {
+// Close properly finish the execution of an ExternalReader.
+func (er *ExternalReader) Close() error {
 	return er.cmd.Wait()
 }

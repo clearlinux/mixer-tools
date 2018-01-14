@@ -113,6 +113,11 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 		return nil, fmt.Errorf("write packed failed: %s", err)
 	}
 
+	var fullChrootDir string
+	if chrootDir != "" {
+		fullChrootDir = filepath.Join(chrootDir, fmt.Sprint(m.Header.Version), "full")
+	}
+
 	done := make(map[Hashval]bool)
 	for i, f := range m.Files {
 		entry := &info.Entries[i]
@@ -141,9 +146,9 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 		entry.State = PackedFullfile
 		entry.Reason = "from fullfile"
 		info.FullfileCount++
-		if chrootDir != "" {
+		if fullChrootDir != "" {
 			var fallback bool
-			fallback, err = copyFromChrootFile(tw, chrootDir, f)
+			fallback, err = copyFromFullChrootFile(tw, fullChrootDir, f)
 			if (err != nil) && fallback {
 				info.Warnings = append(info.Warnings, err.Error())
 				err = copyFromFullfile(tw, outputDir, f)
@@ -165,8 +170,8 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 	return info, nil
 }
 
-func copyFromChrootFile(tw *tar.Writer, chrootDir string, f *File) (fallback bool, err error) {
-	realname := filepath.Join(chrootDir, f.Name)
+func copyFromFullChrootFile(tw *tar.Writer, fullChrootDir string, f *File) (fallback bool, err error) {
+	realname := filepath.Join(fullChrootDir, f.Name)
 	fi, err := os.Lstat(realname)
 	if err != nil {
 		return true, err
@@ -409,11 +414,6 @@ func FindBundlesToPack(fromVersion, toVersion uint32, stateDir string) (map[stri
 // in the TO version subdirectory of outputDir (e.g. a pack from 10 to 20 is written to "www/20").
 func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string) (*PackInfo, error) {
 	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
-	err := os.MkdirAll(toDir, 0755)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	m, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
 	if err != nil {
 		return nil, err

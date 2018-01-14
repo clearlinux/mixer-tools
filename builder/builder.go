@@ -697,6 +697,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Stop()
 
 	timer.Start("CREATE ZERO PACKS")
+	chrootDir := filepath.Join(b.Statedir, "image")
 	for _, bundle := range mom.Files {
 		// TODO: Evaluate if it's worth using goroutines.
 		name := bundle.Name
@@ -714,7 +715,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 		fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
 
 		var info *swupd.PackInfo
-		info, err = swupd.CreatePack(name, 0, version, outputDir, fullChrootDir)
+		info, err = swupd.CreatePack(name, 0, version, outputDir, chrootDir)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't make pack for bundle %s", name)
 		}

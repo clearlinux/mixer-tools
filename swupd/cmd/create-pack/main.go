@@ -66,7 +66,7 @@ func main() {
 
 	chrootDir := ""
 	if *useChroot {
-		chrootDir = filepath.Join(stateDir, "image", toVersion, "full")
+		chrootDir = filepath.Join(stateDir, "image")
 		if _, err := os.Stat(chrootDir); err != nil {
 			log.Fatalf("couldn't access the full chroot: %s", err)
 		}

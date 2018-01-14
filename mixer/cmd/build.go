@@ -137,6 +137,69 @@ var buildImageCmd = &cobra.Command{
 	},
 }
 
+var buildDeltaPacksCmd = &cobra.Command{
+	Use:   "delta-packs",
+	Short: "Build packs used to optimize update between versions",
+	Long: `Build packs used to optimize update between versions
+
+EXPERIMENTAL: this command only works with --new-swupd. For the
+current swupd-server implementation use mixer-pack-maker.sh program.
+
+When a swupd client updates a bundle, it looks for a pack file from
+its current version to the new version. If not available, the client
+will download the individual files necessary for the update. If a
+bundle haven't changed between two versions, no pack need to be
+generated.
+
+To generate the packs to optimize update from VER to the current mix
+version use
+
+    mixer build delta-packs --from VER
+
+Alternatively, to generate packs for a set of NUM previous versions,
+each one to the current mix version, instead of --from use
+
+    mixer build delta-packs --previous-versions NUM
+
+To change the target version (by default the current version), use the
+flag --to. The target version must be larger than the --from version.
+
+`,
+	RunE: runBuildDeltaPacks,
+}
+
+var buildDeltaPacksFlags struct {
+	previousVersions uint32
+	from             uint32
+	to               uint32
+}
+
+func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
+	if !builder.UseNewSwupdServer {
+		// TODO: Depending on how long we are going to live with both implementations, it
+		// might be worth making this command call the script when not using new swupd-server.
+		failf("build delta packs is only available with --new-swupd\nUse mixer-pack-maker.sh instead.")
+	}
+
+	fromChanged := cmd.Flags().Changed("from")
+	prevChanged := cmd.Flags().Changed("previous-versions")
+	if fromChanged == prevChanged {
+		return errors.Errorf("either --from or --previous-versions must be set, but not both")
+	}
+
+	var err error
+	b := builder.NewFromConfig(config)
+	if fromChanged {
+		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to)
+	} else {
+		err = b.BuildDeltaPacksPreviousVersions(buildDeltaPacksFlags.previousVersions, buildDeltaPacksFlags.to)
+	}
+	if err != nil {
+		fail(err)
+	}
+	return nil
+}
+
 func setUpdateFlags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply format to use")
 	cmd.Flags().BoolVar(&buildFlags.increment, "increment", false, "Automatically increment the mixversion post build")
@@ -152,6 +215,7 @@ var buildCmds = []*cobra.Command{
 	buildUpdateCmd,
 	buildAllCmd,
 	buildImageCmd,
+	buildDeltaPacksCmd,
 }
 
 func init() {
@@ -166,6 +230,10 @@ func init() {
 
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")
+
+	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.from, "from", 0, "Generate packs from a specific version")
+	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.previousVersions, "previous-versions", 0, "Generate packs for multiple previous versions")
+	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.to, "to", 0, "Generate packs targeting a specific version")
 
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)

@@ -937,3 +937,128 @@ func archiveFiles(w io.Writer, srcs []string) error {
 	}
 	return tw.Close()
 }
+
+// BuildDeltaPacks between two versions of the mix.
+func (b *Builder) BuildDeltaPacks(from, to uint32) error {
+	var err error
+
+	// TODO: Configuration parsing should handle this validation/conversion.
+	var mixVersion uint32
+	mixVersion, err = parseUint32(b.Mixver)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't parse mix version to use as target")
+	}
+
+	if to == 0 {
+		to = mixVersion
+	} else {
+		if to > mixVersion {
+			return errors.Errorf("--to version must be at most the latest mix version (%d)", mixVersion)
+		}
+	}
+	if from >= to {
+		return errors.Errorf("the --from version must be smaller than the --to version")
+	}
+
+	outputDir := filepath.Join(b.Statedir, "www")
+	toManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(to), "Manifest.MoM"))
+	if err != nil {
+		return errors.Wrapf(err, "couldn't find manifest of target version")
+	}
+
+	fromManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(from), "Manifest.MoM"))
+	if err != nil {
+		return errors.Wrapf(err, "couldn't find manifest of from version")
+	}
+
+	chrootDir := filepath.Join(b.Statedir, "image")
+	return createDeltaPacks(fromManifest, toManifest, outputDir, chrootDir)
+}
+
+// BuildDeltaPacksPreviousVersions builds packs to version from up to
+// prev versions. It walks the Manifest "previous" field to find those from versions.
+func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
+	var err error
+
+	// TODO: Configuration parsing should handle this validation/conversion.
+	var mixVersion uint32
+	mixVersion, err = parseUint32(b.Mixver)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't parse mix version to use as target")
+	}
+
+	if to == 0 {
+		to = mixVersion
+	} else {
+		if to > mixVersion {
+			return errors.Errorf("--to version must be at most the latest mix version (%d)", mixVersion)
+		}
+	}
+
+	outputDir := filepath.Join(b.Statedir, "www")
+	toManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(to), "Manifest.MoM"))
+	if err != nil {
+		return errors.Wrapf(err, "couldn't find manifest of target version")
+	}
+
+	var previousManifests []*swupd.Manifest
+	cur := toManifest.Header.Previous
+	for i := uint32(0); i < prev; i++ {
+		if cur == 0 {
+			break
+		}
+		var m *swupd.Manifest
+		m, err = swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(cur), "Manifest.MoM"))
+		if err != nil {
+			return errors.Wrapf(err, "couldn't find manifest of previous version %d", cur)
+		}
+		previousManifests = append(previousManifests, m)
+		cur = m.Header.Previous
+	}
+
+	fmt.Printf("Found %d previous versions\n", len(previousManifests))
+
+	chrootDir := filepath.Join(b.Statedir, "image")
+	for _, fromManifest := range previousManifests {
+		fmt.Println()
+		err = createDeltaPacks(fromManifest, toManifest, outputDir, chrootDir)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, outputDir, chrootDir string) error {
+	fmt.Printf("Creating delta packs from %d to %d\n", from.Header.Version, to.Header.Version)
+	bundlesToPack, err := swupd.FindBundlesToPack(from, to)
+	if err != nil {
+		return err
+	}
+	for _, b := range bundlesToPack {
+		packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
+		_, err = os.Lstat(packPath)
+		if err == nil {
+			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+			continue
+		}
+		if !os.IsNotExist(err) {
+			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+		}
+		fmt.Printf("  Creating delta pack for bundle %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, chrootDir)
+		if err != nil {
+			return err
+		}
+
+		if len(info.Warnings) > 0 {
+			for _, w := range info.Warnings {
+				fmt.Printf("    WARNING: %s\n", w)
+			}
+			fmt.Println()
+		}
+		fmt.Printf("    Fullfiles in pack: %d\n", info.FullfileCount)
+		fmt.Printf("    Deltas in pack: %d\n", info.DeltaCount)
+	}
+	return nil
+}

@@ -72,14 +72,25 @@ func main() {
 		}
 	}
 
-	var err error
 	var bundles map[string]*swupd.BundleToPack
 
 	if *allBundles {
-		// Collect the corresponding bundle versions. Note that the code below will create packs on
-		// different directories, based on the version that each bundle is in the Manifest.MoM for
-		// the specified toVersion.
-		bundles, err = swupd.FindBundlesToPack(fromVersionUint, toVersionUint, stateDir)
+		toDir := filepath.Join(stateDir, "www", toVersion)
+		toMoM, err := swupd.ParseManifestFile(filepath.Join(toDir, "Manifest.MoM"))
+		if err != nil {
+			log.Fatalf("couldn't read MoM of TO_VERSION (%s): %s", toVersion, err)
+		}
+
+		var fromMoM *swupd.Manifest
+		if fromVersionUint > 0 {
+			fromDir := filepath.Join(stateDir, "www", fromVersion)
+			fromMoM, err = swupd.ParseManifestFile(filepath.Join(fromDir, "Manifest.MoM"))
+			if err != nil {
+				log.Fatalf("couldn't read MoM of FROM_VERSION (%s): %s", fromVersion, err)
+			}
+		}
+
+		bundles, err = swupd.FindBundlesToPack(fromMoM, toMoM)
 		if err != nil {
 			log.Fatalf("couldn't find the bundles to pack: %s", err)
 		}

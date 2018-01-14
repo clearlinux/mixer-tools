@@ -364,32 +364,24 @@ func GetPackFilename(name string, fromVersion uint32) string {
 	return fmt.Sprintf("pack-%s-from-%d.tar", name, fromVersion)
 }
 
-// FindBundlesToPack will read the Manifest.MoM of two versions and return a set of bundle that must
-// be packed (and their corresponding versions).
+// FindBundlesToPack will read two MoM manifests and return a set of bundles that must be packed
+// (and their corresponding versions).
 //
 // Note that a MoM can contain bundles in an old version, so each bundle needs its own From/To
 // version pair.
-func FindBundlesToPack(fromVersion, toVersion uint32, stateDir string) (map[string]*BundleToPack, error) {
-	toDir := filepath.Join(stateDir, "www", fmt.Sprint(toVersion))
-	toMoM, err := ParseManifestFile(filepath.Join(toDir, "Manifest.MoM"))
-	if err != nil {
-		return nil, fmt.Errorf("couldn't read MoM of TO_VERSION (%d): %s", toVersion, err)
+func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, error) {
+	if to == nil {
+		return nil, fmt.Errorf("to manifest not specified")
 	}
 
-	bundles := make(map[string]*BundleToPack, len(toMoM.Files))
-	for _, b := range toMoM.Files {
+	bundles := make(map[string]*BundleToPack, len(to.Files))
+	for _, b := range to.Files {
 		bundles[b.Name] = &BundleToPack{b.Name, 0, b.Version}
 	}
 
 	// If this is not a zero pack, we might be able to skip some bundles.
-	if fromVersion > 0 {
-		fromDir := filepath.Join(stateDir, "www", fmt.Sprint(fromVersion))
-		fromMoM, err := ParseManifestFile(filepath.Join(fromDir, "Manifest.MoM"))
-		if err != nil {
-			return nil, fmt.Errorf("couldn't read MoM of FROM_VERSION (%d): %s", fromVersion, err)
-		}
-
-		for _, oldBundle := range fromMoM.Files {
+	if from != nil {
+		for _, oldBundle := range from.Files {
 			bundle, ok := bundles[oldBundle.Name]
 			if !ok {
 				// Bundle doesn't exist in new version, no pack needed.

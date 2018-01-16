@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime/pprof"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +40,16 @@ var RootCmd = &cobra.Command{
 	Long: `Mixer is a tool used to compose OS update content and images.`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if rootCmdFlags.cpuProfile != "" {
+			f, err := os.Create(rootCmdFlags.cpuProfile)
+			if err != nil {
+				failf("couldn't create file for CPU profile: %s", err)
+			}
+			err = pprof.StartCPUProfile(f)
+			if err != nil {
+				failf("couldn't start profiling: %s", err)
+			}
+		}
 		// Both --version and --check should work regardless of the regular
 		// check for external programs.
 		if cmd.Parent() == nil { // This is RootCmd.
@@ -57,6 +68,12 @@ var RootCmd = &cobra.Command{
 		return checkCmdDeps(cmd)
 	},
 
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		if rootCmdFlags.cpuProfile != "" {
+			pprof.StopCPUProfile()
+		}
+	},
+
 	Run: func(cmd *cobra.Command, args []string) {
 		// Use cmd here to print exactly like other prints of Usage (that might be
 		// configurable).
@@ -65,8 +82,9 @@ var RootCmd = &cobra.Command{
 }
 
 var rootCmdFlags = struct {
-	version bool
-	check   bool
+	version    bool
+	check      bool
+	cpuProfile string
 }{}
 
 type initCmdFlags struct {
@@ -102,6 +120,9 @@ func Execute() {
 }
 
 func init() {
+	RootCmd.PersistentFlags().StringVar(&rootCmdFlags.cpuProfile, "cpu-profile", "", "write CPU profile to a file")
+	_ = RootCmd.PersistentFlags().MarkHidden("cpu-profile")
+
 	// TODO: Remove this once we migrate to new implementation.
 	RootCmd.PersistentFlags().BoolVar(&builder.UseNewSwupdServer, "new-swupd", false, "EXPERIMENTAL: Use new implementation of swupd-server when possible")
 
@@ -181,6 +202,9 @@ func checkAllDeps() bool {
 }
 
 func fail(err error) {
+	if rootCmdFlags.cpuProfile != "" {
+		pprof.StopCPUProfile()
+	}
 	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 	os.Exit(1)
 }

@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"hash"
 	"io/ioutil"
 	"os"
 	"syscall"
@@ -134,8 +135,109 @@ func hmacComputeKey(info syscall.Stat_t) []byte {
 	set(updatestat[16:24], int64(info.Gid))
 	// 24:32 is rdev, but this is always zero
 	set(updatestat[24:32], 0)
-	set(updatestat[32:40], info.Size)
+	set(updatestat[32:40], int64(info.Size))
 	// fmt.Printf("key is %v\n", updatestat)
 	key := hmacSha256ForData(updatestat[:], nil)
 	return key
+}
+
+// HashFileInfo contains the metadata of a file that is included as
+// part of the swupd hash.
+type HashFileInfo struct {
+	Mode     uint32
+	UID      uint32
+	GID      uint32
+	Size     int64
+	Linkname string
+}
+
+// Hash is used to calculate the swupd Hash of a file. Create one with
+// NewHash, use Write method to fill the contents (for regular files),
+// and use Sum to get the final hash.
+type Hash struct {
+	hmac hash.Hash
+}
+
+// NewHash creates a struct that can be used to calculate the "swupd
+// Hash" of a given file. For historical reasons, the hash is
+// constructed as
+//
+//     stat     := file metadata
+//     contents := file contents
+//     HMAC(key, data)
+//
+//     swupd hash = HMAC(HMAC(stat, nil), contents)
+//
+// The data for the inner HMAC was used for file xattrs, but is not
+// used at the moment.
+func NewHash(info *HashFileInfo) (*Hash, error) {
+	var data []byte
+	switch info.Mode & syscall.S_IFMT {
+	case syscall.S_IFREG:
+	case syscall.S_IFDIR:
+		info.Size = 0
+		data = []byte("DIRECTORY")
+	case syscall.S_IFLNK:
+		info.Mode = 0
+		data = []byte(info.Linkname)
+		info.Size = int64(len(data))
+	default:
+		return nil, fmt.Errorf("invalid")
+	}
+
+	// The HMAC key for the data will itself be generated using
+	// HMAC. The "key for the key" must have the bytes with the
+	// same layout as the C struct
+	//
+	// struct update_stat {
+	//     uint64_t st_mode;
+	//     uint64_t st_uid;
+	//     uint64_t st_gid;
+	//     uint64_t st_rdev;
+	//     uint64_t st_size;
+	// };
+	stat := [40]byte{}
+	set(stat[0:8], int64(info.Mode))
+	set(stat[8:16], int64(info.UID))
+	set(stat[16:24], int64(info.GID))
+	// 24:32 is rdev, but this is always zero.
+	set(stat[32:40], info.Size)
+
+	var key [64]byte
+	mac := hmac.New(sha256.New, stat[:])
+	_, err := mac.Write(nil)
+	if err != nil {
+		return nil, err
+	}
+	hex.Encode(key[:], mac.Sum(nil))
+
+	// With the key in hand, create the HMAC struct that will be
+	// used to write data to.
+	h := &Hash{
+		hmac: hmac.New(sha256.New, key[:]),
+	}
+
+	// Pre-write data we known so that directories and symbolic
+	// links don't need further data from the caller.
+	if data != nil {
+		_, err = h.hmac.Write(data)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return h, nil
+}
+
+// Write more data to the hash being calculated.
+func (h *Hash) Write(p []byte) (n int, err error) {
+	return h.hmac.Write(p)
+}
+
+// Sum returns the string containing the Hash calculated using swupd
+// algorithm of the data previously written.
+func (h *Hash) Sum() string {
+	var result [64]byte
+	hex.Encode(result[:], h.hmac.Sum(nil))
+	return string(result[:])
 }

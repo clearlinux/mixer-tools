@@ -3,7 +3,6 @@ package swupd
 import (
 	"fmt"
 	"os"
-	"syscall"
 	"testing"
 )
 
@@ -91,33 +90,49 @@ const (
 	Reg = 0100000
 )
 
-// TestGenHash checks that the internal data hashing is correct
-func TestGenHash(t *testing.T) {
+func TestGetHashForBytes(t *testing.T) {
 	testCases := []struct {
-		info   syscall.Stat_t
+		name   string
+		info   HashFileInfo
 		data   []byte
 		result string
 	}{
-		{syscall.Stat_t{Mode: (Dir + 0755)},
-			[]byte("DIRECTORY"), directoryhash},
-		{syscall.Stat_t{Mode: (Dir + 01777)},
-			[]byte("DIRECTORY"),
-			"d93a5e9129361e28b9e244fe422234e3a1794b001a082aeb78e16fd881673a2b"},
-		{syscall.Stat_t{Mode: Reg + 0644, Uid: 1000, Gid: 1000},
-			[]byte(""),
-			"b85f1dc2c2317a20f47a36d3257313b131124ffa6d4f19bb060d43014fd386b0"},
-		{syscall.Stat_t{Mode: Reg + 0644, Uid: 1000, Gid: 201},
-			[]byte(""),
-			"0a3978d8b6ea47b779a2dfb5d6a7f57c93d28e131870bcd187470da3678d1298"},
-		{syscall.Stat_t{Mode: Reg + 0644, Uid: 1000, Gid: 201, Size: 6},
-			[]byte("hello\n"),
-			"53b40563c1162a14d9ce0233a6b346cd0a4cbce54c40affbdf0fc286fd3bfe7b"},
+		{
+			name:   "directory",
+			info:   HashFileInfo{Mode: Dir + 0755},
+			result: directoryhash,
+		},
+		{
+			name:   "directory with different permissions",
+			info:   HashFileInfo{Mode: Dir + 01777},
+			result: "d93a5e9129361e28b9e244fe422234e3a1794b001a082aeb78e16fd881673a2b",
+		},
+		{
+			name:   "empty regular user file 0644",
+			info:   HashFileInfo{Mode: Reg + 0644, UID: 1000, GID: 1000},
+			result: "b85f1dc2c2317a20f47a36d3257313b131124ffa6d4f19bb060d43014fd386b0",
+		},
+		{
+			name:   "empty regular user file 0644 with different group",
+			info:   HashFileInfo{Mode: Reg + 0644, UID: 1000, GID: 201},
+			result: "0a3978d8b6ea47b779a2dfb5d6a7f57c93d28e131870bcd187470da3678d1298",
+		},
+		{
+			name:   "regular user file with different group",
+			info:   HashFileInfo{Mode: Reg + 0644, UID: 1000, GID: 201, Size: 6},
+			data:   []byte("hello\n"),
+			result: "53b40563c1162a14d9ce0233a6b346cd0a4cbce54c40affbdf0fc286fd3bfe7b",
+		},
 	}
 
 	for _, tc := range testCases {
-		r := genHash(tc.info, tc.data)
-		if r != tc.result {
-			t.Errorf("Unexpected result %s for\n%v\n", r, tc)
+		hash, err := GetHashForBytes(&tc.info, tc.data)
+		if err != nil {
+			t.Errorf("couldn't calculate hash for case %q: %s", tc.name, err)
+			continue
+		}
+		if hash != tc.result {
+			t.Errorf("Unexpected result for case %s, got %s but wanted %s", tc.name, hash, tc.result)
 		}
 	}
 }

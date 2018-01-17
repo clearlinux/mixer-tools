@@ -29,9 +29,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version of Mixer. Also used by the Makefile for releases.
-const Version = "3.2.1"
-
 var config string
 
 // RootCmd represents the base command when called without any subcommands
@@ -54,7 +51,7 @@ var RootCmd = &cobra.Command{
 		// check for external programs.
 		if cmd.Parent() == nil { // This is RootCmd.
 			if rootCmdFlags.version {
-				fmt.Printf("Mixer %s\n", Version)
+				fmt.Printf("Mixer %s\n", builder.Version)
 				os.Exit(0)
 			}
 			if rootCmdFlags.check {

@@ -16,6 +16,7 @@ package helpers
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"crypto/rand"
 	"crypto/rsa"
@@ -327,13 +328,22 @@ func RunCommand(cmdname string, args ...string) error {
 
 // RunCommandSilent runs the given command with args and does not print output
 func RunCommandSilent(cmdname string, args ...string) error {
+	_, err := RunCommandOutput(cmdname, args...)
+	return err
+}
+
+// RunCommandOutput executes the command with arguments and stores its output in
+// memory. If the command succeeds returns that output, if it fails, return err that
+// contains both the out and err streams from the execution.
+func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
 	cmd := exec.Command(cmdname, args...)
-	// Automatically connected to os.DevNull by implementation
-	// because cmd.Stdout/Stderr are nil in this case
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	if err != nil {
-		return errors.Wrapf(err, "Failed to run %s %s: %v\n", cmdname, strings.Join(args, " "), err)
+		return nil, errors.Wrapf(err, "couldn't execute %s\nSTDOUT:\n%s\nSTDERR:\n%s\n", strings.Join(cmd.Args, " "), outBuf.Bytes(), errBuf.Bytes())
 	}
-
-	return nil
+	return &outBuf, nil
 }

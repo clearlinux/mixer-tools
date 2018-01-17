@@ -42,6 +42,10 @@ const Version = "3.2.1"
 // swupd-server (package swupd) when possible. This is an experimental feature.
 var UseNewSwupdServer = false
 
+// UseNewChrootBuilder controls whether to use the new implementation of
+// building the chroots. This is an experimental feature.
+var UseNewChrootBuilder = false
+
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {
@@ -557,19 +561,56 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 	}
 
-	// If this is a mix, we need to build with the Clear version, but publish the mix version
-	chrootcmd := exec.Command(b.Buildscript, "-c", b.Buildconf, "-m", b.Mixver, b.Clearver)
-	chrootcmd.Stdout = os.Stdout
-	chrootcmd.Stderr = os.Stderr
-	err := chrootcmd.Run()
-	if err != nil {
-		helpers.PrintError(err)
-		return err
+	if UseNewChrootBuilder {
+		// TODO: Fix this output when we take bundles from multiple places.
+		fmt.Printf("Reading bundles from: %s\n", b.Bundledir)
+		files, err := ioutil.ReadDir(b.Bundledir)
+		if err != nil {
+			return err
+		}
+		var bundleFiles []string
+		for _, file := range files {
+			if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
+				continue
+			}
+			bundleFiles = append(bundleFiles, filepath.Join(b.Bundledir, file.Name()))
+		}
+		var set *bundleSet
+		set, err = newBundleSet(bundleFiles)
+		if err != nil {
+			return err
+		}
+		// TODO: Merge the rest of this function into buildBundleChroots (or vice-versa).
+		err = b.buildBundleChroots(set)
+		if err != nil {
+			return err
+		}
+
+		// TODO: Move this logic to code that uses this.
+		// If LAST_VER don't exists, it means this is the first chroot we build,
+		// so initialize it to version "0".
+		lastVerPath := filepath.Join(b.Statedir, "image", "LAST_VER")
+		if _, err = os.Stat(lastVerPath); os.IsNotExist(err) {
+			err = ioutil.WriteFile(lastVerPath, []byte("0\n"), 0644)
+			if err != nil {
+				return err
+			}
+		}
+
+	} else {
+		// If this is a mix, we need to build with the Clear version, but publish the mix version
+		chrootcmd := exec.Command(b.Buildscript, "-c", b.Buildconf, "-m", b.Mixver, b.Clearver)
+		chrootcmd.Stdout = os.Stdout
+		chrootcmd.Stderr = os.Stderr
+		err := chrootcmd.Run()
+		if err != nil {
+			return err
+		}
 	}
 
 	// Generate the certificate needed for signing verification if it does not exist and insert it into the chroot
 	if signflag == false && template != nil {
-		err = helpers.GenerateCertificate(b.Cert, template, template, &privkey.PublicKey, privkey)
+		err := helpers.GenerateCertificate(b.Cert, template, template, &privkey.PublicKey, privkey)
 		if err != nil {
 			return err
 		}

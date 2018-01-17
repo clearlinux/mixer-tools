@@ -245,6 +245,7 @@ func init() {
 	RootCmd.AddCommand(buildCmd)
 
 	buildChrootsCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
+	buildChrootsCmd.Flags().BoolVar(&builder.UseNewChrootBuilder, "new-chroots", false, "EXPERIMENTAL: Use new implementation of build chroots")
 
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")

@@ -35,6 +35,9 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Version of Mixer. Also used by the Makefile for releases.
+const Version = "3.2.1"
+
 // UseNewSwupdServer controls whether to use the new implementation of
 // swupd-server (package swupd) when possible. This is an experimental feature.
 var UseNewSwupdServer = false
@@ -643,6 +646,10 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, minVersion uint32, format uint32, skipSigning bool) error {
 	var err error
 
+	err = writeMetaFiles(filepath.Join(b.Statedir, "www", b.Mixver), b.Format, Version)
+	if err != nil {
+		return errors.Wrapf(err, "failed to write update metadata files")
+	}
 	timer.Start("CREATE MANIFESTS")
 	mom, err := swupd.CreateManifests(mixVersion, minVersion, uint(format), b.Statedir)
 	if err != nil {
@@ -1061,4 +1068,19 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, outputDir, chroo
 		fmt.Printf("    Deltas in pack: %d\n", info.DeltaCount)
 	}
 	return nil
+}
+
+// writeMetaFiles writes mixer and format metadata to files
+func writeMetaFiles(path, format, version string) error {
+	err := os.MkdirAll(path, 0777)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(filepath.Join(path, "format"), []byte(format), 0644)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(path, "mixer-src-version"), []byte(version), 0644)
 }

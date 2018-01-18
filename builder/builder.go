@@ -124,19 +124,20 @@ func (b *Builder) ReadBuilderConf() {
 
 	// Map the builder values to the regex here to make it easier to assign
 	fields := []struct {
-		re   string
-		dest *string
+		re       string
+		dest     *string
+		required bool
 	}{
-		{`^BUNDLE_DIR\s*=\s*`, &b.Bundledir},
-		{`^CERT\s*=\s*`, &b.Cert},
-		{`^CLEARVER\s*=\s*`, &b.Clearver},
-		{`^FORMAT\s*=\s*`, &b.Format},
-		{`^MIXVER\s*=\s*`, &b.Mixver},
-		{`^REPODIR\s*=\s*`, &b.Repodir},
-		{`^RPMDIR\s*=\s*`, &b.RPMdir},
-		{`^SERVER_STATE_DIR\s*=\s*`, &b.Statedir},
-		{`^VERSIONS_PATH\s*=\s*`, &b.Versiondir},
-		{`^YUM_CONF\s*=\s*`, &b.Yumconf},
+		{`^BUNDLE_DIR\s*=\s*`, &b.Bundledir, true},
+		{`^CERT\s*=\s*`, &b.Cert, true},
+		{`^CLEARVER\s*=\s*`, &b.Clearver, false},
+		{`^FORMAT\s*=\s*`, &b.Format, true},
+		{`^MIXVER\s*=\s*`, &b.Mixver, false},
+		{`^REPODIR\s*=\s*`, &b.Repodir, false},
+		{`^RPMDIR\s*=\s*`, &b.RPMdir, false},
+		{`^SERVER_STATE_DIR\s*=\s*`, &b.Statedir, true},
+		{`^VERSIONS_PATH\s*=\s*`, &b.Versiondir, true},
+		{`^YUM_CONF\s*=\s*`, &b.Yumconf, true},
 	}
 
 	for _, h := range fields {
@@ -157,6 +158,17 @@ func (b *Builder) ReadBuilderConf() {
 				// Replace valid Environment Variables
 				*h.dest = os.ExpandEnv(i[m[1]:])
 			}
+		}
+
+		if h.required && *h.dest == "" {
+			missing := h.re
+			re := regexp.MustCompile(`([[:word:]]+)\\s\*=`)
+			if matches := re.FindStringSubmatch(h.re); matches != nil {
+				missing = matches[1]
+			}
+
+			helpers.PrintError(fmt.Errorf("buildconf missing entry for variable: %s", missing))
+			os.Exit(1)
 		}
 	}
 }

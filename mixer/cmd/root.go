@@ -136,6 +136,10 @@ func init() {
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 
+	// mark required flags
+	_ = cobra.MarkFlagRequired(initCmd.Flags(), "clear-version")
+	_ = cobra.MarkFlagRequired(initCmd.Flags(), "mix-version")
+
 	externalDeps[initCmd] = []string{
 		"git",
 	}

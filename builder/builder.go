@@ -394,11 +394,6 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 // InitMix will initialise a new swupd-client consumable "mix" with the given
 // based Clear Linux version and specified mix version.
 func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl string) error {
-	if clearver == "0" || mixver == "0" {
-		fmt.Println("ERROR: Please supply -clearver and -mixver")
-		os.Exit(1)
-	}
-
 	err := ioutil.WriteFile(b.Versiondir+"/.clearurl", []byte(upstreamurl), 0644)
 	if err != nil {
 		helpers.PrintError(err)

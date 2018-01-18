@@ -49,21 +49,24 @@ var UseNewChrootBuilder = false
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {
-	Buildscript string
-	Buildconf   string
+	BuildScript string
+	BuildConf   string
 
-	Bundledir   string
-	Cert        string
-	Clearver    string
-	Format      string
-	Mixver      string
-	Repodir     string
-	RPMdir      string
-	Statedir    string
-	Versiondir  string
-	Yumconf     string
-	Yumtemplate string
-	Upstreamurl string
+	BundleDir       string
+	Cert            string
+	UpstreamVer     string
+	UpstreamVerFile string
+	Format          string
+	MixVer          string
+	MixVerFile      string
+	RepoDir         string
+	RPMDir          string
+	StateDir        string
+	VersionDir      string
+	YumConf         string
+	YumTemplate     string
+	UpstreamURL     string
+	UpstreamURLFile string
 
 	Signing int
 	Bump    int
@@ -73,8 +76,11 @@ type Builder struct {
 // default values.
 func New() *Builder {
 	return &Builder{
-		Buildscript: "bundle-chroot-builder.py",
-		Yumtemplate: "/usr/share/defaults/mixer/yum.conf.in",
+		BuildScript:     "bundle-chroot-builder.py",
+		YumTemplate:     "/usr/share/defaults/mixer/yum.conf.in",
+		UpstreamVerFile: "upstreamversion",
+		UpstreamURLFile: "upstreamurl",
+		MixVerFile:      "mixversion",
 
 		Signing: 1,
 		Bump:    0,
@@ -121,8 +127,11 @@ func (b *Builder) CreateDefaultConfig(localrpms bool) error {
 		return err
 	}
 
+	// Patch all default path prefixes to PWD
 	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
+
 	if localrpms {
+		// Add [Mixer] section
 		data += "\n[Mixer]\n"
 		data += "RPMDIR=" + pwd + "/rpms\n"
 		data += "REPODIR=" + pwd + "/local\n"
@@ -137,14 +146,87 @@ func (b *Builder) CreateDefaultConfig(localrpms bool) error {
 // createRpmDirs creates the RPM directories
 func (b *Builder) createRpmDirs() error {
 	// Make the folder to store rpms if they don't already exist
-	if b.RPMdir != "" {
-		if err := os.MkdirAll(b.RPMdir, 0777); err != nil {
+	if b.RPMDir != "" {
+		if err := os.MkdirAll(b.RPMDir, 0777); err != nil {
 			return err
 		}
 	}
 
-	if b.Repodir != "" {
-		if err := os.MkdirAll(b.Repodir, 0777); err != nil {
+	if b.RepoDir != "" {
+		if err := os.MkdirAll(b.RepoDir, 0777); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// InitMix will initialise a new swupd-client consumable "mix" with the given
+// based Clear Linux version and specified mix version.
+func (b *Builder) InitMix(upstreamVer string, mixVer string, all bool, upstreamURL string) error {
+	// Set up metadata
+	// Deprecate '.clearurl' --> 'upstreamurl'
+	if _, err := os.Stat(filepath.Join(b.VersionDir, ".clearurl")); err == nil {
+		b.UpstreamURLFile = ".clearurl"
+		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+	}
+	if err := ioutil.WriteFile(filepath.Join(b.VersionDir, b.UpstreamURLFile), []byte(upstreamURL), 0644); err != nil {
+		return err
+	}
+	b.UpstreamURL = upstreamURL
+
+	// Deprecate '.clearversion' --> 'upstreamversion'
+	if _, err := os.Stat(filepath.Join(b.VersionDir, ".clearversion")); err == nil {
+		b.UpstreamVerFile = ".clearversion"
+		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+	}
+	if err := ioutil.WriteFile(filepath.Join(b.VersionDir, b.UpstreamVerFile), []byte(upstreamVer), 0644); err != nil {
+		return err
+	}
+	b.UpstreamVer = upstreamVer
+
+	// Deprecate '.mixversion' --> 'mixversion'
+	if _, err := os.Stat(filepath.Join(b.VersionDir, ".mixversion")); err == nil {
+		b.MixVerFile = ".mixversion"
+		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+	}
+	if err := ioutil.WriteFile(filepath.Join(b.VersionDir, b.MixVerFile), []byte(mixVer), 0644); err != nil {
+		return err
+	}
+	b.MixVer = mixVer
+
+	// Get upstream bundles
+	if err := b.getUpstreamBundles(upstreamVer, true); err != nil {
+		return err
+	}
+
+	// Set up rpms and local dirs
+	if err := b.createRpmDirs(); err != nil {
+		return errors.Wrap(err, "Failed to create local RPM dirs")
+	}
+
+	// Set up mix-bundles dir
+	if _, err := os.Stat(b.BundleDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(b.BundleDir, 0777); err != nil {
+			return errors.Wrap(err, "Failed to create mix-bundles dir")
+		}
+
+		// Add default bundles (or all)
+		// Note: os-core-update already includes os-core, and kernel-native already includes bootloader
+		defaultBundles := []string{"os-core-update", "kernel-native"}
+		if _, err := b.AddBundles(defaultBundles, false, all, false); err != nil {
+			return err
+		}
+
+		// Init the mix-bundles git repo
+		if err := helpers.Git("-C", b.BundleDir, "init"); err != nil {
+			return err
+		}
+		if err := helpers.Git("-C", b.BundleDir, "add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Initial mix version %s from upstream version %s", b.MixVer, b.UpstreamVer)
+		if err := helpers.Git("-C", b.BundleDir, "commit", "-m", commitMsg); err != nil {
 			return err
 		}
 	}
@@ -163,14 +245,14 @@ func (b *Builder) LoadBuilderConf(builderconf string) error {
 
 	// If builderconf is set via cmd line, use that one
 	if len(builderconf) > 0 {
-		b.Buildconf = builderconf
+		b.BuildConf = builderconf
 		return nil
 	}
 
 	// Check if there's a local builder.conf if one wasn't supplied
-	localpath := local + "/builder.conf"
+	localpath := filepath.Join(local, "builder.conf")
 	if _, err := os.Stat(localpath); err == nil {
-		b.Buildconf = localpath
+		b.BuildConf = localpath
 	} else {
 		return errors.Wrap(err, "Cannot find any builder.conf to use")
 	}
@@ -181,7 +263,7 @@ func (b *Builder) LoadBuilderConf(builderconf string) error {
 // ReadBuilderConf will populate the configuration data from the builder
 // configuration file, which is mandatory information for performing a mix.
 func (b *Builder) ReadBuilderConf() error {
-	lines, err := helpers.ReadFileAndSplit(b.Buildconf)
+	lines, err := helpers.ReadFileAndSplit(b.BuildConf)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read buildconf")
 	}
@@ -192,16 +274,16 @@ func (b *Builder) ReadBuilderConf() error {
 		dest     *string
 		required bool
 	}{
-		{`^BUNDLE_DIR\s*=\s*`, &b.Bundledir, true},
+		{`^BUNDLE_DIR\s*=\s*`, &b.BundleDir, true},
 		{`^CERT\s*=\s*`, &b.Cert, true},
-		{`^CLEARVER\s*=\s*`, &b.Clearver, false},
+		{`^CLEARVER\s*=\s*`, &b.UpstreamVer, false},
 		{`^FORMAT\s*=\s*`, &b.Format, true},
-		{`^MIXVER\s*=\s*`, &b.Mixver, false},
-		{`^REPODIR\s*=\s*`, &b.Repodir, false},
-		{`^RPMDIR\s*=\s*`, &b.RPMdir, false},
-		{`^SERVER_STATE_DIR\s*=\s*`, &b.Statedir, true},
-		{`^VERSIONS_PATH\s*=\s*`, &b.Versiondir, true},
-		{`^YUM_CONF\s*=\s*`, &b.Yumconf, true},
+		{`^MIXVER\s*=\s*`, &b.MixVer, false},
+		{`^REPODIR\s*=\s*`, &b.RepoDir, false},
+		{`^RPMDIR\s*=\s*`, &b.RPMDir, false},
+		{`^SERVER_STATE_DIR\s*=\s*`, &b.StateDir, true},
+		{`^VERSIONS_PATH\s*=\s*`, &b.VersionDir, true},
+		{`^YUM_CONF\s*=\s*`, &b.YumConf, true},
 	}
 
 	for _, h := range fields {
@@ -240,27 +322,42 @@ func (b *Builder) ReadBuilderConf() error {
 // ReadVersions will initialise the mix versions (mix and clearlinux) from
 // the configuration files in the version directory.
 func (b *Builder) ReadVersions() error {
-	ver, err := ioutil.ReadFile(b.Versiondir + "/.mixversion")
+	// Deprecate '.mixversion' --> 'mixversion'
+	if _, err := os.Stat(filepath.Join(b.VersionDir, ".mixversion")); err == nil {
+		b.MixVerFile = ".mixversion"
+		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+	}
+	ver, err := ioutil.ReadFile(filepath.Join(b.VersionDir, b.MixVerFile))
 	if err != nil {
 		return err
 	}
-	b.Mixver = strings.TrimSpace(string(ver))
-	b.Mixver = strings.Replace(b.Mixver, "\n", "", -1)
+	b.MixVer = strings.TrimSpace(string(ver))
+	b.MixVer = strings.Replace(b.MixVer, "\n", "", -1)
 
-	ver, err = ioutil.ReadFile(b.Versiondir + "/.clearversion")
+	// Deprecate '.clearversion' --> 'upstreamversion'
+	if _, err = os.Stat(filepath.Join(b.VersionDir, ".clearversion")); err == nil {
+		b.UpstreamVerFile = ".clearversion"
+		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+	}
+	ver, err = ioutil.ReadFile(filepath.Join(b.VersionDir, b.UpstreamVerFile))
 	if err != nil {
 		return err
 	}
-	b.Clearver = strings.TrimSpace(string(ver))
-	b.Clearver = strings.Replace(b.Clearver, "\n", "", -1)
+	b.UpstreamVer = strings.TrimSpace(string(ver))
+	b.UpstreamVer = strings.Replace(b.UpstreamVer, "\n", "", -1)
 
-	ver, err = ioutil.ReadFile(b.Versiondir + "/.clearurl")
+	// Deprecate '.clearversion' --> 'upstreamurl'
+	if _, err = os.Stat(filepath.Join(b.VersionDir, ".clearurl")); err == nil {
+		b.UpstreamURLFile = ".clearurl"
+		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+	}
+	ver, err = ioutil.ReadFile(filepath.Join(b.VersionDir, b.UpstreamURLFile))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: %s/.clearurl does not exist, run mixer init-mix to generate\n", b.Versiondir)
-		b.Upstreamurl = ""
+		fmt.Fprintf(os.Stderr, "WARNING: %s/%s does not exist, run mixer init to generate\n", b.VersionDir, b.UpstreamURLFile)
+		b.UpstreamURL = ""
 	} else {
-		b.Upstreamurl = strings.TrimSpace(string(ver))
-		b.Upstreamurl = strings.Replace(b.Upstreamurl, "\n", "", -1)
+		b.UpstreamURL = strings.TrimSpace(string(ver))
+		b.UpstreamURL = strings.Replace(b.UpstreamURL, "\n", "", -1)
 	}
 
 	return nil
@@ -269,7 +366,7 @@ func (b *Builder) ReadVersions() error {
 // SignManifestMoM will sign the Manifest.MoM file in in place based on the Mix
 // version read from builder.conf.
 func (b *Builder) SignManifestMoM() error {
-	mom := filepath.Join(b.Statedir, "www", b.Mixver, "Manifest.MoM")
+	mom := filepath.Join(b.StateDir, "www", b.MixVer, "Manifest.MoM")
 	sig := mom + ".sig"
 
 	// Call openssl because signing and pkcs7 stuff is not well supported in Go yet.
@@ -289,7 +386,7 @@ func (b *Builder) SignManifestMoM() error {
 }
 
 const (
-	upstreamBundlesBaseDir   = ".mixer/upstream-bundles/"
+	upstreamBundlesBaseDir   = "upstream-bundles"
 	upstreamBundlesVerDirFmt = "clr-bundles-%s"
 	upstreamBundlesBundleDir = "bundles"
 )
@@ -362,14 +459,14 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 	var bundleAddCount int
 
 	// Check if mix bundles dir exists
-	if _, err := os.Stat(b.Bundledir); os.IsNotExist(err) {
+	if _, err := os.Stat(b.BundleDir); os.IsNotExist(err) {
 		return bundleAddCount, errors.New("Mix bundles directory does not exist. Run mixer init-mix")
 	}
 
-	clrbundledir := getUpstreamBundlesPath(b.Clearver)
+	clrbundledir := getUpstreamBundlesPath(b.UpstreamVer)
 
 	// Fetch upstream bundles if needed
-	if err := b.getUpstreamBundles(b.Clearver, true); err != nil {
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return bundleAddCount, err
 	}
 
@@ -391,22 +488,22 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 	for _, bundle := range bundles {
 		// Check if bundle exists in clrbundledir
 		if _, err := os.Stat(filepath.Join(clrbundledir, bundle)); os.IsNotExist(err) {
-			return bundleAddCount, errors.Errorf("Bundle %s does not exist in CLR version %s", bundle, b.Clearver)
+			return bundleAddCount, errors.Errorf("Bundle %s does not exist in CLR version %s", bundle, b.UpstreamVer)
 		}
 		// Check if bundle exists in mix bundles dir
-		if _, err := os.Stat(filepath.Join(b.Bundledir, bundle)); os.IsNotExist(err) || force {
+		if _, err := os.Stat(filepath.Join(b.BundleDir, bundle)); os.IsNotExist(err) || force {
 			if !allbundles {
 				var ib []string
 				// Parse bundle to get all includes
 				if ib, err = helpers.GetIncludedBundles(filepath.Join(clrbundledir, bundle)); err != nil {
-					return bundleAddCount, errors.Errorf("Cannot parse bundle %s from CLR version %s", bundle, b.Clearver)
+					return bundleAddCount, errors.Errorf("Cannot parse bundle %s from CLR version %s", bundle, b.UpstreamVer)
 				} else if len(ib) > 0 {
 					includes = append(includes, ib...)
 				}
 			}
 
 			fmt.Printf("Adding bundle %q\n", bundle)
-			if err = helpers.CopyFile(filepath.Join(b.Bundledir, bundle), filepath.Join(clrbundledir, bundle)); err != nil {
+			if err = helpers.CopyFile(filepath.Join(b.BundleDir, bundle), filepath.Join(clrbundledir, bundle)); err != nil {
 				return bundleAddCount, err
 			}
 			bundleAddCount++
@@ -426,83 +523,27 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 	if git && bundleAddCount > 0 {
 		// Save current dir so we can get back to it
 		fmt.Println("Adding git commit")
-		if err := helpers.Git("-C", b.Bundledir, "add", "."); err != nil {
+		if err := helpers.Git("-C", b.BundleDir, "add", "."); err != nil {
 			return bundleAddCount, err
 		}
-		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.Clearver, bundles)
-		if err := helpers.Git("-C", b.Bundledir, "commit", "-q", "-m", commitMsg); err != nil {
+		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.UpstreamVer, bundles)
+		if err := helpers.Git("-C", b.BundleDir, "commit", "-q", "-m", commitMsg); err != nil {
 			return bundleAddCount, err
 		}
 	}
 	return bundleAddCount, nil
 }
 
-// InitMix will initialise a new swupd-client consumable "mix" with the given
-// based Clear Linux version and specified mix version.
-func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl string) error {
-	// Set up metadata
-	err := ioutil.WriteFile(b.Versiondir+"/.clearurl", []byte(upstreamurl), 0644)
-	if err != nil {
-		return err
-	}
-	b.Upstreamurl = upstreamurl
-
-	err = ioutil.WriteFile(b.Versiondir+"/.clearversion", []byte(clearver), 0644)
-	if err != nil {
-		return err
-	}
-	b.Clearver = clearver
-
-	err = ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(mixver), 0644)
-	if err != nil {
-		return err
-	}
-	b.Mixver = mixver
-
-	// Get upstream bundles
-	if err := b.getUpstreamBundles(clearver, true); err != nil {
-		return err
-	}
-
-	// Set up mix-bundles dir
-	if _, err := os.Stat(b.Bundledir); os.IsNotExist(err) {
-		if err = os.MkdirAll(b.Bundledir, 0777); err != nil {
-			return errors.Wrap(err, "Failed to create mix-bundles dir")
-		}
-
-		// Add default bundles (or all)
-		// Note: os-core-update already includes os-core, and kernel-native already includes bootloader
-		defaultBundles := []string{"os-core-update", "kernel-native"}
-		if _, err := b.AddBundles(defaultBundles, false, all, false); err != nil {
-			return err
-		}
-
-		// Init the mix-bundles git repo
-		if err := helpers.Git("-C", b.Bundledir, "init"); err != nil {
-			return err
-		}
-		if err := helpers.Git("-C", b.Bundledir, "add", "."); err != nil {
-			return err
-		}
-		commitMsg := fmt.Sprintf("Initial mix version %s from upstream version %s", b.Mixver, b.Clearver)
-		if err := helpers.Git("-C", b.Bundledir, "commit", "-m", commitMsg); err != nil {
-			return err
-		}
-	}
-
-	// Set up rpms and local dirs
-	if err := b.createRpmDirs(); err != nil {
-		return errors.Wrap(err, "Failed to create local RPM dirs")
-	}
-
-	return nil
-}
-
 // UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
 // without requiring user intervention. This makes the flow slightly more automatable.
 func (b *Builder) UpdateMixVer() error {
-	mixver, _ := strconv.Atoi(b.Mixver)
-	return ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(strconv.Itoa(mixver+10)), 0644)
+	// Deprecate '.mixversion' --> 'mixversion'
+	if _, err := os.Stat(filepath.Join(b.VersionDir, ".mixversion")); err == nil {
+		b.MixVerFile = ".mixversion"
+		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+	}
+	mixVer, _ := strconv.Atoi(b.MixVer)
+	return ioutil.WriteFile(filepath.Join(b.VersionDir, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
 }
 
 // BuildChroots will attempt to construct the chroots required by populating roots
@@ -512,8 +553,8 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 	// Generate the yum config file if it does not exist.
 	// This takes the template and adds the relevant local rpm repo path if needed
 	fmt.Println("Building chroots..")
-	if _, err := os.Stat(b.Yumconf); os.IsNotExist(err) {
-		outfile, err := os.Create(b.Yumconf)
+	if _, err := os.Stat(b.YumConf); os.IsNotExist(err) {
+		outfile, err := os.Create(b.YumConf)
 		if err != nil {
 			helpers.PrintError(err)
 			panic(err)
@@ -521,8 +562,8 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		defer func() {
 			_ = outfile.Close()
 		}()
-		if b.Repodir == "" {
-			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.Upstreamurl, b.Yumtemplate)
+		if b.RepoDir == "" {
+			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.UpstreamURL, b.YumTemplate)
 			cmd.Stdout = outfile
 			if err = cmd.Run(); err != nil {
 				helpers.PrintError(err)
@@ -530,9 +571,9 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			}
 		} else {
 			cmd := exec.Command("m4", "-D", "MIXER_REPO",
-				"-D", "MIXER_REPOPATH="+b.Repodir,
-				"-D", "UPSTREAM_URL="+b.Upstreamurl,
-				b.Yumtemplate)
+				"-D", "MIXER_REPOPATH="+b.RepoDir,
+				"-D", "UPSTREAM_URL="+b.UpstreamURL,
+				b.YumTemplate)
 			cmd.Stdout = outfile
 			if err = cmd.Run(); err != nil {
 				helpers.PrintError(err)
@@ -546,13 +587,13 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 	}
 
 	// If MIXVER already exists, wipe it so it's a fresh build
-	if _, err := os.Stat(b.Statedir + "/image/" + b.Mixver); err == nil {
-		fmt.Printf("Wiping away previous version %s...\n", b.Mixver)
-		err = os.RemoveAll(b.Statedir + "/www/" + b.Mixver)
+	if _, err := os.Stat(b.StateDir + "/image/" + b.MixVer); err == nil {
+		fmt.Printf("Wiping away previous version %s...\n", b.MixVer)
+		err = os.RemoveAll(b.StateDir + "/www/" + b.MixVer)
 		if err != nil {
 			return err
 		}
-		err = os.RemoveAll(b.Statedir + "/image/" + b.Mixver)
+		err = os.RemoveAll(b.StateDir + "/image/" + b.MixVer)
 		if err != nil {
 			return err
 		}
@@ -560,18 +601,18 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 
 	if UseNewChrootBuilder {
 		// TODO: Fix this output when we take bundles from multiple places.
-		fmt.Printf("Reading bundles from: %s\n", b.Bundledir)
-		files, err := ioutil.ReadDir(b.Bundledir)
+		fmt.Printf("Reading bundles from: %s\n", b.BundleDir)
+		files, err := ioutil.ReadDir(b.BundleDir)
 		if err != nil {
 			return err
 		}
-		var set bundleSet
+		set := make(bundleSet)
 		for _, file := range files {
 			if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
 				continue
 			}
 			var bundle *bundle
-			bundle, err = parseBundleFile(filepath.Join(b.Bundledir, file.Name()))
+			bundle, err = parseBundleFile(filepath.Join(b.BundleDir, file.Name()))
 			if err != nil {
 				return err
 			}
@@ -591,7 +632,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		// TODO: Move this logic to code that uses this.
 		// If LAST_VER don't exists, it means this is the first chroot we build,
 		// so initialize it to version "0".
-		lastVerPath := filepath.Join(b.Statedir, "image", "LAST_VER")
+		lastVerPath := filepath.Join(b.StateDir, "image", "LAST_VER")
 		if _, err = os.Stat(lastVerPath); os.IsNotExist(err) {
 			err = ioutil.WriteFile(lastVerPath, []byte("0\n"), 0644)
 			if err != nil {
@@ -604,7 +645,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			fmt.Println("WARNING: Ignoring flag --packager, just works with --new-chroots.")
 		}
 		// If this is a mix, we need to build with the Clear version, but publish the mix version
-		chrootcmd := exec.Command(b.Buildscript, "-c", b.Buildconf, "-m", b.Mixver, b.Clearver)
+		chrootcmd := exec.Command(b.BuildScript, "-c", b.BuildConf, "-m", b.MixVer, b.UpstreamVer)
 		chrootcmd.Stdout = os.Stdout
 		chrootcmd.Stderr = os.Stderr
 		err := chrootcmd.Run()
@@ -623,7 +664,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 
 	// Only copy the certificate into the mix if it exists
 	if _, err := os.Stat(b.Cert); err == nil {
-		certdir := b.Statedir + "/image/" + b.Mixver + "/os-core-update/usr/share/clear/update-ca"
+		certdir := b.StateDir + "/image/" + b.MixVer + "/os-core-update/usr/share/clear/update-ca"
 		err = os.MkdirAll(certdir, 0755)
 		if err != nil {
 			helpers.PrintError(err)
@@ -665,13 +706,13 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 
 	// TODO: move this to parsing configuration time.
 	var mixVerUint uint32
-	mixVerUint, err = parseUint32(b.Mixver)
+	mixVerUint, err = parseUint32(b.MixVer)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't parse mix version")
 	}
 
 	// Ensure the format dir exists.
-	formatDir := filepath.Join(b.Statedir, "www", "version", "format"+b.Format)
+	formatDir := filepath.Join(b.StateDir, "www", "version", "format"+b.Format)
 	err = os.MkdirAll(formatDir, 0777)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create the format directory")
@@ -693,11 +734,11 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	// Clean up the bundle chroots as only the full chroot is needed from this point on.
 	if !keepChroots {
 		var files []os.FileInfo
-		files, err = ioutil.ReadDir(b.Bundledir)
+		files, err = ioutil.ReadDir(b.BundleDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
 		}
-		basedir := filepath.Join(b.Statedir, "image", b.Mixver)
+		basedir := filepath.Join(b.StateDir, "image", b.MixVer)
 		for _, f := range files {
 			if f.Name() == "full" {
 				continue
@@ -709,7 +750,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		}
 	}
 	// Hardlink the duplicate files. This helps when keeping the bundle chroots.
-	hardlinkcmd := exec.Command("hardlink", "-f", b.Statedir+"/image/"+b.Mixver+"/")
+	hardlinkcmd := exec.Command("hardlink", "-f", b.StateDir+"/image/"+b.MixVer+"/")
 	hardlinkcmd.Stdout = os.Stdout
 	hardlinkcmd.Stderr = os.Stderr
 	err = hardlinkcmd.Run()
@@ -719,16 +760,16 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	timer.Stop()
 
 	// Save upstream information.
-	if b.Upstreamurl != "" {
-		fmt.Printf("Saving the upstream URL: %s\n", b.Upstreamurl)
-		upstreamURLFile := filepath.Join(b.Statedir, "www", b.Mixver, "/upstreamurl")
-		err = ioutil.WriteFile(upstreamURLFile, []byte(b.Upstreamurl), 0644)
+	if b.UpstreamURL != "" {
+		fmt.Printf("Saving the upstream URL: %s\n", b.UpstreamURL)
+		upstreamURLFile := filepath.Join(b.StateDir, "www", b.MixVer, "/upstreamurl")
+		err = ioutil.WriteFile(upstreamURLFile, []byte(b.UpstreamURL), 0644)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't write upstreamurl file")
 		}
-		fmt.Printf("Saving the upstream version: %s\n", b.Clearver)
-		upstreamVerFile := filepath.Join(b.Statedir, "www", b.Mixver, "upstreamver")
-		err = ioutil.WriteFile(upstreamVerFile, []byte(b.Clearver), 0644)
+		fmt.Printf("Saving the upstream version: %s\n", b.UpstreamVer)
+		upstreamVerFile := filepath.Join(b.StateDir, "www", b.MixVer, "upstreamver")
+		err = ioutil.WriteFile(upstreamVerFile, []byte(b.UpstreamVer), 0644)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't write upstreamver file")
 		}
@@ -740,13 +781,13 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		return nil
 	}
 
-	fmt.Printf("Setting latest version to %s\n", b.Mixver)
+	fmt.Printf("Setting latest version to %s\n", b.MixVer)
 
-	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.Mixver), 0644)
+	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest version")
 	}
-	err = ioutil.WriteFile(filepath.Join(b.Statedir, "image", "LAST_VER"), []byte(b.Mixver), 0644)
+	err = ioutil.WriteFile(filepath.Join(b.StateDir, "image", "LAST_VER"), []byte(b.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest version")
 	}
@@ -757,12 +798,12 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, minVersion uint32, format uint32, skipSigning bool) error {
 	var err error
 
-	err = writeMetaFiles(filepath.Join(b.Statedir, "www", b.Mixver), b.Format, Version)
+	err = writeMetaFiles(filepath.Join(b.StateDir, "www", b.MixVer), b.Format, Version)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write update metadata files")
 	}
 	timer.Start("CREATE MANIFESTS")
-	mom, err := swupd.CreateManifests(mixVersion, minVersion, uint(format), b.Statedir)
+	mom, err := swupd.CreateManifests(mixVersion, minVersion, uint(format), b.StateDir)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create update metadata")
 	}
@@ -779,7 +820,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 		}
 	}
 
-	outputDir := filepath.Join(b.Statedir, "www")
+	outputDir := filepath.Join(b.StateDir, "www")
 	thisVersionDir := filepath.Join(outputDir, fmt.Sprint(mixVersion))
 	fmt.Println("Compressing Manifest.MoM")
 	momF := filepath.Join(thisVersionDir, "Manifest.MoM")
@@ -804,8 +845,8 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Stop()
 
 	timer.Start("CREATE FULLFILES")
-	fullfilesDir := filepath.Join(outputDir, b.Mixver, "files")
-	fullChrootDir := filepath.Join(b.Statedir, "image", b.Mixver, "full")
+	fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
+	fullChrootDir := filepath.Join(b.StateDir, "image", b.MixVer, "full")
 	// TODO: CreateFullfiles should return us feedback on what was
 	// done so we can report here.
 	err = swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir)
@@ -815,7 +856,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Stop()
 
 	timer.Start("CREATE ZERO PACKS")
-	chrootDir := filepath.Join(b.Statedir, "image")
+	chrootDir := filepath.Join(b.StateDir, "image")
 	for _, bundle := range mom.Files {
 		// TODO: Evaluate if it's worth using goroutines.
 		name := bundle.Name
@@ -857,7 +898,7 @@ func (b *Builder) buildUpdateWithOldSwupd(timer *stopWatch, prefixflag string, m
 
 	// Create update metadata for the mix.
 	timer.Start("CREATE MANIFESTS")
-	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Statedir, "--minversion", strconv.Itoa(minVersion), "-F", b.Format, "--osversion", b.Mixver)
+	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.StateDir, "--minversion", strconv.Itoa(minVersion), "-F", b.Format, "--osversion", b.MixVer)
 	updatecmd.Stdout = os.Stdout
 	updatecmd.Stderr = os.Stderr
 	err = updatecmd.Run()
@@ -877,7 +918,7 @@ func (b *Builder) buildUpdateWithOldSwupd(timer *stopWatch, prefixflag string, m
 
 	// Create full files.
 	timer.Start("CREATE FULLFILES")
-	fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Statedir, b.Mixver)
+	fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.StateDir, b.MixVer)
 	fullfilecmd.Stdout = os.Stdout
 	fullfilecmd.Stderr = os.Stderr
 	err = fullfilecmd.Run()
@@ -888,7 +929,7 @@ func (b *Builder) buildUpdateWithOldSwupd(timer *stopWatch, prefixflag string, m
 
 	// Create zero packs.
 	timer.Start("CREATE ZERO PACKS")
-	zeropackArgs := []string{"--to", b.Mixver, "-S", b.Statedir}
+	zeropackArgs := []string{"--to", b.MixVer, "-S", b.StateDir}
 	if prefixflag != "" {
 		zeropackArgs = append(zeropackArgs, "--repodir", prefixflag)
 	}
@@ -927,7 +968,7 @@ func (b *Builder) BuildImage(format string, template string) error {
 		_ = os.RemoveAll(tempStage)
 	}()
 
-	content := "file://" + b.Statedir + "/www"
+	content := "file://" + b.StateDir + "/www"
 	imagecmd := exec.Command("ister.py", "-S", tempStage, "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Cert)
 	imagecmd.Stdout = os.Stdout
 	imagecmd.Stderr = os.Stderr
@@ -938,20 +979,20 @@ func (b *Builder) BuildImage(format string, template string) error {
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to
 // generate a yum-consumable repository for the chroot builder to use.
 func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
-	if b.Repodir == "" {
+	if b.RepoDir == "" {
 		return errors.Errorf("REPODIR not set in configuration")
 	}
-	err := os.MkdirAll(b.Repodir, 0755)
+	err := os.MkdirAll(b.RepoDir, 0755)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create REPODIR")
 	}
 	for _, rpm := range rpms {
-		localPath := filepath.Join(b.RPMdir, rpm.Name())
+		localPath := filepath.Join(b.RPMDir, rpm.Name())
 		if err := checkRPM(localPath); err != nil {
 			return err
 		}
 		// Skip RPM already in repo.
-		repoPath := filepath.Join(b.Repodir, rpm.Name())
+		repoPath := filepath.Join(b.RepoDir, rpm.Name())
 		if _, err := os.Stat(repoPath); err == nil {
 			continue
 		}
@@ -968,7 +1009,7 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
 	cmd := exec.Command("createrepo_c", ".")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Dir = b.Repodir
+	cmd.Dir = b.RepoDir
 
 	return cmd.Run()
 }
@@ -1062,7 +1103,7 @@ func (b *Builder) BuildDeltaPacks(from, to uint32) error {
 
 	// TODO: Configuration parsing should handle this validation/conversion.
 	var mixVersion uint32
-	mixVersion, err = parseUint32(b.Mixver)
+	mixVersion, err = parseUint32(b.MixVer)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't parse mix version to use as target")
 	}
@@ -1078,7 +1119,7 @@ func (b *Builder) BuildDeltaPacks(from, to uint32) error {
 		return errors.Errorf("the --from version must be smaller than the --to version")
 	}
 
-	outputDir := filepath.Join(b.Statedir, "www")
+	outputDir := filepath.Join(b.StateDir, "www")
 	toManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(to), "Manifest.MoM"))
 	if err != nil {
 		return errors.Wrapf(err, "couldn't find manifest of target version")
@@ -1089,7 +1130,7 @@ func (b *Builder) BuildDeltaPacks(from, to uint32) error {
 		return errors.Wrapf(err, "couldn't find manifest of from version")
 	}
 
-	chrootDir := filepath.Join(b.Statedir, "image")
+	chrootDir := filepath.Join(b.StateDir, "image")
 	return createDeltaPacks(fromManifest, toManifest, outputDir, chrootDir)
 }
 
@@ -1100,7 +1141,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
 
 	// TODO: Configuration parsing should handle this validation/conversion.
 	var mixVersion uint32
-	mixVersion, err = parseUint32(b.Mixver)
+	mixVersion, err = parseUint32(b.MixVer)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't parse mix version to use as target")
 	}
@@ -1113,7 +1154,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
 		}
 	}
 
-	outputDir := filepath.Join(b.Statedir, "www")
+	outputDir := filepath.Join(b.StateDir, "www")
 	toManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(to), "Manifest.MoM"))
 	if err != nil {
 		return errors.Wrapf(err, "couldn't find manifest of target version")
@@ -1136,7 +1177,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
 
 	fmt.Printf("Found %d previous versions\n", len(previousManifests))
 
-	chrootDir := filepath.Join(b.Statedir, "image")
+	chrootDir := filepath.Join(b.StateDir, "image")
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
 		err = createDeltaPacks(fromManifest, toManifest, outputDir, chrootDir)

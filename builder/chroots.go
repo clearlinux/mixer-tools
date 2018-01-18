@@ -83,15 +83,15 @@ func readBuildChrootsConfig(path string) (*buildChrootsConfig, error) {
 func (b *Builder) buildBundleChroots(set bundleSet, packager string) error {
 	var err error
 
-	if b.Statedir == "" {
+	if b.StateDir == "" {
 		return errors.Errorf("invalid empty state dir")
 	}
 
-	chrootDir := filepath.Join(b.Statedir, "image")
+	chrootDir := filepath.Join(b.StateDir, "image")
 
 	// TODO: Remove remaining references to outputDir. Let "build update" take care of
 	// bootstraping or cleaning up.
-	outputDir := filepath.Join(b.Statedir, "www")
+	outputDir := filepath.Join(b.StateDir, "www")
 
 	if _, ok := set["os-core"]; !ok {
 		return fmt.Errorf("os-core bundle not found")
@@ -110,7 +110,7 @@ func (b *Builder) buildBundleChroots(set bundleSet, packager string) error {
 	// TODO: Do not touch config code that is in flux at the moment, reparsing it here to grab
 	// information that previously Mixer didn't care about. Move that to the configuration part
 	// of Mixer.
-	cfg, err := readBuildChrootsConfig(b.Buildconf)
+	cfg, err := readBuildChrootsConfig(b.BuildConf)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (b *Builder) buildBundleChroots(set bundleSet, packager string) error {
 emptydir=%s/empty
 imagebase=%s/image/
 outputdir=%s/www/
-`, b.Statedir, b.Statedir, b.Statedir)
+`, b.StateDir, b.StateDir, b.StateDir)
 	if cfg.HasServerSection {
 		fmt.Fprintf(&serverINI, `
 [Debuginfo]
@@ -134,7 +134,7 @@ lib=%s
 src=%s
 `, cfg.DebugInfoBanned, cfg.DebugInfoLib, cfg.DebugInfoSrc)
 	}
-	err = ioutil.WriteFile(filepath.Join(b.Statedir, "server.ini"), serverINI.Bytes(), 0644)
+	err = ioutil.WriteFile(filepath.Join(b.StateDir, "server.ini"), serverINI.Bytes(), 0644)
 	if err != nil {
 		return err
 	}
@@ -144,19 +144,19 @@ src=%s
 	for _, bundle := range set {
 		fmt.Fprintf(&groupsINI, "[%s]\ngroup=%s\n\n", bundle.Name, bundle.Name)
 	}
-	err = ioutil.WriteFile(filepath.Join(b.Statedir, "groups.ini"), groupsINI.Bytes(), 0644)
+	err = ioutil.WriteFile(filepath.Join(b.StateDir, "groups.ini"), groupsINI.Bytes(), 0644)
 	if err != nil {
 		return err
 	}
 
 	// Mixer is used to create both Clear Linux or a mix of it.
 	var version string
-	if b.Mixver != "" {
-		fmt.Printf("Creating chroots for version %s based on Clear Linux %s\n", b.Mixver, b.Clearver)
-		version = b.Mixver
+	if b.MixVer != "" {
+		fmt.Printf("Creating chroots for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
+		version = b.MixVer
 	} else {
-		fmt.Printf("Creating chroots for version %s\n", b.Clearver)
-		version = b.Clearver
+		fmt.Printf("Creating chroots for version %s\n", b.UpstreamVer)
+		version = b.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
 		if version == "" {
 			return errors.Errorf("no Mixver or Clearver set, unable to proceed")
@@ -165,7 +165,7 @@ src=%s
 
 	chrootVersionDir := filepath.Join(chrootDir, version)
 	fmt.Printf("Preparing new %s\n", chrootVersionDir)
-	fmt.Printf("  and yum config: %s\n", b.Yumconf)
+	fmt.Printf("  and yum config: %s\n", b.YumConf)
 
 	err = os.MkdirAll(chrootVersionDir, 0755)
 	if err != nil {
@@ -203,9 +203,9 @@ src=%s
 	// TODO: Check then change to always use dnf. See https://github.com/clearlinux/mixer-tools/issues/115.
 	yumCmd := []string{
 		"yum",
-		"--config=" + b.Yumconf,
+		"--config=" + b.YumConf,
 		"-y",
-		"--releasever=" + b.Clearver,
+		"--releasever=" + b.UpstreamVer,
 	}
 	if packager == "" {
 		// When in Fedora, call dnf instead of yum.

@@ -50,10 +50,10 @@ func runAddRPM(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	if b.RPMdir == "" {
+	if b.RPMDir == "" {
 		failf("RPMDIR not set in configuration")
 	}
-	rpms, err := ioutil.ReadDir(b.RPMdir)
+	rpms, err := ioutil.ReadDir(b.RPMDir)
 	if err != nil {
 		failf("cannot read RPMDIR: %s", err)
 	}

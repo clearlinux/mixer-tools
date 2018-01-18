@@ -118,7 +118,7 @@ var buildAllCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
-		rpms, err := ioutil.ReadDir(b.RPMdir)
+		rpms, err := ioutil.ReadDir(b.RPMDir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
 			if err != nil {

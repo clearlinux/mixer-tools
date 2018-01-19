@@ -93,12 +93,20 @@ type initCmdFlags struct {
 
 var initFlags initCmdFlags
 
+var localrpms bool
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the mixer and workspace",
 	Long:  `Initialize the mixer and workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.New()
+		if config == "" {
+			// Create default config if necessary
+			if err := b.CreateDefaultConfig(localrpms); err != nil {
+				fail(err)
+			}
+		}
 		b.LoadBuilderConf(config)
 		b.ReadBuilderConf()
 		err := b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
@@ -128,6 +136,7 @@ func init() {
 	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")
 
 	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Initialize mix with all upstream bundles automatically included")
+	initCmd.Flags().BoolVar(&localrpms, "local-rpms", false, "Create and configure local RPMs directories")
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")

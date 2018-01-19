@@ -224,18 +224,26 @@ func UnpackFile(file string, dest string) error {
 // CopyFile is used during the build process to copy a given file to the target
 // instead of dealing with the particulars of hardlinking.
 func CopyFile(dest string, src string) error {
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE)
+}
+
+// CopyFileNoOverwrite copies a file only if the destination file does not exist.
+func CopyFileNoOverwrite(dest string, src string) error {
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_EXCL)
+}
+
+// copyFileWithFlags General purpose copy file function
+func copyFileWithFlags(dest string, src string, flags int) error {
 	source, err := os.Open(src)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 	defer func() {
 		_ = source.Close()
 	}()
 
-	destination, err := os.Create(dest)
+	destination, err := os.OpenFile(dest, flags, 0666)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 	defer func() {
@@ -244,13 +252,11 @@ func CopyFile(dest string, src string) error {
 
 	_, err = io.Copy(destination, source)
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 
 	err = destination.Sync()
 	if err != nil {
-		PrintError(err)
 		return err
 	}
 

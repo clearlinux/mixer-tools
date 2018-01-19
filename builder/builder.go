@@ -86,6 +86,62 @@ func NewFromConfig(conf string) *Builder {
 	return b
 }
 
+// CreateDefaultConfig creates a default builder.conf using the active
+// directory as base path for the variables values.
+func (b *Builder) CreateDefaultConfig(localrpms bool) error {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	builderconf := filepath.Join(pwd, "builder.conf")
+
+	err = helpers.CopyFileNoOverwrite(builderconf, "/usr/share/defaults/bundle-chroot-builder/builder.conf")
+	if os.IsExist(err) {
+		// builder.conf already exists. Skip creation.
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	fmt.Println("Creating new builder.conf configuration file...")
+
+	raw, err := ioutil.ReadFile(builderconf)
+	if err != nil {
+		return err
+	}
+
+	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
+	if localrpms {
+		data += "\n[Mixer]\n"
+		data += "RPMDIR=" + pwd + "/rpms\n"
+		data += "REPODIR=" + pwd + "/local\n"
+	}
+
+	if err = ioutil.WriteFile(builderconf, []byte(data), 0666); err != nil {
+		return err
+	}
+	return nil
+}
+
+// createRpmDirs creates the RPM directories
+func (b *Builder) createRpmDirs() error {
+	// Make the folder to store rpms if they don't already exist
+	if b.RPMdir != "" {
+		if err := os.MkdirAll(b.RPMdir, 0777); err != nil {
+			return err
+		}
+	}
+
+	if b.Repodir != "" {
+		if err := os.MkdirAll(b.Repodir, 0777); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // LoadBuilderConf will read the builder configuration from the command line if
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.
@@ -427,6 +483,11 @@ func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl 
 		if err := helpers.Git("-C", b.Bundledir, "commit", "-m", commitMsg); err != nil {
 			return err
 		}
+	}
+
+	// Set up rpms and local dirs
+	if err := b.createRpmDirs(); err != nil {
+		return errors.Wrap(err, "Failed to create local RPM dirs")
 	}
 
 	return nil

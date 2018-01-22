@@ -410,9 +410,6 @@ func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir
 	if err != nil {
 		return nil, err
 	}
-	// TODO: Should ParseManifestFile fill this with whatever comes after "Manifest."?
-	m.Name = name
-
 	packPath := filepath.Join(toDir, GetPackFilename(name, fromVersion))
 	output, err := os.Create(packPath)
 	if err != nil {

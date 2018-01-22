@@ -5,13 +5,13 @@ import "testing"
 func TestTypeFromFlagFile(t *testing.T) {
 	testCases := []struct {
 		flag     byte
-		expected ftype
+		expected TypeFlag
 	}{
-		{'F', typeFile},
-		{'D', typeDirectory},
-		{'L', typeLink},
-		{'M', typeManifest},
-		{'.', typeUnset},
+		{'F', TypeFile},
+		{'D', TypeDirectory},
+		{'L', TypeLink},
+		{'M', TypeManifest},
+		{'.', TypeUnset},
 	}
 
 	for _, tc := range testCases {
@@ -36,7 +36,7 @@ func TestTypeFromFlagFile(t *testing.T) {
 			t.Error("typeFromFlag did not fail with invalid input")
 		}
 
-		if f.Type != typeUnset {
+		if f.Type != TypeUnset {
 			t.Errorf("file type was set to %v from invalid flag", f.Type)
 		}
 	})
@@ -45,11 +45,11 @@ func TestTypeFromFlagFile(t *testing.T) {
 func TestStatusFromFlag(t *testing.T) {
 	testCases := []struct {
 		flag     byte
-		expected fstatus
+		expected StatusFlag
 	}{
-		{'d', statusDeleted},
-		{'g', statusGhosted},
-		{'.', statusUnset},
+		{'d', StatusDeleted},
+		{'g', StatusGhosted},
+		{'.', StatusUnset},
 	}
 
 	for _, tc := range testCases {
@@ -74,7 +74,7 @@ func TestStatusFromFlag(t *testing.T) {
 			t.Error("statusFromFlag did not fail with invalid input")
 		}
 
-		if f.Status != statusUnset {
+		if f.Status != StatusUnset {
 			t.Errorf("file modifier was set to %v from invalid flag", f.Status)
 		}
 	})
@@ -83,12 +83,12 @@ func TestStatusFromFlag(t *testing.T) {
 func TestModifierFromFlag(t *testing.T) {
 	testCases := []struct {
 		flag     byte
-		expected fmodifier
+		expected ModifierFlag
 	}{
-		{'C', modifierConfig},
-		{'s', modifierState},
-		{'b', modifierBoot},
-		{'.', modifierUnset},
+		{'C', ModifierConfig},
+		{'s', ModifierState},
+		{'b', ModifierBoot},
+		{'.', ModifierUnset},
 	}
 
 	for _, tc := range testCases {
@@ -113,7 +113,7 @@ func TestModifierFromFlag(t *testing.T) {
 			t.Error("setModifierFromFlag did not fail with invalid input")
 		}
 
-		if f.Modifier != modifierUnset {
+		if f.Modifier != ModifierUnset {
 			t.Errorf("file modifier was set to %v from invalid flag", f.Modifier)
 		}
 	})
@@ -261,33 +261,33 @@ func TestSameFile(t *testing.T) {
 		expected bool
 	}{
 		{
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
 			true,
 		},
 		{
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
-			File{Name: "2", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
+			File{Name: "2", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
 			false,
 		},
 		{
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
-			File{Name: "1", Hash: 2, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
+			File{Name: "1", Hash: 2, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
 			false,
 		},
 		{
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
-			File{Name: "1", Hash: 1, Type: typeLink, Status: statusUnset, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeLink, Status: StatusUnset, Modifier: ModifierUnset},
 			false,
 		},
 		{
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusDeleted, Modifier: modifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusDeleted, Modifier: ModifierUnset},
 			false,
 		},
 		{
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierUnset},
-			File{Name: "1", Hash: 1, Type: typeFile, Status: statusUnset, Modifier: modifierBoot},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
+			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierBoot},
 			false,
 		},
 	}
@@ -310,99 +310,99 @@ func TestTypeHasChanged(t *testing.T) {
 	}{
 		{
 			File{
-				Status: statusDeleted,
-				Type:   typeFile,
+				Status: StatusDeleted,
+				Type:   TypeFile,
 				DeltaPeer: &File{
-					Status: statusDeleted,
-					Type:   typeDirectory,
+					Status: StatusDeleted,
+					Type:   TypeDirectory,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeFile,
+				Status: StatusUnset,
+				Type:   TypeFile,
 				DeltaPeer: &File{
-					Status: statusDeleted,
-					Type:   typeDirectory,
+					Status: StatusDeleted,
+					Type:   TypeDirectory,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeDirectory,
+				Status: StatusUnset,
+				Type:   TypeDirectory,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeDirectory,
+					Status: StatusUnset,
+					Type:   TypeDirectory,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeLink,
+				Status: StatusUnset,
+				Type:   TypeLink,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeFile,
+					Status: StatusUnset,
+					Type:   TypeFile,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeDirectory,
+				Status: StatusUnset,
+				Type:   TypeDirectory,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeFile,
+					Status: StatusUnset,
+					Type:   TypeFile,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeFile,
+				Status: StatusUnset,
+				Type:   TypeFile,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeLink,
+					Status: StatusUnset,
+					Type:   TypeLink,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeDirectory,
+				Status: StatusUnset,
+				Type:   TypeDirectory,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeLink,
+					Status: StatusUnset,
+					Type:   TypeLink,
 				},
 			},
 			false,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeFile,
+				Status: StatusUnset,
+				Type:   TypeFile,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeDirectory,
+					Status: StatusUnset,
+					Type:   TypeDirectory,
 				},
 			},
 			true,
 		},
 		{
 			File{
-				Status: statusUnset,
-				Type:   typeLink,
+				Status: StatusUnset,
+				Type:   TypeLink,
 				DeltaPeer: &File{
-					Status: statusUnset,
-					Type:   typeDirectory,
+					Status: StatusUnset,
+					Type:   TypeDirectory,
 				},
 			},
 			true,

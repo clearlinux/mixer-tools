@@ -51,7 +51,7 @@ func TestCreateFullfiles(t *testing.T) {
 		f := &File{
 			Name:    name,
 			Hash:    internHash(desc.hash),
-			Type:    typeFile,
+			Type:    TypeFile,
 			Version: desc.version,
 		}
 		if m.Header.Version == f.Version {

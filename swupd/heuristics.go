@@ -24,7 +24,7 @@ func (f *File) setConfigFromPathname() {
 
 	for _, path := range configPaths {
 		if strings.HasPrefix(f.Name, path) {
-			f.Modifier = modifierConfig
+			f.Modifier = ModifierConfig
 			return
 		}
 	}
@@ -51,7 +51,7 @@ func (f *File) setStateFromPathname() {
 		if f.Name == path {
 			return
 		} else if strings.HasPrefix(f.Name, path+"/") {
-			f.Modifier = modifierState
+			f.Modifier = ModifierState
 			return
 		}
 	}
@@ -87,7 +87,7 @@ func (f *File) setStateFromPathname() {
 
 	for _, path := range finalStatePaths {
 		if strings.HasPrefix(f.Name, path) {
-			f.Modifier = modifierState
+			f.Modifier = ModifierState
 			return
 		}
 	}
@@ -105,9 +105,9 @@ func (f *File) setBootFromPathname() {
 
 	for _, path := range bootPaths {
 		if strings.HasPrefix(f.Name, path) {
-			f.Modifier = modifierBoot
-			if f.Status == statusDeleted {
-				f.Status = statusGhosted
+			f.Modifier = ModifierBoot
+			if f.Status == StatusDeleted {
+				f.Status = StatusGhosted
 			}
 			return
 		}

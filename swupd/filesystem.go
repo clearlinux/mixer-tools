@@ -65,11 +65,11 @@ func recordFromFile(rootPath, path string, fi os.FileInfo) (*File, error) {
 
 	switch mode := fi.Mode(); {
 	case mode.IsRegular():
-		file.Type = typeFile
+		file.Type = TypeFile
 	case mode.IsDir():
-		file.Type = typeDirectory
+		file.Type = TypeDirectory
 	case mode&os.ModeSymlink != 0:
-		file.Type = typeLink
+		file.Type = TypeLink
 	default:
 		return nil, fmt.Errorf("%v is an unsupported file type", file.Name)
 	}
@@ -101,7 +101,7 @@ func (m *Manifest) createManifestRecord(rootPath string, path string, fi os.File
 
 	// Only the bundle name should be part of the name in the manifest
 	file.Name = strings.Replace(file.Name, "/Manifest.", "", -1)
-	file.Type = typeManifest
+	file.Type = TypeManifest
 	file.Version = version
 	m.Files = append(m.Files, file)
 	return nil

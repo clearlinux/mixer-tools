@@ -10,7 +10,7 @@ func TestCreateFileFromPath(t *testing.T) {
 	path := "testdata/manifest.good"
 	expected := File{
 		Name: path,
-		Type: typeFile,
+		Type: TypeFile,
 	}
 
 	var fh Hashval

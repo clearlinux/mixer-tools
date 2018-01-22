@@ -151,7 +151,7 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 	m.Files = append(m.Files, file)
 
 	// track deleted file
-	if file.Status == statusDeleted {
+	if file.Status == StatusDeleted {
 		m.DeletedFiles = append(m.DeletedFiles, file)
 	}
 
@@ -370,7 +370,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 			// if it is the same name check if anything about the file has changed.
 			// if something has changed update the version to current version and
 			// record that the file has changed
-			if of.Status == statusDeleted || of.Status == statusGhosted {
+			if of.Status == StatusDeleted || of.Status == StatusGhosted {
 				nf.Version = m.Header.Version
 				added = append(added, nf)
 				ox++
@@ -406,7 +406,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 		} else {
 			// if the file exists in the old manifest and does not *yet* exist
 			// in the new manifest, it was deleted.
-			if of.Status == statusDeleted || of.Status == statusGhosted {
+			if of.Status == StatusDeleted || of.Status == StatusGhosted {
 				ox++
 				continue
 			}
@@ -425,7 +425,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 
 	// anything remaining in oldManifest is newly deleted in the new manifest
 	for _, of := range oldManifest.Files[ox:omFilesLen] {
-		if of.Status == statusDeleted || of.Status == statusGhosted {
+		if of.Status == StatusDeleted || of.Status == StatusGhosted {
 			continue
 		}
 		m.newDeleted(of)
@@ -437,9 +437,9 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 	// if a file still has deleted status here and is not a rename
 	// the has needs to be set to all zeros
 	for _, f := range removed {
-		if f.Status == statusDeleted && !f.Rename {
+		if f.Status == StatusDeleted && !f.Rename {
 			f.Hash = 0
-			f.Type = typeUnset
+			f.Type = TypeUnset
 		}
 	}
 
@@ -452,8 +452,8 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 
 func (m *Manifest) newDeleted(df *File) {
 	df.Version = m.Header.Version
-	df.Status = statusDeleted
-	df.Modifier = modifierUnset
+	df.Status = StatusDeleted
+	df.Modifier = ModifierUnset
 	// Add file to manifest
 	m.Files = append(m.Files, df)
 }
@@ -514,7 +514,7 @@ func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
 			// required for "swupd update" to know when to delete the
 			// file, because the m2 bundle may be installed with or
 			// without the m1 bundle.
-			if f1.Status == statusDeleted && f2.Status == statusDeleted {
+			if f1.Status == StatusDeleted && f2.Status == StatusDeleted {
 				i++
 				j++
 				continue
@@ -590,7 +590,7 @@ func maxFullFromManifest(mf *Manifest, bundle *Manifest) {
 		bf := bundle.Files[j]
 		if ff.Name == bf.Name {
 			// files match, maximize versions if appropriate
-			if bf.Status != statusDeleted && bf.Version > ff.Version {
+			if bf.Status != StatusDeleted && bf.Version > ff.Version {
 				ff.Version = bf.Version
 			}
 			// advance both indices

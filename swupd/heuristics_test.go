@@ -7,13 +7,13 @@ import (
 func TestSetConfigFromPathname(t *testing.T) {
 	testCases := []struct {
 		file     File
-		expected fmodifier
+		expected ModifierFlag
 	}{
-		{File{Name: "/etc/something"}, modifierConfig},
-		{File{Name: "/etc/a"}, modifierConfig},
-		{File{Name: "/not/etc"}, modifierUnset},
-		{File{Name: "/etc"}, modifierUnset},
-		{File{Name: "/something/else/entirely"}, modifierUnset},
+		{File{Name: "/etc/something"}, ModifierConfig},
+		{File{Name: "/etc/a"}, ModifierConfig},
+		{File{Name: "/not/etc"}, ModifierUnset},
+		{File{Name: "/etc"}, ModifierUnset},
+		{File{Name: "/something/else/entirely"}, ModifierUnset},
 	}
 
 	for _, tc := range testCases {
@@ -44,34 +44,34 @@ func TestSetStateFromPathname(t *testing.T) {
 		t.Run(tc.Name, func(t *testing.T) {
 			// actual directories do not get their modifier set
 			tc.setStateFromPathname()
-			if tc.Modifier != modifierUnset {
+			if tc.Modifier != ModifierUnset {
 				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.Name, tc.Modifier, modifierUnset)
+					tc.Name, tc.Modifier, ModifierUnset)
 			}
 
 			// now check children of the directory
 			tc.Name = tc.Name + "/a"
 			tc.setStateFromPathname()
-			if tc.Modifier != modifierState {
+			if tc.Modifier != ModifierState {
 				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.Name, tc.Modifier, modifierState)
+					tc.Name, tc.Modifier, ModifierState)
 			}
 		})
 	}
 
 	allTestCases := []struct {
 		file     File
-		expected fmodifier
+		expected ModifierFlag
 	}{
-		{File{Name: "/acct/a"}, modifierState},
-		{File{Name: "/cache/a"}, modifierState},
-		{File{Name: "/data/a"}, modifierState},
-		{File{Name: "/lost+found/a"}, modifierState},
-		{File{Name: "/mnt/asec/a"}, modifierState},
-		{File{Name: "/a"}, modifierUnset},
-		{File{Name: "/acct"}, modifierState},
-		{File{Name: "/other"}, modifierUnset},
-		{File{Name: "/usr/src/foo"}, modifierState},
+		{File{Name: "/acct/a"}, ModifierState},
+		{File{Name: "/cache/a"}, ModifierState},
+		{File{Name: "/data/a"}, ModifierState},
+		{File{Name: "/lost+found/a"}, ModifierState},
+		{File{Name: "/mnt/asec/a"}, ModifierState},
+		{File{Name: "/a"}, ModifierUnset},
+		{File{Name: "/acct"}, ModifierState},
+		{File{Name: "/other"}, ModifierUnset},
+		{File{Name: "/usr/src/foo"}, ModifierState},
 	}
 
 	for _, tc := range allTestCases {
@@ -88,15 +88,15 @@ func TestSetStateFromPathname(t *testing.T) {
 func TestSetBootFromPathname(t *testing.T) {
 	testCases := []struct {
 		file     File
-		expected fmodifier
+		expected ModifierFlag
 	}{
-		{File{Name: "/boot/EFI"}, modifierBoot},
-		{File{Name: "/usr/lib/modules/module"}, modifierBoot},
-		{File{Name: "/usr/lib/kernel/file"}, modifierBoot},
-		{File{Name: "/usr/lib/gummiboot/foo"}, modifierBoot},
-		{File{Name: "/usr/bin/gummiboot/bar"}, modifierBoot},
-		{File{Name: "/usr/gummiboot/bar"}, modifierUnset},
-		{File{Name: "/usr/kernel/bar"}, modifierUnset},
+		{File{Name: "/boot/EFI"}, ModifierBoot},
+		{File{Name: "/usr/lib/modules/module"}, ModifierBoot},
+		{File{Name: "/usr/lib/kernel/file"}, ModifierBoot},
+		{File{Name: "/usr/lib/gummiboot/foo"}, ModifierBoot},
+		{File{Name: "/usr/bin/gummiboot/bar"}, ModifierBoot},
+		{File{Name: "/usr/gummiboot/bar"}, ModifierUnset},
+		{File{Name: "/usr/kernel/bar"}, ModifierUnset},
 	}
 
 	for _, tc := range testCases {
@@ -113,15 +113,15 @@ func TestSetBootFromPathname(t *testing.T) {
 func TestSetModifierFromPathname(t *testing.T) {
 	testCases := []struct {
 		file     File
-		expected fmodifier
+		expected ModifierFlag
 	}{
-		{File{Name: "/etc/file"}, modifierConfig},
-		{File{Name: "/usr/src/debug"}, modifierUnset},
-		{File{Name: "/dev/foo"}, modifierState},
-		{File{Name: "/usr/src/file"}, modifierState},
-		{File{Name: "/acct/file"}, modifierState},
-		{File{Name: "/boot/EFI"}, modifierBoot},
-		{File{Name: "/randomfile"}, modifierUnset},
+		{File{Name: "/etc/file"}, ModifierConfig},
+		{File{Name: "/usr/src/debug"}, ModifierUnset},
+		{File{Name: "/dev/foo"}, ModifierState},
+		{File{Name: "/usr/src/file"}, ModifierState},
+		{File{Name: "/acct/file"}, ModifierState},
+		{File{Name: "/boot/EFI"}, ModifierBoot},
+		{File{Name: "/randomfile"}, ModifierUnset},
 	}
 
 	for _, tc := range testCases {
@@ -136,14 +136,14 @@ func TestSetModifierFromPathname(t *testing.T) {
 }
 
 func TestApplyHeuristics(t *testing.T) {
-	testCases := map[string]fmodifier{
-		"/etc/file":      modifierConfig,
-		"/usr/src/debug": modifierUnset,
-		"/dev/foo":       modifierState,
-		"/usr/src/file":  modifierState,
-		"/acct/file":     modifierState,
-		"/boot/EFI":      modifierBoot,
-		"/randomfile":    modifierUnset,
+	testCases := map[string]ModifierFlag{
+		"/etc/file":      ModifierConfig,
+		"/usr/src/debug": ModifierUnset,
+		"/dev/foo":       ModifierState,
+		"/usr/src/file":  ModifierState,
+		"/acct/file":     ModifierState,
+		"/boot/EFI":      ModifierBoot,
+		"/randomfile":    ModifierUnset,
 	}
 
 	m := Manifest{}

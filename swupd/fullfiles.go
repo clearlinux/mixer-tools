@@ -64,11 +64,11 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 			}
 
 			switch f.Type {
-			case typeDirectory:
+			case TypeDirectory:
 				err = createDirectoryFullfile(input, name, output)
-			case typeLink:
+			case TypeLink:
 				err = createLinkFullfile(input, name, output)
-			case typeFile:
+			case TypeFile:
 				err = createRegularFullfile(input, name, output)
 			default:
 				err = fmt.Errorf("file %s is of unsupported type %q", f.Name, f.Type)
@@ -88,7 +88,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 
 	done := make(map[Hashval]bool)
 	for _, f := range m.Files {
-		if done[f.Hash] || f.Version != m.Header.Version || f.Status == statusDeleted || f.Status == statusGhosted {
+		if done[f.Hash] || f.Version != m.Header.Version || f.Status == StatusDeleted || f.Status == StatusGhosted {
 			continue
 		}
 		done[f.Hash] = true

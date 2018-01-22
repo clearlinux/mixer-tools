@@ -131,11 +131,11 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 			entry.Reason = "hash already packed"
 			continue
 		}
-		if f.Status == statusDeleted {
+		if f.Status == StatusDeleted {
 			entry.Reason = "file deleted"
 			continue
 		}
-		if f.Status == statusGhosted {
+		if f.Status == StatusGhosted {
 			entry.Reason = "file ghosted"
 			continue
 		}
@@ -185,13 +185,13 @@ func copyFromFullChrootFile(tw *tar.Writer, fullChrootDir string, f *File) (fall
 	// TODO: Also perform this verification for copyFromFullfile?
 
 	switch f.Type {
-	case typeDirectory:
+	case TypeDirectory:
 		if !fi.IsDir() {
 			return true, fmt.Errorf("couldn't use %s for packing: manifest expected a directory but it is not", realname)
 		}
 		hdr.Name = hdr.Name + "/"
 		hdr.Typeflag = tar.TypeDir
-	case typeLink:
+	case TypeLink:
 		if fi.Mode()&os.ModeSymlink == 0 {
 			return true, fmt.Errorf("couldn't use %s for packing: manifest expected a link but it is not", realname)
 		}
@@ -202,7 +202,7 @@ func copyFromFullChrootFile(tw *tar.Writer, fullChrootDir string, f *File) (fall
 		}
 		hdr.Typeflag = tar.TypeSymlink
 		hdr.Linkname = link
-	case typeFile:
+	case TypeFile:
 		if !fi.Mode().IsRegular() {
 			return true, fmt.Errorf("couldn't use %s for packing: manifest expected a regular file but it is not", realname)
 		}

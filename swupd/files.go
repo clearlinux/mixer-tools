@@ -20,52 +20,65 @@ import (
 	"os"
 )
 
-type ftype int
-type fmodifier int
-type fstatus int
+// TypeFlag describes the file type of a manifest entry.
+// It matches the first byte in the flags field.
+type TypeFlag uint8
+
+// Valid values for TypeFlag.
+const (
+	TypeUnset TypeFlag = iota
+	TypeFile
+	TypeDirectory
+	TypeLink
+	TypeManifest
+)
+
+var typeBytes = map[TypeFlag]byte{
+	TypeUnset:     '.',
+	TypeFile:      'F',
+	TypeDirectory: 'D',
+	TypeLink:      'L',
+	TypeManifest:  'M',
+}
+
+// StatusFlag describes whether a manifest entry is present or not.
+// It matches the second byte in the flags field.
+type StatusFlag uint8
+
+// Valid values for StatusFlag.
+const (
+	StatusUnset StatusFlag = iota
+	StatusDeleted
+	StatusGhosted
+)
+
+var statusBytes = map[StatusFlag]byte{
+	StatusUnset:   '.',
+	StatusDeleted: 'd',
+	StatusGhosted: 'g',
+}
+
+// ModifierFlag describes specific characteristics of a file, used later by
+// swupd client when deciding how to update it.
+// It matches the third byte in the flags field.
+type ModifierFlag uint8
+
+// Valid values for ModifierFlag.
+const (
+	ModifierUnset ModifierFlag = iota
+	ModifierConfig
+	ModifierState
+	ModifierBoot
+)
+
+var modifierBytes = map[ModifierFlag]byte{
+	ModifierUnset:  '.',
+	ModifierConfig: 'C',
+	ModifierState:  's',
+	ModifierBoot:   'b',
+}
+
 type frename bool
-
-const (
-	typeUnset ftype = iota
-	typeFile
-	typeDirectory
-	typeLink
-	typeManifest
-)
-
-var typeBytes = map[ftype]byte{
-	typeUnset:     '.',
-	typeFile:      'F',
-	typeDirectory: 'D',
-	typeLink:      'L',
-	typeManifest:  'M',
-}
-
-const (
-	modifierUnset fmodifier = iota
-	modifierConfig
-	modifierState
-	modifierBoot
-)
-
-var modifierBytes = map[fmodifier]byte{
-	modifierUnset:  '.',
-	modifierConfig: 'C',
-	modifierState:  's',
-	modifierBoot:   'b',
-}
-
-const (
-	statusUnset fstatus = iota
-	statusDeleted
-	statusGhosted
-)
-
-var statusBytes = map[fstatus]byte{
-	statusUnset:   '.',
-	statusDeleted: 'd',
-	statusGhosted: 'g',
-}
 
 const (
 	renameUnset = false
@@ -84,9 +97,9 @@ type File struct {
 	Version uint32
 
 	// flags
-	Type     ftype
-	Status   fstatus
-	Modifier fmodifier
+	Type     TypeFlag
+	Status   StatusFlag
+	Modifier ModifierFlag
 	Rename   frename
 
 	// renames
@@ -98,66 +111,66 @@ type File struct {
 }
 
 // typeFromFlag return file type based on flag byte
-func typeFromFlag(flag byte) (ftype, error) {
+func typeFromFlag(flag byte) (TypeFlag, error) {
 	switch flag {
 	case 'F':
-		return typeFile, nil
+		return TypeFile, nil
 	case 'D':
-		return typeDirectory, nil
+		return TypeDirectory, nil
 	case 'L':
-		return typeLink, nil
+		return TypeLink, nil
 	case 'M':
-		return typeManifest, nil
+		return TypeManifest, nil
 	case '.':
-		return typeUnset, nil
+		return TypeUnset, nil
 	default:
-		return typeUnset, fmt.Errorf("invalid file type flag: %v", flag)
+		return TypeUnset, fmt.Errorf("invalid file type flag: %v", flag)
 	}
 }
 
-func (t ftype) String() string {
+func (t TypeFlag) String() string {
 	switch t {
-	case typeFile:
+	case TypeFile:
 		return "F"
-	case typeDirectory:
+	case TypeDirectory:
 		return "D"
-	case typeLink:
+	case TypeLink:
 		return "L"
-	case typeManifest:
+	case TypeManifest:
 		return "M"
-	case typeUnset:
+	case TypeUnset:
 		return "."
 	}
 	return "?"
 }
 
 // statusFromFlag return status based on flag byte
-func statusFromFlag(flag byte) (fstatus, error) {
+func statusFromFlag(flag byte) (StatusFlag, error) {
 	switch flag {
 	case 'd':
-		return statusDeleted, nil
+		return StatusDeleted, nil
 	case 'g':
-		return statusGhosted, nil
+		return StatusGhosted, nil
 	case '.':
-		return statusUnset, nil
+		return StatusUnset, nil
 	default:
-		return statusUnset, fmt.Errorf("invalid file status flag: %v", flag)
+		return StatusUnset, fmt.Errorf("invalid file status flag: %v", flag)
 	}
 }
 
 // modifierFromFlag return modifier from flag byte
-func modifierFromFlag(flag byte) (fmodifier, error) {
+func modifierFromFlag(flag byte) (ModifierFlag, error) {
 	switch flag {
 	case 'C':
-		return modifierConfig, nil
+		return ModifierConfig, nil
 	case 's':
-		return modifierState, nil
+		return ModifierState, nil
 	case 'b':
-		return modifierBoot, nil
+		return ModifierBoot, nil
 	case '.':
-		return modifierUnset, nil
+		return ModifierUnset, nil
 	default:
-		return modifierUnset, fmt.Errorf("invalid file modifier flag: %v", flag)
+		return ModifierUnset, fmt.Errorf("invalid file modifier flag: %v", flag)
 	}
 }
 
@@ -202,9 +215,9 @@ func (f *File) setFlags(flags string) error {
 
 // GetFlagString returns the flags in a format suitable for the Manifest
 func (f *File) GetFlagString() (string, error) {
-	if f.Type == typeUnset &&
-		f.Status == statusUnset &&
-		f.Modifier == modifierUnset &&
+	if f.Type == TypeUnset &&
+		f.Status == StatusUnset &&
+		f.Modifier == ModifierUnset &&
 		f.Rename == renameUnset {
 		return "", errors.New("no flags are set on file")
 	}
@@ -243,7 +256,7 @@ func (f *File) isUnsupportedTypeChange() bool {
 		return false
 	}
 
-	if f.Status == statusDeleted || f.DeltaPeer.Status == statusDeleted {
+	if f.Status == StatusDeleted || f.DeltaPeer.Status == StatusDeleted {
 		return false
 	}
 
@@ -256,5 +269,5 @@ func (f *File) isUnsupportedTypeChange() bool {
 	// link -> file OK
 	// link -> directory OK
 	// directory -> anything TYPE CHANGE
-	return (f.DeltaPeer.Type == typeDirectory && f.Type != typeDirectory)
+	return (f.DeltaPeer.Type == TypeDirectory && f.Type != TypeDirectory)
 }

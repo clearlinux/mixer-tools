@@ -369,21 +369,21 @@ func TestSortFilesVersionName(t *testing.T) {
 func TestLinkPeersAndChange(t *testing.T) {
 	mOld := Manifest{
 		Files: []*File{
-			{Name: "1", Status: statusUnset},
-			{Name: "2", Status: statusDeleted},
-			{Name: "3", Status: statusGhosted},
-			{Name: "4", Status: statusUnset},
-			{Name: "5", Status: statusUnset, Hash: 1},
+			{Name: "1", Status: StatusUnset},
+			{Name: "2", Status: StatusDeleted},
+			{Name: "3", Status: StatusGhosted},
+			{Name: "4", Status: StatusUnset},
+			{Name: "5", Status: StatusUnset, Hash: 1},
 		},
 	}
 
 	mNew := Manifest{
 		Files: []*File{
-			{Name: "1", Status: statusUnset},
-			{Name: "2", Status: statusUnset},
-			{Name: "3", Status: statusUnset},
-			{Name: "5", Status: statusUnset, Hash: 2},
-			{Name: "6", Status: statusUnset},
+			{Name: "1", Status: StatusUnset},
+			{Name: "2", Status: StatusUnset},
+			{Name: "3", Status: StatusUnset},
+			{Name: "5", Status: StatusUnset, Hash: 2},
+			{Name: "6", Status: StatusUnset},
 		},
 	}
 
@@ -434,78 +434,78 @@ func TestHasTypeChanges(t *testing.T) {
 		Files: []*File{
 			{ // no delta peer, no type change
 				Name:      "1",
-				Type:      typeFile,
-				Status:    statusUnset,
+				Type:      TypeFile,
+				Status:    StatusUnset,
 				DeltaPeer: nil,
 			},
 			{ // same type, no type change
 				Name:   "2",
-				Type:   typeFile,
-				Status: statusUnset,
+				Type:   TypeFile,
+				Status: StatusUnset,
 				DeltaPeer: &File{
 					Name:   "2",
-					Type:   typeFile,
-					Status: statusUnset,
+					Type:   TypeFile,
+					Status: StatusUnset,
 				},
 			},
 			{ // File -> Link OK, no change reported
 				Name:   "3",
-				Type:   typeLink,
-				Status: statusUnset,
+				Type:   TypeLink,
+				Status: StatusUnset,
 				DeltaPeer: &File{
 					Name:   "3",
-					Type:   typeFile,
-					Status: statusUnset,
+					Type:   TypeFile,
+					Status: StatusUnset,
 				},
 			},
 			{ // File -> Directory OK, no change reported
 				Name:   "4",
-				Type:   typeDirectory,
-				Status: statusUnset,
+				Type:   TypeDirectory,
+				Status: StatusUnset,
 				DeltaPeer: &File{
 					Name:   "4",
-					Type:   typeFile,
-					Status: statusUnset,
+					Type:   TypeFile,
+					Status: StatusUnset,
 				},
 			},
 			{ // Link -> File OK, no change reported
 				Name:   "5",
-				Type:   typeFile,
-				Status: statusUnset,
+				Type:   TypeFile,
+				Status: StatusUnset,
 				DeltaPeer: &File{
 					Name:   "5",
-					Type:   typeLink,
-					Status: statusUnset,
+					Type:   TypeLink,
+					Status: StatusUnset,
 				},
 			},
 			{ // Link -> Directory OK, no change reported
 				Name:   "6",
-				Type:   typeDirectory,
-				Status: statusUnset,
+				Type:   TypeDirectory,
+				Status: StatusUnset,
 				DeltaPeer: &File{
 					Name:   "6",
-					Type:   typeLink,
-					Status: statusUnset,
+					Type:   TypeLink,
+					Status: StatusUnset,
 				},
 			},
 			{ // file deleted, no type change reported
 				Name:   "7",
-				Type:   typeFile,
-				Status: statusDeleted,
+				Type:   TypeFile,
+				Status: StatusDeleted,
 				DeltaPeer: &File{
 					Name:   "7",
-					Type:   typeLink,
-					Status: statusUnset,
+					Type:   TypeLink,
+					Status: StatusUnset,
 				},
 			},
 			{ // delta peer deleted, no type change reported
 				Name:   "8",
-				Type:   typeFile,
-				Status: statusUnset,
+				Type:   TypeFile,
+				Status: StatusUnset,
 				DeltaPeer: &File{
 					Name:   "8",
-					Type:   typeLink,
-					Status: statusDeleted,
+					Type:   TypeLink,
+					Status: StatusDeleted,
 				},
 			},
 		},
@@ -515,12 +515,12 @@ func TestHasTypeChanges(t *testing.T) {
 			Files: []*File{ // Directory -> File TYPE CHANGE
 				{
 					Name:   "1",
-					Type:   typeFile,
-					Status: statusUnset,
+					Type:   TypeFile,
+					Status: StatusUnset,
 					DeltaPeer: &File{
 						Name:   "1",
-						Type:   typeDirectory,
-						Status: statusUnset,
+						Type:   TypeDirectory,
+						Status: StatusUnset,
 					},
 				},
 			},
@@ -529,12 +529,12 @@ func TestHasTypeChanges(t *testing.T) {
 			Files: []*File{ // Directory -> Link TYPE CHANGE
 				{
 					Name:   "2",
-					Type:   typeLink,
-					Status: statusUnset,
+					Type:   TypeLink,
+					Status: StatusUnset,
 					DeltaPeer: &File{
 						Name:   "2",
-						Type:   typeDirectory,
-						Status: statusUnset,
+						Type:   TypeDirectory,
+						Status: StatusUnset,
 					},
 				},
 			},

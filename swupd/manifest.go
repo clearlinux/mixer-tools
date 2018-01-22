@@ -204,11 +204,21 @@ func ParseManifestFile(path string) (*Manifest, error) {
 		_ = f.Close()
 		return nil, err
 	}
+	m.Name = getNameForManifestFile(path)
 	err = f.Close()
 	if err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+func getNameForManifestFile(path string) string {
+	prefix := "Manifest."
+	idx := strings.LastIndex(path, prefix)
+	if idx != -1 {
+		return path[idx+len(prefix):]
+	}
+	return ""
 }
 
 // ParseManifest creates a Manifest from an io.Reader.

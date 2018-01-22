@@ -551,3 +551,25 @@ func TestHasTypeChanges(t *testing.T) {
 		}
 	}
 }
+
+func TestGetNameForManifestFile(t *testing.T) {
+	tests := []struct {
+		Filename     string
+		ExpectedName string
+	}{
+		{"Manifest.MoM", "MoM"},
+		{"Manifest.c-basic", "c-basic"},
+		{"12/Manifest.MoM", "MoM"},
+
+		{"manifest.good", ""},
+		{"Othername", ""},
+		{"Othername.MoM", ""},
+	}
+
+	for _, tt := range tests {
+		name := getNameForManifestFile(tt.Filename)
+		if name != tt.ExpectedName {
+			t.Errorf("Manifest with filename %s got name %q, but want %q", tt.Filename, name, tt.ExpectedName)
+		}
+	}
+}

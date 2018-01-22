@@ -387,9 +387,6 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 				nx++
 				continue
 			}
-			// set up peers since old file exists
-			nf.DeltaPeer = of
-			of.DeltaPeer = nf
 			if sameFile(nf, of) && of.Version >= minVersion {
 				// file did not change, set version to the old version
 				nf.Version = of.Version
@@ -401,6 +398,9 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 				// minversion
 				nf.Version = m.Header.Version
 				changed = append(changed, nf)
+				// set up peers since old file exists
+				nf.DeltaPeer = of
+				of.DeltaPeer = nf
 			}
 			// advance indices for both file lists since we had a match
 			nx++

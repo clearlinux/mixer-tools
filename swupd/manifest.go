@@ -368,7 +368,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 	// set previous version to oldManifest version
 	m.Header.Previous = oldManifest.Header.Version
 
-	var unchanged, changed, removed, added []*File
+	var changed, removed, added []*File
 	nx := 0 // new manifest file index
 	ox := 0 // old manifest file index
 	mFilesLen := len(m.Files)
@@ -390,7 +390,6 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 			if sameFile(nf, of) && of.Version >= minVersion {
 				// file did not change, set version to the old version
 				nf.Version = of.Version
-				unchanged = append(unchanged, nf)
 			} else {
 				// if the file isn't exactly the same, record the change
 				// and update the version

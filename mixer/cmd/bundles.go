@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
@@ -24,28 +23,33 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type bundleCmdFlags struct {
-	all   bool
-	force bool
-	git   bool
-}
-
-var bundleFlags bundleCmdFlags
-
+// Top level bundle command ('mixer bundle')
 var bundleCmd = &cobra.Command{
 	Use:   "bundle",
 	Short: "Perform various actions on bundles",
 }
 
-var addBundlesCmd = &cobra.Command{
+// Bundle add command ('mixer bundle add')
+type bundleAddCmdFlags struct {
+	allLocal    bool
+	allUpstream bool
+	git         bool
+}
+
+var bundleAddFlags bundleAddCmdFlags
+
+var bundleAddCmd = &cobra.Command{
 	Use:   "add [bundle(s)]",
-	Short: "Add clr-bundles to your mix",
-	Long:  `Add clr-bundles to your mix`,
+	Short: "Add local or upstream bundles to your mix",
+	Long: `Adds local or upstream bundles to your mix by modifying the Mix Bundle List
+(stored in the 'mixbundles' file). The Mix Bundle List is parsed, the new
+bundles are confirmed to exist and are added, duplicates are removed, and the
+resultant list is written back out in sorted order.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var bundles []string
-		if bundleFlags.all == false {
+		if !bundleAddFlags.allLocal && !bundleAddFlags.allUpstream {
 			if len(args) == 0 {
-				return errors.New("bundle add requires at least 1 argument if --all is not passed")
+				return errors.New("bundle add requires at least 1 argument if neither --all-local nor --all-upstream are passed")
 			}
 			bundles = strings.Split(args[0], ",")
 		}
@@ -53,8 +57,7 @@ var addBundlesCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
-		numadded, err := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
-		fmt.Println(numadded, " bundles were added")
+		err = b.AddBundles(bundles, bundleAddFlags.allLocal, bundleAddFlags.allUpstream, bundleAddFlags.git)
 		if err != nil {
 			fail(err)
 		}
@@ -62,9 +65,59 @@ var addBundlesCmd = &cobra.Command{
 	},
 }
 
+// Bundle list command ('mixer bundle list')
+type bundleListCmdFlags struct {
+	tree bool
+}
+
+var bundleListFlags bundleListCmdFlags
+
+var bundleListCmd = &cobra.Command{
+	Use:   "list [mix|local|upstream]",
+	Short: "List bundles",
+	Long: `List either:
+  mix       The bundles in the mix, recursively following includes (DEFAULT)
+  local     The available local bundles
+  upstream  The available upstream bundles`,
+	Args:      cobra.OnlyValidArgs,
+	ValidArgs: []string{"mix", "local", "upstream"},
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) > 1 {
+			return errors.New("bundle list takes at most one argument")
+		}
+
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		var listType string
+		if len(args) > 0 {
+			listType = args[0]
+		} else {
+			listType = "mix"
+		}
+
+		switch listType {
+		case "upstream":
+			err = b.ListBundles(builder.UpstreamList, bundleListFlags.tree)
+		case "local":
+			err = b.ListBundles(builder.LocalList, bundleListFlags.tree)
+		default:
+			err = b.ListBundles(builder.MixList, bundleListFlags.tree)
+		}
+		if err != nil {
+			fail(err)
+		}
+
+		return nil
+	},
+}
+
+// List of all bundle commands
 var bundlesCmds = []*cobra.Command{
-	addBundlesCmd,
-	// Leaving this in place because more are coming soon
+	bundleAddCmd,
+	bundleListCmd,
 }
 
 func init() {
@@ -74,8 +127,9 @@ func init() {
 	}
 
 	RootCmd.AddCommand(bundleCmd)
+	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.allLocal, "all-local", false, "Add all local bundles; takes precedence over bundle list")
+	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.allUpstream, "all-upstream", false, "Add all upstream bundles; takes precedence over bundle list")
+	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.git, "git", false, "Automatically apply new git commit")
 
-	addBundlesCmd.Flags().BoolVar(&bundleFlags.force, "force", false, "Override bundles that already exist")
-	addBundlesCmd.Flags().BoolVar(&bundleFlags.all, "all", false, "Add all bundles from CLR; takes precedence over -bundles")
-	addBundlesCmd.Flags().BoolVar(&bundleFlags.git, "git", false, "Automatically apply new git commit")
+	bundleListCmd.Flags().BoolVar(&bundleListFlags.tree, "tree", false, "Pretty-print the list as a tree.")
 }

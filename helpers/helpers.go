@@ -31,7 +31,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
 
@@ -126,35 +125,12 @@ func GenerateCertificate(cert string, template, parent *x509.Certificate, pubkey
 func ReadFileAndSplit(filename string) ([]string, error) {
 	builder, err := ioutil.ReadFile(filename)
 	if err != nil {
-		PrintError(err)
 		return nil, err
 	}
 	data := string(builder)
 	lines := strings.Split(data, "\n")
 
 	return lines, nil
-}
-
-// GetIncludedBundles parses a bundle definition file and returns a list of all
-// bundles it includes.
-func GetIncludedBundles(filename string) ([]string, error) {
-	lines, err := ReadFileAndSplit(filename)
-	if err != nil {
-		PrintError(err)
-		return nil, err
-	}
-
-	// Note: Matches lines like "include(os-core-update)", pulling out
-	// the string between the parens. The "\" needs to be escaped due to
-	// Go's string literal parsing, so "\\(" matches "("
-	r := regexp.MustCompile("^include\\(([A-Za-z0-9-]+)\\)$")
-	var includes []string
-	for _, line := range lines {
-		if matches := r.FindStringSubmatch(line); len(matches) > 1 {
-			includes = append(includes, matches[1])
-		}
-	}
-	return includes, nil
 }
 
 // UnpackFile unpacks a .tar or .tar.gz/.tgz file to a given directory.

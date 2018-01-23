@@ -29,6 +29,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -56,19 +57,21 @@ type Builder struct {
 
 	BundleDir       string
 	Cert            string
-	UpstreamVer     string
-	UpstreamVerFile string
 	Format          string
+	LocalBundleDir  string
 	MixVer          string
 	MixVerFile      string
+	MixBundlesFile  string
 	RepoDir         string
 	RPMDir          string
 	StateDir        string
+	UpstreamURL     string
+	UpstreamURLFile string
+	UpstreamVer     string
+	UpstreamVerFile string
 	VersionDir      string
 	YumConf         string
 	YumTemplate     string
-	UpstreamURL     string
-	UpstreamURLFile string
 
 	Signing int
 	Bump    int
@@ -80,8 +83,9 @@ func New() *Builder {
 	return &Builder{
 		BuildScript:     "bundle-chroot-builder.py",
 		YumTemplate:     "/usr/share/defaults/mixer/yum.conf.in",
-		UpstreamVerFile: "upstreamversion",
 		UpstreamURLFile: "upstreamurl",
+		UpstreamVerFile: "upstreamversion",
+		MixBundlesFile:  "mixbundles",
 		MixVerFile:      "mixversion",
 
 		Signing: 1,
@@ -132,11 +136,13 @@ func (b *Builder) CreateDefaultConfig(localrpms bool) error {
 	// Patch all default path prefixes to PWD
 	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
 
+	// Add [Mixer] section
+	data += "\n[Mixer]\n"
+	data += "LOCAL_BUNDLE_DIR=" + filepath.Join(pwd, "local-bundles") + "\n"
+
 	if localrpms {
-		// Add [Mixer] section
-		data += "\n[Mixer]\n"
-		data += "RPMDIR=" + pwd + "/rpms\n"
-		data += "REPODIR=" + pwd + "/local\n"
+		data += "LOCAL_RPM_DIR=" + filepath.Join(pwd, "local-rpms") + "\n"
+		data += "LOCAL_REPO_DIR=" + filepath.Join(pwd, "local-yum") + "\n"
 	}
 
 	if err = ioutil.WriteFile(builderconf, []byte(data), 0666); err != nil {
@@ -145,19 +151,25 @@ func (b *Builder) CreateDefaultConfig(localrpms bool) error {
 	return nil
 }
 
-// createRpmDirs creates the RPM directories
-func (b *Builder) createRpmDirs() error {
-	// Make the folder to store rpms if they don't already exist
+// initDirs creates the directories mixer uses
+func (b *Builder) initDirs() error {
+	// Create folder to store local rpms if defined but doesn't already exist
 	if b.RPMDir != "" {
 		if err := os.MkdirAll(b.RPMDir, 0777); err != nil {
-			return err
+			return errors.Wrap(err, "Failed to create local rpms directory")
 		}
 	}
 
+	// Create folder for local yum repo if defined but doesn't already exist
 	if b.RepoDir != "" {
 		if err := os.MkdirAll(b.RepoDir, 0777); err != nil {
-			return err
+			return errors.Wrap(err, "Failed to create local rpms directory")
 		}
+	}
+
+	// Create folder for local bundle files
+	if err := os.MkdirAll(b.LocalBundleDir, 0777); err != nil {
+		return errors.Wrap(err, "Failed to create local bundles directory")
 	}
 
 	return nil
@@ -191,10 +203,18 @@ func (b *Builder) getLatestUpstreamVersion() (string, error) {
 	return strings.TrimSpace(string(body)), nil
 }
 
+const mixDirGitIgnore = `upstream-bundles/
+mix-bundles/`
+
 // InitMix will initialise a new swupd-client consumable "mix" with the given
 // based Clear Linux version and specified mix version.
-func (b *Builder) InitMix(upstreamVer string, mixVer string, all bool, upstreamURL string) error {
-	// Set up metadata
+func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allUpstream bool, upstreamURL string, git bool) error {
+	// Set up local dirs
+	if err := b.initDirs(); err != nil {
+		return err
+	}
+
+	// Set up mix metadata
 	// Deprecate '.clearurl' --> 'upstreamurl'
 	if _, err := os.Stat(filepath.Join(b.VersionDir, ".clearurl")); err == nil {
 		b.UpstreamURLFile = ".clearurl"
@@ -233,38 +253,34 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, all bool, upstreamU
 	}
 	b.MixVer = mixVer
 
+	// Initialize the Mix Bundles List
+	if _, err := os.Stat(filepath.Join(b.VersionDir, b.MixBundlesFile)); os.IsNotExist(err) {
+		// Add default bundles (or all)
+		defaultBundles := []string{"os-core", "os-core-update", "bootloader", "kernel-native"}
+		if err := b.AddBundles(defaultBundles, allLocal, allUpstream, false); err != nil {
+			return err
+		}
+	}
+
 	// Get upstream bundles
 	if err := b.getUpstreamBundles(upstreamVer, true); err != nil {
 		return err
 	}
 
-	// Set up rpms and local dirs
-	if err := b.createRpmDirs(); err != nil {
-		return errors.Wrap(err, "Failed to create local RPM dirs")
-	}
-
-	// Set up mix-bundles dir
-	if _, err := os.Stat(b.BundleDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(b.BundleDir, 0777); err != nil {
-			return errors.Wrap(err, "Failed to create mix-bundles dir")
+	if git {
+		if err := ioutil.WriteFile(".gitignore", []byte(mixDirGitIgnore), 0644); err != nil {
+			return errors.Wrap(err, "Failed to create .gitignore file")
 		}
 
-		// Add default bundles (or all)
-		// Note: os-core-update already includes os-core, and kernel-native already includes bootloader
-		defaultBundles := []string{"os-core-update", "kernel-native"}
-		if _, err := b.AddBundles(defaultBundles, false, all, false); err != nil {
+		// Init repo and add initial commit
+		if err := helpers.Git("init"); err != nil {
 			return err
 		}
-
-		// Init the mix-bundles git repo
-		if err := helpers.Git("-C", b.BundleDir, "init"); err != nil {
-			return err
-		}
-		if err := helpers.Git("-C", b.BundleDir, "add", "."); err != nil {
+		if err := helpers.Git("add", "."); err != nil {
 			return err
 		}
 		commitMsg := fmt.Sprintf("Initial mix version %s from upstream version %s", b.MixVer, b.UpstreamVer)
-		if err := helpers.Git("-C", b.BundleDir, "commit", "-m", commitMsg); err != nil {
+		if err := helpers.Git("commit", "-m", commitMsg); err != nil {
 			return err
 		}
 	}
@@ -312,13 +328,14 @@ func (b *Builder) ReadBuilderConf() error {
 		dest     *string
 		required bool
 	}{
-		{`^BUNDLE_DIR\s*=\s*`, &b.BundleDir, true},
+		{`^BUNDLE_DIR\s*=\s*`, &b.BundleDir, true}, //Note: Can be removed once UseNewChrootBuilder is obsolete
 		{`^CERT\s*=\s*`, &b.Cert, true},
 		{`^CLEARVER\s*=\s*`, &b.UpstreamVer, false},
 		{`^FORMAT\s*=\s*`, &b.Format, true},
+		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &b.LocalBundleDir, true},
 		{`^MIXVER\s*=\s*`, &b.MixVer, false},
-		{`^REPODIR\s*=\s*`, &b.RepoDir, false},
-		{`^RPMDIR\s*=\s*`, &b.RPMDir, false},
+		{`^LOCAL_REPO_DIR\s*=\s*`, &b.RepoDir, false},
+		{`^LOCAL_RPM_DIR\s*=\s*`, &b.RPMDir, false},
 		{`^SERVER_STATE_DIR\s*=\s*`, &b.StateDir, true},
 		{`^VERSIONS_PATH\s*=\s*`, &b.VersionDir, true},
 		{`^YUM_CONF\s*=\s*`, &b.YumConf, true},
@@ -486,90 +503,415 @@ func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 	return errors.Wrapf(os.Remove(tmptarfile), "Failed to remove temp bundle archive: %s", tmptarfile)
 }
 
-// AddBundles will copy the specified upstream bundles from the configured
-// upstream version to the mix-bundles directory. In error event, the int value
-// returned will contain the number of bundles added thus far.
-// bundles: array slice of bundle names
-// force: override bundle in mix-dir when present
-// all: include all CLR bundles. Overrides bundles.
-// git: automatically git commit with bundles added
-func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git bool) (int, error) {
-	var bundleAddCount int
-
-	// Check if mix bundles dir exists
-	if _, err := os.Stat(b.BundleDir); os.IsNotExist(err) {
-		return bundleAddCount, errors.New("Mix bundles directory does not exist. Run mixer init-mix")
+// getBundlePath returns the path to the bundle definition file for a given
+// bundle name, or error if it cannot be found. Looks first in local-bundles,
+// then upstream-bundles.
+func (b *Builder) getBundlePath(bundle string) (string, error) {
+	// Check local-bundles
+	path := filepath.Join(b.LocalBundleDir, bundle)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
 	}
 
-	clrbundledir := getUpstreamBundlesPath(b.UpstreamVer)
-
-	// Fetch upstream bundles if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
-		return bundleAddCount, err
+	// Check upstream-bundles
+	path = filepath.Join(getUpstreamBundlesPath(b.UpstreamVer), bundle)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
 	}
 
-	// Add all bundles to list if --all passed
-	if allbundles {
-		files, err := ioutil.ReadDir(clrbundledir)
+	return "", errors.Errorf("Cannot find bundle %s in local or upstream bundles", bundle)
+}
+
+// isLocalBundle checks a bundle filepath is local
+func (b *Builder) isLocalBundle(path string) bool {
+	return strings.HasPrefix(path, b.LocalBundleDir)
+}
+
+func getBundleSetKeys(set bundleSet) []string {
+	keys := make([]string, len(set))
+	i := 0
+	for k := range set {
+		keys[i] = k
+		i++
+	}
+	return keys
+}
+
+func getBundleSetKeysSorted(set bundleSet) []string {
+	keys := getBundleSetKeys(set)
+	sort.Strings(keys)
+	return keys
+}
+
+func (b *Builder) getBundleFromName(name string) (*bundle, error) {
+	path, err := b.getBundlePath(name)
+	if err != nil {
+		return nil, err
+	}
+	bundle, err := parseBundleFile(path)
+	if err != nil {
+		return nil, err
+	}
+	return bundle, nil
+}
+
+// getMixBundlesListAsSet reads in the Mix Bundles List file and returns the
+// resultant set of unique bundle objects. If the mix bundles file does not
+// exist or is empty, an empty set is returned.
+func (b *Builder) getMixBundlesListAsSet() (bundleSet, error) {
+	set := make(bundleSet)
+
+	bundles, err := helpers.ReadFileAndSplit(b.MixBundlesFile)
+	if os.IsNotExist(err) {
+		return set, nil
+	} else if err != nil {
+		return nil, errors.Wrap(err, "Failed to read in Mix Bundle List")
+	}
+
+	for _, bName := range bundles {
+		bName = strings.TrimSpace(bName)
+		if bName == "" {
+			continue
+		}
+
+		bundle, err := b.getBundleFromName(bName)
 		if err != nil {
-			return bundleAddCount, err
+			return nil, err
 		}
+		set[bName] = bundle
+	}
+	return set, nil
+}
 
-		bundles = make([]string, len(files))
+// getDirBundlesListAsSet reads the files in a directory and returns the
+// resultant set of unique bundle objects. If the directory is empty, an empty
+// set is returned.
+func (b *Builder) getDirBundlesListAsSet(dir string) (bundleSet, error) {
+	set := make(bundleSet)
 
-		for i, file := range files {
-			bundles[i] = file.Name()
-		}
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to read bundles dir: %s", dir)
 	}
 
-	var includes []string
-	for _, bundle := range bundles {
-		// Check if bundle exists in clrbundledir
-		if _, err := os.Stat(filepath.Join(clrbundledir, bundle)); os.IsNotExist(err) {
-			return bundleAddCount, errors.Errorf("Bundle %s does not exist in CLR version %s", bundle, b.UpstreamVer)
+	for _, file := range files {
+		bundle, err := b.getBundleFromName(file.Name())
+		if err != nil {
+			return nil, err
 		}
-		// Check if bundle exists in mix bundles dir
-		if _, err := os.Stat(filepath.Join(b.BundleDir, bundle)); os.IsNotExist(err) || force {
-			if !allbundles {
-				var ib []string
-				// Parse bundle to get all includes
-				if ib, err = helpers.GetIncludedBundles(filepath.Join(clrbundledir, bundle)); err != nil {
-					return bundleAddCount, errors.Errorf("Cannot parse bundle %s from CLR version %s", bundle, b.UpstreamVer)
-				} else if len(ib) > 0 {
-					includes = append(includes, ib...)
+		set[file.Name()] = bundle
+	}
+	return set, nil
+}
+
+// writeMixBundleList writes the contents of a bundle set out to the Mix Bundles
+// List file. Values will be in sorted order.
+func (b *Builder) writeMixBundleList(set bundleSet) error {
+	data := []byte(strings.Join(getBundleSetKeysSorted(set), "\n"))
+	if err := ioutil.WriteFile(b.MixBundlesFile, data, 0644); err != nil {
+		return errors.Wrap(err, "Failed to write out Mix Bundle List")
+	}
+	return nil
+}
+
+// getFullBundleSet takes a set of bundle names to traverse, and returns a full
+// set of recursively-parsed bundle objects.
+func (b *Builder) getFullBundleSet(bundles bundleSet) (bundleSet, error) {
+	set := make(bundleSet)
+
+	// recurseBundleSet adds a list of bundles to a bundle set,
+	// recursively adding any bundles included by those in the list.
+	var recurseBundleSet func(bundles []string) error
+	recurseBundleSet = func(bundles []string) error {
+		for _, bName := range bundles {
+			if _, exists := set[bName]; !exists {
+				bundle, err := b.getBundleFromName(bName)
+				if err != nil {
+					return err
+				}
+				set[bName] = bundle
+
+				if len(bundle.DirectIncludes) > 0 {
+					err := recurseBundleSet(bundle.DirectIncludes)
+					if err != nil {
+						return err
+					}
 				}
 			}
-
-			fmt.Printf("Adding bundle %q\n", bundle)
-			if err = helpers.CopyFile(filepath.Join(b.BundleDir, bundle), filepath.Join(clrbundledir, bundle)); err != nil {
-				return bundleAddCount, err
-			}
-			bundleAddCount++
-		} else {
-			fmt.Printf("Warning: bundle %q already exists; skipping.\n", bundle)
 		}
+		return nil
 	}
-	// Recurse on included bundles
-	if len(includes) > 0 {
-		ib, err := b.AddBundles(includes, force, false, false)
+
+	err := recurseBundleSet(getBundleSetKeys(bundles))
+	if err != nil {
+		return nil, err
+	}
+
+	return set, nil
+}
+
+// getFullMixBundleSet returns the full set of mix bundle objects. It is a
+// convenience function that is equivalent to calling getFullBundleSet on the
+// results of getMixBundlesListAsSet.
+func (b *Builder) getFullMixBundleSet() (bundleSet, error) {
+	bundles, err := b.getMixBundlesListAsSet()
+	if err != nil {
+		return nil, err
+	}
+	set, err := b.getFullBundleSet(bundles)
+	if err != nil {
+		return nil, err
+	}
+	return set, nil
+}
+
+// AddBundles adds the specified bundles to the Mix Bundles List. Values are
+// verified as valid, and duplicate values are removed. The resulting Mix
+// Bundles List will be in sorted order.
+func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, git bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
+	// Read in current mix bundles list
+	set, err := b.getMixBundlesListAsSet()
+	if err != nil {
+		return err
+	}
+
+	// Add the ones passed in to the set
+	for _, bName := range bundles {
+		bundle, err := b.getBundleFromName(bName)
 		if err != nil {
-			return bundleAddCount, err
+			return err
 		}
-		bundleAddCount += ib
+		if b.isLocalBundle(bundle.Filename) {
+			fmt.Printf("Adding bundle %s from local bundles\n", bName)
+		} else {
+			fmt.Printf("Adding bundle %s from upstream bundles\n", bName)
+		}
+		set[bName] = bundle
 	}
 
-	if git && bundleAddCount > 0 {
-		// Save current dir so we can get back to it
-		fmt.Println("Adding git commit")
-		if err := helpers.Git("-C", b.BundleDir, "add", "."); err != nil {
-			return bundleAddCount, err
+	// Add all local bundles to the bundles
+	if allLocal {
+		localSet, err := b.getDirBundlesListAsSet(b.LocalBundleDir)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to read local bundles dir: %s", b.LocalBundleDir)
 		}
-		commitMsg := fmt.Sprintf("Added bundles from Clear Version %s\n\nBundles added: %v", b.UpstreamVer, bundles)
-		if err := helpers.Git("-C", b.BundleDir, "commit", "-q", "-m", commitMsg); err != nil {
-			return bundleAddCount, err
+
+		for _, bundle := range localSet {
+			set[bundle.Name] = bundle
+			fmt.Printf("Adding bundle %s from local bundles\n", bundle.Name)
 		}
 	}
-	return bundleAddCount, nil
+
+	// Add all upstream bundles to the bundles
+	if allUpstream {
+		upstreamBundleDir := getUpstreamBundlesPath(b.UpstreamVer)
+		upstreamSet, err := b.getDirBundlesListAsSet(upstreamBundleDir)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to read upstream bundles dir: %s", upstreamBundleDir)
+		}
+
+		for _, bundle := range upstreamSet {
+			set[bundle.Name] = bundle
+			fmt.Printf("Adding bundle %s from upstream bundles\n", bundle.Name)
+		}
+	}
+
+	// Write final mix bundle list back to file
+	if err := b.writeMixBundleList(set); err != nil {
+		return err
+	}
+
+	if git {
+		fmt.Println("Adding git commit")
+		if err := helpers.Git("add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Added bundles from local-bundles or upstream version %s\n\nBundles added: %v", b.UpstreamVer, bundles)
+		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+const (
+	// Using the Unicode "Box Drawing" group
+	treeNil = "    "
+	treeBar = "│   "
+	treeMid = "├── "
+	treeEnd = "└── "
+)
+
+func (b *Builder) buildTreePrintValue(bundle *bundle, level int, levelEnded []bool) string {
+	// Set up the value for this bundle
+	value := bundle.Name
+	if b.isLocalBundle(bundle.Filename) {
+		value += " (local)"
+	} else {
+		value += " (upstream)"
+	}
+
+	if level == 0 {
+		return value
+	}
+
+	var buff bytes.Buffer
+	// Add continuation bars if earlier levels have not ended
+	for i := 0; i < level-1; i++ {
+		if levelEnded[i] {
+			buff.WriteString(treeNil)
+		} else {
+			buff.WriteString(treeBar)
+		}
+	}
+
+	// Add a mid bar or an end bar
+	if levelEnded[level-1] {
+		buff.WriteString(treeEnd)
+	} else {
+		buff.WriteString(treeMid)
+	}
+
+	// Add the actual value
+	buff.WriteString(value)
+
+	return buff.String()
+}
+
+func (b *Builder) bundleTreePrint(set bundleSet, bundle string, level int, levelEnded []bool) {
+	fmt.Println(b.buildTreePrintValue(set[bundle], level, levelEnded))
+
+	levelEnded = append(levelEnded, false)
+	last := len(set[bundle].DirectIncludes) - 1
+	for i, include := range set[bundle].DirectIncludes {
+		levelEnded[level] = i == last
+		b.bundleTreePrint(set, include, level+1, levelEnded)
+	}
+}
+
+type listType int
+
+// Enum of available list types
+const (
+	MixList      listType = iota // List bundles in the mix (with includes)
+	LocalList                    // List bundles available locally
+	UpstreamList                 // List bundles available upstream
+)
+
+// ListBundles prints out a bundle list in either a flat list or tree view
+func (b *Builder) ListBundles(listType listType, tree bool) error {
+	var bundles bundleSet
+
+	// Get the bundle sets used for processing
+	mixBundles, err := b.getMixBundlesListAsSet()
+	if err != nil {
+		return err
+	}
+	localBundles, err := b.getDirBundlesListAsSet(b.LocalBundleDir)
+	if err != nil {
+		return err
+	}
+	upstreamBundles, err := b.getDirBundlesListAsSet(getUpstreamBundlesPath(b.UpstreamVer))
+	if err != nil {
+		return err
+	}
+
+	// Assign "top level" bundles
+	switch listType {
+	case MixList:
+		bundles = mixBundles
+	case LocalList:
+		bundles = localBundles
+	case UpstreamList:
+		bundles = upstreamBundles
+	}
+
+	// Used for pretty-printing lists
+	var max int
+	for _, bundle := range bundles {
+		if len(bundle.Name) > max {
+			max = len(bundle.Name)
+		}
+	}
+
+	// Create the full, parsed set
+	set, err := b.getFullBundleSet(bundles)
+	if err != nil {
+		return err
+	}
+
+	if tree {
+		// Print the tree view
+		sorted := getBundleSetKeysSorted(bundles)
+		for _, bundle := range sorted {
+			b.bundleTreePrint(set, bundle, 0, make([]bool, 0))
+		}
+
+		return nil
+	}
+
+	// Print a flat list and return
+	switch listType {
+	case MixList:
+		// Print the full, parsed set
+		sorted := getBundleSetKeysSorted(set)
+		for _, bundle := range sorted {
+			val := fmt.Sprintf("%-*s", max, set[bundle].Name)
+
+			if _, exists := localBundles[set[bundle].Name]; exists {
+				val += " (local)   "
+			} else {
+				val += " (upstream)"
+			}
+
+			if _, exists := bundles[set[bundle].Name]; !exists {
+				val += " (included)"
+			}
+
+			fmt.Println(val)
+		}
+	case LocalList:
+		// Only print the top-level set
+		sorted := getBundleSetKeysSorted(bundles)
+		for _, bundle := range sorted {
+			val := fmt.Sprintf("%-*s", max, bundle)
+
+			if _, exists := mixBundles[bundle]; exists {
+				val += " (in mix)"
+			} else {
+				val += "         "
+			}
+			if _, exists := upstreamBundles[bundle]; exists {
+				val += " (masking upstream)"
+			}
+
+			fmt.Println(val)
+		}
+	case UpstreamList:
+		// Only print the top-level set
+		sorted := getBundleSetKeysSorted(bundles)
+		for _, bundle := range sorted {
+			val := fmt.Sprintf("%-*s", max, bundle)
+
+			if _, exists := mixBundles[bundle]; exists {
+				val += " (in mix)"
+			} else {
+				val += "         "
+			}
+			if _, exists := localBundles[bundle]; exists {
+				val += " (masked by local)"
+			}
+
+			fmt.Println(val)
+		}
+	}
+
+	return nil
 }
 
 // UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
@@ -582,6 +924,40 @@ func (b *Builder) UpdateMixVer() error {
 	}
 	mixVer, _ := strconv.Atoi(b.MixVer)
 	return ioutil.WriteFile(filepath.Join(b.VersionDir, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
+}
+
+// createMixBundleDir generates the mix-bundles/ dir for chroot building. It will
+// clear the dir if it exists, compute the full list of bundles for the mix, and
+// copy the corresponding bundle files into mix-bundles/
+// Note: this function is only needed for the old Bundle Chroot Builder, and can
+// be removed once the UseNewChrootBuilder flag is gone.
+func (b *Builder) createMixBundleDir() error {
+	// Wipe out the existing bundle dir, if it exists
+	if err := os.RemoveAll(b.BundleDir); err != nil {
+		return errors.Errorf("Failed to clear out old dir: %s", b.BundleDir)
+	}
+	if err := os.MkdirAll(b.BundleDir, 0777); err != nil {
+		return errors.Errorf("Failed to create dir: %s", b.BundleDir)
+	}
+
+	// Get the set of bundles for which to build chroots
+	set, err := b.getFullMixBundleSet()
+	if err != nil {
+		return err
+	}
+
+	// Validate set
+	if err = validateAndFillBundleSet(set); err != nil {
+		return err
+	}
+
+	for _, bundle := range set {
+		if err = helpers.CopyFile(filepath.Join(b.BundleDir, bundle.Name), bundle.Filename); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // BuildChroots will attempt to construct the chroots required by populating roots
@@ -638,25 +1014,13 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 	}
 
 	if UseNewChrootBuilder {
-		// TODO: Fix this output when we take bundles from multiple places.
-		fmt.Printf("Reading bundles from: %s\n", b.BundleDir)
-		files, err := ioutil.ReadDir(b.BundleDir)
+		// Get the set of bundles for which to build chroots
+		set, err := b.getFullMixBundleSet()
 		if err != nil {
 			return err
 		}
-		set := make(bundleSet)
-		for _, file := range files {
-			if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
-				continue
-			}
-			var bundle *bundle
-			bundle, err = parseBundleFile(filepath.Join(b.BundleDir, file.Name()))
-			if err != nil {
-				return err
-			}
-			set[bundle.Name] = bundle
-		}
 
+		// Validate set and compute AllPackages
 		if err = validateAndFillBundleSet(set); err != nil {
 			return err
 		}
@@ -679,6 +1043,11 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 
 	} else {
+		// Generate the mix-bundles list
+		if err := b.createMixBundleDir(); err != nil {
+			return err
+		}
+
 		if packager != "" {
 			fmt.Println("WARNING: Ignoring flag --packager, just works with --new-chroots.")
 		}
@@ -771,19 +1140,18 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	timer.Start("MINIMIZE STORED CHROOTS")
 	// Clean up the bundle chroots as only the full chroot is needed from this point on.
 	if !keepChroots {
-		var files []os.FileInfo
-		files, err = ioutil.ReadDir(b.BundleDir)
+		// Get the set of bundles for which chroots were built
+		var set bundleSet
+		set, err = b.getFullMixBundleSet()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
+			return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
 		}
+		// Delete the bundle chroots
 		basedir := filepath.Join(b.StateDir, "image", b.MixVer)
-		for _, f := range files {
-			if f.Name() == "full" {
-				continue
-			}
-			err = os.RemoveAll(filepath.Join(basedir, f.Name()))
+		for bundle := range set {
+			err = os.RemoveAll(filepath.Join(basedir, bundle))
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Ignored error when cleaning bundle chroots: %s", err)
+				return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
 			}
 		}
 	}

@@ -561,6 +561,19 @@ func (b *Builder) getMixBundlesListFull() ([]string, error) {
 	return bundleSet.Sort(), nil
 }
 
+func (b *Builder) getDirBundleList(dir string) ([]string, error) {
+	files, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to read bundles dir: %s", dir)
+	}
+
+	var bundles []string
+	for _, file := range files {
+		bundles = append(bundles, file.Name())
+	}
+	return bundles, nil
+}
+
 // AddBundles adds the specified bundles to the Mix Bundles List. Values are
 // verified as valid, and duplicate values are removed. The resulting Mix
 // Bundles List will be in sorted order.
@@ -640,6 +653,43 @@ func (b *Builder) AddBundles(bundles []string, alllocal bool, allupstream bool, 
 			return err
 		}
 	}
+	return nil
+}
+
+// ListBundles prints out the bundles in the mix, all bundles in the mix
+// including recursive includes, all bundles available in local bundles, or
+// all bundles available in upstream bundles
+func (b *Builder) ListBundles(full bool, local bool, upstream bool) error {
+	var bundles []string
+	var err error
+
+	switch {
+	case local:
+		bundles, err = b.getDirBundleList(b.Lbundledir)
+		if err != nil {
+			return errors.New("Error retreiving local bundle list")
+		}
+	case upstream:
+		bundles, err = b.getDirBundleList(b.getUpstreamBundlesPath(b.Clearver))
+		if err != nil {
+			return errors.New("Error retreiving local bundle list")
+		}
+	case full:
+		bundles, err = b.getMixBundlesListFull()
+		if err != nil {
+			return errors.New("Error retreiving mix bundle list")
+		}
+	default:
+		bundles, err = b.getMixBundlesList()
+		if err != nil {
+			return errors.New("Error retreiving mix bundle list")
+		}
+	}
+
+	for _, bundle := range bundles {
+		fmt.Println(bundle)
+	}
+
 	return nil
 }
 

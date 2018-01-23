@@ -85,15 +85,16 @@ var rootCmdFlags = struct {
 }{}
 
 type initCmdFlags struct {
-	all         bool
+	alllocal    bool
+	allupstream bool
 	clearver    int
 	mixver      int
+	localrpms   bool
 	upstreamurl string
+	git         bool
 }
 
 var initFlags initCmdFlags
-
-var localrpms bool
 
 var initCmd = &cobra.Command{
 	Use:   "init",
@@ -103,7 +104,7 @@ var initCmd = &cobra.Command{
 		b := builder.New()
 		if config == "" {
 			// Create default config if necessary
-			if err := b.CreateDefaultConfig(localrpms); err != nil {
+			if err := b.CreateDefaultConfig(initFlags.localrpms); err != nil {
 				fail(err)
 			}
 		}
@@ -113,7 +114,7 @@ var initCmd = &cobra.Command{
 		if err := b.ReadBuilderConf(); err != nil {
 			fail(err)
 		}
-		err := b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
+		err := b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.alllocal, initFlags.allupstream, initFlags.upstreamurl, initFlags.git)
 		if err != nil {
 			fail(err)
 		}
@@ -139,12 +140,14 @@ func init() {
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
 	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")
 
-	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Initialize mix with all upstream bundles automatically included")
-	initCmd.Flags().BoolVar(&localrpms, "local-rpms", false, "Create and configure local RPMs directories")
+	initCmd.Flags().BoolVar(&initFlags.alllocal, "all-local", false, "Initialize mix with all local bundles automatically included")
+	initCmd.Flags().BoolVar(&initFlags.allupstream, "all-upstream", false, "Initialize mix with all upstream bundles automatically included")
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
+	initCmd.Flags().BoolVar(&initFlags.localrpms, "local-rpms", false, "Create and configure local RPMs directories")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
+	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")
 
 	// mark required flags
 	_ = cobra.MarkFlagRequired(initCmd.Flags(), "clear-version")

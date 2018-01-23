@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
@@ -25,9 +24,9 @@ import (
 )
 
 type bundleCmdFlags struct {
-	all   bool
-	force bool
-	git   bool
+	alllocal    bool
+	allupstream bool
+	git         bool
 }
 
 var bundleFlags bundleCmdFlags
@@ -39,13 +38,13 @@ var bundleCmd = &cobra.Command{
 
 var addBundlesCmd = &cobra.Command{
 	Use:   "add [bundle(s)]",
-	Short: "Add clr-bundles to your mix",
-	Long:  `Add clr-bundles to your mix`,
+	Short: "Add local or upstream bundles to your mix",
+	Long:  `Add local or upstream bundles to your mix`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var bundles []string
-		if bundleFlags.all == false {
+		if bundleFlags.alllocal == false && bundleFlags.allupstream == false {
 			if len(args) == 0 {
-				return errors.New("bundle add requires at least 1 argument if --all is not passed")
+				return errors.New("bundle add requires at least 1 argument neither --all-local nor --all-upstream are passed")
 			}
 			bundles = strings.Split(args[0], ",")
 		}
@@ -53,8 +52,7 @@ var addBundlesCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
-		numadded, err := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
-		fmt.Println(numadded, " bundles were added")
+		err = b.AddBundles(bundles, bundleFlags.alllocal, bundleFlags.allupstream, bundleFlags.git)
 		if err != nil {
 			fail(err)
 		}
@@ -75,7 +73,7 @@ func init() {
 
 	RootCmd.AddCommand(bundleCmd)
 
-	addBundlesCmd.Flags().BoolVar(&bundleFlags.force, "force", false, "Override bundles that already exist")
-	addBundlesCmd.Flags().BoolVar(&bundleFlags.all, "all", false, "Add all bundles from CLR; takes precedence over -bundles")
+	addBundlesCmd.Flags().BoolVar(&bundleFlags.alllocal, "all-local", false, "Add all local bundles; takes precedence over bundle list")
+	addBundlesCmd.Flags().BoolVar(&bundleFlags.allupstream, "all-upstream", false, "Add all upstream bundles; takes precedence over bundle list")
 	addBundlesCmd.Flags().BoolVar(&bundleFlags.git, "git", false, "Automatically apply new git commit")
 }

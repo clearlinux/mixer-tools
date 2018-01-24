@@ -1,0 +1,4 @@
+02-mix-clear-bundles
+====================
+This test creates an initial version 10, a version 20 with Clear bundles
+added, and a version 30 with one of those bundles removed.

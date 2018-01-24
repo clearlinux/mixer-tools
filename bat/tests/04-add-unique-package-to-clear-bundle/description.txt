@@ -1,0 +1,4 @@
+04-add-unique-package-to-clear-bundle
+=====================================
+This test creates an initial version 10, a version 20 with a unique package
+that does not exist in Clear, and is added to an existing Clear bundle.

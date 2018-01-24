@@ -1,0 +1,6 @@
+11-test-format-bump
+===================
+This test simulates a format bump change by creating an initial version 10,
+a version 20 with a new bundle and package inside of-it, version 30 with
+that package deleted from the bundle, version 40 with the format bumped +1,
+then 50 and 60 updates built with new (locally cloned) swupd server code.

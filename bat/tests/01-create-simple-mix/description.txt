@@ -1,0 +1,4 @@
+01-create-simple-mix
+====================
+This test case creates a mix with no custom changes, simply creating an
+initial version 10, bumping the version to 20, and creating another update.

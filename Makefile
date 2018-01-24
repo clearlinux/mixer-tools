@@ -5,6 +5,7 @@
 #
 # For historical purposes, it also works in a development environment
 # when the repository is already inside a GOPATH.
+include Makefile.bats
 
 .NOTPARALLEL:
 

@@ -1,0 +1,4 @@
+03-create-mix-with-unique-bundle
+================================
+This test creates an initial version 10, a version 20 with a unique bundle
+that does not exist in Clear, and contains a package that is not in Clear.

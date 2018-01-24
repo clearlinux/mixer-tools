@@ -1,0 +1,4 @@
+06-create-mix-with-swapped-clear-packages
+===================================
+This test creates a version 10, then version 20 with a package swapped between
+os-core and os-core-update.

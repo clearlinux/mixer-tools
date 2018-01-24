@@ -78,12 +78,18 @@ func New() *Builder {
 }
 
 // NewFromConfig creates a new Builder with the given Configuration.
-func NewFromConfig(conf string) *Builder {
+func NewFromConfig(conf string) (*Builder, error) {
 	b := New()
-	b.LoadBuilderConf(conf)
-	b.ReadBuilderConf()
-	b.ReadVersions()
-	return b
+	if err := b.LoadBuilderConf(conf); err != nil {
+		return nil, err
+	}
+	if err := b.ReadBuilderConf(); err != nil {
+		return nil, err
+	}
+	if err := b.ReadVersions(); err != nil {
+		return nil, err
+	}
+	return b, nil
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
@@ -145,17 +151,16 @@ func (b *Builder) createRpmDirs() error {
 // LoadBuilderConf will read the builder configuration from the command line if
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.
-func (b *Builder) LoadBuilderConf(builderconf string) {
+func (b *Builder) LoadBuilderConf(builderconf string) error {
 	local, err := os.Getwd()
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return err
 	}
 
 	// If builderconf is set via cmd line, use that one
 	if len(builderconf) > 0 {
 		b.Buildconf = builderconf
-		return
+		return nil
 	}
 
 	// Check if there's a local builder.conf if one wasn't supplied
@@ -163,19 +168,18 @@ func (b *Builder) LoadBuilderConf(builderconf string) {
 	if _, err := os.Stat(localpath); err == nil {
 		b.Buildconf = localpath
 	} else {
-		helpers.PrintError(err)
-		fmt.Println("ERROR: Cannot find any builder.conf to use!")
-		os.Exit(1)
+		return errors.Wrap(err, "Cannot find any builder.conf to use")
 	}
+
+	return nil
 }
 
 // ReadBuilderConf will populate the configuration data from the builder
 // configuration file, which is mandatory information for performing a mix.
-func (b *Builder) ReadBuilderConf() {
+func (b *Builder) ReadBuilderConf() error {
 	lines, err := helpers.ReadFileAndSplit(b.Buildconf)
 	if err != nil {
-		fmt.Println("ERROR: Failed to read buildconf")
-		os.Exit(1)
+		return errors.Wrap(err, "Failed to read buildconf")
 	}
 
 	// Map the builder values to the regex here to make it easier to assign
@@ -206,8 +210,7 @@ func (b *Builder) ReadBuilderConf() {
 				matches := re.FindAllStringSubmatch(i[m[1]:], -1)
 				for _, s := range matches {
 					if _, ok := os.LookupEnv(s[1]); !ok {
-						helpers.PrintError(fmt.Errorf("buildconf contains an undefined environment variable: %s", s[1]))
-						os.Exit(1)
+						return errors.Errorf("buildconf contains an undefined environment variable: %s", s[1])
 					}
 				}
 
@@ -223,27 +226,26 @@ func (b *Builder) ReadBuilderConf() {
 				missing = matches[1]
 			}
 
-			helpers.PrintError(fmt.Errorf("buildconf missing entry for variable: %s", missing))
-			os.Exit(1)
+			return errors.Errorf("buildconf missing entry for variable: %s", missing)
 		}
 	}
+
+	return nil
 }
 
 // ReadVersions will initialise the mix versions (mix and clearlinux) from
 // the configuration files in the version directory.
-func (b *Builder) ReadVersions() {
+func (b *Builder) ReadVersions() error {
 	ver, err := ioutil.ReadFile(b.Versiondir + "/.mixversion")
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return err
 	}
 	b.Mixver = strings.TrimSpace(string(ver))
 	b.Mixver = strings.Replace(b.Mixver, "\n", "", -1)
 
 	ver, err = ioutil.ReadFile(b.Versiondir + "/.clearversion")
 	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
+		return err
 	}
 	b.Clearver = strings.TrimSpace(string(ver))
 	b.Clearver = strings.Replace(b.Clearver, "\n", "", -1)
@@ -256,6 +258,8 @@ func (b *Builder) ReadVersions() {
 		b.Upstreamurl = strings.TrimSpace(string(ver))
 		b.Upstreamurl = strings.Replace(b.Upstreamurl, "\n", "", -1)
 	}
+
+	return nil
 }
 
 // SignManifestMoM will sign the Manifest.MoM file in in place based on the Mix
@@ -495,13 +499,9 @@ func (b *Builder) InitMix(clearver string, mixver string, all bool, upstreamurl 
 
 // UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
 // without requiring user intervention. This makes the flow slightly more automatable.
-func (b *Builder) UpdateMixVer() {
+func (b *Builder) UpdateMixVer() error {
 	mixver, _ := strconv.Atoi(b.Mixver)
-	err := ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(strconv.Itoa(mixver+10)), 0644)
-	if err != nil {
-		helpers.PrintError(err)
-		os.Exit(1)
-	}
+	return ioutil.WriteFile(b.Versiondir+"/.mixversion", []byte(strconv.Itoa(mixver+10)), 0644)
 }
 
 // BuildChroots will attempt to construct the chroots required by populating roots

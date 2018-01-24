@@ -46,7 +46,10 @@ func init() {
 }
 
 func runAddRPM(cmd *cobra.Command, args []string) {
-	b := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
 	if b.RPMdir == "" {
 		failf("RPMDIR not set in configuration")
 	}

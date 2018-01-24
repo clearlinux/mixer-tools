@@ -73,8 +73,11 @@ var buildChrootsCmd = &cobra.Command{
 	Short: "Build the chroots for your mix",
 	Long:  `Build the chroots for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b := builder.NewFromConfig(config)
-		err := buildChroots(b, buildFlags.noSigning)
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		err = buildChroots(b, buildFlags.noSigning)
 		if err != nil {
 			fail(err)
 		}
@@ -86,14 +89,19 @@ var buildUpdateCmd = &cobra.Command{
 	Short: "Build the update content for your mix",
 	Long:  `Build the update content for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b := builder.NewFromConfig(config)
-		err := b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
 			failf("couldn't build update: %s", err)
 		}
 
 		if buildFlags.increment {
-			b.UpdateMixVer()
+			if err = b.UpdateMixVer(); err != nil {
+				failf("Couldn't update Mix Version")
+			}
 		}
 	},
 }
@@ -103,7 +111,10 @@ var buildAllCmd = &cobra.Command{
 	Short: "Build all content for mix with default options",
 	Long:  `Build all content for mix with default options`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
 		rpms, err := ioutil.ReadDir(b.RPMdir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
@@ -119,8 +130,10 @@ var buildAllCmd = &cobra.Command{
 		if err != nil {
 			failf("couldn't build update: %s", err)
 		}
-
-		b.UpdateMixVer()
+		err = b.UpdateMixVer()
+		if err != nil {
+			failf("Couldn't update Mix Version")
+		}
 	},
 }
 
@@ -129,8 +142,11 @@ var buildImageCmd = &cobra.Command{
 	Short: "Build an image from the mix content",
 	Long:  `Build an image from the mix content`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b := builder.NewFromConfig(config)
-		err := b.BuildImage(buildFlags.format, buildFlags.template)
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		err = b.BuildImage(buildFlags.format, buildFlags.template)
 		if err != nil {
 			failf("couldn't build image: %s", err)
 		}
@@ -187,8 +203,10 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 		return errors.Errorf("either --from or --previous-versions must be set, but not both")
 	}
 
-	var err error
-	b := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
 	if fromChanged {
 		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to)
 	} else {

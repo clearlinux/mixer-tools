@@ -6,14 +6,11 @@ go:
 
 go_import_path: github.com/clearlinux/mixer-tools
 
+services:
+    - docker
+
 before_install:
-    - sudo apt-get update -qq
-    - go get -u gopkg.in/alecthomas/gometalinter.v2
-    - gometalinter.v2 --install
-    - wget https://github.com/clearlinux/bsdiff/releases/download/v1.0.2/bsdiff-1.0.2.tar.xz
-    - tar -xvf bsdiff-1.0.2.tar.xz
-    - pushd bsdiff-1.0.2 && ./configure --prefix=/usr --disable-tests && make -j48 && sudo make install && popd
+    - docker build -t testdock .
 
 script:
-    - make lint
-    - make check
+    - docker run testdock

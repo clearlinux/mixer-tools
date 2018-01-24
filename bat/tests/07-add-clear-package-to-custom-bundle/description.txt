@@ -1,0 +1,4 @@
+07-add-clear-package-to-custom-bundle
+====================================
+This test creates a version 10, then version 20 with a Clear package added to
+a custom bundle not included in upstream Clear.

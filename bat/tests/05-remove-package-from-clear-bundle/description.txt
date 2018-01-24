@@ -1,0 +1,4 @@
+05-remove-package-from-clear-bundle
+===================================
+This test creates a version 10, then version 20 with the Clear editors bundle
+added, and a version 30 with emacs removed from the editors bundle definition.

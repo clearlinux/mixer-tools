@@ -49,7 +49,10 @@ var addBundlesCmd = &cobra.Command{
 			}
 			bundles = strings.Split(args[0], ",")
 		}
-		b := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
 		numadded, err := b.AddBundles(bundles, bundleFlags.force, bundleFlags.all, bundleFlags.git)
 		fmt.Println(numadded, " bundles were added")
 		if err != nil {

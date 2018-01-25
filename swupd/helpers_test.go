@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -217,14 +218,16 @@ func mustNotExist(t *testing.T, name string) {
 	}
 }
 
-func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) {
-	mustCreateManifests(t, ver, 0, 1, testDir)
+func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) *MoM {
+	return mustCreateManifests(t, ver, 0, 1, testDir)
 }
 
-func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, testDir string) {
-	if _, err := CreateManifests(ver, minVer, format, testDir); err != nil {
+func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, testDir string) *MoM {
+	mom, err := CreateManifests(ver, minVer, format, testDir)
+	if err != nil {
 		t.Fatal(err)
 	}
+	return mom
 }
 
 func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...string) {
@@ -282,5 +285,85 @@ func mustCreateDeltas(t *testing.T, manifest, statedir string, from, to uint32) 
 		t.Fatal(err)
 	} else if len(failed) > 0 {
 		t.Fatalf("CreateDeltas succeeded but %d deltas did not get created for %s: %v", len(failed), manifest, failed)
+	}
+}
+
+// testFileSystem is a struct that has a base directory and a testing.T and can be used to
+// perform file system actions and handling unexpected errors with t.Fatal. It is to be
+// used in places where filesystem is expected to work correctly and the subject of the test
+// is something else. Use it like
+//
+// func TestMyTest(t *testing.T) {
+// 	fs := newTestFileSystem(t, "my-test-")
+// 	defer fs.cleanup()
+// 	// ...
+// }
+type testFileSystem struct {
+	Dir string
+	t   *testing.T
+}
+
+// TODO: Consider making a swupdTest struct, similar in spirit to testFileSystem, which
+// would contain a filesystem and provide easier access to the functionality, i.e. it
+// could keep a state for versions we are creating, and have support code to copy the
+// bundle files around.
+
+func newTestFileSystem(t *testing.T, prefix string) *testFileSystem {
+	dir, err := ioutil.TempDir("", prefix)
+	if err != nil {
+		t.Fatalf("couldn't create test temporary directory: %s", err)
+	}
+	return &testFileSystem{
+		Dir: dir,
+		t:   t,
+	}
+}
+
+func (fs *testFileSystem) cleanup() {
+	if fs.t.Failed() {
+		fmt.Printf("Keeping directory %s because test failed\n", fs.Dir)
+		return
+	}
+	_ = os.RemoveAll(fs.Dir)
+}
+
+func (fs *testFileSystem) write(subpath, content string) {
+	path := filepath.Join(fs.Dir, subpath)
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		fs.t.Fatalf("couldn't create directory to write file: %s", err)
+	}
+	err = ioutil.WriteFile(path, []byte(content), 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
+func (fs *testFileSystem) path(subpath string) string {
+	return filepath.Join(fs.Dir, subpath)
+}
+
+// Use shell cp command order instead of assignment order. Calling it cp to make readers
+// remember that order. Change if we are getting confused.
+func (fs *testFileSystem) cp(src, dst string) {
+	dstPath := filepath.Join(fs.Dir, dst)
+	err := os.MkdirAll(filepath.Dir(dstPath), 0755)
+	if err != nil {
+		fs.t.Fatalf("error creating target directory to copy files from %s to %s: %s", src, dst, err)
+	}
+
+	srcPath := filepath.Join(fs.Dir, src)
+	cmd := exec.Command("cp", "-a", "--preserve=all", srcPath, dstPath)
+	err = cmd.Run()
+	if err != nil {
+		fs.t.Fatalf("error copying files from %s to %s: %s", src, dst, err)
+	}
+}
+
+func (fs *testFileSystem) rm(subpath string) {
+	path := filepath.Join(fs.Dir, subpath)
+	err := os.RemoveAll(path)
+	if err != nil {
+		fs.t.Fatalf("error removing %s: %s", subpath, err)
 	}
 }

@@ -271,3 +271,8 @@ func (f *File) isUnsupportedTypeChange() bool {
 	// directory -> anything TYPE CHANGE
 	return (f.DeltaPeer.Type == TypeDirectory && f.Type != TypeDirectory)
 }
+
+// Present tells if a file is present. Returns false if the file is deleted or ghosted.
+func (f *File) Present() bool {
+	return f.Status != StatusDeleted && f.Status != StatusGhosted
+}

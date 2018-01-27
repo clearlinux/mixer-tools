@@ -60,15 +60,25 @@ type PackInfo struct {
 	Warnings []string
 }
 
-// WritePack writes the pack of a given Manifest from a version to the version of the Manifest. The
-// outputDir is used to pick deltas and fullfiles. If not empty, chrootDir is tried first as a fast
-// alternative to decompressing the fullfiles.
-func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDir string) (info *PackInfo, err error) {
-	if m.Name == "" {
-		return nil, fmt.Errorf("manifest has no name")
+// WritePack writes the pack between two Manifests, or a zero pack if fromManifest is
+// nil. The toManifest should always be non nil. The outputDir is used to pick deltas and
+// fullfiles. If not empty, chrootDir is tried first as a fast alternative to
+// decompressing the fullfiles.
+func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string) (info *PackInfo, err error) {
+	if toManifest == nil {
+		return nil, fmt.Errorf("need a valid toManifest")
 	}
-	if fromVersion >= m.Header.Version {
-		return nil, fmt.Errorf("fromVersion (%d) smaller than toVersion (%d)", fromVersion, m.Header.Version)
+	if toManifest.Name == "" {
+		return nil, fmt.Errorf("toManifest has no name")
+	}
+	toVersion := toManifest.Header.Version
+
+	var fromVersion uint32
+	if fromManifest != nil {
+		fromVersion = fromManifest.Header.Version
+		if fromVersion >= toVersion {
+			return nil, fmt.Errorf("fromManifest version (%d) must be smaller than toManifest version (%d)", fromVersion, toVersion)
+		}
 	}
 
 	if debugPacks {
@@ -79,8 +89,22 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 		}
 	}
 
+	// TODO: Should preallocate capacity.
 	info = &PackInfo{
-		Entries: make([]PackEntry, len(m.Files)),
+		Entries: make([]PackEntry, len(toManifest.Files)),
+	}
+
+	// Keep track of the hashes present in the From version, so we don't pack them.
+	var hashesInFrom map[Hashval]bool
+	if fromManifest != nil {
+		hashesInFrom = make(map[Hashval]bool, len(fromManifest.Files))
+		for _, f := range fromManifest.Files {
+			if f.Present() {
+				hashesInFrom[f.Hash] = true
+			}
+		}
+	} else {
+		hashesInFrom = make(map[Hashval]bool)
 	}
 
 	xw, err := NewExternalWriter(w, "xz")
@@ -115,15 +139,15 @@ func WritePack(w io.Writer, m *Manifest, fromVersion uint32, outputDir, chrootDi
 
 	var fullChrootDir string
 	if chrootDir != "" {
-		fullChrootDir = filepath.Join(chrootDir, fmt.Sprint(m.Header.Version), "full")
+		fullChrootDir = filepath.Join(chrootDir, fmt.Sprint(toVersion), "full")
 	}
 
 	done := make(map[Hashval]bool)
-	for i, f := range m.Files {
+	for i, f := range toManifest.Files {
 		entry := &info.Entries[i]
 		entry.File = f
 
-		if f.Version <= fromVersion {
+		if f.Version <= fromVersion || hashesInFrom[f.Hash] {
 			entry.Reason = "already in from manifest"
 			continue
 		}
@@ -406,16 +430,25 @@ func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, 
 // in the TO version subdirectory of outputDir (e.g. a pack from 10 to 20 is written to "www/20").
 func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string) (*PackInfo, error) {
 	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
-	m, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
+	toM, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
 	if err != nil {
 		return nil, err
 	}
+	var fromM *Manifest
+	if fromVersion > 0 {
+		fromDir := filepath.Join(outputDir, fmt.Sprint(fromVersion))
+		fromM, err = ParseManifestFile(filepath.Join(fromDir, "Manifest."+name))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	packPath := filepath.Join(toDir, GetPackFilename(name, fromVersion))
 	output, err := os.Create(packPath)
 	if err != nil {
 		return nil, err
 	}
-	info, err := WritePack(output, m, fromVersion, outputDir, chrootDir)
+	info, err := WritePack(output, fromM, toM, outputDir, chrootDir)
 	if err != nil {
 		_ = os.RemoveAll(packPath)
 		return nil, err

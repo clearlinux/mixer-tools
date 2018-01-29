@@ -80,7 +80,7 @@ func readBuildChrootsConfig(path string) (*buildChrootsConfig, error) {
 	return cfg, nil
 }
 
-func (b *Builder) buildBundleChroots(set *bundleSet) error {
+func (b *Builder) buildBundleChroots(set *bundleSet, packager string) error {
 	var err error
 
 	if b.Statedir == "" {
@@ -207,16 +207,22 @@ src=%s
 		"-y",
 		"--releasever=" + b.Clearver,
 	}
-	// When in Fedora, call dnf instead of yum.
-	if osInfo, oerr := readOSInfo(); oerr == nil {
-		if osInfo.ID == "fedora" {
-			// TODO: Simplify this when we can assume all Fedora users will be >= 22?
-			versionID, _ := strconv.Atoi(osInfo.VersionID)
-			if versionID >= 22 {
-				yumCmd[0] = "dnf"
+	if packager == "" {
+		// When in Fedora, call dnf instead of yum.
+		if osInfo, oerr := readOSInfo(); oerr == nil {
+			if osInfo.ID == "fedora" {
+				// TODO: Simplify this when we can assume all Fedora users will be >= 22?
+				versionID, _ := strconv.Atoi(osInfo.VersionID)
+				if versionID >= 22 {
+					yumCmd[0] = "dnf"
+				}
 			}
 		}
+	} else {
+		yumCmd[0] = packager
 	}
+
+	fmt.Printf("Packager command-line: %s\n", strings.Join(yumCmd, " "))
 
 	fmt.Println("Installing filesystem package in os-core")
 	installArgs := merge(yumCmd,

@@ -182,10 +182,6 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	c, err = getConfig(statedir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Found server.ini, but was unable to read it. "+
-			"Continuing with default configuration\n")
-	}
 
 	if err = initBuildEnv(c); err != nil {
 		return nil, err

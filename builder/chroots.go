@@ -349,7 +349,7 @@ src=%s
 // version. It uses one chroot to query information from the repositories using yum.
 func createVersionsFile(baseDir string, yumCmd []string) error {
 	// TODO: See if we query the list of packages some other way? Yum output is a bit
-	// unfriendly, see the workarounds below.
+	// unfriendly, see the workarounds below. When we move to dnf we may have better options.
 	args := merge(yumCmd,
 		"--installroot="+filepath.Join(baseDir, "os-core"),
 		"list",
@@ -379,6 +379,9 @@ func createVersionsFile(baseDir string, yumCmd []string) error {
 		// Default output from list command.
 		"Available",
 		"Installed",
+
+		// dnf message about expiration.
+		"Last metadata",
 
 		// TODO: Review if those errors appear in stdout or stderr, if the former we can
 		// remove them. The rpm/yum cause the packages to be removed from the list.

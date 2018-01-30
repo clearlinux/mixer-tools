@@ -101,6 +101,7 @@ var initCmd = &cobra.Command{
 	Long:  `Initialize the mixer and workspace`,
 	Run: func(cmd *cobra.Command, args []string) {
 		b := builder.New()
+		b.LoadDefaults()
 		if config == "" {
 			// Create default config if necessary
 			if err := b.CreateDefaultConfig(localrpms); err != nil {
@@ -108,9 +109,6 @@ var initCmd = &cobra.Command{
 			}
 		}
 		if err := b.LoadBuilderConf(config); err != nil {
-			fail(err)
-		}
-		if err := b.ReadBuilderConf(); err != nil {
 			fail(err)
 		}
 		err := b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
@@ -143,7 +141,7 @@ func init() {
 	initCmd.Flags().BoolVar(&localrpms, "local-rpms", false, "Create and configure local RPMs directories")
 	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
-	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
+	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.toml to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 
 	// mark required flags

@@ -85,7 +85,12 @@ func recordFromFile(rootPath, path string, fi os.FileInfo) (*File, error) {
 }
 
 // createManifestRecord wraps createFileRecord to create a Manifest record for a MoM
-func (m *Manifest) createManifestRecord(rootPath string, path string, fi os.FileInfo, version uint32) error {
+func (m *Manifest) createManifestRecord(rootPath string, path string, version uint32) error {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
 	file, err := recordFromFile(rootPath, path, fi)
 	if err != nil {
 		if strings.Contains(err.Error(), "hash calculation error") {

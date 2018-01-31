@@ -16,8 +16,10 @@ package swupd
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -31,6 +33,13 @@ import (
 )
 
 const manifestFieldDelim = "\t"
+
+// TODO make this configurable (optional and configurable bundle/filepath)
+// this should be done when configuration is in a more stable state
+const (
+	indexBundle   = "os-core-update-index"
+	indexFileName = "/usr/share/clear/os-core-update-index"
+)
 
 // ManifestHeader contains metadata for the manifest
 type ManifestHeader struct {
@@ -554,6 +563,11 @@ func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {
 	}
 
 	for _, bn := range bundleNames {
+		// just add this one blindly since it is processed later
+		if bn == indexBundle {
+			includes = append(includes, &Manifest{Name: indexBundle})
+			continue
+		}
 		for _, b := range bundles {
 			if bn == b.Name {
 				includes = append(includes, b)
@@ -691,4 +705,183 @@ func maximizeFull(mf *Manifest, bundles []*Manifest) {
 	for _, b := range bundles {
 		maxFullFromManifest(mf, b)
 	}
+}
+
+func createAndWrite(path string, contents []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, contents, 0655)
+}
+
+func fileContains(path string, sub string) bool {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	return bytes.Contains(b, []byte(sub))
+}
+
+type bundleIndex struct {
+	fname string
+	bname string
+	bsize uint64
+}
+
+func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
+	// sort by filename then by bundle size
+	sort.Slice(f2b[:], func(i, j int) bool {
+		if f2b[i].fname == f2b[j].fname {
+			return f2b[i].bsize < f2b[j].bsize
+		}
+		return f2b[i].fname < f2b[j].fname
+	})
+
+	// construct content for the file
+	var output []byte
+	for _, line := range f2b {
+		strLine := fmt.Sprintf("%s\t%s\n", line.fname, line.bname)
+		output = append(output, []byte(strLine)...)
+	}
+
+	imageVerPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
+	// write to bundle chroot
+	outputFileName := filepath.Join(imageVerPath, indexBundle, indexFileName)
+	if err := createAndWrite(outputFileName, output); err != nil {
+		return err
+	}
+
+	// write to full chroot
+	fullFileName := filepath.Join(imageVerPath, "full", indexFileName)
+	if err := createAndWrite(fullFileName, output); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// writeIndexManifest creates a file that is an index of all files -> bundle mappings in
+// the current update. This file excludes directories and files that are not present and
+// sorts the index first by filename then by bundle name. writeIndexManifest creates a new
+// bundle in which the file will live. This bundle is added to the "full" manifest which
+// is part of the bundles slice. A path string to the new manifest is returned on success.
+func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (string, error) {
+	fileToBundles := []*bundleIndex{}
+	var newFull, newOsCore *Manifest
+	for _, b := range bundles {
+		if b.Name == "full" {
+			// record for later and skip
+			newFull = b
+			continue
+		}
+
+		if b.Name == "os-core" {
+			// record for includes list
+			newOsCore = b
+		}
+
+		for _, f := range b.Files {
+			// only record present files that are TypeFile or TypeSymlink
+			if f.Present() && f.Type != TypeDirectory {
+				ftb := &bundleIndex{
+					f.Name,
+					b.Name,
+					b.Header.ContentSize,
+				}
+				fileToBundles = append(fileToBundles, ftb)
+			}
+		}
+	}
+
+	// no full manifest in bundles list
+	if newFull == nil {
+		return "", errors.New("no full manifest found")
+	}
+
+	// construct the index file from the bundleIndex slice
+	if err := constructIndex(c, ui, fileToBundles); err != nil {
+		return "", err
+	}
+
+	// now add a manifest
+	idxMan := &Manifest{
+		Header: ManifestHeader{
+			Format:    ui.format,
+			Version:   ui.version,
+			Previous:  ui.lastVersion,
+			TimeStamp: ui.timeStamp,
+			Includes:  []*Manifest{newOsCore},
+		},
+		Name: indexBundle,
+	}
+	// add files from the chroot created in constructIndex
+	err := idxMan.addFilesFromChroot(filepath.Join(c.imageBase, fmt.Sprint(ui.version), indexBundle))
+	if err != nil {
+		return "", err
+	}
+	// record file count
+	idxMan.Header.FileCount = uint32(len(idxMan.Files))
+	// sort file list for processing
+	idxMan.sortFilesName()
+	// now subtract out the included os-core
+	idxMan.subtractManifests(newOsCore)
+	// figure out if we need to update any includes
+	for _, b := range bundles {
+		if b.Header.Version < ui.version {
+			continue
+		}
+
+		includesPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "noship", b.Name+"-includes")
+		if fileContains(includesPath, indexBundle) {
+			b.Header.Includes = append(b.Header.Includes, idxMan)
+			b.subtractManifests(idxMan)
+		}
+	}
+
+	// link in old manifest for version information
+	// first get old MoM
+	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
+	oldMoM := getOldManifest(oldMoMPath)
+
+	// get old version
+	ver := getManifestVerFromMoM(oldMoM, idxMan)
+	if ver == 0 {
+		ver = ui.lastVersion
+	}
+
+	oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+idxMan.Name)
+	oldM := getOldManifest(oldMPath)
+	oldM.sortFilesName()
+	// linkPeersAndChange will update file versions correctly
+	_, _, _ = idxMan.linkPeersAndChange(oldM, ui.minVersion)
+	// now add any new files to the full manifest
+	lenIdxM := len(idxMan.Files)
+	lenFullM := len(newFull.Files)
+	for ix, fx := 0, 0; ix < lenIdxM && fx < lenFullM; {
+		idxF := idxMan.Files[ix]
+		fulF := newFull.Files[fx]
+		switch {
+		case idxF.Name < fulF.Name:
+			// only present in full
+			ix++
+		case idxF.Name > fulF.Name:
+			// only present in idx manifest, add to full
+			newFull.Files = append(newFull.Files, idxF)
+			newFull.Header.FileCount++
+			fx++
+		default:
+			// present in both but updated in idx man, replace
+			fulF = idxF
+			ix++
+			fx++
+		}
+	}
+
+	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+indexBundle)
+	if err := idxMan.WriteManifestFile(manOutput); err != nil {
+		return "", err
+	}
+
+	return manOutput, nil
 }

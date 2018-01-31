@@ -369,21 +369,21 @@ func TestSortFilesVersionName(t *testing.T) {
 func TestLinkPeersAndChange(t *testing.T) {
 	mOld := Manifest{
 		Files: []*File{
-			{Name: "1", Status: StatusUnset},
-			{Name: "2", Status: StatusDeleted},
-			{Name: "3", Status: StatusGhosted},
-			{Name: "4", Status: StatusUnset},
-			{Name: "5", Status: StatusUnset, Hash: 1},
+			{Name: "1", Status: StatusUnset, Info: sizer(0)},
+			{Name: "2", Status: StatusDeleted, Info: sizer(0)},
+			{Name: "3", Status: StatusGhosted, Info: sizer(0)},
+			{Name: "4", Status: StatusUnset, Info: sizer(0)},
+			{Name: "5", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 		},
 	}
 
 	mNew := Manifest{
 		Files: []*File{
-			{Name: "1", Status: StatusUnset, Hash: 1},
-			{Name: "2", Status: StatusUnset},
-			{Name: "3", Status: StatusUnset},
-			{Name: "5", Status: StatusUnset, Hash: 2},
-			{Name: "6", Status: StatusUnset},
+			{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
+			{Name: "2", Status: StatusUnset, Info: sizer(0)},
+			{Name: "3", Status: StatusUnset, Info: sizer(0)},
+			{Name: "5", Status: StatusUnset, Hash: 2, Info: sizer(0)},
+			{Name: "6", Status: StatusUnset, Info: sizer(0)},
 		},
 	}
 

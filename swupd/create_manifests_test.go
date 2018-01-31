@@ -364,7 +364,7 @@ func TestCreateManifestResurrect(t *testing.T) {
 	mustGenFile(t, testDir, "30", "test-bundle", "foo", "foo1")
 	mustCreateManifestsStandard(t, 30, testDir)
 
-	checkManifestContains(t, testDir, "30", "test-bundle", AllZeroHash+"\t30\t/foo1\n")
+	checkManifestNotContains(t, testDir, "30", "test-bundle", AllZeroHash+"\t30\t/foo1\n")
 	checkManifestContains(t, testDir, "30", "test-bundle", "\t30\t/foo\n")
 }
 

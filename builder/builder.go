@@ -380,13 +380,10 @@ func (b *Builder) AddBundles(bundles []string, force bool, allbundles bool, git 
 			return bundleAddCount, err
 		}
 
-		// Clear out bundles list if not empty
-		if len(bundles) > 0 {
-			bundles = make([]string, len(files))
-		}
+		bundles = make([]string, len(files))
 
-		for _, file := range files {
-			bundles = append(bundles, file.Name())
+		for i, file := range files {
+			bundles[i] = file.Name()
 		}
 	}
 

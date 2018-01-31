@@ -458,7 +458,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 		removed = append(removed, of)
 	}
 
-	// TODO: call rename detection with added and removed here
+	renameDetection(m, added, removed, c)
 
 	// if a file still has deleted status here and is not a rename
 	// the has needs to be set to all zeros

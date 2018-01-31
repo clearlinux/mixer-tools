@@ -35,7 +35,7 @@ func CreateDeltas(manifest, statedir string, from, to uint32) ([]*File, error) {
 	oldManifest.sortFilesName()
 	newManifest.sortFilesName()
 
-	_, _, _ = newManifest.linkPeersAndChange(oldManifest, from)
+	_, _, _ = newManifest.linkPeersAndChange(oldManifest, c, from)
 
 	deltas, err := consolidateDeltaFiles(newManifest, from, c)
 	if err != nil {

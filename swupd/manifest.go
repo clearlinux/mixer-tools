@@ -364,7 +364,7 @@ func (m *Manifest) sortFilesVersionName() {
 // in the chroot for that manifest. Link delta peers with the oldManifest
 // if the file in the oldManifest is not deleted or ghosted.
 // Expects m and oldManifest files lists to be sorted by name only
-func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) (int, int, int) {
+func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersion uint32) (int, int, int) {
 	// set previous version to oldManifest version
 	m.Header.Previous = oldManifest.Header.Version
 

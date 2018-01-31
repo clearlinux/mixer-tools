@@ -220,6 +220,7 @@ func TestCreateManifestIncludesDeduplicate(t *testing.T) {
 
 	dualIncludes := "includes:\ttest-bundle1\nincludes:\ttest-bundle1"
 	checkManifestNotContains(t, testDir, "10", "test-bundle2", dualIncludes)
+	checkManifestContains(t, testDir, "10", "test-bundle2", "includes:\ttest-bundle1\n")
 
 	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
 	mustInitIncludesFile(t, testDir, "20", "test-bundle2", []string{"test-bundle1", "test-bundle1"})
@@ -576,4 +577,44 @@ func TestSubtractDelete(t *testing.T) {
 
 	fileDeletedInManifest(ts.parseManifest(40, "os-core"), 20, "/foo")
 	fileDeletedInManifest(ts.parseManifest(40, "test-bundle"), 30, "/foo")
+}
+
+func TestCreateManifestsIndex(t *testing.T) {
+	testDir := mustSetupTestDir(t, "index")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle1", "test-bundle2"})
+	mustGenFile(t, testDir, "10", "test-bundle1", "foo", "foo")
+	mustGenFile(t, testDir, "10", "test-bundle1", "bar", "bar")
+	mustGenFile(t, testDir, "10", "test-bundle2", "foo", "foo")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	checkFileContains(t, filepath.Join(testDir, "image/10/os-core-update-index/usr/share/clear/os-core-update-index"), "/foo\ttest-bundle1\n")
+	checkFileContains(t, filepath.Join(testDir, "image/10/os-core-update-index/usr/share/clear/os-core-update-index"), "/foo\ttest-bundle2\n")
+	checkManifestContains(t, testDir, "10", "MoM", "\tos-core-update-index\n")
+	checkManifestContains(t, testDir, "10", "full", "10\t/usr/share/clear/os-core-update-index\n")
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
+	mustGenFile(t, testDir, "20", "test-bundle1", "foo", "foo")
+	mustGenFile(t, testDir, "20", "test-bundle1", "bar", "bar")
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	checkFileContains(t, filepath.Join(testDir, "image/20/os-core-update-index/usr/share/clear/os-core-update-index"), "/foo\ttest-bundle1\n")
+	checkFileNotContains(t, filepath.Join(testDir, "image/20/os-core-update-index/usr/share/clear/os-core-update-index"), "/foo\ttest-bundle2\n")
+	checkManifestContains(t, testDir, "20", "MoM", "20\tos-core-update-index\n")
+	// must exist at correct version
+	re := regexp.MustCompile("F\\.\\.\\.\t.*\t20\t/usr/share/clear/os-core-update-index\n")
+	checkManifestMatches(t, testDir, "20", "full", re)
+	// no update to this dir
+	checkManifestContains(t, testDir, "20", "os-core-update-index", "10\t/usr/share\n")
+}
+
+func TestCreateManifestsIndexInclude(t *testing.T) {
+	testDir := mustSetupTestDir(t, "index-include")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle1", "test-bundle2"})
+	mustInitIncludesFile(t, testDir, "10", "test-bundle2", []string{"os-core-update-index"})
+	mustGenFile(t, testDir, "10", "test-bundle1", "foo", "foo")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	checkManifestContains(t, testDir, "10", "test-bundle2", "includes:\tos-core-update-index")
 }

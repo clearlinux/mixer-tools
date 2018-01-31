@@ -260,6 +260,34 @@ func checkManifestNotContains(t *testing.T, testDir, ver, name string, subs ...s
 	}
 }
 
+func checkFileContains(t *testing.T, path string, subs ...string) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, sub := range subs {
+		if !bytes.Contains(b, []byte(sub)) {
+			t.Errorf("%s did not contain expected '%s'", path, sub)
+		}
+	}
+}
+
+func checkFileNotContains(t *testing.T, path string, subs ...string) {
+	b, err := ioutil.ReadFile(path)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	for _, sub := range subs {
+		if bytes.Contains(b, []byte(sub)) {
+			t.Errorf("%s contains unexpected substring '%s'", path, sub)
+		}
+	}
+}
+
 func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regexp.Regexp) {
 	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
 	b, err := ioutil.ReadFile(manFpath)

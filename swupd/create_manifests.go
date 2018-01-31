@@ -268,8 +268,15 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		},
 	}
 
+	var newFull *Manifest
 	// write manifests then add them to the MoM
 	for _, bMan := range newManifests {
+		// handle the full manifest last
+		if bMan.Name == "full" {
+			newFull = bMan
+			continue
+		}
+
 		// sort by version then by filename, previously to this sort these bundles
 		// were sorted by file name only to make processing easier
 		bMan.sortFilesVersionName()
@@ -278,17 +285,8 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 			return nil, err
 		}
 
-		// don't need to add full to the MoM
-		if bMan.Name == "full" {
-			continue
-		}
-
-		var fi os.FileInfo
-		if fi, err = os.Lstat(manPath); err != nil {
-			return nil, err
-		}
-
-		if err = newMoM.createManifestRecord(verOutput, manPath, fi, version); err != nil {
+		// add bundle to Manifest.MoM
+		if err = newMoM.createManifestRecord(verOutput, manPath, version); err != nil {
 			return nil, err
 		}
 	}
@@ -298,6 +296,36 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		if m.findFileNameInSlice(newMoM.Files) == nil {
 			newMoM.Files = append(newMoM.Files, m)
 		}
+	}
+
+	// allManifests must include newManifests plus all old ones in the MoM.
+	allManifests := newManifests
+	// now append all old manifests
+	for _, m := range newMoM.Files {
+		if m.Version < version {
+			oldMPath := filepath.Join(c.outputDir, fmt.Sprint(m.Version), "Manifest."+m.Name)
+			var oldM *Manifest
+			oldM, err = ParseManifestFile(oldMPath)
+			if err != nil {
+				return nil, err
+			}
+			allManifests = append(allManifests, oldM)
+		}
+	}
+
+	var osIdxPath string
+	if osIdxPath, err = writeIndexManifest(&c, &ui, allManifests); err != nil {
+		return nil, err
+	}
+
+	if err = newMoM.createManifestRecord(verOutput, osIdxPath, version); err != nil {
+		return nil, err
+	}
+
+	// handle full manifest
+	newFull.sortFilesVersionName()
+	if err = newFull.WriteManifestFile(filepath.Join(verOutput, "Manifest.full")); err != nil {
+		return nil, err
 	}
 
 	newMoM.Header.FileCount = uint32(len(newMoM.Files))

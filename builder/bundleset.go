@@ -25,64 +25,21 @@ type bundle struct {
 	AllPackages    []string
 }
 
-type bundleSet struct {
-	Bundles map[string]*bundle
-}
+type bundleSet map[string]*bundle
 
-// newBundleSet will take a list of files and create a bundle struct from the list of
-// files, doing all the required validation and processing.
-//
-// It currently implements parsing of the bundle files, ignoring comments and processing
-// "include()" directives the same way that m4 works.
-func newBundleSet(bundleFiles []string) (*bundleSet, error) {
-	bundles := make(map[string]*bundle, len(bundleFiles))
-
-	// First parse each bundle file in isolation.
-	for _, filename := range bundleFiles {
-		name := filepath.Base(filename)
-		b, exists := bundles[name]
-		if exists {
-			return nil, fmt.Errorf("bundle %q defined twice: in %s and %s", name, b.Filename, filename)
-		}
-		if !validBundleNameRegex.MatchString(name) {
-			return nil, fmt.Errorf("invalid bundle name %q derived from file %s", name, filename)
-		}
-
-		contents, err := ioutil.ReadFile(filename)
-		if err != nil {
-			return nil, err
-		}
-
-		includes, packages, err := parseBundle(contents)
-		if err != nil {
-			return nil, fmt.Errorf("couldn't parse bundle file %s: %s", filename, err)
-		}
-
-		b = &bundle{
-			Name:           name,
-			DirectIncludes: includes,
-			DirectPackages: packages,
-			Filename:       filename,
-		}
-		bundles[name] = b
-	}
-
-	// Then check if there are missing includes.
-	for _, b := range bundles {
-		for _, include := range b.DirectIncludes {
-			_, exists := bundles[include]
-			if !exists {
-				return nil, fmt.Errorf("bundle %q includes bundle %q which is not available", b.Name, include)
-			}
-		}
-	}
-
-	// And finally sort the bundles so that all includes appear before a bundle, then
-	// calculate AllPackages for each bundle. Cycles are identified as part of sorting
-	// the bundles.
+// validateAndFillBundleSet will validate a bundleSet and fill in the Allpackage
+// fields in each bundle. Specifically, it will validate that a bundleSet meets
+// the following constraints:
+// 1) Completeness. For each bundle in the set, every bundle included by that
+//    bundle is also in the set.
+// 2) Cycle-Free. The set contains no bundle include cycles.
+func validateAndFillBundleSet(bundles bundleSet) error {
+	// Sort the bundles so that all includes appear before a bundle, then
+	// calculate AllPackages for each bundle. Cycles and missing bundles are
+	// identified as part of sorting the bundles.
 	sortedBundles, err := sortBundles(bundles)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	for _, b := range sortedBundles {
 		var allPackages []string
@@ -100,12 +57,17 @@ func newBundleSet(bundleFiles []string) (*bundleSet, error) {
 		}
 	}
 
-	return &bundleSet{Bundles: bundles}, nil
+	return nil
 }
 
-func sortBundles(bundles map[string]*bundle) ([]*bundle, error) {
-	// Traverse all the bundles, recursing to mark its included bundles as visited before mark
-	// the bundle itself as visited. VISITING state is used to identify cycles.
+// sortBundles sorts the bundles in a bundleSet to produce a slice of bundles
+// such that all includes for a bundle appear before that bundle. sortBundles
+// also detects include cycle errors and missing includes as a byproduct of
+// sorting.
+func sortBundles(bundles bundleSet) ([]*bundle, error) {
+	// Traverse all the bundles, recursing to mark its included bundles as
+	// visited before mark the bundle itself as visited. VISITING state is used
+	// to identify cycles.
 	type state int
 	const (
 		NotVisited state = iota
@@ -125,7 +87,11 @@ func sortBundles(bundles map[string]*bundle) ([]*bundle, error) {
 			mark[b] = Visiting
 			visiting = append(visiting, b.Name)
 			for _, inc := range b.DirectIncludes {
-				err := visit(bundles[inc])
+				bundle, exists := bundles[inc]
+				if !exists {
+					return fmt.Errorf("bundle %q includes bundle %q which is not available", b.Name, inc)
+				}
+				err := visit(bundle)
 				if err != nil {
 					return err
 				}
@@ -148,6 +114,37 @@ func sortBundles(bundles map[string]*bundle) ([]*bundle, error) {
 
 }
 
+// parseBundleFile parses a bundle file identified by full filepath, and returns
+// a bundle object representation of that bundle.
+// Note: the Allpackages field of the bundles are left blank, as they cannot
+// be calculated in isolation.
+func parseBundleFile(filename string) (*bundle, error) {
+	name := filepath.Base(filename)
+	if !validBundleNameRegex.MatchString(name) || name == "MoM" || name == "full" {
+		return nil, fmt.Errorf("invalid bundle name %q derived from file %s", name, filename)
+	}
+
+	contents, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	includes, packages, err := parseBundle(contents)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse bundle file %s: %s", filename, err)
+	}
+
+	b := &bundle{
+		Name:           name,
+		DirectIncludes: includes,
+		DirectPackages: packages,
+		Filename:       filename,
+	}
+	return b, nil
+}
+
+// parseBundle parses the bytes of a bundle file, ignoring comments and
+// processing "include()" directives the same way that m4 works.
 func parseBundle(contents []byte) (includes []string, packages []string, err error) {
 	scanner := bufio.NewScanner(bytes.NewReader(contents))
 

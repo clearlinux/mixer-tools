@@ -61,6 +61,73 @@ pkg2
 	}
 }
 
+func TestParseBundleFile(t *testing.T) {
+	tests := []struct {
+		Filename         string
+		Contents         []byte
+		ExpectedIncludes []string
+		ExpectedPackages []string
+		ShouldFail       bool
+	}{
+		{
+			Filename: "simple-bundle",
+			Contents: []byte(`# Simple fake bundle
+include(a)
+include(b)
+pkg1     # Comment
+pkg2
+`),
+			ExpectedIncludes: []string{"a", "b"},
+			ExpectedPackages: []string{"pkg1", "pkg2"},
+		},
+
+		// Bundle name errors
+		{Filename: "b&ndle", Contents: []byte(`pkg1`), ShouldFail: true},
+		{Filename: "full", Contents: []byte(`pkg1`), ShouldFail: true},
+		{Filename: "MoM", Contents: []byte(`pkg1`), ShouldFail: true},
+		// Bundle contents error (catching parseBundle's error)
+		{Filename: "b", Contents: []byte(`()`), ShouldFail: true},
+	}
+
+	testDir, err := ioutil.TempDir("", "bundleset-test-")
+	if err != nil {
+		t.Fatalf("couldn't create temporary directory to write test cases: %s", err)
+	}
+	defer func() {
+		_ = os.RemoveAll(testDir)
+	}()
+
+	for _, tt := range tests {
+		bundleFile := filepath.Join(testDir, tt.Filename)
+		err = ioutil.WriteFile(bundleFile, []byte(tt.Contents), 0600)
+		if err != nil {
+			t.Fatalf("couldn't create temporary file for test case: %s", err)
+		}
+
+		bundle, err := parseBundleFile(bundleFile)
+		failed := err != nil
+		if failed != tt.ShouldFail {
+			if tt.ShouldFail {
+				t.Errorf("unexpected success when parsing bundle file\nFILE: %s\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%s", tt.Filename, tt.Contents, bundle.DirectIncludes, bundle.DirectPackages)
+			} else {
+				t.Errorf("unexpected error parsing bundle: %s\nCONTENTS:\n%s", err, tt.Contents)
+			}
+			continue
+		}
+		if tt.ShouldFail {
+			continue
+		}
+
+		if !reflect.DeepEqual(bundle.DirectIncludes, tt.ExpectedIncludes) {
+			t.Errorf("got wrong includes when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES (%d): %s\nEXPECTED INCLUDES (%d): %s", tt.Contents, len(bundle.DirectIncludes), bundle.DirectIncludes, len(tt.ExpectedIncludes), tt.ExpectedIncludes)
+		}
+
+		if !reflect.DeepEqual(bundle.DirectPackages, tt.ExpectedPackages) {
+			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%s\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+		}
+	}
+}
+
 func TestParseBundleSet(t *testing.T) {
 	type FilesMap map[string]string
 	type CountsMap map[string]int
@@ -153,19 +220,22 @@ func TestParseBundleSet(t *testing.T) {
 			t.Fatalf("couldn't create temporary directory to write test case: %s", err)
 		}
 
-		bundleFiles := make([]string, 0, len(tt.Files))
+		set := make(bundleSet)
 		for name, contents := range tt.Files {
 			bundleFile := filepath.Join(dir, name)
 			err = ioutil.WriteFile(bundleFile, []byte(contents), 0600)
 			if err != nil {
 				t.Fatalf("couldn't create temporary file for test case: %s", err)
 			}
-			bundleFiles = append(bundleFiles, bundleFile)
+			var bundle *bundle
+			bundle, err = parseBundleFile(bundleFile)
+			if err != nil {
+				t.Errorf("unexpected error when parsing bundle set from test case %q: %s", tt.Name, err)
+			}
+			set[bundle.Name] = bundle
 		}
 
-		var set *bundleSet
-		set, err = newBundleSet(bundleFiles)
-
+		err = validateAndFillBundleSet(set)
 		shouldFail := (len(tt.ExpectedAllPackageCounts) == 0)
 		failed := err != nil
 
@@ -181,7 +251,7 @@ func TestParseBundleSet(t *testing.T) {
 			continue
 		}
 
-		for _, b := range set.Bundles {
+		for _, b := range set {
 			expectedCount := tt.ExpectedAllPackageCounts[b.Name]
 			count := len(b.AllPackages)
 			if count != expectedCount {

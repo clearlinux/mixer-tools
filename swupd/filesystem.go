@@ -96,7 +96,7 @@ func (m *Manifest) createManifestRecord(rootPath string, path string, version ui
 		if strings.Contains(err.Error(), "hash calculation error") {
 			return err
 		}
-		fmt.Fprint(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 	}
 
 	// this is a file to skip
@@ -123,7 +123,7 @@ func (m *Manifest) addFilesFromChroot(rootPath string) error {
 			if strings.Contains(err.Error(), "hash calculation error") {
 				return err
 			}
-			fmt.Fprint(os.Stderr, err)
+			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
 		}
 		return nil
 	})

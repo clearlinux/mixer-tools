@@ -16,7 +16,6 @@ package swupd
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -27,6 +26,8 @@ import (
 	"strings"
 	"text/template"
 	"time"
+
+	"github.com/pkg/errors"
 )
 
 const manifestFieldDelim = "\t"
@@ -472,6 +473,68 @@ func (m *Manifest) newDeleted(df *File) {
 	df.Modifier = ModifierUnset
 	// Add file to manifest
 	m.Files = append(m.Files, df)
+}
+
+// linkDeltaPeersForPack sets the DeltaPeer of the files in newManifest that have the corresponding files
+// in oldManifest.
+func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error {
+	newIndex := 0
+	oldIndex := 0
+
+	for newIndex < len(newManifest.Files) && oldIndex < len(oldManifest.Files) {
+		nf := newManifest.Files[newIndex]
+		of := oldManifest.Files[oldIndex]
+
+		switch {
+		case nf.Name < of.Name:
+			// Old file that is not in new manifest, no chance of delta.
+			newIndex++
+
+		case nf.Name > of.Name:
+			// New file that wasn't present before, no chance of delta.
+			oldIndex++
+
+		default:
+			newIndex++
+			oldIndex++
+
+			// Matching names, we can have a delta if pass all the
+			// requirements below.
+			if nf.Version <= of.Version {
+				continue
+			}
+
+			if nf.Hash == of.Hash {
+				continue
+			}
+
+			if !nf.Present() || !nf.Present() {
+				continue
+			}
+
+			if nf.Type != TypeFile || nf.Type != of.Type {
+				continue
+			}
+
+			// Check file size to decide whether it should have a delta.
+			newPath := filepath.Join(c.imageBase, fmt.Sprint(nf.Version), "full", nf.Name)
+			fi, err := os.Stat(newPath)
+			if err != nil {
+				return errors.Wrapf(err, "error accessing %s to decide whether it can have a delta or not")
+			}
+			if fi.Size() < minimumSizeToMakeDeltaInBytes {
+				continue
+			}
+
+			nf.DeltaPeer = of
+			of.DeltaPeer = nf
+		}
+	}
+
+	// TODO: Once rename logic is in. Add code to identify what extra DeltaPeers
+	// should be created based on rename flag in newManifest.
+
+	return nil
 }
 
 func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {

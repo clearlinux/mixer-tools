@@ -60,6 +60,23 @@ type PackInfo struct {
 	Warnings []string
 }
 
+// Empty tells if the pack has contents or not. Packs without contents are not generated.
+func (info PackInfo) Empty() bool {
+	return info.FullfileCount == 0 && info.DeltaCount == 0
+}
+
+func (state PackState) String() string {
+	switch state {
+	case NotPacked:
+		return "not packed"
+	case PackedDelta:
+		return "packed delta"
+	case PackedFullfile:
+		return "packed fullfile"
+	}
+	return "invalid"
+}
+
 // WritePack writes the pack between two Manifests, or a zero pack if fromManifest is
 // nil. The toManifest should always be non nil. The outputDir is used to pick deltas and
 // fullfiles. If not empty, chrootDir is tried first as a fast alternative to
@@ -74,10 +91,34 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 	toVersion := toManifest.Header.Version
 
 	var fromVersion uint32
+	var deltas []Delta
 	if fromManifest != nil {
 		fromVersion = fromManifest.Header.Version
 		if fromVersion >= toVersion {
 			return nil, fmt.Errorf("fromManifest version (%d) must be smaller than toManifest version (%d)", fromVersion, toVersion)
+		}
+
+	}
+
+	if debugPacks {
+		log.Printf("DEBUG: WritePack for bundle %s from %d to %d", toManifest.Name, fromVersion, toVersion)
+	}
+
+	if fromManifest != nil {
+		// TODO: Make WritePack itself take a Config.
+		var c config
+		c, err = getConfig(filepath.Join(outputDir, ".."))
+		if err != nil {
+			return nil, err
+		}
+
+		deltas, err = createDeltasFromManifests(&c, fromManifest, toManifest)
+		if err != nil {
+			return nil, err
+		}
+
+		if debugPacks {
+			log.Printf("DEBUG: %d potential deltas to use in pack", len(deltas))
 		}
 	}
 
@@ -89,7 +130,6 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		}
 	}
 
-	// TODO: Should preallocate capacity.
 	info = &PackInfo{
 		Entries: make([]PackEntry, len(toManifest.Files)),
 	}
@@ -105,6 +145,10 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		}
 	} else {
 		hashesInFrom = make(map[Hashval]bool)
+	}
+
+	if debugPacks {
+		log.Printf("DEBUG: %d hashes already in from manifest", len(hashesInFrom))
 	}
 
 	xw, err := NewExternalWriter(w, "xz")
@@ -142,6 +186,30 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		fullChrootDir = filepath.Join(chrootDir, fmt.Sprint(toVersion), "full")
 	}
 
+	// Add all deltas that have not failed.
+	hasDelta := make(map[Hashval]bool)
+	for i := range deltas {
+		d := &deltas[i]
+		if d.Error != nil {
+			info.Warnings = append(info.Warnings, d.Error.Error())
+			continue
+		}
+		var fallback bool
+		fallback, err = copyFromDelta(tw, d)
+		if err != nil {
+			// If copy from delta fails before writing to the pack, we can
+			// fallback to use the fullfile later.
+			if fallback {
+				info.Warnings = append(info.Warnings, err.Error())
+				continue
+			}
+			return nil, err
+		}
+
+		info.DeltaCount++
+		hasDelta[d.to.Hash] = true
+	}
+
 	done := make(map[Hashval]bool)
 	for i, f := range toManifest.Files {
 		entry := &info.Entries[i]
@@ -149,6 +217,10 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 
 		if f.Version <= fromVersion || hashesInFrom[f.Hash] {
 			entry.Reason = "already in from manifest"
+			continue
+		}
+		if hasDelta[f.Hash] {
+			entry.State = PackedDelta
 			continue
 		}
 		if done[f.Hash] {
@@ -166,7 +238,6 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 
 		done[f.Hash] = true
 
-		// TODO: Pack deltas when available.
 		entry.State = PackedFullfile
 		entry.Reason = "from fullfile"
 		info.FullfileCount++
@@ -174,6 +245,8 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			var fallback bool
 			fallback, err = copyFromFullChrootFile(tw, fullChrootDir, f)
 			if (err != nil) && fallback {
+				// If copy from chroot file fails before writing to the pack, we can
+				// fallback to try copying from the fullfile.
 				info.Warnings = append(info.Warnings, err.Error())
 				err = copyFromFullfile(tw, outputDir, f)
 			} else {
@@ -187,11 +260,51 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		}
 	}
 
+	if debugPacks {
+		log.Printf("DEBUG: pack created with %d fullfiles and %d deltas", info.FullfileCount, info.DeltaCount)
+	}
+
 	err = tw.Close()
 	if err != nil {
 		return nil, err
 	}
 	return info, nil
+}
+
+func copyFromDelta(tw *tar.Writer, delta *Delta) (fallback bool, err error) {
+	f, err := os.Open(delta.Path)
+	if err != nil {
+		return true, err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+	fi, err := f.Stat()
+	if err != nil {
+		return true, err
+	}
+	if !fi.Mode().IsRegular() {
+		return true, fmt.Errorf("delta %s is not a regular file", delta.Path)
+	}
+	hdr, err := getHeaderFromFileInfo(fi)
+	if err != nil {
+		return true, err
+	}
+	hdr.Name = "delta/" + fi.Name()
+	hdr.Typeflag = tar.TypeReg
+
+	// After we start writing on the tar writer, we can't let the caller fallback to another
+	// option anymore.
+
+	err = tw.WriteHeader(hdr)
+	if err != nil {
+		return false, err
+	}
+	_, err = io.Copy(tw, f)
+	if err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 func copyFromFullChrootFile(tw *tar.Writer, fullChrootDir string, f *File) (fallback bool, err error) {
@@ -428,6 +541,7 @@ func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, 
 
 // CreatePack creates the pack file for a specific bundle between two versions. The pack is written
 // in the TO version subdirectory of outputDir (e.g. a pack from 10 to 20 is written to "www/20").
+// Empty packs will lead to not creating the pack.
 func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string) (*PackInfo, error) {
 	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
 	toM, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
@@ -450,6 +564,7 @@ func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir
 	}
 	info, err := WritePack(output, fromM, toM, outputDir, chrootDir)
 	if err != nil {
+		_ = output.Close()
 		_ = os.RemoveAll(packPath)
 		return nil, err
 	}
@@ -457,6 +572,12 @@ func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir
 	if err != nil {
 		_ = os.RemoveAll(packPath)
 		return nil, err
+	}
+
+	if info.Empty() {
+		// Don't bother leaving empty packs around. Not failing if remove fails since an
+		// empty pack is not incorrect.
+		_ = os.Remove(packPath)
 	}
 
 	return info, nil

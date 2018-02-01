@@ -113,10 +113,13 @@ func TestFindBundlesToPack(t *testing.T) {
 		m.Files = append(m.Files, bundle)
 	}
 
-	sortAndPrintBundles := func(bundles []BundleToPack) {
+	sortBundles := func(bundles []BundleToPack) {
 		sort.Slice(bundles, func(i, j int) bool {
 			return bundles[i].Name < bundles[j].Name
 		})
+	}
+
+	printBundles := func(bundles []BundleToPack) {
 		for _, b := range bundles {
 			fmt.Printf("  %s %d -> %d\n", b.Name, b.FromVersion, b.ToVersion)
 		}
@@ -158,14 +161,17 @@ func TestFindBundlesToPack(t *testing.T) {
 			bundles = append(bundles, *b)
 		}
 
-		fmt.Printf("== CASE: %s\n", tt.Name)
-		fmt.Printf("ACTUAL OUTPUT (%d bundles):\n", len(bundles))
-		sortAndPrintBundles(bundles)
-
-		fmt.Printf("EXPECTED OUTPUT (%d bundles):\n", len(tt.Expected))
-		sortAndPrintBundles(tt.Expected)
+		sortBundles(bundles)
+		sortBundles(tt.Expected)
 
 		if !reflect.DeepEqual(bundles, tt.Expected) {
+			fmt.Printf("== CASE: %s\n", tt.Name)
+			fmt.Printf("ACTUAL OUTPUT (%d bundles):\n", len(bundles))
+			printBundles(bundles)
+
+			fmt.Printf("EXPECTED OUTPUT (%d bundles):\n", len(tt.Expected))
+			printBundles(tt.Expected)
+
 			t.Fatalf("mismatch between returned bundles to pack and expected bundles to pack in case %q", tt.Name)
 			continue
 		}
@@ -246,6 +252,63 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	mustHaveFullfileCount(t, info, 5+emptyDirAndEmptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.shells"), ts.path("www/20/pack-shells-from-0.tar"))
+}
+
+func TestCreatePackWithDelta(t *testing.T) {
+	fs := newTestFileSystem(t, "create-pack-")
+	defer fs.cleanup()
+
+	const (
+		format = 1
+		minVer = 0
+	)
+
+	//
+	// In version 10, create a bundle with files of different sizes.
+	//
+	emptyContents := ""
+	smallContents := "small"
+	largeContents := strings.Repeat("large", 1000)
+	if len(emptyContents) >= minimumSizeToMakeDeltaInBytes || len(smallContents) >= minimumSizeToMakeDeltaInBytes || len(largeContents) < minimumSizeToMakeDeltaInBytes {
+		t.Fatal("test contents sizes are invalid")
+	}
+
+	mustInitStandardTest(t, fs.Dir, "0", "10", []string{"contents"})
+	fs.write("image/10/contents/small1", emptyContents)
+	fs.write("image/10/contents/small2", smallContents)
+	fs.write("image/10/contents/large1", largeContents)
+	fs.write("image/10/contents/large2", largeContents)
+	mustCreateManifests(t, 10, minVer, format, fs.Dir)
+
+	//
+	// In version 20, swap the content of small files, and modify the large files
+	// changing one byte or all bytes.
+	//
+	mustInitStandardTest(t, fs.Dir, "10", "20", []string{"contents"})
+	fs.write("image/20/contents/small1", smallContents)
+	fs.write("image/20/contents/small2", smallContents)
+	fs.write("image/20/contents/large1", strings.ToUpper(largeContents[:1])+largeContents[1:])
+	fs.write("image/20/contents/large2", largeContents[:1]+strings.ToUpper(largeContents[1:]))
+	mustCreateManifests(t, 20, minVer, format, fs.Dir)
+
+	info := mustCreatePack(t, "contents", 10, 20, fs.path("www"), fs.path("image"))
+	mustHaveDeltaCount(t, info, 2)
+
+	//
+	// In version 30, make a change to one large files from 20.
+	//
+	mustInitStandardTest(t, fs.Dir, "20", "30", []string{"contents"})
+	fs.cp("image/20/contents", "image/30")
+	fs.write("image/30/contents/large1", strings.ToUpper(largeContents[:2])+largeContents[2:])
+	mustCreateManifests(t, 30, minVer, format, fs.Dir)
+
+	// Pack between 20 and 30 has only a delta for large1.
+	info = mustCreatePack(t, "contents", 20, 30, fs.path("www"), fs.path("image"))
+	mustHaveDeltaCount(t, info, 1)
+
+	// Pack between 10 and 30 has both deltas.
+	info = mustCreatePack(t, "contents", 10, 30, fs.path("www"), fs.path("image"))
+	mustHaveDeltaCount(t, info, 2)
 }
 
 func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
@@ -452,6 +515,7 @@ func mustCreatePack(t *testing.T, name string, fromVersion, toVersion uint32, ou
 func mustHaveFullfileCount(t *testing.T, info *PackInfo, expected uint64) {
 	t.Helper()
 	if info.FullfileCount != expected {
+		printPackInfo(info)
 		t.Fatalf("pack has %d fullfiles but expected %d", info.FullfileCount, expected)
 	}
 }
@@ -459,6 +523,7 @@ func mustHaveFullfileCount(t *testing.T, info *PackInfo, expected uint64) {
 func mustHaveDeltaCount(t *testing.T, info *PackInfo, expected uint64) {
 	t.Helper()
 	if info.DeltaCount != expected {
+		printPackInfo(info)
 		t.Fatalf("pack has %d deltas but expected %d", info.DeltaCount, expected)
 	}
 }
@@ -466,6 +531,7 @@ func mustHaveDeltaCount(t *testing.T, info *PackInfo, expected uint64) {
 func mustHaveNoWarnings(t *testing.T, info *PackInfo) {
 	t.Helper()
 	if len(info.Warnings) > 0 {
+		printPackInfo(info)
 		t.Fatalf("unexpected warnings in pack: %s", strings.Join(info.Warnings, "\n"))
 	}
 }
@@ -476,4 +542,17 @@ func mustCreateFullfiles(t *testing.T, m *Manifest, chrootDir, outputDir string)
 	if err != nil {
 		t.Fatalf("couldn't create fullfiles: %s", err)
 	}
+}
+
+func printPackInfo(info *PackInfo) {
+	fmt.Printf("WARNINGS (%d)\n", len(info.Warnings))
+	for _, w := range info.Warnings {
+		fmt.Println(w)
+	}
+	fmt.Println()
+	fmt.Printf("ENTRIES (%d)\n", len(info.Entries))
+	for _, e := range info.Entries {
+		fmt.Printf("  %-40s %s (%s)\n", e.File.Name, e.State, e.Reason)
+	}
+	fmt.Println()
 }

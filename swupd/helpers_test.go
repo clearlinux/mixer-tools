@@ -174,7 +174,7 @@ func resetHash() {
 }
 
 func mustMkdir(t *testing.T, name string) {
-	err := os.Mkdir(name, 0755)
+	err := os.MkdirAll(name, 0755)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -275,16 +275,20 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 	}
 }
 
-func mustCreateDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
-	failed, err := CreateDeltas(manifest, statedir, from, to)
+func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
+	deltas, err := CreateDeltas(manifest, statedir, from, to)
 	if err != nil {
-		if len(failed) > 0 {
-			t.Fatalf("%s: \n%d deltas did not get created for %s: %v", err, len(failed), manifest, failed)
-			return
+		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
+	}
+
+	for _, d := range deltas {
+		if d.Error != nil {
+			t.Errorf("couldn't create delta for %s %d -> %s %d: %s", d.from.Name, d.from.Version, d.to.Name, d.to.Version, err)
 		}
-		t.Fatal(err)
-	} else if len(failed) > 0 {
-		t.Fatalf("CreateDeltas succeeded but %d deltas did not get created for %s: %v", len(failed), manifest, failed)
+	}
+
+	if t.Failed() {
+		t.Fatalf("couldn't create all deltas due to errors above")
 	}
 }
 

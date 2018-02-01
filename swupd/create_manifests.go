@@ -253,6 +253,11 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		return nil, err
 	}
 
+	// Bootstrap delta directory, so we can assume every version will have one.
+	if err = os.MkdirAll(filepath.Join(verOutput, "delta"), 0755); err != nil {
+		return nil, err
+	}
+
 	newMoM := Manifest{
 		Name: "MoM",
 		Header: ManifestHeader{

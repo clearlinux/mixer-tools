@@ -21,6 +21,6 @@ func TestCreateDeltas(t *testing.T) {
 	mustCreateManifestsStandard(t, 20, testDir)
 	mustMkdir(t, filepath.Join(testDir, "www/20/delta"))
 
-	mustCreateDeltas(t, "Manifest.full", testDir, 10, 20)
+	mustCreateAllDeltas(t, "Manifest.full", testDir, 10, 20)
 	mustExistDelta(t, testDir, "/bar", 10, 20)
 }

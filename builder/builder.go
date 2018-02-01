@@ -565,18 +565,23 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		if err != nil {
 			return err
 		}
-		var bundleFiles []string
+		var set bundleSet
 		for _, file := range files {
 			if file.IsDir() || strings.HasPrefix(file.Name(), ".") {
 				continue
 			}
-			bundleFiles = append(bundleFiles, filepath.Join(b.Bundledir, file.Name()))
+			var bundle *bundle
+			bundle, err = parseBundleFile(filepath.Join(b.Bundledir, file.Name()))
+			if err != nil {
+				return err
+			}
+			set[bundle.Name] = bundle
 		}
-		var set *bundleSet
-		set, err = newBundleSet(bundleFiles)
-		if err != nil {
+
+		if err = validateAndFillBundleSet(set); err != nil {
 			return err
 		}
+
 		// TODO: Merge the rest of this function into buildBundleChroots (or vice-versa).
 		err = b.buildBundleChroots(set, packager)
 		if err != nil {

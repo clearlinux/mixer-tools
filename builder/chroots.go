@@ -80,7 +80,7 @@ func readBuildChrootsConfig(path string) (*buildChrootsConfig, error) {
 	return cfg, nil
 }
 
-func (b *Builder) buildBundleChroots(set *bundleSet, packager string) error {
+func (b *Builder) buildBundleChroots(set bundleSet, packager string) error {
 	var err error
 
 	if b.Statedir == "" {
@@ -93,7 +93,7 @@ func (b *Builder) buildBundleChroots(set *bundleSet, packager string) error {
 	// bootstraping or cleaning up.
 	outputDir := filepath.Join(b.Statedir, "www")
 
-	if _, ok := set.Bundles["os-core"]; !ok {
+	if _, ok := set["os-core"]; !ok {
 		return fmt.Errorf("os-core bundle not found")
 	}
 
@@ -115,7 +115,7 @@ func (b *Builder) buildBundleChroots(set *bundleSet, packager string) error {
 		return err
 	}
 
-	if _, ok := set.Bundles[cfg.UpdateBundle]; !ok {
+	if _, ok := set[cfg.UpdateBundle]; !ok {
 		return fmt.Errorf("couldn't find bundle %q specified in configuration as the update bundle", cfg.UpdateBundle)
 	}
 
@@ -141,7 +141,7 @@ src=%s
 	// TODO: If we are using INI files that are case insensitive, we need to be more restrictive
 	// in bundleset to check for that. See also readGroupsINI in swupd package.
 	var groupsINI bytes.Buffer
-	for _, bundle := range set.Bundles {
+	for _, bundle := range set {
 		fmt.Fprintf(&groupsINI, "[%s]\ngroup=%s\n\n", bundle.Name, bundle.Name)
 	}
 	err = ioutil.WriteFile(filepath.Join(b.Statedir, "groups.ini"), groupsINI.Bytes(), 0644)
@@ -171,7 +171,7 @@ src=%s
 	if err != nil {
 		return err
 	}
-	for name, bundle := range set.Bundles {
+	for name, bundle := range set {
 		// TODO: Should we embed this information in groups.ini? (Maybe rename it to bundles.ini)
 		var includes bytes.Buffer
 		for _, inc := range bundle.DirectIncludes {
@@ -242,7 +242,7 @@ src=%s
 	}
 
 	fmt.Println("Installing packages in os-core")
-	err = installPackagesToBundleChroot(yumCmd, chrootVersionDir, set.Bundles["os-core"])
+	err = installPackagesToBundleChroot(yumCmd, chrootVersionDir, set["os-core"])
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ src=%s
 
 	fmt.Println("Creating chroots for bundles")
 	// TODO: Use goroutines.
-	for _, bundle := range set.Bundles {
+	for _, bundle := range set {
 		if bundle.Name == "os-core" {
 			continue
 		}
@@ -316,7 +316,7 @@ src=%s
 	}
 
 	// Cleaning os-core bundles after all the other bundles already used it for bootstrapping.
-	err = cleanBundleChroot(chrootVersionDir, set.Bundles["os-core"])
+	err = cleanBundleChroot(chrootVersionDir, set["os-core"])
 	if err != nil {
 		return err
 	}

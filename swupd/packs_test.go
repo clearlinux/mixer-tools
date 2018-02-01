@@ -350,57 +350,6 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 	}
 }
 
-// When creating a pack between two versions, no need to include a fullfile that is
-// already present on the previous version.
-func TestCreatePackDoNotIncludeRedundantFullfile(t *testing.T) {
-	fs := newTestFileSystem(t, "create-pack-")
-	defer fs.cleanup()
-
-	const (
-		format = 1
-		minVer = 0
-	)
-
-	// In version 10, we have a few editors.
-	mustInitStandardTest(t, fs.Dir, "0", "10", []string{"editors"})
-	fs.write("image/10/editors/emacs", "emacs contents")
-	fs.write("image/10/editors/joe", "joe contents")
-	fs.write("image/10/editors/vim", "vim contents")
-	mustCreateManifests(t, 10, minVer, format, fs.Dir)
-
-	// In version 20, we add two new editors, one new and one that is the same content
-	// as a previous one.
-	mustInitStandardTest(t, fs.Dir, "10", "20", []string{"editors"})
-	fs.cp("image/10/editors", "image/20")
-	fs.cp("image/20/editors/vim", "image/20/editors/vi") // vi is the same as vim
-	fs.write("image/20/editors/nano", "nano contents")   // nano is new
-	mustCreateManifests(t, 20, minVer, format, fs.Dir)
-
-	// Pack between 10->20 should have just one fullfile.
-	info := mustCreatePack(t, "editors", 10, 20, fs.path("www"), fs.path("image"))
-	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 1)
-	mustHaveDeltaCount(t, info, 0)
-
-	// In version 30, we remove emacs.
-	mustInitStandardTest(t, fs.Dir, "20", "30", []string{"editors"})
-	fs.cp("image/20/editors", "image/30")
-	fs.rm("image/30/editors/emacs")
-	mustCreateManifests(t, 30, minVer, format, fs.Dir)
-
-	// In version 40, we add it with another name.
-	mustInitStandardTest(t, fs.Dir, "30", "40", []string{"editors"})
-	fs.cp("image/30/editors", "image/40")
-	fs.write("image/40/editors/emacs25", "emacs contents")
-	mustCreateManifests(t, 40, minVer, format, fs.Dir)
-
-	// Pack between 20->40 should have no fullfiles, because there are no new hashes.
-	info = mustCreatePack(t, "editors", 20, 40, fs.path("www"), fs.path("image"))
-	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 0)
-	mustHaveDeltaCount(t, info, 0)
-}
-
 // mustValidateZeroPack will open a zero pack and check that all the hashes not
 // deleted/ghosted in the manifest are present in the pack, and their content does match
 // the hash.

@@ -134,23 +134,6 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		Entries: make([]PackEntry, len(toManifest.Files)),
 	}
 
-	// Keep track of the hashes present in the From version, so we don't pack them.
-	var hashesInFrom map[Hashval]bool
-	if fromManifest != nil {
-		hashesInFrom = make(map[Hashval]bool, len(fromManifest.Files))
-		for _, f := range fromManifest.Files {
-			if f.Present() {
-				hashesInFrom[f.Hash] = true
-			}
-		}
-	} else {
-		hashesInFrom = make(map[Hashval]bool)
-	}
-
-	if debugPacks {
-		log.Printf("DEBUG: %d hashes already in from manifest", len(hashesInFrom))
-	}
-
 	xw, err := NewExternalWriter(w, "xz")
 	if err != nil {
 		return nil, err
@@ -215,7 +198,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		entry := &info.Entries[i]
 		entry.File = f
 
-		if f.Version <= fromVersion || hashesInFrom[f.Hash] {
+		if f.Version <= fromVersion {
 			entry.Reason = "already in from manifest"
 			continue
 		}

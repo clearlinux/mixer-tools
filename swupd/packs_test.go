@@ -254,6 +254,50 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	mustValidateZeroPack(t, fs.path("www/20/Manifest.shells"), fs.path("www/20/pack-shells-from-0.tar"))
 }
 
+func TestCreatePackWithDelta(t *testing.T) {
+	fs := newTestFileSystem(t, "create-pack-")
+	defer fs.cleanup()
+
+	const (
+		format = 1
+		minVer = 0
+	)
+
+	//
+	// In version 10, create a bundle with files of different sizes.
+	//
+	emptyContents := ""
+	smallContents := "small"
+	largeContents := strings.Repeat("large", 1000)
+	if len(emptyContents) >= minimumSizeToMakeDeltaInBytes || len(smallContents) >= minimumSizeToMakeDeltaInBytes || len(largeContents) < minimumSizeToMakeDeltaInBytes {
+		t.Fatal("test contents sizes are invalid")
+	}
+
+	mustInitStandardTest(t, fs.Dir, "0", "10", []string{"contents"})
+	fs.write("image/10/contents/small1", emptyContents)
+	fs.write("image/10/contents/small2", smallContents)
+	fs.write("image/10/contents/large1", largeContents)
+	fs.write("image/10/contents/large2", largeContents)
+	mustCreateManifests(t, 10, minVer, format, fs.Dir)
+
+	//
+	// In version 20, swap the content of small files, and modify the large files
+	// changing one byte or all bytes.
+	//
+	mustInitStandardTest(t, fs.Dir, "10", "20", []string{"contents"})
+	fs.write("image/20/contents/small1", smallContents)
+	fs.write("image/20/contents/small2", smallContents)
+	fs.write("image/20/contents/large1", strings.ToUpper(largeContents[:1])+largeContents[1:])
+	fs.write("image/20/contents/large2", largeContents[:1]+strings.ToUpper(largeContents[1:]))
+	mustCreateManifests(t, 20, minVer, format, fs.Dir)
+
+	// TODO: Move directory creation somewhere else.
+	fs.mkdir("www/20/delta")
+
+	info := mustCreatePack(t, "contents", 10, 20, fs.path("www"), fs.path("image"))
+	mustHaveDeltaCount(t, info, 2)
+}
+
 func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 	fs := newTestFileSystem(t, "create-pack-")
 	defer fs.cleanup()

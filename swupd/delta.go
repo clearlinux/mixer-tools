@@ -148,7 +148,7 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 	oldManifest.sortFilesName()
 	newManifest.sortFilesName()
 
-	err := linkDeltaPeers(c, oldManifest, newManifest)
+	err := linkDeltaPeersForPack(c, oldManifest, newManifest)
 	if err != nil {
 		return nil, err
 	}

@@ -270,7 +270,7 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 
 	for _, re := range res {
 		if !re.Match(b) {
-			t.Errorf("%v not found in %s/Manifest.%s", re.String(), ver, name)
+			t.Errorf("%v not found in %s", re.String(), manFpath)
 		}
 	}
 }

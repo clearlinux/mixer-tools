@@ -441,28 +441,29 @@ func TestCreateManifestsManifestVersion(t *testing.T) {
 }
 
 func TestCreateManifestsMinVersion(t *testing.T) {
-	testDir := mustSetupTestDir(t, "minVersion")
-	defer removeIfNoErrors(t, testDir)
-	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
-	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
-	mustCreateManifestsStandard(t, 10, testDir)
+	ts := newTestSwupd(t, "minVersion-")
+	defer ts.cleanup()
 
-	checkManifestContains(t, testDir, "10", "test-bundle", "10\t/foo\n")
-	checkManifestContains(t, testDir, "10", "full", "10\t/foo\n")
+	ts.Bundles = []string{"test-bundle"}
+	ts.write("image/10/test-bundle/foo", "foo")
+	ts.createManifests(10)
 
-	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
-	// same file and same contents
-	mustGenFile(t, testDir, "20", "test-bundle", "foo", "foo")
-	mustCreateManifests(t, 20, 20, 1, testDir)
+	ts.checkContains("www/10/Manifest.test-bundle", "10\t/foo\n")
+	ts.checkContains("www/10/Manifest.full", "10\t/foo\n")
+
+	// Update minVersion, but keep same file and contents.
+	ts.MinVersion = 20
+	ts.write("image/20/test-bundle/foo", "foo")
+	ts.createManifests(20)
 
 	// since the minVersion was set to this version the file version should
 	// be updated despite there being no change to the file.
-	checkManifestContains(t, testDir, "20", "test-bundle", "20\t/foo\n")
-	checkManifestContains(t, testDir, "20", "full", "20\t/foo\n")
-	checkManifestNotContains(t, testDir, "20", "test-bundle", "10\t/foo\n")
-	checkManifestNotContains(t, testDir, "20", "full", "10\t/foo\n")
+	ts.checkContains("www/20/Manifest.test-bundle", "20\t/foo\n")
+	ts.checkContains("www/20/Manifest.full", "20\t/foo\n")
+	ts.checkNotContains("www/20/Manifest.test-bundle", "10\t/foo\n")
+	ts.checkNotContains("www/20/Manifest.full", "10\t/foo\n")
 	// we can even check that there are NO files left at version 10
-	checkManifestNotContains(t, testDir, "20", "full", "\t10\t")
+	ts.checkNotContains("www/20/Manifest.full", "\t10\t")
 }
 
 func TestCreateManifestsPersistDeletes(t *testing.T) {

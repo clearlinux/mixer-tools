@@ -298,15 +298,12 @@ func mustCreateDeltas(t *testing.T, manifest, statedir string, from, to uint32) 
 // 	defer fs.cleanup()
 // 	// ...
 // }
+//
+// See also testSwupd struct, that has a testFileSystem plus other swupd specific facilities.
 type testFileSystem struct {
 	Dir string
 	t   *testing.T
 }
-
-// TODO: Consider making a swupdTest struct, similar in spirit to testFileSystem, which
-// would contain a filesystem and provide easier access to the functionality, i.e. it
-// could keep a state for versions we are creating, and have support code to copy the
-// bundle files around.
 
 func newTestFileSystem(t *testing.T, prefix string) *testFileSystem {
 	dir, err := ioutil.TempDir("", prefix)
@@ -328,6 +325,7 @@ func (fs *testFileSystem) cleanup() {
 }
 
 func (fs *testFileSystem) write(subpath, content string) {
+	fs.t.Helper()
 	path := filepath.Join(fs.Dir, subpath)
 	err := os.MkdirAll(filepath.Dir(path), 0755)
 	if err != nil {
@@ -346,6 +344,7 @@ func (fs *testFileSystem) path(subpath string) string {
 // Use shell cp command order instead of assignment order. Calling it cp to make readers
 // remember that order. Change if we are getting confused.
 func (fs *testFileSystem) cp(src, dst string) {
+	fs.t.Helper()
 	dstPath := filepath.Join(fs.Dir, dst)
 	err := os.MkdirAll(filepath.Dir(dstPath), 0755)
 	if err != nil {
@@ -361,9 +360,167 @@ func (fs *testFileSystem) cp(src, dst string) {
 }
 
 func (fs *testFileSystem) rm(subpath string) {
+	fs.t.Helper()
 	path := filepath.Join(fs.Dir, subpath)
 	err := os.RemoveAll(path)
 	if err != nil {
 		fs.t.Fatalf("error removing %s: %s", subpath, err)
+	}
+}
+
+func (fs *testFileSystem) mkdir(subpath string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, subpath)
+	err := os.MkdirAll(path, 0755)
+	if err != nil {
+		fs.t.Fatalf("error creating directory %s: %s", subpath, err)
+	}
+}
+
+func (fs *testFileSystem) exists(subpath string) bool {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, subpath)
+	_, err := os.Stat(path)
+	switch {
+	case err == nil:
+		return true
+	case os.IsNotExist(err):
+		return false
+	default:
+		fs.t.Fatalf("error checking if %s exists: %s", subpath, err)
+		return false
+	}
+}
+
+func (fs *testFileSystem) checkContains(subpath, sub string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, subpath)
+	contents, err := ioutil.ReadFile(path)
+	if err != nil {
+		fs.t.Errorf("couldn't open %s to check its contents: %s", subpath, err)
+	}
+	if !bytes.Contains(contents, []byte(sub)) {
+		fs.t.Errorf("%s did not contain expected %q", subpath, sub)
+	}
+}
+
+func (fs *testFileSystem) checkNotContains(subpath, sub string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, subpath)
+	contents, err := ioutil.ReadFile(path)
+	if err != nil {
+		fs.t.Errorf("couldn't open %s to check its contents: %s", subpath, err)
+	}
+	if bytes.Contains(contents, []byte(sub)) {
+		fs.t.Errorf("%s did not contain expected %q", subpath, sub)
+	}
+}
+
+// testSwupd is a struct that keeps track of an update content state and a testing.T. It
+// can be used to perform repository construction and operations and handle unexpected
+// errors with t.Fatal. It does embed a testFileSystem, so all the filesystem operations
+// are also available.
+//
+// It is to be used in places where the swupd operations (create manifests, create packs)
+// are expected to return without errors and the subject of the test is their product. In
+// case errors of those operations are to be tested, use the data from the struct but not
+// the helper functions.
+//
+// Simple usage looks like
+//
+// func TestMyTest(t *testing.T) {
+// 	ts := newTestSwupd(t, "my-test-")
+// 	defer ts.cleanup()
+//
+//	ts.Bundles = []string{"bundle"}
+//      ts.write("image/10/bundle/file", "content")
+//      ts.createManifests(10)
+//
+//      // ...
+// }
+//
+// For tests that require only filesystem operations, prefer testFileSystem.
+type testSwupd struct {
+	*testFileSystem
+
+	Bundles    []string
+	MinVersion uint32
+	Format     uint
+}
+
+func newTestSwupd(t *testing.T, prefix string) *testSwupd {
+	fs := newTestFileSystem(t, prefix)
+	defer func() {
+		// If we failed to create a testSwupd, cleanup the fs. If we succeed
+		// it is up to the caller to cleanup the testSwupd.
+		if t.Failed() {
+			fs.cleanup()
+		}
+	}()
+
+	fs.mkdir("image")
+	fs.mkdir("www")
+	fs.write("image/LAST_VER", "0\n")
+
+	mustInitServerINI(t, fs.Dir)
+
+	return &testSwupd{
+		testFileSystem: fs,
+		Format:         1,
+	}
+}
+
+// Create Manifests and bump to next version.
+func (ts *testSwupd) createManifests(version uint32) *MoM {
+	ts.t.Helper()
+	mustInitGroupsINI(ts.t, ts.Dir, ts.Bundles)
+
+	for _, name := range ts.Bundles {
+		ts.write(filepath.Join("image", fmt.Sprint(version), name, "usr/share/clear/bundles", name), "")
+	}
+
+	osRelease := fmt.Sprintf("VERSION_ID=%d\n", version)
+	ts.write(filepath.Join("image", fmt.Sprint(version), "os-core", "usr/lib/os-release"), osRelease)
+
+	mom, err := CreateManifests(version, ts.MinVersion, ts.Format, ts.Dir)
+	if err != nil {
+		ts.t.Fatalf("error creating manifests for version %d: %s", version, err)
+	}
+
+	ts.write("image/LAST_VER", fmt.Sprintf("%d\n", version))
+
+	return mom
+}
+
+func (ts *testSwupd) copyChroots(fromVersion, toVersion uint32) {
+	ts.t.Helper()
+	from := fmt.Sprint(fromVersion)
+	to := fmt.Sprint(toVersion)
+	ts.mkdir(filepath.Join("image", to))
+	for _, name := range ts.Bundles {
+		fromSubpath := filepath.Join("image", from, name)
+		if ts.exists(fromSubpath) {
+			ts.cp(fromSubpath, filepath.Join("image", to))
+		}
+	}
+}
+
+func (ts *testSwupd) createPack(name string, from, to uint32, chrootDir string) *PackInfo {
+	ts.t.Helper()
+	return mustCreatePack(ts.t, name, from, to, ts.path("www"), chrootDir)
+}
+
+func (ts *testSwupd) createFullfiles(version uint32) {
+	ts.t.Helper()
+	filename := ts.path(filepath.Join("www", fmt.Sprint(version), "Manifest.full"))
+	m, err := ParseManifestFile(filename)
+	if err != nil {
+		ts.t.Fatalf("couldn't parse full manifest to generate full files in test: %s", err)
+	}
+	chrootDir := ts.path(filepath.Join("image", fmt.Sprint(version), "full"))
+	outputDir := ts.path(filepath.Join("www", fmt.Sprint(version), "files"))
+	err = CreateFullfiles(m, chrootDir, outputDir)
+	if err != nil {
+		ts.t.Fatalf("couldn't create fullfiles: %s", err)
 	}
 }

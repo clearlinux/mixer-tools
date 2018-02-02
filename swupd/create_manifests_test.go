@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -463,4 +464,101 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	checkManifestNotContains(t, testDir, "20", "full", "10\t/foo\n")
 	// we can even check that there are NO files left at version 10
 	checkManifestNotContains(t, testDir, "20", "full", "\t10\t")
+}
+
+func TestCreateManifestsDirectRenames(t *testing.T) {
+	testDir := mustSetupTestDir(t, "directRenames")
+	defer removeIfNoErrors(t, testDir)
+
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", strings.Repeat("foo", 100))
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "bar", strings.Repeat("foo", 100))
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	re := regexp.MustCompile("F\\.\\.r\t.*\t20\t/bar\n")
+	checkManifestMatches(t, testDir, "20", "test-bundle", re)
+	re = regexp.MustCompile("\\.d\\.r\t.*\t20\t/foo\n")
+	checkManifestMatches(t, testDir, "20", "test-bundle", re)
+}
+
+func TestCreateManifestsRenamesNewHash(t *testing.T) {
+	testDir := mustSetupTestDir(t, "renamesNewHash")
+	defer removeIfNoErrors(t, testDir)
+
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", strings.Repeat("foo", 100))
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "foo33", strings.Repeat("foo", 100)+"ch-ch-ch-changes")
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	re := regexp.MustCompile("F\\.\\.r\t.*\t20\t/foo33\n")
+	checkManifestMatches(t, testDir, "20", "test-bundle", re)
+	re = regexp.MustCompile("\\.d\\.r\t.*\t20\t/foo\n")
+	checkManifestMatches(t, testDir, "20", "test-bundle", re)
+}
+
+func TestCreateManifestsRenamesOrphanedDeletes(t *testing.T) {
+	testDir := mustSetupTestDir(t, "renamesOrphanedDeletes")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "direct", strings.Repeat("foo", 100))
+	mustGenFile(t, testDir, "10", "test-bundle", "hashchange", strings.Repeat("boo", 100))
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "direct1", strings.Repeat("foo", 100))
+	mustGenFile(t, testDir, "20", "test-bundle", "hashchange1", strings.Repeat("roo", 100))
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
+	mustCreateManifestsStandard(t, 30, testDir)
+
+	res := []*regexp.Regexp{
+		regexp.MustCompile("\\.d\\.\\.\t.*\t30\t/direct\n"),
+		regexp.MustCompile("\\.d\\.\\.\t.*\t30\t/direct1\n"),
+		regexp.MustCompile("\\.d\\.\\.\t.*\t30\t/hashchange\n"),
+		regexp.MustCompile("\\.d\\.\\.\t.*\t30\t/hashchange1\n"),
+	}
+	checkManifestMatches(t, testDir, "30", "test-bundle", res...)
+}
+
+func TestCreateRenamesOrphanedChain(t *testing.T) {
+	testDir := mustSetupTestDir(t, "renamesOrphanedChain")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "direct", strings.Repeat("foo", 100))
+	mustGenFile(t, testDir, "10", "test-bundle", "hashchange", strings.Repeat("boo", 100))
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	mustGenFile(t, testDir, "20", "test-bundle", "direct1", strings.Repeat("foo", 100))
+	mustGenFile(t, testDir, "20", "test-bundle", "hashchange1", strings.Repeat("roo", 100))
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
+	mustGenFile(t, testDir, "30", "test-bundle", "direct2", strings.Repeat("foo", 100))
+	mustGenFile(t, testDir, "30", "test-bundle", "hashchange2", strings.Repeat("goo", 100))
+	mustCreateManifestsStandard(t, 30, testDir)
+
+	res := []*regexp.Regexp{
+		// direct deleted
+		regexp.MustCompile("\\.d\\.\\.\t.*\t30\tdirect\n"),
+		// direct1 is now rename-from
+		regexp.MustCompile("\\.d\\.r\t.*\t30\tdirect1\n"),
+		// direct2 is now rename-to
+		regexp.MustCompile("F\\.\\.r\t.*\t30\tdirect2\n"),
+
+		// hashchange deleted
+		regexp.MustCompile("\\.d\\.\\.\t.*\t30\thashchange\n"),
+		// hashchange1 now rename-from
+		regexp.MustCompile("\\.d\\.r\t.*\t30\thashchange1\n"),
+		// hashchange2 now rename-to
+		regexp.MustCompile("F\\.\\.r\t.*\t30\thashchange2\n"),
+	}
+	checkManifestMatches(t, testDir, "30", "test-bundle", res...)
 }

@@ -464,3 +464,25 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	// we can even check that there are NO files left at version 10
 	checkManifestNotContains(t, testDir, "20", "full", "\t10\t")
 }
+
+func TestCreateManifestsPersistDeletes(t *testing.T) {
+	testDir := mustSetupTestDir(t, "persistDeletes")
+	defer removeIfNoErrors(t, testDir)
+	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle"})
+	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
+	mustCreateManifestsStandard(t, 10, testDir)
+
+	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle"})
+	// foo is deleted
+	mustCreateManifestsStandard(t, 20, testDir)
+
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle"})
+	// foo is still deleted
+	// create new file to force manifest creation
+	mustGenFile(t, testDir, "30", "test-bundle", "bar", "bar")
+	mustCreateManifestsStandard(t, 30, testDir)
+
+	// the old deleted file is still there
+	re := regexp.MustCompile("\\.d\\.\\.\t.*\t20\t/foo")
+	checkManifestMatches(t, testDir, "30", "test-bundle", re)
+}

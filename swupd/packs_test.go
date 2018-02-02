@@ -172,86 +172,79 @@ func TestFindBundlesToPack(t *testing.T) {
 }
 
 func TestCreatePackZeroPacks(t *testing.T) {
-	fs := newTestFileSystem(t, "create-pack-")
-	defer fs.cleanup()
+	ts := newTestSwupd(t, "create-pack-")
+	defer ts.cleanup()
 
-	const (
-		format = 1
-		minVer = 0
+	// Used when counting fullfiles.
+	const emptyDirAndEmptyFile = 2
 
-		// Used when counting fullfiles.
-		emptyDirAndEmptyFile = 2
-	)
+	ts.Bundles = []string{"editors", "shells"}
 
 	//
 	// In version 10, create two bundles and pass the chrootDir to pack creation.
 	//
-	mustInitStandardTest(t, fs.Dir, "0", "10", []string{"editors", "shells"})
+	ts.write("image/10/editors/emacs", "emacs contents")
+	ts.write("image/10/editors/joe", "joe contents")
+	ts.write("image/10/editors/vim", "vim contents")
 
-	fs.write("image/10/editors/emacs", "emacs contents")
-	fs.write("image/10/editors/joe", "joe contents")
-	fs.write("image/10/editors/vim", "vim contents")
+	ts.write("image/10/shells/bash", "bash contents")
+	ts.write("image/10/shells/csh", "csh contents")
+	ts.write("image/10/shells/fish", "fish contents")
+	ts.write("image/10/shells/zsh", "zsh contents")
 
-	fs.write("image/10/shells/bash", "bash contents")
-	fs.write("image/10/shells/csh", "csh contents")
-	fs.write("image/10/shells/fish", "fish contents")
-	fs.write("image/10/shells/zsh", "zsh contents")
-
-	mom10 := mustCreateManifests(t, 10, minVer, format, fs.Dir)
+	ts.createManifests(10)
 
 	// Let's create zero packs for version 10.
-	info := mustCreatePack(t, "editors", 0, 10, fs.path("www"), fs.path("image"))
+	info := ts.createPack("editors", 0, 10, ts.path("image"))
 	mustHaveNoWarnings(t, info)
 	mustHaveFullfileCount(t, info, 3+emptyDirAndEmptyFile)
 	mustHaveDeltaCount(t, info, 0)
-	mustValidateZeroPack(t, fs.path("www/10/Manifest.editors"), fs.path("www/10/pack-editors-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.editors"), ts.path("www/10/pack-editors-from-0.tar"))
 
-	info = mustCreatePack(t, "shells", 0, 10, fs.path("www"), fs.path("image"))
+	info = ts.createPack("shells", 0, 10, ts.path("image"))
 	mustHaveNoWarnings(t, info)
 	mustHaveFullfileCount(t, info, 4+emptyDirAndEmptyFile)
 	mustHaveDeltaCount(t, info, 0)
-	mustValidateZeroPack(t, fs.path("www/10/Manifest.shells"), fs.path("www/10/pack-shells-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.shells"), ts.path("www/10/pack-shells-from-0.tar"))
 
 	//
-	// In version 20, packs will use the fullfiles. Also check if errors happen when
-	// the fullfiles are missing.
+	// In version 20, packs will use the fullfiles (not passing chrootDir when packing). Also
+	// check if errors happen when the fullfiles are missing.
 	//
-	mustInitStandardTest(t, fs.Dir, "10", "20", []string{"editors", "shells"})
-	fs.cp("image/10/editors", "image/20")
-	fs.cp("image/10/shells", "image/20")
-	fs.rm("image/20/editors/vim")
-	fs.rm("image/20/editors/emacs")
-	fs.write("image/20/shells/ksh", "ksh contents")
-	mom20 := mustCreateManifests(t, 20, minVer, format, fs.Dir)
+	ts.copyChroots(10, 20)
+	ts.rm("image/20/editors/vim")
+	ts.rm("image/20/editors/emacs")
+	ts.write("image/20/shells/ksh", "ksh contents")
+	ts.createManifests(20)
 
 	// Expect failure when creating packs without the fullfiles.
-	_, err := CreatePack("editors", 0, 20, fs.path("www"), "")
+	_, err := CreatePack("editors", 0, 20, ts.path("www"), "")
 	if err == nil {
 		t.Fatalf("unexpected success creating pack without chrootDir nor fullfiles available")
 	}
-	mustCreateFullfiles(t, mom10.FullManifest, fs.path("image/10/full"), fs.path("www/10/files"))
+	ts.createFullfiles(10)
 
 	// All the files in bundle editors are available, so it will pass work.
-	info = mustCreatePack(t, "editors", 0, 20, fs.path("www"), "")
+	info = ts.createPack("editors", 0, 20, "")
 	mustHaveNoWarnings(t, info)
 	mustHaveFullfileCount(t, info, 1+emptyDirAndEmptyFile)
 	mustHaveDeltaCount(t, info, 0)
-	mustValidateZeroPack(t, fs.path("www/20/Manifest.editors"), fs.path("www/20/pack-editors-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/20/Manifest.editors"), ts.path("www/20/pack-editors-from-0.tar"))
 
 	// Expect failure when creating packs for bundle shells, it won't find the new
 	// shell added in version 20.
-	_, err = CreatePack("shells", 0, 20, fs.path("www"), "")
+	_, err = CreatePack("shells", 0, 20, ts.path("www"), "")
 	if err == nil {
 		t.Fatalf("unexpected success creating pack without all fullfiles available")
 	}
-	mustCreateFullfiles(t, mom20.FullManifest, fs.path("image/20/full"), fs.path("www/20/files"))
+	ts.createFullfiles(20)
 
 	// Now we have all fullfiles for both versions.
-	info = mustCreatePack(t, "shells", 0, 20, fs.path("www"), "")
+	info = ts.createPack("shells", 0, 20, "")
 	mustHaveNoWarnings(t, info)
 	mustHaveFullfileCount(t, info, 5+emptyDirAndEmptyFile)
 	mustHaveDeltaCount(t, info, 0)
-	mustValidateZeroPack(t, fs.path("www/20/Manifest.shells"), fs.path("www/20/pack-shells-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/20/Manifest.shells"), ts.path("www/20/pack-shells-from-0.tar"))
 }
 
 func TestCreatePackWithIncompleteChrootDir(t *testing.T) {

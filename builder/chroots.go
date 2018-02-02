@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -272,30 +273,35 @@ src=%s
 	}
 
 	fmt.Println("Creating chroots for bundles")
-	// TODO: Use goroutines.
-	for _, bundle := range set.Bundles {
-		if bundle.Name == "os-core" {
+	var wg sync.WaitGroup
+
+	for _, b := range set.Bundles {
+		if b.Name == "os-core" {
 			continue
 		}
+		// Only add here since os-core may be skipped
+		wg.Add(1)
+		go func(bundle *bundle) {
+			defer wg.Done()
+			fmt.Printf("Creating %s chroot\n", bundle.Name)
+			err = helpers.RunCommandSilent("cp", "-a", "--preserve=all", osCoreDir, filepath.Join(chrootVersionDir, bundle.Name))
+			if err != nil {
+				//return err
+			}
 
-		fmt.Printf("Creating %s chroot\n", bundle.Name)
-		err = helpers.RunCommandSilent("cp", "-a", "--preserve=all", osCoreDir, filepath.Join(chrootVersionDir, bundle.Name))
-		if err != nil {
-			return err
-		}
+			fmt.Printf("Installing packages to %s\n", bundle.Name)
+			err = installPackagesToBundleChroot(yumCmd, chrootVersionDir, bundle)
+			if err != nil {
+				//return err
+			}
 
-		fmt.Printf("Installing packages to %s\n", bundle.Name)
-		err = installPackagesToBundleChroot(yumCmd, chrootVersionDir, bundle)
-		if err != nil {
-			return err
-		}
-
-		err = cleanBundleChroot(chrootVersionDir, bundle)
-		if err != nil {
-			return err
-		}
+			err = cleanBundleChroot(chrootVersionDir, bundle)
+			if err != nil {
+				//return err
+			}
+		}(b)
 	}
-
+	wg.Wait()
 	fmt.Printf("Adding swupd default values to '%s' bundle\n", cfg.UpdateBundle)
 	swupdDir := filepath.Join(chrootVersionDir, cfg.UpdateBundle, "usr/share/defaults/swupd")
 	err = os.MkdirAll(swupdDir, 0755)

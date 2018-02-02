@@ -1,6 +1,7 @@
 package swupd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
@@ -486,4 +487,91 @@ func TestCreateManifestsPersistDeletes(t *testing.T) {
 	// the old deleted file is still there
 	re := regexp.MustCompile("\\.d\\.\\.\t.*\t20\t/foo")
 	checkManifestMatches(t, testDir, "30", "test-bundle", re)
+}
+
+// Imported from swupd-server/test/functional/contentsize-across-versions-includes.
+func TestContentSizeAcrossVersionsIncludes(t *testing.T) {
+	ts := newTestSwupd(t, "content-size-across-")
+	defer ts.cleanup()
+
+	checkSize := func(m *Manifest, expectedSize uint64) {
+		t.Helper()
+		if m == nil {
+			t.Error("couldn't check size, manifest not found")
+			return
+		}
+		size := m.Header.ContentSize
+		if size != expectedSize {
+			t.Errorf("bundle %s has contentsize %d but expected %d", m.Name, size, expectedSize)
+		}
+	}
+
+	// Create a couple updates to both check that contentsize does not add included
+	// bundles and to verify that files changed in previous updates are counted.
+
+	ts.Bundles = []string{"test-bundle0", "test-bundle1", "test-bundle2"}
+
+	// Check that contentsize does not add included bundle.
+	ts.mkdir("image/10/test-bundle0")                    // Empty, used as reference.
+	ts.write("image/10/test-bundle1/foo", "foo\n")       // 4 bytes.
+	ts.write("image/10/test-bundle1/foobar", "foobar\n") // 7 bytes.
+	ts.write("image/10/test-bundle2/foo2", "foo2\n")     // 5 bytes.
+	ts.write("image/10/noship/test-bundle2-includes", "test-bundle1")
+	ts.createManifests(10)
+
+	manifests := mustParseAllManifests(t, 10, ts.path("www"))
+	emptySize := manifests["test-bundle0"].Header.ContentSize
+	osCoreSize := manifests["os-core"].Header.ContentSize
+	fullSize := manifests["full"].Header.ContentSize
+
+	checkSize(manifests["test-bundle1"], 4+7+emptySize)
+	checkSize(manifests["test-bundle2"], 5+emptySize)
+
+	// Check that content size does add files from previous updates.
+	ts.copyChroots(10, 20)
+	ts.write("image/20/test-bundle1/foobarbaz", "foobarbaz\n") // 10 bytes.
+	ts.write("image/20/test-bundle2/foo2bar", "foo2bar\n")     // 8 bytes.
+	ts.write("image/20/noship/test-bundle2-includes", "test-bundle1")
+	ts.createManifests(20)
+
+	manifests = mustParseAllManifests(t, 20, ts.path("www"))
+
+	checkSize(manifests["test-bundle1"], 4+7+10+emptySize)
+	checkSize(manifests["test-bundle2"], 5+8+emptySize)
+
+	// os-core should have the same size as before.
+	checkSize(manifests["os-core"], osCoreSize)
+
+	// full should have increased with all new files.
+	checkSize(manifests["full"], fullSize+10+8)
+}
+
+func mustParseAllManifests(t *testing.T, version uint32, outputDir string) map[string]*Manifest {
+	t.Helper()
+
+	mom, err := ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(version), "Manifest.MoM"))
+	if err != nil {
+		t.Fatalf("couldn't parse Manifest.MoM for version %d: %s", version, err)
+	}
+
+	full, err := ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(version), "Manifest.full"))
+	if err != nil {
+		t.Fatalf("couldn't parse Manifest.full for version %d: %s", version, err)
+	}
+
+	// Result contains all bundles manifests plus "full" and "MoM".
+	result := make(map[string]*Manifest, len(mom.Files)+2)
+	result["MoM"] = mom
+	result["full"] = full
+
+	for _, f := range mom.Files {
+		var m *Manifest
+		m, err = ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(f.Version), "Manifest."+f.Name))
+		if err != nil {
+			t.Fatalf("could't parse Manifest.%s of version %d: %s", f.Name, f.Version, err)
+		}
+		result[f.Name] = m
+	}
+
+	return result
 }

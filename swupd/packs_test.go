@@ -1,6 +1,7 @@
 package swupd
 
 import (
+	"archive/tar"
 	"fmt"
 	"io"
 	"os"
@@ -377,6 +378,31 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 		_ = tr.Close()
 	}()
 
+	mustHaveDir := func(name string) {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			t.Fatalf("invalid pack: required dir %s not found", name)
+		}
+		if err != nil {
+			t.Fatalf("error reading pack: %s", err)
+		}
+		if hdr.Name != name {
+			t.Fatalf("invalid pack: required dir %s not found", name)
+		}
+		if hdr.Typeflag != tar.TypeDir {
+			t.Fatalf("invalid pack: %s is of type %c instead of %c (directory)", name, hdr.Typeflag, tar.TypeDir)
+		}
+		var expectedMode int64 = 0700
+		if hdr.Mode != expectedMode {
+			t.Fatalf("invalid pack: wrong permissions %s for %s, expected %s", os.FileMode(hdr.Mode), name, os.FileMode(expectedMode))
+		}
+	}
+
+	// swupd-server expected these two to always exist in that order, but we could
+	// relax this restriction later if needed.
+	mustHaveDir("delta/")
+	mustHaveDir("staged/")
+
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -385,8 +411,14 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 		if err != nil {
 			t.Fatalf("error reading pack: %s", err)
 		}
-		if hdr.Name == "staged/" || !strings.HasPrefix(hdr.Name, "staged/") {
-			continue
+		if hdr.Name == "staged/" || hdr.Name == "delta/" {
+			t.Fatalf("multiple entries of %s directory", hdr.Name)
+		}
+
+		// No delta file (or anything else other than staged/ files) is expected
+		// in a zeropack.
+		if !strings.HasPrefix(hdr.Name, "staged/") {
+			t.Fatalf("invalid entry %s in zero pack, no staged/ prefix", hdr.Name)
 		}
 		h, err := newHashFromTarHeader(hdr)
 		if err != nil {

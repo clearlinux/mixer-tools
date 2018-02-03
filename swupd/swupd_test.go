@@ -74,3 +74,40 @@ func TestIncludeVersionBump(t *testing.T) {
 	checkIncludes(t, ts.parseManifest(30, "included"), "os-core", "included-nested")
 	checkFileInManifest(t, ts.parseManifest(30, "included-nested"), 30, "/foobarbaz")
 }
+
+// Imported from swupd-server/test/functional/full-run.
+func TestFullRun(t *testing.T) {
+	ts := newTestSwupd(t, "full-run-")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "test-bundle"}
+
+	ts.write("image/10/test-bundle/foo", "foo")
+	ts.createManifests(10)
+	ts.createFullfiles(10)
+
+	infoOsCore := ts.createPack("os-core", 0, 10, "")
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.os-core"), ts.path("www/10/pack-os-core-from-0.tar"))
+	mustHaveDeltaCount(t, infoOsCore, 0)
+	// Empty file (bundle file), empty dir, os-release.
+	mustHaveFullfileCount(t, infoOsCore, 3)
+
+	infoTestBundle := ts.createPack("test-bundle", 0, 10, "")
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle"), ts.path("www/10/pack-test-bundle-from-0.tar"))
+	mustHaveDeltaCount(t, infoTestBundle, 0)
+	// Empty file (bundle file), "foo".
+	mustHaveFullfileCount(t, infoTestBundle, 2)
+
+	testBundle := ts.parseManifest(10, "test-bundle")
+	checkIncludes(t, testBundle, "os-core")
+	checkFileInManifest(t, testBundle, 10, "/usr/share/clear/bundles/test-bundle")
+
+	osCore := ts.parseManifest(10, "os-core")
+	checkIncludes(t, osCore)
+	checkFileInManifest(t, osCore, 10, "/usr")
+	checkFileInManifest(t, osCore, 10, "/usr/lib")
+	checkFileInManifest(t, osCore, 10, "/usr/share")
+	checkFileInManifest(t, osCore, 10, "/usr/share/clear")
+	checkFileInManifest(t, osCore, 10, "/usr/share/clear/bundles")
+	checkFileInManifest(t, osCore, 10, "/usr")
+}

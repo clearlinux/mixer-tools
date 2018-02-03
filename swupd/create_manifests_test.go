@@ -229,68 +229,6 @@ func TestCreateManifestDeletes(t *testing.T) {
 	checkManifestContains(t, testDir, "20", "test-bundle", deletedLine)
 }
 
-func TestCreateManifestIncludeVersionBump(t *testing.T) {
-	testDir := mustSetupTestDir(t, "includeverbump")
-	defer removeIfNoErrors(t, testDir)
-	bundles := []string{"test-bundle", "included", "included2", "included-nested"}
-	mustInitStandardTest(t, testDir, "0", "10", bundles)
-	mustGenFile(t, testDir, "10", "test-bundle", "foo", "foo")
-	// no includes file for first update
-	mustCreateManifestsStandard(t, 10, testDir)
-
-	expected := []string{"includes:\tos-core\n", "10\t/foo\n"}
-	checkManifestContains(t, testDir, "10", "test-bundle", expected...)
-
-	mustInitStandardTest(t, testDir, "10", "20", bundles)
-	// same file as last update, now manifest creation must be triggered by new includes
-	mustGenFile(t, testDir, "20", "test-bundle", "foo", "foo")
-	mustGenFile(t, testDir, "20", "included", "bar", "bar")
-	mustGenFile(t, testDir, "20", "included2", "baz", "baz")
-	mustInitIncludesFile(t, testDir, "20", "test-bundle", []string{"included", "included2"})
-	mustCreateManifestsStandard(t, 20, testDir)
-
-	cases := []struct {
-		exp   []string
-		bname string
-	}{
-		{[]string{
-			"includes:\tos-core\n",
-			"includes:\tincluded\n",
-			"includes:\tincluded2\n",
-		},
-			"test-bundle"},
-		{[]string{"20\t/bar\n"}, "included"},
-		{[]string{"20\t/baz\n"}, "included2"},
-	}
-	for _, tc := range cases {
-		checkManifestContains(t, testDir, "20", tc.bname, tc.exp...)
-	}
-
-	mustInitStandardTest(t, testDir, "20", "30", bundles)
-	// again, same files
-	mustGenFile(t, testDir, "30", "test-bundle", "foo", "foo")
-	mustGenFile(t, testDir, "30", "included", "bar", "bar")
-	mustGenFile(t, testDir, "30", "included2", "baz", "baz")
-	mustGenFile(t, testDir, "30", "included-nested", "foobarbaz", "foobarbaz")
-	mustInitIncludesFile(t, testDir, "30", "test-bundle", []string{"included", "included2"})
-	mustInitIncludesFile(t, testDir, "30", "included", []string{"included-nested"})
-	mustCreateManifestsStandard(t, 30, testDir)
-
-	cases = []struct {
-		exp   []string
-		bname string
-	}{
-		{[]string{"includes:\tincluded-nested\n", "20\t/bar\n"}, "included"},
-		{[]string{"30\t/foobarbaz\n"}, "included-nested"},
-	}
-	for _, tc := range cases {
-		checkManifestContains(t, testDir, "30", tc.bname, tc.exp...)
-	}
-
-	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.test-bundle"))
-	mustNotExist(t, filepath.Join(testDir, "www/30/Manifest.included2"))
-}
-
 func TestCreateManifestsState(t *testing.T) {
 	testDir := mustSetupTestDir(t, "state")
 	defer removeIfNoErrors(t, testDir)

@@ -144,15 +144,28 @@ func TestCreateManifestDebuginfo(t *testing.T) {
 }
 
 func TestCreateManifestFormatNoDecrement(t *testing.T) {
-	testDir := mustSetupTestDir(t, "format-no-decrement")
-	defer removeIfNoErrors(t, testDir)
-	mustInitStandardTest(t, testDir, "0", "10", []string{})
-	mustGenFile(t, testDir, "10", "os-core", "baz", "bazcontent")
-	mustGenFile(t, testDir, "10", "os-core", "foo", "foocontent")
-	mustCreateManifestsStandard(t, 10, testDir)
+	ts := newTestSwupd(t, "format-no-decrement-")
+	defer ts.cleanup()
 
-	mustInitStandardTest(t, testDir, "10", "20", []string{})
-	mustCreateManifestsStandard(t, 20, testDir)
+	ts.Bundles = []string{"os-core"}
+
+	ts.write("image/10/os-core/foo", "foo")
+	ts.write("image/10/os-core/bar", "bar")
+	ts.Format = 3
+	ts.createManifests(10)
+
+	ts.copyChroots(10, 20)
+
+	// Using a decremented format results in failure.
+	_, err := CreateManifests(20, 0, ts.Format-1, ts.Dir)
+	if err == nil {
+		t.Fatal("unexpected success calling create manifests with decremented format")
+	}
+
+	_, err = CreateManifests(20, 0, ts.Format, ts.Dir)
+	if err != nil {
+		t.Fatalf("create manifests with same format as before failed: %s", err)
+	}
 }
 
 func TestCreateManifestFormat(t *testing.T) {

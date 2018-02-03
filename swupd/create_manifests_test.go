@@ -526,3 +526,54 @@ func mustParseAllManifests(t *testing.T, version uint32, outputDir string) map[s
 
 	return result
 }
+
+// Imported from swupd-server/test/functional/subtract-delete.
+func TestSubtractDelete(t *testing.T) {
+	ts := newTestSwupd(t, "subtract-delete-")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "test-bundle"}
+
+	fileDeletedInManifest := func(m *Manifest, version uint32, name string) {
+		f := fileInManifest(t, m, version, name)
+		if f.Status != StatusDeleted {
+			t.Fatalf("manifest %s version %d has file %s marked as %q, but expected \"d\" (deleted)", m.Name, m.Header.Version, name, f.Status)
+		}
+	}
+
+	// Version 10. Start with both bundles containing foo.
+	ts.write("image/10/os-core/foo", "foo\n")
+	ts.write("image/10/test-bundle/foo", "foo\n")
+	ts.createManifests(10)
+
+	fileInManifest(t, ts.parseManifest(10, "os-core"), 10, "/foo")
+	fileNotInManifest(t, ts.parseManifest(10, "test-bundle"), "/foo")
+
+	// Version 20. Delete foo from os-core (the included bundle).
+	ts.copyChroots(10, 20)
+	ts.rm("image/20/os-core/foo")
+	ts.createManifests(20)
+
+	fileDeletedInManifest(ts.parseManifest(20, "os-core"), 20, "/foo")
+	fileInManifest(t, ts.parseManifest(20, "test-bundle"), 20, "/foo")
+
+	//
+	// Version 30. Delete foo from test-bundle.
+	//
+	ts.copyChroots(20, 30)
+	ts.rm("image/30/test-bundle/foo")
+	ts.createManifests(30)
+
+	fileDeletedInManifest(ts.parseManifest(30, "os-core"), 20, "/foo")
+	fileDeletedInManifest(ts.parseManifest(30, "test-bundle"), 30, "/foo")
+
+	//
+	// Version 40. Make modification (add new file) to test-bundle.
+	//
+	ts.copyChroots(30, 40)
+	ts.write("image/40/test-bundle/foobar", "foobar\n")
+	ts.createManifests(40)
+
+	fileDeletedInManifest(ts.parseManifest(40, "os-core"), 20, "/foo")
+	fileDeletedInManifest(ts.parseManifest(40, "test-bundle"), 30, "/foo")
+}

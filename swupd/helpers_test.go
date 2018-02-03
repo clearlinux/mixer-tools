@@ -301,6 +301,27 @@ func checkFileInManifest(t *testing.T, m *Manifest, version uint32, name string)
 	t.Errorf("couldn't find file %s in manifest %s version %d", name, m.Name, m.Header.Version)
 }
 
+func fileInManifest(t *testing.T, m *Manifest, version uint32, name string) *File {
+	for _, f := range m.Files {
+		if f.Name == name {
+			if f.Version == version {
+				return f
+			}
+			t.Fatalf("in manifest %s version %d: file %s has version %d but expected %d", m.Name, m.Header.Version, f.Name, f.Version, version)
+		}
+	}
+	t.Fatalf("couldn't find file %s in manifest %s version %d", name, m.Name, m.Header.Version)
+	return nil
+}
+
+func fileNotInManifest(t *testing.T, m *Manifest, name string) {
+	for _, f := range m.Files {
+		if f.Name == name {
+			t.Fatalf("unexpectedly found file %s with version %d in manifest %s version %d", f.Name, f.Version, m.Name, m.Header.Version)
+		}
+	}
+}
+
 func checkIncludes(t *testing.T, m *Manifest, includes ...string) {
 	if len(m.Header.Includes) != len(includes) {
 		t.Errorf("manifest %s in version %d has %d includes but expected %d", m.Name, m.Header.Version, len(m.Header.Includes), len(includes))

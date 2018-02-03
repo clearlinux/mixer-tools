@@ -158,6 +158,18 @@ func statusFromFlag(flag byte) (StatusFlag, error) {
 	}
 }
 
+func (s StatusFlag) String() string {
+	switch s {
+	case StatusDeleted:
+		return "d"
+	case StatusGhosted:
+		return "g"
+	case StatusUnset:
+		return "."
+	}
+	return "?"
+}
+
 // modifierFromFlag return modifier from flag byte
 func modifierFromFlag(flag byte) (ModifierFlag, error) {
 	switch flag {

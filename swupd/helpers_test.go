@@ -288,6 +288,38 @@ func mustCreateDeltas(t *testing.T, manifest, statedir string, from, to uint32) 
 	}
 }
 
+func checkFileInManifest(t *testing.T, m *Manifest, version uint32, name string) {
+	for _, f := range m.Files {
+		if f.Name == name {
+			if f.Version == version {
+				return
+			}
+			t.Errorf("in manifest %s version %d: file %s has version %d but expected %d", m.Name, m.Header.Version, f.Name, f.Version, version)
+			return
+		}
+	}
+	t.Errorf("couldn't find file %s in manifest %s version %d", name, m.Name, m.Header.Version)
+}
+
+func checkIncludes(t *testing.T, m *Manifest, includes ...string) {
+	if len(m.Header.Includes) != len(includes) {
+		t.Errorf("manifest %s in version %d has %d includes but expected %d", m.Name, m.Header.Version, len(m.Header.Includes), len(includes))
+	}
+
+	for _, inc := range includes {
+		var found bool
+		for _, b := range m.Header.Includes {
+			if b.Name == inc {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("couldn't find include %s in manifest %s version %d", inc, m.Name, m.Header.Version)
+		}
+	}
+}
+
 // testFileSystem is a struct that has a base directory and a testing.T and can be used to
 // perform file system actions and handling unexpected errors with t.Fatal. It is to be
 // used in places where filesystem is expected to work correctly and the subject of the test
@@ -389,6 +421,22 @@ func (fs *testFileSystem) exists(subpath string) bool {
 	default:
 		fs.t.Fatalf("error checking if %s exists: %s", subpath, err)
 		return false
+	}
+}
+
+func (fs *testFileSystem) checkExists(subpath string) {
+	fs.t.Helper()
+	ok := fs.exists(subpath)
+	if !ok {
+		fs.t.Errorf("file %s doesn't exist", subpath)
+	}
+}
+
+func (fs *testFileSystem) checkNotExists(subpath string) {
+	fs.t.Helper()
+	ok := fs.exists(subpath)
+	if ok {
+		fs.t.Errorf("file %s exists but expected to not exist", subpath)
 	}
 }
 
@@ -523,4 +571,14 @@ func (ts *testSwupd) createFullfiles(version uint32) {
 	if err != nil {
 		ts.t.Fatalf("couldn't create fullfiles: %s", err)
 	}
+}
+
+func (ts *testSwupd) parseManifest(version uint32, name string) *Manifest {
+	ts.t.Helper()
+	filename := ts.path(filepath.Join("www", fmt.Sprint(version), "Manifest."+name))
+	m, err := ParseManifestFile(filename)
+	if err != nil {
+		ts.t.Fatalf("couldn't parse manifest %s for version %d: %s", name, version, err)
+	}
+	return m
 }

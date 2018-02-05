@@ -386,6 +386,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 	for nx < mFilesLen && ox < omFilesLen {
 		nf := m.Files[nx]
 		of := oldManifest.Files[ox]
+		of.Rename = false
 		if nf.Name == of.Name {
 			// if it is the same name check if anything about the file has changed.
 			// if something has changed update the version to current version and

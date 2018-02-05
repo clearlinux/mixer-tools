@@ -414,11 +414,18 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 			nx++
 		} else {
 			// if the file exists in the old manifest and does not *yet* exist
-			// in the new manifest, it was deleted.
-			if of.Status == StatusDeleted || of.Status == StatusGhosted {
+			// in the new manifest, it was deleted or is an old deleted/ghosted
+			// file
+			if !of.Present() {
+				if of.Status == StatusDeleted && of.Version >= minVersion {
+					// copy over old deleted files
+					// append as-is
+					m.Files = append(m.Files, of)
+				}
 				ox++
 				continue
 			}
+			// this is a new deleted file
 			m.newDeleted(of)
 			removed = append(removed, of)
 			// look at next file in old manifest

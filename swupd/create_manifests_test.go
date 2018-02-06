@@ -701,18 +701,18 @@ func TestCreateRenamesOrphanedChain(t *testing.T) {
 
 	res := []*regexp.Regexp{
 		// direct deleted
-		regexp.MustCompile("\\.d\\.\\.\t.*\t20\tdirect\n"),
+		regexp.MustCompile("\\.d\\.\\.\t.*\t20\t/direct\n"),
 		// direct1 is now rename-from
-		regexp.MustCompile("\\.d\\.r\t.*\t30\tdirect1\n"),
+		regexp.MustCompile("\\.d\\.r\t.*\t30\t/direct1\n"),
 		// direct2 is now rename-to
-		regexp.MustCompile("F\\.\\.r\t.*\t30\tdirect2\n"),
+		regexp.MustCompile("F\\.\\.r\t.*\t30\t/direct2\n"),
 
 		// hashchange deleted
-		regexp.MustCompile("\\.d\\.\\.\t.*\t20\thashchange\n"),
+		regexp.MustCompile("\\.d\\.\\.\t.*\t20\t/hashchange\n"),
 		// hashchange1 now rename-from
-		regexp.MustCompile("\\.d\\.r\t.*\t30\thashchange1\n"),
+		regexp.MustCompile("\\.d\\.r\t.*\t30\t/hashchange1\n"),
 		// hashchange2 now rename-to
-		regexp.MustCompile("F\\.\\.r\t.*\t30\thashchange2\n"),
+		regexp.MustCompile("F\\.\\.r\t.*\t30\t/hashchange2\n"),
 	}
 	checkManifestMatches(t, testDir, "30", "test-bundle", res...)
 }

@@ -354,6 +354,21 @@ func fileNotInManifest(t *testing.T, m *Manifest, name string) {
 	}
 }
 
+func fileDeletedInManifest(t *testing.T, m *Manifest, version uint32, name string) {
+	f := fileInManifest(t, m, version, name)
+	if f.Status != StatusDeleted {
+		t.Fatalf("manifest %s version %d has file %s marked as %q, but expected \"d\" (deleted)", m.Name, m.Header.Version, name, f.Status)
+	}
+	// TODO: Later on worth having a different helper function for handling delete/rename.
+	if f.Hash.String() != AllZeroHash {
+		t.Fatalf("manifest %s version %d has deleted file %s with hash %s, but expected %s", m.Name, m.Header.Version, f.Name, f.Hash, AllZeroHash)
+
+	}
+	if f.Version != version {
+		t.Fatalf("manifest %s version %d has deleted file %s with version %d, but expected %d", m.Name, m.Header.Version, f.Name, f.Version, version)
+	}
+}
+
 func checkIncludes(t *testing.T, m *Manifest, includes ...string) {
 	if len(m.Header.Includes) != len(includes) {
 		t.Errorf("manifest %s in version %d has %d includes but expected %d", m.Name, m.Header.Version, len(m.Header.Includes), len(includes))

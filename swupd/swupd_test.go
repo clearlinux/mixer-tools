@@ -1,6 +1,9 @@
 package swupd
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Imported from swupd-server/test/functional/include-version-bump.
 func TestIncludeVersionBump(t *testing.T) {
@@ -110,4 +113,74 @@ func TestFullRun(t *testing.T) {
 	checkFileInManifest(t, osCore, 10, "/usr/share/clear")
 	checkFileInManifest(t, osCore, 10, "/usr/share/clear/bundles")
 	checkFileInManifest(t, osCore, 10, "/usr")
+}
+
+// Imported from swupd-server/test/functional/full-run-delta.
+func TestFullRunDelta(t *testing.T) {
+	ts := newTestSwupd(t, "full-run-delta-")
+	defer ts.cleanup()
+
+	content := strings.Repeat("CONTENT", 1000)
+
+	// Version 10.
+	ts.Bundles = []string{"os-core", "test-bundle"}
+	ts.write("image/10/test-bundle/largefile", content)
+	ts.write("image/10/test-bundle/foo", "foo")
+	ts.write("image/10/test-bundle/foobarbaz", "foobarbaz")
+	ts.createManifests(10)
+	ts.createFullfiles(10)
+
+	ts.createPack("os-core", 0, 10, ts.path("image"))
+	info := ts.createPack("test-bundle", 0, 10, ts.path("image"))
+	mustHaveFullfileCount(t, info, 4) // largefile, foo and foobarbaz and the test-bundle file.
+
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.os-core"), ts.path("www/10/pack-os-core-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle"), ts.path("www/10/pack-test-bundle-from-0.tar"))
+
+	testBundle10 := ts.parseManifest(10, "test-bundle")
+	checkIncludes(t, testBundle10, "os-core")
+	checkFileInManifest(t, testBundle10, 10, "/foo")
+	checkFileInManifest(t, testBundle10, 10, "/foobarbaz")
+
+	// Version 20 adds new bundles and copy some files to them.
+	ts.Bundles = append(ts.Bundles, "included", "included-two", "included-nested")
+	ts.write("image/20/test-bundle/largefile", content+"delta")
+	ts.write("image/20/test-bundle/foo", "foo")
+	ts.write("image/20/included/foo", "foo")
+	ts.write("image/20/included-two/foo", "foo")
+	ts.write("image/20/included-two/foobar", "foobar")
+	ts.write("image/20/included-nested/foobarbaz", "foobarbaz")
+	ts.write("image/20/noship/test-bundle-includes", "included\nincluded-two")
+	ts.write("image/20/noship/included-includes", "included-nested")
+
+	ts.createManifests(20)
+	ts.createFullfiles(20)
+
+	ts.createPack("os-core", 0, 20, ts.path("image"))
+	info = ts.createPack("test-bundle", 0, 20, ts.path("image"))
+	mustHaveFullfileCount(t, info, 2) // largefile and the test-bundle file.
+
+	mustValidateZeroPack(t, ts.path("www/20/Manifest.os-core"), ts.path("www/20/pack-os-core-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/20/Manifest.test-bundle"), ts.path("www/20/pack-test-bundle-from-0.tar"))
+
+	testBundle20 := ts.parseManifest(20, "test-bundle")
+	checkIncludes(t, testBundle20, "os-core", "included", "included-two")
+	fileNotInManifest(t, testBundle20, "/foobar")
+	fileDeletedInManifest(t, testBundle20, 20, "/foo")
+	fileDeletedInManifest(t, testBundle20, 20, "/foobarbaz")
+
+	fileInManifest(t, ts.parseManifest(20, "included"), 20, "/foo")
+	fileInManifest(t, ts.parseManifest(20, "included-two"), 20, "/foo")
+	fileInManifest(t, ts.parseManifest(20, "included-two"), 20, "/foobar")
+	fileInManifest(t, ts.parseManifest(20, "included-nested"), 20, "/foobarbaz")
+
+	// Create delta packs.
+	ts.createPack("os-core", 10, 20, ts.path("image"))
+	info = ts.createPack("test-bundle", 10, 20, ts.path("image"))
+
+	mustHaveFullfileCount(t, info, 0)
+	mustHaveDeltaCount(t, info, 1) // largefile.
+
+	// NOTE: original test checked whether the packs had the manifests inside. This is
+	// not done by new swupd since it seems the client doesn't take advantage of them.
 }

@@ -422,6 +422,19 @@ func (fs *testFileSystem) write(subpath, content string) {
 	}
 }
 
+func (fs *testFileSystem) symlink(subpath, linkname string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, subpath)
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		fs.t.Fatalf("couldn't create directory to write file: %s", err)
+	}
+	err = os.Symlink(linkname, path)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
 func (fs *testFileSystem) path(subpath string) string {
 	return filepath.Join(fs.Dir, subpath)
 }
@@ -634,4 +647,13 @@ func (ts *testSwupd) parseManifest(version uint32, name string) *Manifest {
 		ts.t.Fatalf("couldn't parse manifest %s for version %d: %s", name, version, err)
 	}
 	return m
+}
+
+func (ts *testSwupd) mustHashFile(subpath string) string {
+	ts.t.Helper()
+	hash, err := GetHashForFile(ts.path(subpath))
+	if err != nil {
+		ts.t.Fatalf("couldn't calculate hash for file %s: %s", subpath, err)
+	}
+	return hash
 }

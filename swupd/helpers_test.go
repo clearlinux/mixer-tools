@@ -18,6 +18,7 @@ func removeAllIgnoreErr(dir string) {
 }
 
 func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
+	t.Helper()
 	var err error
 	var info os.FileInfo
 	if info, err = os.Stat(path); err != nil {
@@ -31,6 +32,7 @@ func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
 }
 
 func mustSetupTestDir(t *testing.T, testName string) string {
+	t.Helper()
 	oldDirs, _ := filepath.Glob("./testdata/cmtest-" + testName + ".*")
 	for _, d := range oldDirs {
 		removeAllIgnoreErr(d)
@@ -45,6 +47,7 @@ func mustSetupTestDir(t *testing.T, testName string) string {
 }
 
 func mustInitStandardTest(t *testing.T, testDir, lastVer, ver string, bundles []string) {
+	t.Helper()
 	mustInitTestDir(t, testDir)
 	mustInitServerINI(t, testDir)
 	mustInitGroupsINI(t, testDir, bundles)
@@ -56,6 +59,7 @@ func mustInitStandardTest(t *testing.T, testDir, lastVer, ver string, bundles []
 }
 
 func mustInitTestDir(t *testing.T, path string) {
+	t.Helper()
 	if err := os.MkdirAll(filepath.Join(path, "image"), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
@@ -65,6 +69,7 @@ func mustInitTestDir(t *testing.T, path string) {
 }
 
 func mustInitGroupsINI(t *testing.T, testDir string, bundles []string) {
+	t.Helper()
 	bs := []byte("[os-core]\ngroup=os-core\nstatus=ACTIVE\n")
 	for _, b := range bundles {
 		bs = append(bs, []byte(fmt.Sprintf("[%s]\ngroup=%s\nstatus=ACTIVE\n", b, b))...)
@@ -76,6 +81,7 @@ func mustInitGroupsINI(t *testing.T, testDir string, bundles []string) {
 }
 
 func mustGenFile(t *testing.T, testDir, ver, bundle, fname, content string) {
+	t.Helper()
 	var err error
 	fpath := filepath.Join(testDir, "image", ver, bundle, filepath.Dir(fname))
 	err = os.MkdirAll(fpath, os.ModePerm)
@@ -96,6 +102,7 @@ func removeIfNoErrors(t *testing.T, testDir string) {
 }
 
 func mustGenBundleDir(t *testing.T, testDir, ver, bundle, dirName string) {
+	t.Helper()
 	dirPath := filepath.Join(testDir, "image", ver, bundle, dirName)
 	mustMkdir(t, dirPath)
 }
@@ -113,6 +120,7 @@ src=/usr/src/debug/
 `))
 
 func mustInitServerINI(t *testing.T, testDir string) {
+	t.Helper()
 	f, err := os.Create(filepath.Join(testDir, "server.ini"))
 	if err != nil {
 		t.Fatal(err)
@@ -125,6 +133,7 @@ func mustInitServerINI(t *testing.T, testDir string) {
 }
 
 func mustTrackBundle(t *testing.T, testDir, ver, bundle string) {
+	t.Helper()
 	bundlesDir := filepath.Join(testDir, "image", ver, bundle, "usr/share/clear/bundles")
 	if err := os.MkdirAll(bundlesDir, os.ModePerm); err != nil {
 		t.Fatal(err)
@@ -136,6 +145,7 @@ func mustTrackBundle(t *testing.T, testDir, ver, bundle string) {
 }
 
 func mustInitOSRelease(t *testing.T, testDir, ver string) {
+	t.Helper()
 	var err error
 	osReleaseDir := filepath.Join(testDir, "image", ver, "os-core", "usr/lib")
 	err = os.MkdirAll(osReleaseDir, os.ModePerm)
@@ -150,6 +160,7 @@ func mustInitOSRelease(t *testing.T, testDir, ver string) {
 }
 
 func mustSetLatestVer(t *testing.T, testDir, ver string) {
+	t.Helper()
 	err := ioutil.WriteFile(filepath.Join(testDir, "image/LAST_VER"), []byte(ver), 0644)
 	if err != nil {
 		t.Fatal(err)
@@ -157,6 +168,7 @@ func mustSetLatestVer(t *testing.T, testDir, ver string) {
 }
 
 func mustInitIncludesFile(t *testing.T, testDir, ver, bundle string, includes []string) {
+	t.Helper()
 	noshipDir := filepath.Join(testDir, "image", ver, "noship")
 	if err := os.MkdirAll(noshipDir, os.ModePerm); err != nil {
 		t.Fatal(err)
@@ -174,6 +186,7 @@ func resetHash() {
 }
 
 func mustMkdir(t *testing.T, name string) {
+	t.Helper()
 	err := os.MkdirAll(name, 0755)
 	if err != nil {
 		t.Fatal(err)
@@ -181,6 +194,7 @@ func mustMkdir(t *testing.T, name string) {
 }
 
 func mustExist(t *testing.T, name string) {
+	t.Helper()
 	_, err := os.Stat(name)
 	if err != nil {
 		t.Fatal(err)
@@ -188,6 +202,7 @@ func mustExist(t *testing.T, name string) {
 }
 
 func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
+	t.Helper()
 	var fromFull *Manifest
 	var toFull *Manifest
 	var err error
@@ -209,6 +224,7 @@ func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
 }
 
 func mustNotExist(t *testing.T, name string) {
+	t.Helper()
 	_, err := os.Stat(name)
 	if !os.IsNotExist(err) {
 		if err == nil {
@@ -219,10 +235,12 @@ func mustNotExist(t *testing.T, name string) {
 }
 
 func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) *MoM {
+	t.Helper()
 	return mustCreateManifests(t, ver, 0, 1, testDir)
 }
 
 func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, testDir string) *MoM {
+	t.Helper()
 	mom, err := CreateManifests(ver, minVer, format, testDir)
 	if err != nil {
 		t.Fatal(err)
@@ -231,6 +249,7 @@ func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, t
 }
 
 func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...string) {
+	t.Helper()
 	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
 	b, err := ioutil.ReadFile(manFpath)
 	if err != nil {
@@ -246,6 +265,7 @@ func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...stri
 }
 
 func checkManifestNotContains(t *testing.T, testDir, ver, name string, subs ...string) {
+	t.Helper()
 	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
 	b, err := ioutil.ReadFile(manFpath)
 	if err != nil {
@@ -261,6 +281,7 @@ func checkManifestNotContains(t *testing.T, testDir, ver, name string, subs ...s
 }
 
 func checkFileContains(t *testing.T, path string, subs ...string) {
+	t.Helper()
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		t.Error(err)
@@ -275,6 +296,7 @@ func checkFileContains(t *testing.T, path string, subs ...string) {
 }
 
 func checkFileNotContains(t *testing.T, path string, subs ...string) {
+	t.Helper()
 	b, err := ioutil.ReadFile(path)
 	if err != nil {
 		t.Error(err)
@@ -289,6 +311,7 @@ func checkFileNotContains(t *testing.T, path string, subs ...string) {
 }
 
 func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regexp.Regexp) {
+	t.Helper()
 	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
 	b, err := ioutil.ReadFile(manFpath)
 	if err != nil {
@@ -304,6 +327,7 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 }
 
 func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
+	t.Helper()
 	deltas, err := CreateDeltas(manifest, statedir, from, to)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
@@ -321,6 +345,7 @@ func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint3
 }
 
 func checkFileInManifest(t *testing.T, m *Manifest, version uint32, name string) {
+	t.Helper()
 	for _, f := range m.Files {
 		if f.Name == name {
 			if f.Version == version {
@@ -334,6 +359,7 @@ func checkFileInManifest(t *testing.T, m *Manifest, version uint32, name string)
 }
 
 func fileInManifest(t *testing.T, m *Manifest, version uint32, name string) *File {
+	t.Helper()
 	for _, f := range m.Files {
 		if f.Name == name {
 			if f.Version == version {
@@ -347,6 +373,7 @@ func fileInManifest(t *testing.T, m *Manifest, version uint32, name string) *Fil
 }
 
 func fileNotInManifest(t *testing.T, m *Manifest, name string) {
+	t.Helper()
 	for _, f := range m.Files {
 		if f.Name == name {
 			t.Fatalf("unexpectedly found file %s with version %d in manifest %s version %d", f.Name, f.Version, m.Name, m.Header.Version)
@@ -355,6 +382,7 @@ func fileNotInManifest(t *testing.T, m *Manifest, name string) {
 }
 
 func fileDeletedInManifest(t *testing.T, m *Manifest, version uint32, name string) {
+	t.Helper()
 	f := fileInManifest(t, m, version, name)
 	if f.Status != StatusDeleted {
 		t.Fatalf("manifest %s version %d has file %s marked as %q, but expected \"d\" (deleted)", m.Name, m.Header.Version, name, f.Status)
@@ -370,6 +398,7 @@ func fileDeletedInManifest(t *testing.T, m *Manifest, version uint32, name strin
 }
 
 func checkIncludes(t *testing.T, m *Manifest, includes ...string) {
+	t.Helper()
 	if len(m.Header.Includes) != len(includes) {
 		t.Errorf("manifest %s in version %d has %d includes but expected %d", m.Name, m.Header.Version, len(m.Header.Includes), len(includes))
 	}
@@ -406,6 +435,7 @@ type testFileSystem struct {
 }
 
 func newTestFileSystem(t *testing.T, prefix string) *testFileSystem {
+	t.Helper()
 	dir, err := ioutil.TempDir("", prefix)
 	if err != nil {
 		t.Fatalf("couldn't create test temporary directory: %s", err)
@@ -578,6 +608,7 @@ type testSwupd struct {
 }
 
 func newTestSwupd(t *testing.T, prefix string) *testSwupd {
+	t.Helper()
 	fs := newTestFileSystem(t, prefix)
 	defer func() {
 		// If we failed to create a testSwupd, cleanup the fs. If we succeed

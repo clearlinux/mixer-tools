@@ -133,6 +133,7 @@ func TestCreateFullfiles(t *testing.T) {
 }
 
 func mustHaveMatchingHash(t *testing.T, path string) {
+	t.Helper()
 	expectedHash := filepath.Base(path)
 	// Take the ".tar" extension off.
 	expectedHash = expectedHash[:len(expectedHash)-4]

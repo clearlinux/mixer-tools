@@ -74,6 +74,7 @@ func generateTestArray(t *testing.T) map[string]File {
 // a list of pointers to copies of the Files. Because they are copies they can
 // be altered without side effects on other tests
 func filelist(t *testing.T, sn map[string]File, wanted []string) []*File {
+	t.Helper()
 	r := make([]*File, len(wanted))
 	for i := range wanted {
 		element, ok := sn[wanted[i]]
@@ -95,6 +96,7 @@ func markdelete(a []*File) []*File {
 
 // checkLinked tests forward and backward pairing of DeltaPeers
 func checkLinked(t *testing.T, a, b *File, description string) bool {
+	t.Helper()
 	// a is never nil, it is the entry in the "from" array
 	if a.DeltaPeer != b {
 		t.Errorf("%s Incorrect Linkage forward %v -> %v, got %v", description, a, b, a.DeltaPeer)

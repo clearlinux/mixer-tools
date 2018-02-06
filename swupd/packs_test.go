@@ -505,3 +505,35 @@ func printPackInfo(info *PackInfo) {
 	}
 	fmt.Println()
 }
+
+func TestTwoDeltasForTheSameTarget(t *testing.T) {
+	ts := newTestSwupd(t, "two-deltas-for-the-same-hash-")
+	defer ts.cleanup()
+
+	content := strings.Repeat("CONTENT", 1000)
+
+	// Version 10.
+	ts.Bundles = []string{"os-core"}
+	ts.write("image/10/os-core/fileA", content+"A")
+	ts.write("image/10/os-core/fileB", content+"B")
+	ts.createManifests(10)
+
+	// Version 20. Both files become the same.
+	ts.write("image/20/os-core/fileA", content+"SAME")
+	ts.write("image/20/os-core/fileB", content+"SAME")
+	ts.createManifests(20)
+
+	info := ts.createPack("os-core", 10, 20, ts.path("image"))
+	mustHaveNoWarnings(t, info)
+	mustHaveDeltaCount(t, info, 2)
+	{
+		hashA := ts.mustHashFile("image/10/os-core/fileA")
+		hashB := ts.mustHashFile("image/20/os-core/fileA")
+		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
+	}
+	{
+		hashA := ts.mustHashFile("image/10/os-core/fileB")
+		hashB := ts.mustHashFile("image/20/os-core/fileB")
+		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
+	}
+}

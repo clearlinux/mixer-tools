@@ -537,3 +537,115 @@ func TestTwoDeltasForTheSameTarget(t *testing.T) {
 		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
 	}
 }
+
+func TestPackRenames(t *testing.T) {
+	ts := newTestSwupd(t, "packing-renames-")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core"}
+
+	content := strings.Repeat("CONTENT", 1000)
+
+	// Version 10.
+	ts.write("image/10/os-core/file1", content+"10")
+	ts.createManifests(10)
+
+	// Version 20 changes file1 contents.
+	ts.write("image/20/os-core/file1", content+"20")
+	ts.createManifests(20)
+
+	// Version 30 changes file1 and renames to file2.
+	ts.write("image/30/os-core/file2", content+"30")
+	ts.createManifests(30)
+
+	m := ts.parseManifest(30, "os-core")
+	file1 := fileInManifest(t, m, 30, "/file1")
+	file2 := fileInManifest(t, m, 30, "/file2")
+	checkRenamePair(t, file1, file2)
+
+	// Version 40 just adds an unrelated file.
+	ts.copyChroots(30, 40)
+	ts.write("image/40/os-core/unrelated", "")
+	ts.createManifests(40)
+
+	hashIn10 := ts.mustHashFile("image/10/os-core/file1")
+	hashIn20 := ts.mustHashFile("image/20/os-core/file1")
+	hashIn30 := ts.mustHashFile("image/30/os-core/file2")
+
+	// Pack from 10->20 will contain a delta due to content change.
+	info := ts.createPack("os-core", 10, 20, ts.path("image"))
+	mustHaveDeltaCount(t, info, 1)
+	checkFileInPack(t, ts.path("www/20/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-20-%s-%s", hashIn10, hashIn20))
+
+	// Pack from 20->30 will contain a delta due to content change (and rename).
+	info = ts.createPack("os-core", 20, 30, ts.path("image"))
+	mustHaveDeltaCount(t, info, 1)
+	checkFileInPack(t, ts.path("www/30/pack-os-core-from-20.tar"), fmt.Sprintf("delta/20-30-%s-%s", hashIn20, hashIn30))
+
+	// Pack from 10->30 will contain a delta due to content change (and rename).
+	info = ts.createPack("os-core", 10, 30, ts.path("image"))
+	mustHaveDeltaCount(t, info, 1)
+	checkFileInPack(t, ts.path("www/30/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-30-%s-%s", hashIn10, hashIn30))
+
+	// Pack from 10->40 will contain a delta due to content change (and rename).
+	info = ts.createPack("os-core", 10, 40, ts.path("image"))
+	mustHaveDeltaCount(t, info, 1)
+
+	// Note that the delta refers to the version of the file, which is still 30.
+	checkFileInPack(t, ts.path("www/40/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-30-%s-%s", hashIn10, hashIn30))
+}
+
+func checkRenamePair(t *testing.T, from, to *File) {
+	t.Helper()
+	if from.Status != StatusDeleted {
+		t.Errorf("file %s is marked as %q, but expected \"d\" (deleted)", from.Name, from.Status)
+		return
+	}
+	if !from.Rename {
+		t.Errorf("file %s is not marked as rename, but expected it to be", from.Name)
+		return
+	}
+	if to.Status != StatusUnset {
+		t.Errorf("file %s is marked as %q, but expected \".\" (unset)", to.Name, to.Status)
+		return
+	}
+	if !to.Rename {
+		t.Errorf("file %s is not marked as rename, but expected it to be", to.Name)
+		return
+	}
+	if from.Hash != to.Hash {
+		t.Errorf("hash mismatch between from and to files: %s has hash %s and %s has hash %s", from.Name, from.Hash, to.Name, to.Hash)
+	}
+}
+
+func checkFileInPack(t *testing.T, packname, name string) {
+	t.Helper()
+	pack, err := os.Open(packname)
+	if err != nil {
+		t.Fatalf("couldn't open pack: %s", err)
+	}
+	defer func() {
+		_ = pack.Close()
+	}()
+	tr, err := newCompressedTarReader(pack)
+	if err != nil {
+		t.Fatalf("error uncompressing pack: %s", err)
+	}
+	defer func() {
+		_ = tr.Close()
+	}()
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("couldn't read pack to find %s: %s", name, err)
+		}
+		if hdr.Name == name {
+			// Found!
+			return
+		}
+	}
+	t.Errorf("file %s is not in pack", name)
+}

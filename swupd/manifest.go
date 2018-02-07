@@ -604,8 +604,72 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 		}
 	}
 
-	// TODO: Once rename logic is in. Add code to identify what extra DeltaPeers
-	// should be created based on rename flag in newManifest.
+	// TODO: At the moment swupd-client looks at the new manifest renames entries to make a
+	// decision whether it should get a delta or not. If we change that to look instead at the
+	// list of deltas in the pack, we could run the full rename detection logic between
+	// arbitrary pairs of manifests, i.e. for any pack combination, and possibly generating new
+	// deltas for that specific combination.
+
+	// Identify deltas that are relevant to be included based on the rename flag.
+	//
+	// First walk to find potential targets for a rename. We will generate only a single delta
+	// for each target.
+	targets := make(map[Hashval]*File)
+
+	for _, nf := range newManifest.Files {
+		if !bool(nf.Rename) || !nf.Present() {
+			// Not a rename target.
+			continue
+		}
+		if nf.DeltaPeer != nil {
+			// If there is a DeltaPeer matched by same name (not a rename),
+			// just keep that and don't look for another.
+			continue
+		}
+		_, ok := targets[nf.Hash]
+		if ok {
+			continue
+		}
+		targets[nf.Hash] = nf
+	}
+
+	// Then walk again to link the sources to the targets.
+	renames := make(map[string]*File)
+	for _, nf := range newManifest.Files {
+		if !bool(nf.Rename) || nf.Present() {
+			// Not a rename source.
+			continue
+		}
+		target, ok := targets[nf.Hash]
+		if !ok {
+			// TODO: This could be a warning to the caller. Not making it an error since
+			// the manifest is already written, and we can underdeliver deltas. Same
+			// applies for targets without suitable sources.
+			continue
+		}
+		renames[nf.Name] = target
+	}
+
+	// Finally walk the old manifest linking rename files that the source exist there. Note that
+	// we ignore the version when the rename was identified, because the client will look for
+	// this regardless that version.
+	for _, of := range oldManifest.Files {
+		if !of.Present() {
+			continue
+		}
+		if of.DeltaPeer != nil {
+			continue
+		}
+		nf, ok := renames[of.Name]
+		if !ok {
+			continue
+		}
+		if nf.DeltaPeer != nil {
+			continue
+		}
+		nf.DeltaPeer = of
+		of.DeltaPeer = nf
+	}
 
 	return nil
 }

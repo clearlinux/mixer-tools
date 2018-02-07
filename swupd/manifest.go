@@ -518,7 +518,7 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 				continue
 			}
 
-			if !nf.Present() || !nf.Present() {
+			if !nf.Present() || !of.Present() {
 				continue
 			}
 

@@ -23,6 +23,8 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -161,6 +163,34 @@ func (b *Builder) createRpmDirs() error {
 	return nil
 }
 
+// Get latest CLR version
+func (b *Builder) getLatestUpstreamVersion() (string, error) {
+	// Build the URL
+	end, err := url.Parse("/latest")
+	if err != nil {
+		return "", err
+	}
+	base, err := url.Parse(b.UpstreamURL)
+	if err != nil {
+		return "", err
+	}
+
+	// Fetch the version and parse it
+	resp, err := http.Get(base.ResolveReference(end).String())
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(body)), nil
+}
+
 // InitMix will initialise a new swupd-client consumable "mix" with the given
 // based Clear Linux version and specified mix version.
 func (b *Builder) InitMix(upstreamVer string, mixVer string, all bool, upstreamURL string) error {
@@ -174,6 +204,14 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, all bool, upstreamU
 		return err
 	}
 	b.UpstreamURL = upstreamURL
+
+	if upstreamVer == "latest" {
+		ver, err := b.getLatestUpstreamVersion()
+		if err != nil {
+			return errors.Wrap(err, "Failed to retrieve latest published upstream version")
+		}
+		upstreamVer = ver
+	}
 
 	// Deprecate '.clearversion' --> 'upstreamversion'
 	if _, err := os.Stat(filepath.Join(b.VersionDir, ".clearversion")); err == nil {

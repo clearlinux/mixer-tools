@@ -716,3 +716,43 @@ func TestCreateRenamesOrphanedChain(t *testing.T) {
 	}
 	checkManifestMatches(t, testDir, "30", "test-bundle", res...)
 }
+
+func TestRenamePairHaveMatchingHashes(t *testing.T) {
+	ts := newTestSwupd(t, "rename-pair-")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core"}
+
+	content := strings.Repeat("CONTENT", 1000)
+
+	// Version 10.
+	ts.write("image/10/os-core/file1", content+"10")
+	ts.createManifests(10)
+
+	// Version 20 changes file1 and renames to file2.
+	ts.write("image/20/os-core/file2", content+"20")
+	ts.createManifests(20)
+
+	m := ts.parseManifest(20, "os-core")
+	file1 := fileInManifest(t, m, 20, "/file1")
+	file2 := fileInManifest(t, m, 20, "/file2")
+
+	if file1.Status != StatusDeleted {
+		t.Fatalf("/file1 is marked as %q, but expected \"d\" (deleted)", file1.Status)
+	}
+	if !file1.Rename {
+		t.Fatalf("/file1 is not marked as a rename")
+	}
+
+	if file2.Status != StatusUnset {
+		t.Errorf("/file2 is marked as %q, but expected \".\" (unset)", file2.Status)
+		return
+	}
+	if !file2.Rename {
+		t.Fatalf("/file2 is not marked as a rename")
+	}
+
+	if file1.Hash != file2.Hash {
+		t.Errorf("hash mismatch between from and to files: /file1 has hash %s and /file2 has hash %s", file1.Hash, file2.Hash)
+	}
+}

@@ -86,7 +86,7 @@ var rootCmdFlags = struct {
 
 type initCmdFlags struct {
 	all         bool
-	clearver    int
+	clearver    string
 	mixver      int
 	upstreamurl string
 }
@@ -99,7 +99,15 @@ var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize the mixer and workspace",
 	Long:  `Initialize the mixer and workspace`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if _, err := strconv.Atoi(initFlags.clearver); err != nil {
+			if initFlags.clearver != "latest" {
+				// Note: output matches Cobra's default pflag error syntax, as
+				// if initFlags.clearver were an int all along.
+				return errors.Errorf("invalid argument \"%s\" for \"--clear-version\" flag: %s", initFlags.clearver, err)
+			}
+		}
+
 		b := builder.New()
 		if config == "" {
 			// Create default config if necessary
@@ -113,10 +121,12 @@ var initCmd = &cobra.Command{
 		if err := b.ReadBuilderConf(); err != nil {
 			fail(err)
 		}
-		err := b.InitMix(strconv.Itoa(initFlags.clearver), strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
+		err := b.InitMix(initFlags.clearver, strconv.Itoa(initFlags.mixver), initFlags.all, initFlags.upstreamurl)
 		if err != nil {
 			fail(err)
 		}
+
+		return nil
 	},
 }
 
@@ -141,13 +151,12 @@ func init() {
 
 	initCmd.Flags().BoolVar(&initFlags.all, "all", false, "Initialize mix with all upstream bundles automatically included")
 	initCmd.Flags().BoolVar(&localrpms, "local-rpms", false, "Create and configure local RPMs directories")
-	initCmd.Flags().IntVar(&initFlags.clearver, "clear-version", 1, "Supply the Clear version to compose the mix from")
+	initCmd.Flags().StringVar(&initFlags.clearver, "clear-version", "latest", "Supply the Clear version to compose the mix from")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 0, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamurl, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 
 	// mark required flags
-	_ = cobra.MarkFlagRequired(initCmd.Flags(), "clear-version")
 	_ = cobra.MarkFlagRequired(initCmd.Flags(), "mix-version")
 
 	externalDeps[initCmd] = []string{

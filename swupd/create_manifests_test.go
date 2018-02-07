@@ -756,3 +756,44 @@ func TestRenamePairHaveMatchingHashes(t *testing.T) {
 		t.Errorf("hash mismatch between from and to files: /file1 has hash %s and /file2 has hash %s", file1.Hash, file2.Hash)
 	}
 }
+
+func TestRenameFlagSticks(t *testing.T) {
+	ts := newTestSwupd(t, "packing-renames-")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core"}
+
+	content := strings.Repeat("CONTENT", 1000)
+
+	// Version 10.
+	ts.write("image/10/os-core/fileA", content)
+	ts.createManifests(10)
+
+	// Version 20 has just a rename from A to B.
+	ts.write("image/20/os-core/fileB", content)
+	ts.createManifests(20)
+
+	checkRenameFlag := func(f *File) {
+		t.Helper()
+		if !f.Rename {
+			t.Errorf("file %s is not a rename but should be", f.Name)
+		}
+	}
+
+	m20 := ts.parseManifest(20, "os-core")
+	fileA20 := fileInManifest(t, m20, 20, "/fileA")
+	fileB20 := fileInManifest(t, m20, 20, "/fileB")
+	checkRenameFlag(fileA20)
+	checkRenameFlag(fileB20)
+
+	// Version 30 adds an unrelated file.
+	ts.copyChroots(20, 30)
+	ts.write("image/30/os-core/unrelated", "")
+	ts.createManifests(30)
+
+	m30 := ts.parseManifest(30, "os-core")
+	fileA30 := fileInManifest(t, m30, 20, "/fileA")
+	fileB30 := fileInManifest(t, m30, 20, "/fileB")
+	checkRenameFlag(fileA30)
+	checkRenameFlag(fileB30)
+}

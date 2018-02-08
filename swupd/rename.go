@@ -135,10 +135,15 @@ type pairedNames struct {
 	partialName string // Filename with digits removed
 }
 
-// stripDigits is used with strings.Map to remove digits from filename
-func stripDigits(r rune) rune {
-	if r >= '0' && r <= '9' {
-		return -1 // strings.Map removes negative values
+// stripVers is used with strings.Map to remove digits and '.' from filename
+// because these characters are commonly used in versioned paths
+func stripVers(r rune) rune {
+	// strings.Map removes negative values
+	switch {
+	case r >= '0' && r <= '9':
+		return -1
+	case r == '.':
+		return -1
 	}
 	return r
 }
@@ -152,7 +157,7 @@ func makePairedNames(list []*File) []pairedNames {
 	pairs := make([]pairedNames, len(list))
 	for i, f := range list {
 		pairs[i].f = f
-		pairs[i].partialName = strings.Map(stripDigits, f.Name)
+		pairs[i].partialName = strings.Map(stripVers, f.Name)
 	}
 	sort.Slice(pairs, func(a, b int) bool {
 		if pairs[a].partialName == pairs[b].partialName { // Same stripped name, sort on original name

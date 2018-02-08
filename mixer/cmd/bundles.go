@@ -114,10 +114,55 @@ var bundleListCmd = &cobra.Command{
 	},
 }
 
+// Bundle Edit command ('mixer bundle edit')
+type bundleEditCmdFlags struct {
+	copyOnly bool
+	add      bool
+	git      bool
+}
+
+var bundleEditFlags bundleEditCmdFlags
+
+var bundleEditCmd = &cobra.Command{
+	Use:   "edit [bundle(s)]",
+	Short: "Edit local and upstream bundles",
+	Long: `Edit local and upstream bundle definition files. This command will locate the
+bundle (looking first in local-bundles, then in upstream-bundles), and launch
+an editor to edit it. If the bundle is only found upstream, the bundle file will
+first be copied to your local-bundles directory for editing. When the editor
+closes, the bundle file is then parsed for validity.
+
+The editor is configured via environment variables. VISUAL takes precedence to
+EDITOR. If neither are set, the tool defaults to nano. If nano is not installed,
+the tool will skip editing, and act as if '--copy-only' had been passed.
+
+Passing '--copy-only' will suppress launching the editor, and will thus only
+copy the bundle file to local-bundles (if it is only found upstream). This can
+be useful if you want to add a bundle to local-bundles, but wish to edit it at a
+later time.
+
+Passing '--add' will also add the bundle(s) to your mix. Please note that
+bundles are added after all bundles are edited, and thus will not be added if
+any errors are encountered earlier on.`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		err = b.EditBundles(args, bundleEditFlags.copyOnly, bundleEditFlags.add, bundleEditFlags.git)
+		if err != nil {
+			fail(err)
+		}
+	},
+}
+
 // List of all bundle commands
 var bundlesCmds = []*cobra.Command{
 	bundleAddCmd,
 	bundleListCmd,
+	bundleEditCmd,
 }
 
 func init() {
@@ -132,4 +177,8 @@ func init() {
 	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.git, "git", false, "Automatically apply new git commit")
 
 	bundleListCmd.Flags().BoolVar(&bundleListFlags.tree, "tree", false, "Pretty-print the list as a tree.")
+
+	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.copyOnly, "copy-only", false, "Suppress launching editor (only copy to local-bundles if upstream)")
+	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.add, "add", false, "Add the bundle(s) to your mix")
+	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.git, "git", false, "Automatically apply new git commit")
 }

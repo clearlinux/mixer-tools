@@ -294,6 +294,10 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	// copy over unchanged manifests
 	for _, m := range oldMoM.Files {
 		if m.findFileNameInSlice(newMoM.Files) == nil {
+			if m.Name == indexBundle {
+				// this is generated new each time
+				continue
+			}
 			newMoM.Files = append(newMoM.Files, m)
 		}
 	}

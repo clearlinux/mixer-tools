@@ -607,6 +607,16 @@ func TestCreateManifestsIndex(t *testing.T) {
 	checkManifestMatches(t, testDir, "20", "full", re)
 	// no update to this dir
 	checkManifestContains(t, testDir, "20", "os-core-update-index", "10\t/usr/share\n")
+
+	mustInitStandardTest(t, testDir, "20", "30", []string{"test-bundle1", "test-bundle2"})
+	mustCreateManifestsStandard(t, 30, testDir)
+	// expect only the current version to show up in the MoM
+	// this is an issue we ran into where the old index manifest was copied over
+	// as well as generated.
+	re = regexp.MustCompile("F\\.\\.\\.\t.*\t30\t/usr/share/clear/os-core-update-index\n")
+	checkManifestMatches(t, testDir, "30", "full", re)
+	checkManifestContains(t, testDir, "30", "MoM", "30\tos-core-update-index")
+	checkManifestNotContains(t, testDir, "30", "MoM", "10\tos-core-update-index")
 }
 
 func TestCreateManifestsIndexInclude(t *testing.T) {

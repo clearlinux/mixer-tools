@@ -51,10 +51,14 @@ check: gopath
 # to coverprofile, so there will be no need to pass an individual package.
 # At that time we can merge this target into check and run it against all
 # packages every time.
+.PHONY: checkcoverage
 checkcoverage: gopath
-	test ${PKG}
+ifeq (,${PKG})
+	$(error PKG is not set, try make PKG=swupd checkcoverage)
+else
 	go test -cover ${GO_PACKAGE_PREFIX}/${PKG} -coverprofile=coverage.out
 	go tool cover -html=coverage.out
+endif
 
 .PHONY: lint
 lint: gopath

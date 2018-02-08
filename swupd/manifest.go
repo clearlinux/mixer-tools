@@ -829,8 +829,8 @@ func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
 // the current update. This file excludes directories and files that are not present and
 // sorts the index first by filename then by bundle name. writeIndexManifest creates a new
 // bundle in which the file will live. This bundle is added to the "full" manifest which
-// is part of the bundles slice. A path string to the new manifest is returned on success.
-func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (string, error) {
+// is part of the bundles slice. A pointer to the new manifest is returned on success.
+func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manifest, error) {
 	fileToBundles := []*bundleIndex{}
 	var newFull, newOsCore *Manifest
 	for _, b := range bundles {
@@ -860,12 +860,12 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (string,
 
 	// no full manifest in bundles list
 	if newFull == nil {
-		return "", errors.New("no full manifest found")
+		return nil, errors.New("no full manifest found")
 	}
 
 	// construct the index file from the bundleIndex slice
 	if err := constructIndex(c, ui, fileToBundles); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// now add a manifest
@@ -882,7 +882,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (string,
 	// add files from the chroot created in constructIndex
 	err := idxMan.addFilesFromChroot(filepath.Join(c.imageBase, fmt.Sprint(ui.version), indexBundle))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// record file count
 	idxMan.Header.FileCount = uint32(len(idxMan.Files))
@@ -944,8 +944,8 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (string,
 
 	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+indexBundle)
 	if err := idxMan.WriteManifestFile(manOutput); err != nil {
-		return "", err
+		return nil, err
 	}
 
-	return manOutput, nil
+	return idxMan, nil
 }

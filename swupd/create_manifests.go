@@ -313,14 +313,18 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		}
 	}
 
-	var osIdxPath string
-	if osIdxPath, err = writeIndexManifest(&c, &ui, allManifests); err != nil {
+	var osIdx *Manifest
+	if osIdx, err = writeIndexManifest(&c, &ui, allManifests); err != nil {
 		return nil, err
 	}
 
+	osIdxPath := filepath.Join(verOutput, "Manifest."+osIdx.Name)
 	if err = newMoM.createManifestRecord(verOutput, osIdxPath, version); err != nil {
 		return nil, err
 	}
+
+	// track here as well so the manifest tar is made
+	newManifests = append(newManifests, osIdx)
 
 	// handle full manifest
 	newFull.sortFilesVersionName()

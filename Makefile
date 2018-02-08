@@ -45,7 +45,16 @@ install: gopath
 	install -D -m 00644 yum.conf.in $(DESTDIR)/usr/share/defaults/mixer/yum.conf.in
 
 check: gopath
-	go test ${GO_PACKAGE_PREFIX}/...
+	go test -cover ${GO_PACKAGE_PREFIX}/...
+
+# TODO: when Go 1.10 comes out we will have support for passing multiple packages
+# to coverprofile, so there will be no need to pass an individual package.
+# At that time we can merge this target into check and run it against all
+# packages every time.
+checkcoverage: gopath
+	test ${PKG}
+	go test -cover ${GO_PACKAGE_PREFIX}/${PKG} -coverprofile=coverage.out
+	go tool cover -html=coverage.out
 
 .PHONY: lint
 lint: gopath

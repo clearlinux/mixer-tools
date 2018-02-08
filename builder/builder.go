@@ -26,13 +26,13 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 // Version of Mixer. Also used by the Makefile for releases.
@@ -87,16 +87,47 @@ func NewFromConfig(conf string) (*Builder, error) {
 	if err := b.LoadBuilderConf(conf); err != nil {
 		return nil, err
 	}
-	if err := b.ReadBuilderConf(); err != nil {
-		return nil, err
-	}
 	if err := b.ReadVersions(); err != nil {
 		return nil, err
 	}
 	return b, nil
 }
 
-// CreateDefaultConfig creates a default builder.conf using the active
+// LoadDefaults set default values for the properties in builder.toml
+func (b *Builder) LoadDefaults() error {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	viper.SetDefault("Builder.SERVER_STATE_DIR", filepath.Join(pwd, "update"))
+	viper.SetDefault("Builder.BUNDLE_DIR", filepath.Join(pwd, "mix-bundles"))
+	viper.SetDefault("Builder.YUM_CONF", filepath.Join(pwd, ".yum-mix.conf"))
+	viper.SetDefault("Builder.CERT", filepath.Join(pwd, "Swupd_Root.pem"))
+	viper.SetDefault("Builder.VERSIONS_PATH", pwd)
+
+	viper.SetDefault("swupd.BUNDLE", "os-core-update")
+	viper.SetDefault("swupd.CONTENTURL", "<URL where the content will be hosted>")
+	viper.SetDefault("swupd.VERSIONURL", "<URL where the version of the mix will be hosted>")
+	viper.SetDefault("swupd.FORMAT", "1")
+
+	viper.SetDefault("Server.debuginfo_banned", "true")
+	viper.SetDefault("Server.debuginfo_lib", "/usr/lib/debug")
+	viper.SetDefault("Server.debuginfo_src", "/usr/src/debug")
+
+	viper.SetDefault("Mixer.RPMDIR", "")
+	viper.SetDefault("Mixer.REPODIR", "")
+
+	viper.SetConfigName("builder")
+	viper.AddConfigPath(pwd)
+
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+
+	return nil
+}
+
+// CreateDefaultConfig creates a default builder.toml using the active
 // directory as base path for the variables values.
 func (b *Builder) CreateDefaultConfig(localrpms bool) error {
 	pwd, err := os.Getwd()
@@ -104,34 +135,14 @@ func (b *Builder) CreateDefaultConfig(localrpms bool) error {
 		return err
 	}
 
-	builderconf := filepath.Join(pwd, "builder.conf")
-
-	err = helpers.CopyFileNoOverwrite(builderconf, "/usr/share/defaults/bundle-chroot-builder/builder.conf")
-	if os.IsExist(err) {
-		// builder.conf already exists. Skip creation.
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	fmt.Println("Creating new builder.conf configuration file...")
-
-	raw, err := ioutil.ReadFile(builderconf)
-	if err != nil {
-		return err
-	}
-
-	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
 	if localrpms {
-		data += "\n[Mixer]\n"
-		data += "RPMDIR=" + pwd + "/rpms\n"
-		data += "REPODIR=" + pwd + "/local\n"
+		viper.Set("Mixer.RPMDIR", filepath.Join(pwd, "rpms"))
+		viper.Set("Mixer.REPODIR", filepath.Join(pwd, "local"))
 	}
 
-	if err = ioutil.WriteFile(builderconf, []byte(data), 0666); err != nil {
-		return err
-	}
-	return nil
+	fmt.Println("Creating new builder.toml configuration file...")
+
+	return viper.WriteConfigAs(filepath.Join(pwd, "builder.toml"))
 }
 
 // createRpmDirs creates the RPM directories
@@ -154,85 +165,27 @@ func (b *Builder) createRpmDirs() error {
 
 // LoadBuilderConf will read the builder configuration from the command line if
 // it was provided, otherwise it will fall back to reading the configuration from
-// the local builder.conf file.
+// the local builder.toml file.
 func (b *Builder) LoadBuilderConf(builderconf string) error {
-	local, err := os.Getwd()
-	if err != nil {
+	if len(builderconf) > 0 {
+		viper.AddConfigPath(filepath.Dir(builderconf))
+		viper.SetConfigName(filepath.Base(builderconf))
+	}
+
+	if err := viper.ReadInConfig(); err != nil {
 		return err
 	}
 
-	// If builderconf is set via cmd line, use that one
-	if len(builderconf) > 0 {
-		b.Buildconf = builderconf
-		return nil
-	}
+	b.Statedir = viper.GetString("Builder.SERVER_STATE_DIR")
+	b.Bundledir = viper.GetString("Builder.BUNDLE_DIR")
+	b.Yumconf = viper.GetString("Builder.YUM_CONF")
+	b.Cert = viper.GetString("Builder.CERT")
+	b.Versiondir = viper.GetString("Builder.VERSIONS_PATH")
 
-	// Check if there's a local builder.conf if one wasn't supplied
-	localpath := local + "/builder.conf"
-	if _, err := os.Stat(localpath); err == nil {
-		b.Buildconf = localpath
-	} else {
-		return errors.Wrap(err, "Cannot find any builder.conf to use")
-	}
+	b.Format = viper.GetString("swupd.FORMAT")
 
-	return nil
-}
-
-// ReadBuilderConf will populate the configuration data from the builder
-// configuration file, which is mandatory information for performing a mix.
-func (b *Builder) ReadBuilderConf() error {
-	lines, err := helpers.ReadFileAndSplit(b.Buildconf)
-	if err != nil {
-		return errors.Wrap(err, "Failed to read buildconf")
-	}
-
-	// Map the builder values to the regex here to make it easier to assign
-	fields := []struct {
-		re       string
-		dest     *string
-		required bool
-	}{
-		{`^BUNDLE_DIR\s*=\s*`, &b.Bundledir, true},
-		{`^CERT\s*=\s*`, &b.Cert, true},
-		{`^CLEARVER\s*=\s*`, &b.Clearver, false},
-		{`^FORMAT\s*=\s*`, &b.Format, true},
-		{`^MIXVER\s*=\s*`, &b.Mixver, false},
-		{`^REPODIR\s*=\s*`, &b.Repodir, false},
-		{`^RPMDIR\s*=\s*`, &b.RPMdir, false},
-		{`^SERVER_STATE_DIR\s*=\s*`, &b.Statedir, true},
-		{`^VERSIONS_PATH\s*=\s*`, &b.Versiondir, true},
-		{`^YUM_CONF\s*=\s*`, &b.Yumconf, true},
-	}
-
-	for _, h := range fields {
-		r := regexp.MustCompile(h.re)
-		// Look for Environment variables in the config file
-		re := regexp.MustCompile(`\$\{?([[:word:]]+)\}?`)
-		for _, i := range lines {
-			if m := r.FindIndex([]byte(i)); m != nil {
-				// We want the variable without the $ or {} for lookup checking
-				matches := re.FindAllStringSubmatch(i[m[1]:], -1)
-				for _, s := range matches {
-					if _, ok := os.LookupEnv(s[1]); !ok {
-						return errors.Errorf("buildconf contains an undefined environment variable: %s", s[1])
-					}
-				}
-
-				// Replace valid Environment Variables
-				*h.dest = os.ExpandEnv(i[m[1]:])
-			}
-		}
-
-		if h.required && *h.dest == "" {
-			missing := h.re
-			re := regexp.MustCompile(`([[:word:]]+)\\s\*=`)
-			if matches := re.FindStringSubmatch(h.re); matches != nil {
-				missing = matches[1]
-			}
-
-			return errors.Errorf("buildconf missing entry for variable: %s", missing)
-		}
-	}
+	b.Repodir = viper.GetString("Mixer.RPMDIR")
+	b.RPMdir = viper.GetString("Mixer.REPODIR")
 
 	return nil
 }
@@ -267,7 +220,7 @@ func (b *Builder) ReadVersions() error {
 }
 
 // SignManifestMoM will sign the Manifest.MoM file in in place based on the Mix
-// version read from builder.conf.
+// version read from builder.toml.
 func (b *Builder) SignManifestMoM() error {
 	mom := filepath.Join(b.Statedir, "www", b.Mixver, "Manifest.MoM")
 	sig := mom + ".sig"
@@ -907,7 +860,7 @@ func (b *Builder) buildUpdateWithOldSwupd(timer *stopWatch, prefixflag string, m
 // BuildImage will now proceed to build the full image with the previously
 // validated configuration.
 func (b *Builder) BuildImage(format string, template string) error {
-	// If the user did not pass in a format, default to builder.conf
+	// If the user did not pass in a format, default to builder.toml
 	if format == "" {
 		format = b.Format
 	}

@@ -290,9 +290,16 @@ func Git(args ...string) error {
 
 // RunCommand runs the given command with args and prints output
 func RunCommand(cmdname string, args ...string) error {
+	return RunCommandInput(nil, cmdname, args...)
+}
+
+// RunCommandInput runs the given command with args and input from an io.Reader,
+// and prints output
+func RunCommandInput(in io.Reader, cmdname string, args ...string) error {
 	cmd := exec.Command(cmdname, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	cmd.Stdin = in
 	err := cmd.Run()
 	if err != nil {
 		return errors.Wrapf(err, "Failed to run %s %s: %v\n", cmdname, strings.Join(args, " "), err)

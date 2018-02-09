@@ -198,10 +198,9 @@ func UnpackFile(file string, dest string) error {
 	return nil
 }
 
-// CopyFile is used during the build process to copy a given file to the target
-// instead of dealing with the particulars of hardlinking.
+// CopyFile copies a file, overwriting the destination if it exists.
 func CopyFile(dest string, src string) error {
-	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE)
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
 }
 
 // CopyFileNoOverwrite copies a file only if the destination file does not exist.

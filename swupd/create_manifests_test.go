@@ -817,3 +817,70 @@ func TestNoUpdateStateFiles(t *testing.T) {
 	m20 := ts.parseManifest(20, "test-bundle")
 	_ = fileInManifest(t, m20, 10, "/usr/lib/kernel/file")
 }
+
+func TestCreateManifestsGhostedRenamesNewHash(t *testing.T) {
+	ts := newTestSwupd(t, "ghosted-renames-new-hash")
+	//defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "test-kernel"}
+
+	content := strings.Repeat("boot", 200)
+	// Version 10
+	ts.write("image/10/test-kernel/usr/lib/kernel/file1", content+"10")
+	ts.createManifests(10)
+
+	// Version 20 renames the file
+	ts.write("image/20/test-kernel/usr/lib/kernel/file2", content+"20")
+	ts.createManifests(20)
+
+	m20 := ts.parseManifest(20, "test-kernel")
+	f1 := fileInManifest(t, m20, 20, "/usr/lib/kernel/file1")
+	f2 := fileInManifest(t, m20, 20, "/usr/lib/kernel/file2")
+
+	if f1.Status != StatusGhosted {
+		t.Errorf("file1 was not properly ghosted")
+	}
+
+	if f1.Modifier != ModifierBoot {
+		t.Errorf("file1 was not properly marked as a boot file")
+	}
+
+	if !f1.Rename {
+		t.Errorf("file1 was not marked as a rename")
+	}
+
+	if f1.Hash != f2.Hash {
+		t.Errorf("rename-from file hash does not match rename-to file hash")
+	}
+
+	if f2.Type != TypeFile {
+		t.Errorf("file2 type was not File")
+	}
+
+	if !f2.Rename {
+		t.Errorf("file2 was not marked as a rename")
+	}
+
+	// Version 30 will deprecate file1, ghost file2 and remove it's rename flag
+	// and add some other unrelated file
+	ts.write("image/30/test-kernel/usr/lib/kernel/unrelated", "content")
+	ts.createManifests(30)
+	m30 := ts.parseManifest(30, "test-kernel")
+	// ghosted files deprecated when deleted
+	fileNotInManifest(t, m30, "/usr/lib/kernel/file1")
+	f2 = fileInManifest(t, m30, 30, "/usr/lib/kernel/file2")
+	fileInManifest(t, m30, 30, "/usr/lib/kernel/unrelated")
+
+	// this is deleted now, must be marked as ghosted
+	if f2.Status != StatusGhosted {
+		t.Errorf("file2 was not properly ghosted")
+	}
+
+	if f2.Rename {
+		t.Errorf("file2 was improperly marked as renamed")
+	}
+
+	if f2.Hash != 0 {
+		t.Errorf("file2 hash not properly zeroed")
+	}
+}

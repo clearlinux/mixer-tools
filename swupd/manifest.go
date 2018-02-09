@@ -398,7 +398,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 				nx++
 				continue
 			}
-			if sameFile(nf, of) && of.Version >= minVersion {
+			if nf.Hash == of.Hash && of.Version >= minVersion {
 				// file did not change, set version to the old version
 				// persist the Rename flag
 				nf.Rename = of.Rename

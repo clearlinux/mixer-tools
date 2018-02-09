@@ -38,16 +38,16 @@ func generateTestArray(t *testing.T) map[string]File {
 		k string // stuff to make content unique
 	}{
 		// Two files, same contents
-		{n: "I1", f: File{Name: "/lib/python3.6/libpython.3.6.0.so"}, s: 400, m: _rwx, k: "file1"},
-		{n: "I2", f: File{Name: "/lib/python3.7/libpython.3.7.0.so"}, s: 400, m: _rwx, k: "file1"},
+		{n: "I1", f: File{Name: "/lib/python3.6/libpython.3.6.0.so", Type: TypeFile}, s: 400, m: _rwx, k: "file1"},
+		{n: "I2", f: File{Name: "/lib/python3.7/libpython.3.7.0.so", Type: TypeFile}, s: 400, m: _rwx, k: "file1"},
 		// Two short files, different contents
-		{n: "S1", f: File{Name: "/lib/python3.6/tiny"}, s: 180, m: _rwx, k: "123"},
-		{n: "S2", f: File{Name: "/lib/python3.7/tiny"}, s: 180, m: _rwx, k: "456"},
+		{n: "S1", f: File{Name: "/lib/python3.6/tiny", Type: TypeFile}, s: 180, m: _rwx, k: "123"},
+		{n: "S2", f: File{Name: "/lib/python3.7/tiny", Type: TypeFile}, s: 180, m: _rwx, k: "456"},
 		// long files, different contents, same length
-		{n: "L1", f: File{Name: "/lib/python3.6/big"}, s: 580, m: _rwx, k: "123"},
-		{n: "L2", f: File{Name: "/lib/python3.7/big"}, s: 580, m: _rwx, k: "456"},
-		{n: "L3", f: File{Name: "/lib/python2.6/big"}, s: 580, m: _rwx, k: "123"},
-		{n: "L4", f: File{Name: "/lib/python2.7/big"}, s: 580, m: _rwx, k: "456"},
+		{n: "L1", f: File{Name: "/lib/python3.6/big", Type: TypeFile}, s: 580, m: _rwx, k: "123"},
+		{n: "L2", f: File{Name: "/lib/python3.7/big", Type: TypeFile}, s: 580, m: _rwx, k: "456"},
+		{n: "L3", f: File{Name: "/lib/python2.6/big", Type: TypeFile}, s: 580, m: _rwx, k: "123"},
+		{n: "L4", f: File{Name: "/lib/python2.7/big", Type: TypeFile}, s: 580, m: _rwx, k: "456"},
 	}
 
 	m := &Manifest{}

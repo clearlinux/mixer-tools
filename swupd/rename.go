@@ -106,7 +106,15 @@ func trimRenamed(a []*File) []*File {
 		// and it is helpful to be able to ship just the differences for them.
 		// Worst case is that the files do not exist on the target system, in which
 		// case the swupd-client will fall back to doing a full download.
-		if f.DeltaPeer == nil {
+		//
+		// Renames are only supported for TypeFile right now so skip if the file is
+		// not the right type.
+		//
+		// Unfortunately deleted files have lost their association with a file type
+		// so we have to leave all deleted files in the list
+		// TODO: refactor to leave file type in the deleted file records. There is no
+		// reason to clear them.
+		if f.DeltaPeer == nil && (!f.Present() || f.Type == TypeFile) {
 			r = append(r, f)
 		}
 	}

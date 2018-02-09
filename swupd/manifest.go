@@ -315,7 +315,7 @@ func (m *Manifest) WriteManifest(w io.Writer) error {
 	}
 	err = manifestTemplate.Execute(w, m)
 	if err != nil {
-		return fmt.Errorf("couldn't write manifest: %s", err)
+		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)
 	}
 	return nil
 }

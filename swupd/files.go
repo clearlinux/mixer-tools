@@ -15,7 +15,6 @@
 package swupd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 )
@@ -231,7 +230,7 @@ func (f *File) GetFlagString() (string, error) {
 		f.Status == StatusUnset &&
 		f.Modifier == ModifierUnset &&
 		f.Rename == renameUnset {
-		return "", errors.New("no flags are set on file")
+		return "", fmt.Errorf("no flags are set on file %s", f.Name)
 	}
 
 	flagBytes := []byte{

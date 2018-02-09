@@ -254,55 +254,6 @@ func TestFindFileNameInSlice(t *testing.T) {
 	}
 }
 
-func TestSameFile(t *testing.T) {
-	testCases := []struct {
-		file1    File
-		file2    File
-		expected bool
-	}{
-		{
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			true,
-		},
-		{
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			File{Name: "2", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			false,
-		},
-		{
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			File{Name: "1", Hash: 2, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			false,
-		},
-		{
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			File{Name: "1", Hash: 1, Type: TypeLink, Status: StatusUnset, Modifier: ModifierUnset},
-			false,
-		},
-		{
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusDeleted, Modifier: ModifierUnset},
-			false,
-		},
-		{
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierUnset},
-			File{Name: "1", Hash: 1, Type: TypeFile, Status: StatusUnset, Modifier: ModifierBoot},
-			false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run("sameFile", func(t *testing.T) {
-			if sameFile(&tc.file1, &tc.file2) != tc.expected {
-				t.Errorf("sameFile returned %v when %v was expected",
-					!tc.expected,
-					tc.expected)
-			}
-		})
-	}
-}
-
 func TestTypeHasChanged(t *testing.T) {
 	testCases := []struct {
 		file     File

@@ -254,14 +254,6 @@ func (f *File) findFileNameInSlice(fs []*File) *File {
 	return nil
 }
 
-func sameFile(f1 *File, f2 *File) bool {
-	return f1.Name == f2.Name &&
-		f1.Hash == f2.Hash &&
-		f1.Type == f2.Type &&
-		f1.Status == f2.Status &&
-		f1.Modifier == f2.Modifier
-}
-
 func (f *File) isUnsupportedTypeChange() bool {
 	if f.DeltaPeer == nil {
 		// nothing to check, new or deleted file

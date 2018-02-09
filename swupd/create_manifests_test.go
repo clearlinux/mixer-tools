@@ -797,3 +797,23 @@ func TestRenameFlagSticks(t *testing.T) {
 	checkRenameFlag(fileA30)
 	checkRenameFlag(fileB30)
 }
+
+func TestNoUpdateStateFiles(t *testing.T) {
+	ts := newTestSwupd(t, "no-update-boot-files")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "test-bundle"}
+
+	// Version 10
+	ts.write("image/10/test-bundle/usr/lib/kernel/file", "content")
+	ts.createManifests(10)
+
+	// Version 20 has same content for /usr/lib/kernel/file and a new
+	// file to force manifest creation
+	ts.copyChroots(10, 20)
+	ts.write("image/20/test-bundle/new", "new")
+	ts.createManifests(20)
+
+	m20 := ts.parseManifest(20, "test-bundle")
+	_ = fileInManifest(t, m20, 10, "/usr/lib/kernel/file")
+}

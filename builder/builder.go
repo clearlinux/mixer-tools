@@ -740,6 +740,78 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 	return nil
 }
 
+// RemoveBundles removes a list of bundles from the Mix Bundles List. If a
+// bundle is not present, it is skipped. If 'local' is passed, the corresponding
+// bundle file is removed from local-bundles. Note that this is an irreversible
+// step. The Mix Bundles List is validated when read in, and the resulting Mix
+// Bundles List will be in sorted order.
+func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
+	// Read in current mix bundles list
+	set, err := b.getMixBundlesListAsSet()
+	if err != nil {
+		return err
+	}
+
+	// Remove the ones passed in from the set
+	for _, bundle := range bundles {
+		_, inMix := set[bundle]
+
+		if local {
+			if _, err := os.Stat(filepath.Join(b.LocalBundleDir, bundle)); err == nil {
+				fmt.Printf("Removing bundle file for '%s' from local-bundles\n", bundle)
+				if err := os.Remove(filepath.Join(b.LocalBundleDir, bundle)); err != nil {
+					return errors.Wrapf(err, "Cannot remove bundle file for '%s' from local-bundles", bundle)
+				}
+
+				if !mix && inMix {
+					// Check if bundle is still available upstream
+					if _, err := b.getBundlePath(bundle); err != nil {
+						fmt.Printf("Warning: Invalid bundle left in mix: %s\n", bundle)
+					} else {
+						fmt.Printf("Mix bundle '%s' now points to upstream\n", bundle)
+					}
+				}
+			} else {
+				fmt.Printf("Bundle '%s' not found in local-bundles; skipping\n", bundle)
+			}
+		}
+
+		if mix {
+			if inMix {
+				fmt.Printf("Removing bundle '%s' from mix\n", bundle)
+				delete(set, bundle)
+			} else {
+				fmt.Printf("Bundle '%s' not found in mix; skipping\n", bundle)
+			}
+		}
+	}
+
+	// Write final mix bundle list back to file, only if the Mix Bundle List was edited
+	if mix {
+		if err := b.writeMixBundleList(set); err != nil {
+			return err
+		}
+	}
+
+	if git {
+		fmt.Println("Adding git commit")
+		if err := helpers.Git("add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Bundles removed: %v", bundles)
+		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 const (
 	// Using the Unicode "Box Drawing" group
 	treeNil = "    "

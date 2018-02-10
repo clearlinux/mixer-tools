@@ -65,6 +65,46 @@ resultant list is written back out in sorted order.`,
 	},
 }
 
+// Bundle add command ('mixer bundle add')
+type bundleRemoveCmdFlags struct {
+	mix   bool
+	local bool
+	git   bool
+}
+
+var bundleRemoveFlags bundleRemoveCmdFlags
+
+var bundleRemoveCmd = &cobra.Command{
+	Use:   "remove [bundle(s)]",
+	Short: "Remove bundles from your mix",
+	Long: `Removes bundles from your mix by modifying the Mix Bundle List
+(stored in the 'mixbundles' file). The Mix Bundle List is parsed, the bundles
+are removed, and the resultant list is written back out in sorted order. If
+bundles do not exist in the mix, they are skipped.
+
+Passing '--local' will also remove the corresponding bundle definition file from
+local-bundles, if it exists. Please note that this is an irrevocable step.
+
+'--mix' defaults to true. Passing '--mix=false' will prevent the bundle from
+being removed from your Mix Bundle List. This is useful when used in conjunction
+with '--local' to *only* remove a bundle from local-bundles. If the bundle being
+removed is an edited version from upstream, the bundle will remain in your mix
+and now reference the original upstream version. If the bundle was custom, and
+no upstream alternative exists, a warning will be returned.`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		err = b.RemoveBundles(args, bundleRemoveFlags.mix, bundleRemoveFlags.local, bundleRemoveFlags.git)
+		if err != nil {
+			fail(err)
+		}
+	},
+}
+
 // Bundle list command ('mixer bundle list')
 type bundleListCmdFlags struct {
 	tree bool
@@ -117,6 +157,7 @@ var bundleListCmd = &cobra.Command{
 // List of all bundle commands
 var bundlesCmds = []*cobra.Command{
 	bundleAddCmd,
+	bundleRemoveCmd,
 	bundleListCmd,
 }
 
@@ -130,6 +171,10 @@ func init() {
 	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.allLocal, "all-local", false, "Add all local bundles; takes precedence over bundle list")
 	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.allUpstream, "all-upstream", false, "Add all upstream bundles; takes precedence over bundle list")
 	bundleAddCmd.Flags().BoolVar(&bundleAddFlags.git, "git", false, "Automatically apply new git commit")
+
+	bundleRemoveCmd.Flags().BoolVar(&bundleRemoveFlags.mix, "mix", true, "Remove bundle from Mix Bundle List")
+	bundleRemoveCmd.Flags().BoolVar(&bundleRemoveFlags.local, "local", false, "Also remove bundle file from local-bundles (irrevocable)")
+	bundleRemoveCmd.Flags().BoolVar(&bundleRemoveFlags.git, "git", false, "Automatically apply new git commit")
 
 	bundleListCmd.Flags().BoolVar(&bundleListFlags.tree, "tree", false, "Pretty-print the list as a tree.")
 }

@@ -1600,7 +1600,16 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, outputDir, chroo
 	if err != nil {
 		return err
 	}
-	for _, b := range bundlesToPack {
+
+	// Get an ordered output. This make easy to compare different runs.
+	var orderedBundles []string
+	for name := range bundlesToPack {
+		orderedBundles = append(orderedBundles, name)
+	}
+	sort.Strings(orderedBundles)
+
+	for _, name := range orderedBundles {
+		b := bundlesToPack[name]
 		packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
 		_, err = os.Lstat(packPath)
 		if err == nil {

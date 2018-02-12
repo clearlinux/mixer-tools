@@ -43,7 +43,7 @@ func TestReadGroupsINI(t *testing.T) {
 		t.Error(err)
 	}
 
-	expected := []string{"os-core", "test-bundle", "test-bundle2"}
+	expected := []string{"os-core", "test-bundle", "Test-bundle2"}
 	if !reflect.DeepEqual(groups, expected) {
 		t.Errorf("groups %v did not match expected %v", groups, expected)
 	}

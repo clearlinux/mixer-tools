@@ -295,7 +295,7 @@ func RunCommand(cmdname string, args ...string) error {
 	cmd.Stderr = os.Stderr
 	err := cmd.Run()
 	if err != nil {
-		return errors.Wrapf(err, "Failed to run %s %s: %v\n", cmdname, strings.Join(args, " "), err)
+		return errors.Wrapf(err, "failed to execute %s", strings.Join(cmd.Args, " "))
 	}
 
 	return nil
@@ -318,7 +318,19 @@ func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	if err != nil {
-		return nil, errors.Wrapf(err, "couldn't execute %s\nSTDOUT:\n%s\nSTDERR:\n%s\n", strings.Join(cmd.Args, " "), outBuf.Bytes(), errBuf.Bytes())
+		var buf bytes.Buffer
+		fmt.Fprintf(&buf, "failed to execute %s", strings.Join(cmd.Args, " "))
+		if outBuf.Len() > 0 {
+			fmt.Fprintf(&buf, "\nSTDOUT:\n%s", outBuf.Bytes())
+		}
+		if errBuf.Len() > 0 {
+			fmt.Fprintf(&buf, "\nSTDERR:\n%s", errBuf.Bytes())
+		}
+		if outBuf.Len() > 0 || errBuf.Len() > 0 {
+			// Finish without a newline to wrap well with the err.
+			fmt.Fprintf(&buf, "failed to execute")
+		}
+		return nil, errors.Wrap(err, buf.String())
 	}
 	return &outBuf, nil
 }

@@ -97,16 +97,13 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest) ([
 }
 
 func createDelta(c *config, delta *Delta) error {
-	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
-	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
-	dir := filepath.Join(c.outputDir, fmt.Sprint(delta.to.Version), "delta")
-	name := fmt.Sprintf("%d-%d-%s-%s", delta.from.Version, delta.to.Version, delta.from.Hash, delta.to.Hash)
-	delta.Path = filepath.Join(dir, name)
-
 	if _, err := os.Stat(delta.Path); err == nil {
 		// Skip existing deltas. Not verifying since client is resilient about that.
 		return nil
 	}
+
+	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
+	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
 
 	if err := helpers.RunCommandSilent("bsdiff", oldPath, newPath, delta.Path); err != nil {
 		_ = os.Remove(delta.Path)
@@ -161,13 +158,31 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 	}
 
 	deltas := make([]Delta, 0, deltaCount)
+
+	// Use set to remove completely equal delta entries. These happen when two files that look
+	// the same, change content in next version (but still look the same).
+	seen := make(map[string]bool)
+
 	for _, nf := range newManifest.Files {
 		if nf.DeltaPeer == nil {
 			continue
 		}
+
+		from := nf.DeltaPeer
+		to := nf
+		dir := filepath.Join(c.outputDir, fmt.Sprint(to.Version), "delta")
+		name := fmt.Sprintf("%d-%d-%s-%s", from.Version, to.Version, from.Hash, to.Hash)
+		path := filepath.Join(dir, name)
+
+		if seen[path] {
+			continue
+		}
+
+		seen[path] = true
 		deltas = append(deltas, Delta{
-			from: nf.DeltaPeer,
-			to:   nf,
+			Path: path,
+			from: from,
+			to:   to,
 		})
 	}
 

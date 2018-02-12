@@ -113,7 +113,7 @@ func readGroupsINI(path string) ([]string, error) {
 		return nil, errors.New("no groups.ini file to define bundles")
 	}
 
-	cfg, err := ini.InsensitiveLoad(path)
+	cfg, err := ini.Load(path)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +123,7 @@ func readGroupsINI(path string) ([]string, error) {
 	osCoreFound := false
 	groups := []string{}
 	for _, section := range sections {
-		if section == "default" {
+		if section == "DEFAULT" {
 			// skip "default" set by go-ini/ini
 			continue
 		}

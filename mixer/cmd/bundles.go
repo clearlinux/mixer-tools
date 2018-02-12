@@ -158,11 +158,54 @@ any errors are encountered earlier on.`,
 	},
 }
 
+// Bundle Edit command ('mixer bundle edit')
+type bundleCreateCmdFlags struct {
+	createOnly bool
+	add        bool
+	git        bool
+}
+
+var bundleCreateFlags bundleCreateCmdFlags
+
+var bundleCreateCmd = &cobra.Command{
+	Use:   "create [bundle(s)]",
+	Short: "Create custom local bundles",
+	Long: `Create custom local bundle definition files. This command will generate an
+empty bundle definition file template with the appropriate name in your
+local-bundles directory, and launch an editor to edit it. When the editor
+closes, the bundle file is then parsed for validity.
+
+The editor is configured via environment variables. VISUAL takes precedence to
+EDITOR. If neither are set, the tool defaults to nano. If nano is not installed,
+the tool will skip editing, and act as if '--create-only' had been passed.
+
+Passing '--create-only' will suppress launching the editor, and will thus only
+create the empty bundle template in local-bundles. This can be useful if you
+want to create a new bundle, but wish to edit it at a later time.
+
+Passing '--add' will also add the bundle(s) to your mix. Please note that
+bundles are added after all bundles are created, and thus will not be added if
+any errors are encountered earlier on.`,
+	Args: cobra.MinimumNArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		err = b.CreateBundles(args, bundleCreateFlags.createOnly, bundleCreateFlags.add, bundleCreateFlags.git)
+		if err != nil {
+			fail(err)
+		}
+	},
+}
+
 // List of all bundle commands
 var bundlesCmds = []*cobra.Command{
 	bundleAddCmd,
 	bundleListCmd,
 	bundleEditCmd,
+	bundleCreateCmd,
 }
 
 func init() {
@@ -181,4 +224,8 @@ func init() {
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.copyOnly, "copy-only", false, "Suppress launching editor (only copy to local-bundles if upstream)")
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.add, "add", false, "Add the bundle(s) to your mix")
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.git, "git", false, "Automatically apply new git commit")
+
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.createOnly, "create-only", false, "Suppress launching editor (only create empty template in local-bundles)")
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.add, "add", false, "Add the bundle(s) to your mix")
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.git, "git", false, "Automatically apply new git commit")
 }

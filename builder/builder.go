@@ -1052,6 +1052,77 @@ func (b *Builder) EditBundles(bundles []string, copyOnly bool, add bool, git boo
 	return nil
 }
 
+const bundleTemplateFormat = `# [TITLE]: %s
+# [DESCRIPTION]: 
+# [STATUS]: 
+# [CAPABILITIES]:
+# [MAINTAINER]: 
+# 
+# List bundles one per line. Includes have format: include(bundle)
+`
+
+func createBundleFile(bundle string, path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0666)
+	if err != nil {
+		return err // Returns ErrExist if already in local-bundles
+	}
+
+	data := []byte(fmt.Sprintf(bundleTemplateFormat, bundle))
+	_, err = f.Write(data)
+	_ = f.Close()
+	return err
+}
+
+// CreateBundles creates empty bundle definition file templates in
+// local-bundles, and launches an editor to edit them. If a bundle already
+// exists in local-bundles, it will be skipped. Passing true for 'createOnly'
+// will suppress the launching of the editor (and just do the create), and 'add'
+// will also add the bundles to the mix.
+func (b *Builder) CreateBundles(bundles []string, createOnly bool, add bool, git bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
+	for _, bundle := range bundles {
+		path := filepath.Join(b.LocalBundleDir, bundle)
+
+		if err := createBundleFile(bundle, path); os.IsExist(err) {
+			fmt.Printf("Skipping bundle '%s': already exists. (Use 'mixer bundle edit' to edit)\n", bundle)
+			continue
+		} else if err != nil {
+			return errors.Wrapf(err, "Failed to write bundle template for bundle '%s'", bundle)
+		}
+
+		if createOnly {
+			continue
+		}
+
+		if err := b.EditBundles([]string{bundle}, false, false, false); err != nil {
+			return err
+		}
+	}
+
+	if add {
+		if err := b.AddBundles(bundles, false, false, false); err != nil {
+			return err
+		}
+	}
+
+	if git {
+		fmt.Println("Adding git commit")
+		if err := helpers.Git("add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Created bundles: %v", bundles)
+		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 // UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
 // without requiring user intervention. This makes the flow slightly more automatable.
 func (b *Builder) UpdateMixVer() error {

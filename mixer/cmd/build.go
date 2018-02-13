@@ -35,9 +35,6 @@ type buildCmdFlags struct {
 	noPublish  bool
 	keepChroot bool
 	template   string
-
-	// Name of the program to use instead of yum (or dnf in Fedora >= 22).
-	packager string
 }
 
 var buildFlags buildCmdFlags
@@ -48,7 +45,7 @@ var buildCmd = &cobra.Command{
 	Short: "Build various pieces of OS content",
 }
 
-func buildChroots(builder *builder.Builder, packager string, signflag bool) error {
+func buildChroots(builder *builder.Builder, signflag bool) error {
 	// Create the signing and validation key/cert
 	if _, err := os.Stat(builder.Cert); os.IsNotExist(err) {
 		fmt.Println("Generating certificate for signature validation...")
@@ -58,12 +55,12 @@ func buildChroots(builder *builder.Builder, packager string, signflag bool) erro
 		}
 		template := helpers.CreateCertTemplate()
 
-		err = builder.BuildChroots(template, privkey, packager, signflag)
+		err = builder.BuildChroots(template, privkey, signflag)
 		if err != nil {
 			return errors.Wrap(err, "Error building chroots")
 		}
 	} else {
-		err := builder.BuildChroots(nil, nil, packager, true)
+		err := builder.BuildChroots(nil, nil, true)
 		if err != nil {
 			return errors.Wrap(err, "Error building chroots")
 		}
@@ -80,7 +77,7 @@ var buildChrootsCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
-		err = buildChroots(b, buildFlags.packager, buildFlags.noSigning)
+		err = buildChroots(b, buildFlags.noSigning)
 		if err != nil {
 			fail(err)
 		}
@@ -125,7 +122,7 @@ var buildAllCmd = &cobra.Command{
 				failf("couldn't add the RPMs: %s", err)
 			}
 		}
-		err = buildChroots(b, buildFlags.packager, buildFlags.noSigning)
+		err = buildChroots(b, buildFlags.noSigning)
 		if err != nil {
 			failf("couldn't build chroots: %s", err)
 		}
@@ -250,9 +247,6 @@ func init() {
 	buildChrootsCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
 	buildChrootsCmd.Flags().BoolVar(&builder.UseNewChrootBuilder, "new-chroots", false, "EXPERIMENTAL: Use new implementation of build chroots")
 
-	// TODO: Remove or rewrite the message when we let yum go.
-	buildChrootsCmd.Flags().StringVar(&buildFlags.packager, "packager", "", "When using build-chroots, use passed packager program instead of yum (or dnf in Fedora >= 22)")
-
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")
 
@@ -266,7 +260,7 @@ func init() {
 	externalDeps[buildChrootsCmd] = []string{
 		"m4",
 		"rpm",
-		"yum",
+		"dnf",
 	}
 	externalDeps[buildUpdateCmd] = []string{
 		"hardlink",

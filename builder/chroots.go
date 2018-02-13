@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -80,7 +79,7 @@ func readBuildChrootsConfig(path string) (*buildChrootsConfig, error) {
 	return cfg, nil
 }
 
-func (b *Builder) buildBundleChroots(set bundleSet, packager string) error {
+func (b *Builder) buildBundleChroots(set bundleSet) error {
 	var err error
 
 	if b.StateDir == "" {
@@ -200,32 +199,17 @@ src=%s
 		return err
 	}
 
-	// TODO: Check then change to always use dnf. See https://github.com/clearlinux/mixer-tools/issues/115.
-	yumCmd := []string{
-		"yum",
+	packagerCmd := []string{
+		"dnf",
 		"--config=" + b.YumConf,
 		"-y",
 		"--releasever=" + b.UpstreamVer,
 	}
-	if packager == "" {
-		// When in Fedora, call dnf instead of yum.
-		if osInfo, oerr := readOSInfo(); oerr == nil {
-			if osInfo.ID == "fedora" {
-				// TODO: Simplify this when we can assume all Fedora users will be >= 22?
-				versionID, _ := strconv.Atoi(osInfo.VersionID)
-				if versionID >= 22 {
-					yumCmd[0] = "dnf"
-				}
-			}
-		}
-	} else {
-		yumCmd[0] = packager
-	}
 
-	fmt.Printf("Packager command-line: %s\n", strings.Join(yumCmd, " "))
+	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))
 
 	fmt.Println("Installing filesystem package in os-core")
-	installArgs := merge(yumCmd,
+	installArgs := merge(packagerCmd,
 		"--installroot="+osCoreDir,
 		"install",
 		"filesystem",
@@ -242,7 +226,7 @@ src=%s
 	}
 
 	fmt.Println("Installing packages in os-core")
-	err = installPackagesToBundleChroot(yumCmd, chrootVersionDir, set["os-core"])
+	err = installPackagesToBundleChroot(packagerCmd, chrootVersionDir, set["os-core"])
 	if err != nil {
 		return err
 	}
@@ -261,7 +245,7 @@ src=%s
 	}
 
 	fmt.Println("Creating 'versions' file")
-	err = createVersionsFile(chrootVersionDir, yumCmd)
+	err = createVersionsFile(chrootVersionDir, packagerCmd)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create the versions file")
 	}
@@ -285,7 +269,7 @@ src=%s
 		}
 
 		fmt.Printf("Installing packages to %s\n", bundle.Name)
-		err = installPackagesToBundleChroot(yumCmd, chrootVersionDir, bundle)
+		err = installPackagesToBundleChroot(packagerCmd, chrootVersionDir, bundle)
 		if err != nil {
 			return err
 		}
@@ -353,10 +337,10 @@ src=%s
 
 // createVersionsFile creates a file that contains all the packages available for a specific
 // version. It uses one chroot to query information from the repositories using yum.
-func createVersionsFile(baseDir string, yumCmd []string) error {
+func createVersionsFile(baseDir string, packagerCmd []string) error {
 	// TODO: See if we query the list of packages some other way? Yum output is a bit
 	// unfriendly, see the workarounds below. When we move to dnf we may have better options.
-	args := merge(yumCmd,
+	args := merge(packagerCmd,
 		"--installroot="+filepath.Join(baseDir, "os-core"),
 		"list",
 	)
@@ -496,43 +480,9 @@ func fixOSRelease(filename, version string) error {
 	return ioutil.WriteFile(filename, newBuf.Bytes(), 0644)
 }
 
-type osInfo struct {
-	ID        string
-	VersionID string
-}
-
-// readOSInfo reads the os-release(5) file to collect information about the system.
-func readOSInfo() (*osInfo, error) {
-	f, err := os.Open("/etc/os-release")
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-		f, err = os.Open("/usr/lib/os-release")
-		if err != nil {
-			return nil, err
-		}
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	release, err := ini.Load(f)
-	if err != nil {
-		return nil, err
-	}
-	section := release.Section("")
-
-	info := &osInfo{
-		ID:        section.Key("ID").Value(),
-		VersionID: section.Key("VERSION_ID").Value(),
-	}
-	return info, nil
-}
-
-func installPackagesToBundleChroot(yumCmd []string, chrootVersionDir string, bundle *bundle) error {
+func installPackagesToBundleChroot(packagerCmd []string, chrootVersionDir string, bundle *bundle) error {
 	baseDir := filepath.Join(chrootVersionDir, bundle.Name)
-	args := merge(yumCmd,
+	args := merge(packagerCmd,
 		"--installroot="+baseDir,
 		"install",
 	)

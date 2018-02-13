@@ -963,7 +963,7 @@ func (b *Builder) createMixBundleDir() error {
 // BuildChroots will attempt to construct the chroots required by populating roots
 // using the m4 bundle configurations in conjunction with the YUM configuration file,
 // installing all required named packages into the roots.
-func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateKey, packager string, signflag bool) error {
+func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
 	// Generate the yum config file if it does not exist.
 	// This takes the template and adds the relevant local rpm repo path if needed
 	fmt.Println("Building chroots..")
@@ -1026,7 +1026,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 
 		// TODO: Merge the rest of this function into buildBundleChroots (or vice-versa).
-		err = b.buildBundleChroots(set, packager)
+		err = b.buildBundleChroots(set)
 		if err != nil {
 			return err
 		}
@@ -1048,9 +1048,6 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			return err
 		}
 
-		if packager != "" {
-			fmt.Println("WARNING: Ignoring flag --packager, just works with --new-chroots.")
-		}
 		// If this is a mix, we need to build with the Clear version, but publish the mix version
 		chrootcmd := exec.Command(b.BuildScript, "-c", b.BuildConf, "-m", b.MixVer, b.UpstreamVer)
 		chrootcmd.Stdout = os.Stdout

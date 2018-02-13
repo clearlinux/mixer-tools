@@ -28,7 +28,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -52,25 +51,18 @@ var UseNewChrootBuilder = false
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {
+	MixConfig
+
 	BuildScript string
 	BuildConf   string
 
-	BundleDir       string
-	Cert            string
-	Format          string
-	LocalBundleDir  string
 	MixVer          string
 	MixVerFile      string
 	MixBundlesFile  string
-	RepoDir         string
-	RPMDir          string
-	StateDir        string
 	UpstreamURL     string
 	UpstreamURLFile string
 	UpstreamVer     string
 	UpstreamVerFile string
-	VersionDir      string
-	YumConf         string
 	YumTemplate     string
 
 	Signing int
@@ -99,56 +91,10 @@ func NewFromConfig(conf string) (*Builder, error) {
 	if err := b.LoadBuilderConf(conf); err != nil {
 		return nil, err
 	}
-	if err := b.ReadBuilderConf(); err != nil {
-		return nil, err
-	}
 	if err := b.ReadVersions(); err != nil {
 		return nil, err
 	}
 	return b, nil
-}
-
-// CreateDefaultConfig creates a default builder.conf using the active
-// directory as base path for the variables values.
-func (b *Builder) CreateDefaultConfig(localrpms bool) error {
-	pwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	builderconf := filepath.Join(pwd, "builder.conf")
-
-	err = helpers.CopyFileNoOverwrite(builderconf, "/usr/share/defaults/bundle-chroot-builder/builder.conf")
-	if os.IsExist(err) {
-		// builder.conf already exists. Skip creation.
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	fmt.Println("Creating new builder.conf configuration file...")
-
-	raw, err := ioutil.ReadFile(builderconf)
-	if err != nil {
-		return err
-	}
-
-	// Patch all default path prefixes to PWD
-	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
-
-	// Add [Mixer] section
-	data += "\n[Mixer]\n"
-	data += "LOCAL_BUNDLE_DIR=" + filepath.Join(pwd, "local-bundles") + "\n"
-
-	if localrpms {
-		data += "LOCAL_RPM_DIR=" + filepath.Join(pwd, "local-rpms") + "\n"
-		data += "LOCAL_REPO_DIR=" + filepath.Join(pwd, "local-yum") + "\n"
-	}
-
-	if err = ioutil.WriteFile(builderconf, []byte(data), 0666); err != nil {
-		return err
-	}
-	return nil
 }
 
 // initDirs creates the directories mixer uses
@@ -292,86 +238,18 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.
 func (b *Builder) LoadBuilderConf(builderconf string) error {
-	local, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	// If builderconf is set via cmd line, use that one
 	if len(builderconf) > 0 {
 		b.BuildConf = builderconf
-		return nil
-	}
-
-	// Check if there's a local builder.conf if one wasn't supplied
-	localpath := filepath.Join(local, "builder.conf")
-	if _, err := os.Stat(localpath); err == nil {
-		b.BuildConf = localpath
 	} else {
-		return errors.Wrap(err, "Cannot find any builder.conf to use")
-	}
-
-	return nil
-}
-
-// ReadBuilderConf will populate the configuration data from the builder
-// configuration file, which is mandatory information for performing a mix.
-func (b *Builder) ReadBuilderConf() error {
-	lines, err := helpers.ReadFileAndSplit(b.BuildConf)
-	if err != nil {
-		return errors.Wrap(err, "Failed to read buildconf")
-	}
-
-	// Map the builder values to the regex here to make it easier to assign
-	fields := []struct {
-		re       string
-		dest     *string
-		required bool
-	}{
-		{`^BUNDLE_DIR\s*=\s*`, &b.BundleDir, true}, //Note: Can be removed once UseNewChrootBuilder is obsolete
-		{`^CERT\s*=\s*`, &b.Cert, true},
-		{`^CLEARVER\s*=\s*`, &b.UpstreamVer, false},
-		{`^FORMAT\s*=\s*`, &b.Format, true},
-		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &b.LocalBundleDir, true},
-		{`^MIXVER\s*=\s*`, &b.MixVer, false},
-		{`^LOCAL_REPO_DIR\s*=\s*`, &b.RepoDir, false},
-		{`^LOCAL_RPM_DIR\s*=\s*`, &b.RPMDir, false},
-		{`^SERVER_STATE_DIR\s*=\s*`, &b.StateDir, true},
-		{`^VERSIONS_PATH\s*=\s*`, &b.VersionDir, true},
-		{`^YUM_CONF\s*=\s*`, &b.YumConf, true},
-	}
-
-	for _, h := range fields {
-		r := regexp.MustCompile(h.re)
-		// Look for Environment variables in the config file
-		re := regexp.MustCompile(`\$\{?([[:word:]]+)\}?`)
-		for _, i := range lines {
-			if m := r.FindIndex([]byte(i)); m != nil {
-				// We want the variable without the $ or {} for lookup checking
-				matches := re.FindAllStringSubmatch(i[m[1]:], -1)
-				for _, s := range matches {
-					if _, ok := os.LookupEnv(s[1]); !ok {
-						return errors.Errorf("buildconf contains an undefined environment variable: %s", s[1])
-					}
-				}
-
-				// Replace valid Environment Variables
-				*h.dest = os.ExpandEnv(i[m[1]:])
-			}
+		pwd, err := os.Getwd()
+		if err != nil {
+			return err
 		}
 
-		if h.required && *h.dest == "" {
-			missing := h.re
-			re := regexp.MustCompile(`([[:word:]]+)\\s\*=`)
-			if matches := re.FindStringSubmatch(h.re); matches != nil {
-				missing = matches[1]
-			}
-
-			return errors.Errorf("buildconf missing entry for variable: %s", missing)
-		}
+		b.BuildConf = filepath.Join(pwd, "builder.conf")
 	}
 
-	return nil
+	return b.LoadConfig(b.BuildConf)
 }
 
 // ReadVersions will initialise the mix versions (mix and clearlinux) from

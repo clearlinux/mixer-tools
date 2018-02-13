@@ -973,14 +973,14 @@ editLoop:
 			}
 			text = strings.ToLower(text)
 			text = strings.TrimSpace(text)
-			switch {
-			case text == "e" || text == "edit":
+			switch text {
+			case "e", "edit":
 				revert = false
 				continue editLoop
-			case text == "r" || text == "revert":
+			case "r", "revert":
 				revert = true
 				continue editLoop
-			case text == "s" || text == "skip":
+			case "s", "skip":
 				fmt.Printf("Skipping bundle '%s' despite errors. Backup retained as '%s'\n", bundle, bundle+".orig")
 				break editLoop
 			default:
@@ -992,11 +992,33 @@ editLoop:
 	return nil
 }
 
+const bundleTemplateFormat = `# [TITLE]: %s
+# [DESCRIPTION]: 
+# [STATUS]: 
+# [CAPABILITIES]:
+# [MAINTAINER]: 
+# 
+# List bundles one per line. Includes have format: include(bundle)
+`
+
+func createBundleFile(bundle string, path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0666)
+	if err != nil {
+		return err
+	}
+
+	data := []byte(fmt.Sprintf(bundleTemplateFormat, bundle))
+	_, err = f.Write(data)
+	_ = f.Close()
+	return err
+}
+
 // EditBundles copies a list of bundles from upstream-bundles to local-bundles
-// (if they are not already there), and launches an editor to edit them. Passing
-// true for 'copyOnly' will suppress the launching of the editor (and just do
-// the copy, if needed), and 'add' will also add the bundles to the mix.
-func (b *Builder) EditBundles(bundles []string, copyOnly bool, add bool, git bool) error {
+// (if they are not already there) or creates a blank template if they are new,
+// and launches an editor to edit them. Passing true for 'suppressEditor' will
+// suppress the launching of the editor (and just do the copy or create, if
+// needed), and 'add' will also add the bundles to the mix.
+func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, git bool) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
@@ -1005,25 +1027,30 @@ func (b *Builder) EditBundles(bundles []string, copyOnly bool, add bool, git boo
 	editorCmd, err := getEditorCmd()
 	if err != nil {
 		fmt.Println("Cannot find a valid editor (see usage for configuration). Copying to local-bundles only.")
-		copyOnly = true
+		suppressEditor = true
 	}
 
 	for _, bundle := range bundles {
-		var path string
-		path, err = b.getBundlePath(bundle)
-		if err != nil {
-			return err
-		}
-
+		path, _ := b.getBundlePath(bundle)
 		if !b.isLocalBundle(path) {
 			localPath := filepath.Join(b.LocalBundleDir, bundle)
-			if err = helpers.CopyFile(localPath, path); err != nil {
-				return err
+
+			if path == "" {
+				// Bunlde not found upstream, so create new
+				if err = createBundleFile(bundle, localPath); err != nil {
+					return errors.Wrapf(err, "Failed to write bundle template for bundle '%s'", bundle)
+				}
+			} else {
+				// Bundle found upstream, so copy over
+				if err = helpers.CopyFile(localPath, path); err != nil {
+					return err
+				}
 			}
+
 			path = localPath
 		}
 
-		if copyOnly {
+		if suppressEditor {
 			continue
 		}
 

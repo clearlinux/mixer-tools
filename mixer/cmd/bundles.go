@@ -15,8 +15,6 @@
 package cmd
 
 import (
-	"strings"
-
 	"github.com/clearlinux/mixer-tools/builder"
 
 	"github.com/pkg/errors"
@@ -39,28 +37,29 @@ type bundleAddCmdFlags struct {
 var bundleAddFlags bundleAddCmdFlags
 
 var bundleAddCmd = &cobra.Command{
-	Use:   "add [bundle(s)]",
+	Use:   "add <bundle> [<bundle>...]",
 	Short: "Add local or upstream bundles to your mix",
 	Long: `Adds local or upstream bundles to your mix by modifying the Mix Bundle List
 (stored in the 'mixbundles' file). The Mix Bundle List is parsed, the new
 bundles are confirmed to exist and are added, duplicates are removed, and the
 resultant list is written back out in sorted order.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var bundles []string
 		if !bundleAddFlags.allLocal && !bundleAddFlags.allUpstream {
 			if len(args) == 0 {
 				return errors.New("bundle add requires at least 1 argument if neither --all-local nor --all-upstream are passed")
 			}
-			bundles = strings.Split(args[0], ",")
 		}
+
 		b, err := builder.NewFromConfig(config)
 		if err != nil {
 			fail(err)
 		}
-		err = b.AddBundles(bundles, bundleAddFlags.allLocal, bundleAddFlags.allUpstream, bundleAddFlags.git)
+
+		err = b.AddBundles(args, bundleAddFlags.allLocal, bundleAddFlags.allUpstream, bundleAddFlags.git)
 		if err != nil {
 			fail(err)
 		}
+
 		return nil
 	},
 }
@@ -75,7 +74,7 @@ type bundleRemoveCmdFlags struct {
 var bundleRemoveFlags bundleRemoveCmdFlags
 
 var bundleRemoveCmd = &cobra.Command{
-	Use:   "remove [bundle(s)]",
+	Use:   "remove <bundle> [<bundle>...]",
 	Short: "Remove bundles from your mix",
 	Long: `Removes bundles from your mix by modifying the Mix Bundle List
 (stored in the 'mixbundles' file). The Mix Bundle List is parsed, the bundles
@@ -164,7 +163,7 @@ type bundleEditCmdFlags struct {
 var bundleEditFlags bundleEditCmdFlags
 
 var bundleEditCmd = &cobra.Command{
-	Use:   "edit [bundle(s)]",
+	Use:   "edit <bundle> [<bundle>...]",
 	Short: "Edit local and upstream bundles, or create new bundles",
 	Long: `Edits local and upstream bundle definition files. This command will locate the
 bundle (looking first in local-bundles, then in upstream-bundles), and launch

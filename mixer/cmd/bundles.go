@@ -125,21 +125,22 @@ var bundleEditFlags bundleEditCmdFlags
 
 var bundleEditCmd = &cobra.Command{
 	Use:   "edit [bundle(s)]",
-	Short: "Edit local and upstream bundles",
-	Long: `Edit local and upstream bundle definition files. This command will locate the
+	Short: "Edit local and upstream bundles, or create new bundles",
+	Long: `Edits local and upstream bundle definition files. This command will locate the
 bundle (looking first in local-bundles, then in upstream-bundles), and launch
 an editor to edit it. If the bundle is only found upstream, the bundle file will
-first be copied to your local-bundles directory for editing. When the editor
-closes, the bundle file is then parsed for validity.
+first be copied to your local-bundles directory for editing. If the bundle is
+not found anywhere, a blank template is created with the correct name. When the
+editor closes, the bundle file is then parsed for validity.
 
 The editor is configured via environment variables. VISUAL takes precedence to
 EDITOR. If neither are set, the tool defaults to nano. If nano is not installed,
-the tool will skip editing, and act as if '--copy-only' had been passed.
+the tool will skip editing, and act as if '--suppress-editor' had been passed.
 
-Passing '--copy-only' will suppress launching the editor, and will thus only
-copy the bundle file to local-bundles (if it is only found upstream). This can
-be useful if you want to add a bundle to local-bundles, but wish to edit it at a
-later time.
+Passing '--suppress-editor' will suppress launching the editor, and will thus
+only copy the bundle file to local-bundles (if it is only found upstream), or
+create the blank template (if it was not found anywhere). This can be useful if
+you want to add a bundle to local-bundles, but wish to edit it at a later time.
 
 Passing '--add' will also add the bundle(s) to your mix. Please note that
 bundles are added after all bundles are edited, and thus will not be added if
@@ -178,7 +179,7 @@ func init() {
 
 	bundleListCmd.Flags().BoolVar(&bundleListFlags.tree, "tree", false, "Pretty-print the list as a tree.")
 
-	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.copyOnly, "copy-only", false, "Suppress launching editor (only copy to local-bundles if upstream)")
+	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.copyOnly, "suppress-editor", false, "Suppress launching editor (only copy to local-bundles or create template)")
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.add, "add", false, "Add the bundle(s) to your mix")
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.git, "git", false, "Automatically apply new git commit")
 }

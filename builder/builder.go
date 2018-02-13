@@ -16,6 +16,7 @@ package builder
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"crypto/rsa"
 	"crypto/x509"
@@ -908,6 +909,214 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			}
 
 			fmt.Println(val)
+		}
+	}
+
+	return nil
+}
+
+func getEditorCmd() (string, error) {
+	cmd := os.Getenv("VISUAL")
+	if cmd != "" {
+		return cmd, nil
+	}
+
+	cmd = os.Getenv("EDITOR")
+	if cmd != "" {
+		return cmd, nil
+	}
+
+	return exec.LookPath("nano")
+}
+
+// editBundleFile launches an editor command to edit the bundle defined by path.
+// When the edit process ends, the bundle file is parsed for validity. If a
+// parsing error is encountered, the user is asked how to proceed: retry, revert
+// and retry, or skip.
+func editBundleFile(editorCmd string, bundle string, path string) error {
+	// Make backup
+	backup := path + ".orig"
+	if err := helpers.CopyFileNoOverwrite(backup, path); err != nil && !os.IsExist(err) {
+		return errors.Wrapf(err, "Could not backup bundle '%s' file for editing", bundle)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	revert := false
+
+editLoop:
+	for {
+		if revert {
+			if err := helpers.CopyFile(path, backup); err != nil {
+				return errors.Wrapf(err, "Could not restore original from backup for bundle '%s'", bundle)
+			}
+		}
+
+		// Ignore return from command; parsing below is what will reveal errors
+		_ = helpers.RunCommandInput(os.Stdin, editorCmd, path)
+
+		_, err := parseBundleFile(path)
+		if err == nil {
+			// Clean-up backup
+			if err = os.Remove(backup); err != nil {
+				return errors.Wrapf(err, "Error cleaning up backup for bundle '%s'", bundle)
+			}
+			break editLoop
+		}
+
+		fmt.Printf("Error parsing bundle %s: %s\n", bundle, err)
+		for {
+			// Ask the user if they want to retry, revert, or skip
+			fmt.Print("Would you like to keep editing as-is, revert and edit, or skip? [k/r/s]?: ")
+			text, err := reader.ReadString('\n')
+			if err != nil {
+				return errors.Wrapf(err, "Error reading input")
+			}
+			text = strings.ToLower(text)
+			text = strings.TrimSpace(text)
+			switch {
+			case text == "k" || text == "keep" || text == "keep editing":
+				revert = false
+				continue editLoop
+			case text == "r" || text == "revert":
+				revert = true
+				continue editLoop
+			case text == "s" || text == "skip":
+				fmt.Printf("Skipping bundle '%s' despite errors. Backup retained as '%s'\n", bundle, bundle+".orig")
+				break editLoop
+			default:
+				fmt.Printf("Invalid input: '%s'", text)
+			}
+		}
+	}
+
+	return nil
+}
+
+// EditBundles copies a list of bundles from upstream-bundles to local-bundles
+// (if they are not already there), and launches an editor to edit them. Passing
+// true for 'copyOnly' will suppress the launching of the editor (and just do
+// the copy, if needed), and 'add' will also add the bundles to the mix.
+func (b *Builder) EditBundles(bundles []string, copyOnly bool, add bool, git bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
+	editorCmd, err := getEditorCmd()
+	if err != nil {
+		fmt.Println("Cannot find a valid editor (see usage for configuration). Copying to local-bundles only.")
+		copyOnly = true
+	}
+
+	for _, bundle := range bundles {
+		var path string
+		path, err = b.getBundlePath(bundle)
+		if err != nil {
+			return err
+		}
+
+		if !b.isLocalBundle(path) {
+			localPath := filepath.Join(b.LocalBundleDir, bundle)
+			if err = helpers.CopyFile(localPath, path); err != nil {
+				return err
+			}
+			path = localPath
+		}
+
+		if copyOnly {
+			continue
+		}
+
+		if err = editBundleFile(editorCmd, bundle, path); err != nil {
+			return err
+		}
+	}
+
+	if add {
+		if err = b.AddBundles(bundles, false, false, false); err != nil {
+			return err
+		}
+	}
+
+	if git {
+		fmt.Println("Adding git commit")
+		if err := helpers.Git("add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Edited bundles: %v", bundles)
+		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+const bundleTemplateFormat = `# [TITLE]: %s
+# [DESCRIPTION]: 
+# [STATUS]: 
+# [CAPABILITIES]:
+# [MAINTAINER]: 
+# 
+# List bundles one per line. Includes have format: include(bundle)
+`
+
+func createBundleFile(bundle string, path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR|os.O_EXCL, 0666)
+	if err != nil {
+		return err // Returns ErrExist if already in local-bundles
+	}
+
+	data := []byte(fmt.Sprintf(bundleTemplateFormat, bundle))
+	_, err = f.Write(data)
+	_ = f.Close()
+	return err
+}
+
+// CreateBundles creates empty bundle definition file templates in
+// local-bundles, and launches an editor to edit them. If a bundle already
+// exists in local-bundles, it will be skipped. Passing true for 'createOnly'
+// will suppress the launching of the editor (and just do the create), and 'add'
+// will also add the bundles to the mix.
+func (b *Builder) CreateBundles(bundles []string, createOnly bool, add bool, git bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
+	for _, bundle := range bundles {
+		path := filepath.Join(b.LocalBundleDir, bundle)
+
+		if err := createBundleFile(bundle, path); os.IsExist(err) {
+			fmt.Printf("Skipping bundle '%s': already exists. (Use 'mixer bundle edit' to edit)\n", bundle)
+			continue
+		} else if err != nil {
+			return errors.Wrapf(err, "Failed to write bundle template for bundle '%s'", bundle)
+		}
+
+		if createOnly {
+			continue
+		}
+
+		if err := b.EditBundles([]string{bundle}, false, false, false); err != nil {
+			return err
+		}
+	}
+
+	if add {
+		if err := b.AddBundles(bundles, false, false, false); err != nil {
+			return err
+		}
+	}
+
+	if git {
+		fmt.Println("Adding git commit")
+		if err := helpers.Git("add", "."); err != nil {
+			return err
+		}
+		commitMsg := fmt.Sprintf("Created bundles: %v", bundles)
+		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
+			return err
 		}
 	}
 

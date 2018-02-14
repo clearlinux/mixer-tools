@@ -684,6 +684,8 @@ func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {
 	}
 
 	includes := []*Manifest{}
+	// os-core is added as an include for every bundle
+	// handle it manually so we don't have to rely on the includes list having it
 	for _, b := range bundles {
 		if b.Name == "os-core" {
 			includes = append(includes, b)
@@ -696,6 +698,12 @@ func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {
 			includes = append(includes, &Manifest{Name: indexBundle})
 			continue
 		}
+
+		if bn == "os-core" {
+			// already added this one
+			continue
+		}
+
 		for _, b := range bundles {
 			if bn == b.Name {
 				includes = append(includes, b)

@@ -580,6 +580,53 @@ func TestSubtractDelete(t *testing.T) {
 	fileDeletedInManifest(ts.parseManifest(40, "test-bundle"), 30, "/foo")
 }
 
+func TestSubtractManifestsNested(t *testing.T) {
+	ts := newTestSwupd(t, "subtract-nested-")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "test-bundle", "included", "included-nested"}
+
+	// os-core file
+	ts.write("image/10/os-core/os-core-file", "os-core-file")
+	// included-nested has the os-core file to be subtracted
+	ts.write("image/10/included-nested/os-core-file", "os-core-file")
+	ts.write("image/10/included-nested/included-nested-file", "included-nested-file")
+	ts.write("image/10/included-nested/some-random-file", "some-random-file")
+	// included has all the above files
+	ts.write("image/10/noship/included-includes", "included-nested")
+	ts.write("image/10/included/os-core-file", "os-core-file")
+	ts.write("image/10/included/included-nested-file", "included-nested-file")
+	ts.write("image/10/included/included-file", "included-file")
+	// test-bundle has all above files plus its own
+	ts.write("image/10/noship/test-bundle-includes", "included")
+	ts.write("image/10/test-bundle/os-core-file", "os-core-file")
+	ts.write("image/10/test-bundle/included-nested-file", "included-nested-file")
+	ts.write("image/10/test-bundle/included-file", "included-file")
+	ts.write("image/10/test-bundle/test-bundle-file", "test-bundle-file")
+	ts.write("image/10/test-bundle/some-random-file", "some-random-file")
+
+	ts.createManifests(10)
+
+	osCore := ts.parseManifest(10, "os-core")
+	fileInManifest(t, osCore, 10, "/os-core-file")
+
+	includedNested := ts.parseManifest(10, "included-nested")
+	fileInManifest(t, includedNested, 10, "/included-nested-file")
+	fileNotInManifest(t, includedNested, "/os-core-file")
+
+	included := ts.parseManifest(10, "included")
+	fileInManifest(t, included, 10, "/included-file")
+	fileNotInManifest(t, included, "/included-nested-file")
+	fileNotInManifest(t, included, "/os-core-file")
+
+	testBundle := ts.parseManifest(10, "test-bundle")
+	fileInManifest(t, testBundle, 10, "/test-bundle-file")
+	fileNotInManifest(t, testBundle, "/included-file")
+	fileNotInManifest(t, testBundle, "/included-nested-file")
+	fileNotInManifest(t, testBundle, "/os-core-file")
+	fileNotInManifest(t, testBundle, "/some-random-file")
+}
+
 func TestCreateManifestsIndex(t *testing.T) {
 	testDir := mustSetupTestDir(t, "index")
 	defer removeIfNoErrors(t, testDir)

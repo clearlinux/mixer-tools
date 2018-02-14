@@ -64,7 +64,7 @@ resultant list is written back out in sorted order.`,
 	},
 }
 
-// Bundle add command ('mixer bundle add')
+// Bundle remove command ('mixer bundle remove')
 type bundleRemoveCmdFlags struct {
 	mix   bool
 	local bool
@@ -198,12 +198,66 @@ any errors are encountered earlier on.`,
 	},
 }
 
+// Bundle validate command ('mixer bundle validate')
+type bundleValidateCmdFlags struct {
+	allLocal bool
+	strict   bool
+}
+
+var bundleValidateFlags bundleValidateCmdFlags
+
+var bundleValidateCmd = &cobra.Command{
+	Use:   "validate <bundle> [<bundle>...]",
+	Short: "Validate local bundle definition files",
+	Long: `Checks bundle definition files for validity. Only local bundle files are
+checked; upstream bundles are trusted as valid. Valid bundles yield no output.
+Any invalid bundles will yield a non-zero return code.
+
+Basic validation includes checking syntax and structure, that the bundle has
+a valid name, and that the header 'Title' matches the bundle filename. Commands
+like 'mixer bundle edit' run basic validation automatically.
+
+An optional '--strict' flag allows you to additionally check that the other
+bundle header flags are parsable and non-empty.
+
+Passing '--all-local' will run validation on all bundles in local-bundles.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if !bundleValidateFlags.allLocal && len(args) == 0 {
+			return errors.New("bundle validate requires at least 1 argument if --all-local is not passed")
+		}
+
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		var lvl builder.ValidationLevel
+		if bundleValidateFlags.strict {
+			lvl = builder.StrictValidation
+		} else {
+			lvl = builder.BasicValidation
+		}
+
+		if bundleValidateFlags.allLocal {
+			err = b.ValidateLocalBundles(lvl)
+		} else {
+			err = b.ValidateBundles(args, lvl)
+		}
+		if err != nil {
+			fail(err)
+		}
+
+		return nil
+	},
+}
+
 // List of all bundle commands
 var bundlesCmds = []*cobra.Command{
 	bundleAddCmd,
 	bundleRemoveCmd,
 	bundleListCmd,
 	bundleEditCmd,
+	bundleValidateCmd,
 }
 
 func init() {
@@ -226,4 +280,7 @@ func init() {
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.copyOnly, "suppress-editor", false, "Suppress launching editor (only copy to local-bundles or create template)")
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.add, "add", false, "Add the bundle(s) to your mix")
 	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.git, "git", false, "Automatically apply new git commit")
+
+	bundleValidateCmd.Flags().BoolVar(&bundleValidateFlags.allLocal, "all-local", false, "Validate all local bundles")
+	bundleValidateCmd.Flags().BoolVar(&bundleValidateFlags.strict, "strict", false, "Strict validation (see usage)")
 }

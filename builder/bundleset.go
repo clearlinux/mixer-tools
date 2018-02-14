@@ -3,6 +3,7 @@ package builder
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
@@ -12,13 +13,23 @@ import (
 )
 
 var (
-	validBundleNameRegex  = regexp.MustCompile(`^[A-Za-z0-9-_]+$`)
-	validPackageNameRegex = regexp.MustCompile(`^[A-Za-z0-9-_+.]+$`)
+	validBundleNameRegex   = regexp.MustCompile(`^[A-Za-z0-9-_]+$`)
+	validPackageNameRegex  = regexp.MustCompile(`^[A-Za-z0-9-_+.]+$`)
+	bundleHeaderFieldRegex = regexp.MustCompile(`^# \[([A-Z]+)\]:\s*(.*)$`)
 )
+
+type bundleHeader struct {
+	Title        string
+	Description  string
+	Status       string
+	Capabilities string
+	Maintainer   string
+}
 
 type bundle struct {
 	Name     string
 	Filename string
+	Header   bundleHeader
 
 	DirectIncludes []string
 	DirectPackages []string
@@ -114,39 +125,135 @@ func sortBundles(bundles bundleSet) ([]*bundle, error) {
 
 }
 
+// ValidationLevel represents a specific validation level
+type ValidationLevel int
+
+// Enum of available validation levels
+const (
+	BasicValidation ValidationLevel = iota
+	StrictValidation
+)
+
+func validateBundleFile(filename string, lvl ValidationLevel) error {
+	var errText string
+
+	name := filepath.Base(filename)
+	if err := validateBundleName(name); err != nil {
+		errText = err.Error() + fmt.Sprintf(" derived from file %s\n", filename)
+	}
+
+	b, err := parseBundleFile(filename)
+	if err != nil {
+		errText += err.Error()
+		return errors.New(errText)
+	}
+
+	if name != b.Header.Title {
+		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+	}
+
+	err = validateBundle(b, lvl)
+	if err != nil {
+		errText += err.Error() + "\n"
+	}
+
+	if errText != "" {
+		return errors.New(strings.TrimSuffix(errText, "\n"))
+	}
+
+	return nil
+}
+
+func validateBundleName(name string) error {
+	if !validBundleNameRegex.MatchString(name) || name == "MoM" || name == "full" {
+		return fmt.Errorf("Invalid bundle name %q", name)
+	}
+
+	return nil
+}
+
+func validateBundleFileName(name string, b *bundle) error {
+	var errText string
+
+	if err := validateBundleName(name); err != nil {
+		errText = err.Error() + fmt.Sprintf(" derived from file %s\n", name)
+	}
+
+	if name != b.Header.Title {
+		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+	}
+
+	if errText != "" {
+		return errors.New(strings.TrimSuffix(errText, "\n"))
+	}
+
+	return nil
+}
+
+func validateBundle(b *bundle, lvl ValidationLevel) error {
+	var errText string
+
+	// Basic validation
+	if err := validateBundleName(b.Header.Title); err != nil {
+		errText = err.Error() + " in bundle header Title"
+	}
+	if lvl == BasicValidation {
+		if errText != "" {
+			return errors.New(strings.TrimSuffix(errText, "\n"))
+		}
+		return nil
+	}
+
+	// Strict validation
+	if b.Header.Description == "" {
+		errText += "Empty Description in bundle header\n"
+	}
+	if b.Header.Maintainer == "" {
+		errText += "Empty Maintainer in bundle header\n"
+	}
+	if b.Header.Status == "" {
+		errText += "Empty Status in bundle header\n"
+	}
+	if b.Header.Capabilities == "" {
+		errText += "Empty Capabilities in bundle header\n"
+	}
+	if errText != "" {
+		return errors.New(strings.TrimSuffix(errText, "\n"))
+	}
+
+	return nil
+}
+
 // parseBundleFile parses a bundle file identified by full filepath, and returns
 // a bundle object representation of that bundle.
 // Note: the Allpackages field of the bundles are left blank, as they cannot
 // be calculated in isolation.
 func parseBundleFile(filename string) (*bundle, error) {
 	name := filepath.Base(filename)
-	if !validBundleNameRegex.MatchString(name) || name == "MoM" || name == "full" {
-		return nil, fmt.Errorf("invalid bundle name %q derived from file %s", name, filename)
-	}
 
 	contents, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	includes, packages, err := parseBundle(contents)
+	bundle, err := parseBundle(contents)
 	if err != nil {
-		return nil, fmt.Errorf("couldn't parse bundle file %s: %s", filename, err)
+		return nil, fmt.Errorf("Couldn't parse bundle file %s: %s", filename, err)
 	}
 
-	b := &bundle{
-		Name:           name,
-		DirectIncludes: includes,
-		DirectPackages: packages,
-		Filename:       filename,
-	}
-	return b, nil
+	bundle.Name = name
+	bundle.Filename = filename
+
+	return bundle, nil
 }
 
 // parseBundle parses the bytes of a bundle file, ignoring comments and
 // processing "include()" directives the same way that m4 works.
-func parseBundle(contents []byte) (includes []string, packages []string, err error) {
+func parseBundle(contents []byte) (*bundle, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(contents))
+
+	var b bundle
+	var includes, packages []string
 
 	line := 0
 	for scanner.Scan() {
@@ -154,6 +261,23 @@ func parseBundle(contents []byte) (includes []string, packages []string, err err
 		text := scanner.Text()
 		comment := strings.Index(text, "#")
 		if comment > -1 {
+			if matches := bundleHeaderFieldRegex.FindStringSubmatch(text); len(matches) > 2 {
+				key := matches[1]
+				value := strings.TrimSpace(matches[2])
+				switch key {
+				case "TITLE":
+					b.Header.Title = value
+				case "DESCRIPTION":
+					b.Header.Description = value
+				case "STATUS":
+					b.Header.Status = value
+				case "CAPABILITIES":
+					b.Header.Capabilities = value
+				case "MAINTAINER":
+					b.Header.Maintainer = value
+				}
+				continue
+			}
 			text = text[:comment]
 		}
 		text = strings.TrimSpace(text)
@@ -162,24 +286,27 @@ func parseBundle(contents []byte) (includes []string, packages []string, err err
 		}
 		if strings.HasPrefix(text, "include(") {
 			if !strings.HasSuffix(text, ")") {
-				return nil, nil, fmt.Errorf("missing end parenthesis in line %d: %q", line, text)
+				return nil, fmt.Errorf("Missing end parenthesis in line %d: %q", line, text)
 			}
 			text = text[8 : len(text)-1]
 			if !validBundleNameRegex.MatchString(text) {
-				return nil, nil, fmt.Errorf("invalid bundle name %q in line %d", text, line)
+				return nil, fmt.Errorf("Invalid bundle name %q in line %d", text, line)
 			}
 			includes = append(includes, text)
 		} else {
 			if !validPackageNameRegex.MatchString(text) {
-				return nil, nil, fmt.Errorf("invalid package name %q in line %d", text, line)
+				return nil, fmt.Errorf("Invalid package name %q in line %d", text, line)
 			}
 			packages = append(packages, text)
 		}
 	}
 
 	if scanner.Err() != nil {
-		return nil, nil, scanner.Err()
+		return nil, scanner.Err()
 	}
 
-	return includes, packages, nil
+	b.DirectIncludes = includes
+	b.DirectPackages = packages
+
+	return &b, nil
 }

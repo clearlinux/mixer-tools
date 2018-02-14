@@ -586,6 +586,13 @@ func (b *Builder) getBundleFromName(name string) (*bundle, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err = validateBundle(bundle, BasicValidation); err != nil {
+		return nil, err
+	}
+	if err = validateBundleFileName(name, bundle); err != nil {
+		return nil, err
+	}
+
 	return bundle, nil
 }
 
@@ -1052,7 +1059,7 @@ editLoop:
 		// Ignore return from command; parsing below is what will reveal errors
 		_ = helpers.RunCommandInput(os.Stdin, editorCmd, path)
 
-		_, err := parseBundleFile(path)
+		err := validateBundleFile(path, BasicValidation)
 		if err == nil {
 			// Clean-up backup
 			if err = os.Remove(backup); err != nil {
@@ -1172,6 +1179,42 @@ func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, g
 		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
 			return err
 		}
+	}
+
+	return nil
+}
+
+// ValidateLocalBundles runs bundle parsing validation on all local bundles.
+func (b *Builder) ValidateLocalBundles(lvl ValidationLevel) error {
+	files, err := ioutil.ReadDir(b.LocalBundleDir)
+	if err != nil {
+		return errors.Wrap(err, "Failed to read local-bundles")
+	}
+
+	bundles := make([]string, len(files))
+	for i, file := range files {
+		bundles[i] = file.Name()
+	}
+
+	return b.ValidateBundles(bundles, lvl)
+}
+
+// ValidateBundles runs bundle parsing validation on a list of local bundles. In
+// addition to parsing errors, errors are generated if the bundle is not found
+// in local-bundles.
+func (b *Builder) ValidateBundles(bundles []string, lvl ValidationLevel) error {
+	invalid := false
+	for _, bundle := range bundles {
+		path := filepath.Join(b.LocalBundleDir, bundle)
+
+		if err := validateBundleFile(path, lvl); err != nil {
+			invalid = true
+			fmt.Printf("Invalid: %q:\n%s\n\n", bundle, err)
+		}
+	}
+
+	if invalid {
+		return errors.New("Invalid bundles found")
 	}
 
 	return nil

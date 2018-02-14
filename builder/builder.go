@@ -1204,6 +1204,11 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 	// Generate the yum config file if it does not exist.
 	// This takes the template and adds the relevant local rpm repo path if needed
 	fmt.Println("Building chroots..")
+
+	timer := &stopWatch{w: os.Stdout}
+	defer timer.WriteSummary(os.Stdout)
+
+	timer.Start("BUILD CHROOTS")
 	if _, err := os.Stat(b.YumConf); os.IsNotExist(err) {
 		outfile, err := os.Create(b.YumConf)
 		if err != nil {
@@ -1322,6 +1327,8 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 
 	// TODO: Remove all the files-* entries since they're now copied into the noship dir
 	// do code stuff here
+
+	timer.Stop()
 
 	return nil
 }

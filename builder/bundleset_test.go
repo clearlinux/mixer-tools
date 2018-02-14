@@ -13,19 +13,66 @@ import (
 func TestParseBundle(t *testing.T) {
 	tests := []struct {
 		Contents         []byte
+		ExpectedHeader   bundleHeader
 		ExpectedIncludes []string
 		ExpectedPackages []string
 		ShouldFail       bool
 	}{
 		{
 			Contents: []byte(`# Simple fake bundle
+# [TITLE]: fake
+# [DESCRIPTION]: a description
+# [STATUS]: a status
+# [CAPABILITIES]: the capabilities
+# [MAINTAINER]: the maintainer
 include(a)
 include(b)
 pkg1     # Comment
 pkg2
 `),
+			ExpectedHeader: bundleHeader{
+				Title:        "fake",
+				Description:  "a description",
+				Status:       "a status",
+				Capabilities: "the capabilities",
+				Maintainer:   "the maintainer",
+			},
 			ExpectedIncludes: []string{"a", "b"},
 			ExpectedPackages: []string{"pkg1", "pkg2"},
+		},
+		{
+			Contents: []byte(`# Bundle with empty header values
+# [TITLE]: fake
+# [DESCRIPTION]: a description
+# [STATUS]: 
+# [CAPABILITIES]: 
+# [MAINTAINER]: 
+include(a)
+pkg1
+`),
+			ExpectedHeader: bundleHeader{
+				Title:       "fake",
+				Description: "a description",
+			},
+			ExpectedIncludes: []string{"a"},
+			ExpectedPackages: []string{"pkg1"},
+		},
+		{
+			Contents: []byte(`# Bundle with tricky comments
+# [TITLE]: realtitle
+# [DESCRIPTION]: a description
+# [STATUS]: 
+# [CAPABILITIES]: 
+# [MAINTAINER]: 
+include(a)
+pkg1 # [TITLE]: wrongtitle
+`),
+			ExpectedHeader: bundleHeader{
+				Title:       "realtitle",
+				Description: "a description",
+			},
+			ExpectedIncludes: []string{"a"},
+			ExpectedPackages: []string{"pkg1"},
 		},
 
 		// Error cases.
@@ -37,11 +84,11 @@ pkg2
 	}
 
 	for _, tt := range tests {
-		includes, packages, err := parseBundle(tt.Contents)
+		b, err := parseBundle(tt.Contents)
 		failed := err != nil
 		if failed != tt.ShouldFail {
 			if tt.ShouldFail {
-				t.Errorf("unexpected success when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%s", tt.Contents, includes, packages)
+				t.Errorf("unexpected success when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%s", tt.Contents, b.DirectIncludes, b.DirectPackages)
 			} else {
 				t.Errorf("unexpected error parsing bundle: %s\nCONTENTS:\n%s", err, tt.Contents)
 			}
@@ -51,12 +98,16 @@ pkg2
 			continue
 		}
 
-		if !reflect.DeepEqual(includes, tt.ExpectedIncludes) {
-			t.Errorf("got wrong includes when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES (%d): %s\nEXPECTED INCLUDES (%d): %s", tt.Contents, len(includes), includes, len(tt.ExpectedIncludes), tt.ExpectedIncludes)
+		if !reflect.DeepEqual(b.Header, tt.ExpectedHeader) {
+			t.Errorf("got wrong hearders when parsing bundle\nCONTENTS:\n%s\nPARSED HEADERS: %+v\nEXPECTED HEADERS: %+v", tt.Contents, b.Header, tt.ExpectedHeader)
 		}
 
-		if !reflect.DeepEqual(packages, tt.ExpectedPackages) {
-			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%s\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(packages), packages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+		if !reflect.DeepEqual(b.DirectIncludes, tt.ExpectedIncludes) {
+			t.Errorf("got wrong includes when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES (%d): %s\nEXPECTED INCLUDES (%d): %s", tt.Contents, len(b.DirectIncludes), b.DirectIncludes, len(tt.ExpectedIncludes), tt.ExpectedIncludes)
+		}
+
+		if !reflect.DeepEqual(b.DirectPackages, tt.ExpectedPackages) {
+			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%s\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
 	}
 }
@@ -81,10 +132,6 @@ pkg2
 			ExpectedPackages: []string{"pkg1", "pkg2"},
 		},
 
-		// Bundle name errors
-		{Filename: "b&ndle", Contents: []byte(`pkg1`), ShouldFail: true},
-		{Filename: "full", Contents: []byte(`pkg1`), ShouldFail: true},
-		{Filename: "MoM", Contents: []byte(`pkg1`), ShouldFail: true},
 		// Bundle contents error (catching parseBundle's error)
 		{Filename: "b", Contents: []byte(`()`), ShouldFail: true},
 	}
@@ -124,6 +171,149 @@ pkg2
 
 		if !reflect.DeepEqual(bundle.DirectPackages, tt.ExpectedPackages) {
 			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%s\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+		}
+	}
+}
+
+func TestValidateBundle(t *testing.T) {
+	tests := []struct {
+		Contents       []byte
+		Level          ValidationLevel
+		ExpectedErrors []string
+		ShouldFail     bool
+	}{
+		{
+			Contents: []byte(`# Simple fake bundle
+# [TITLE]: fake
+# [DESCRIPTION]: a description
+# [STATUS]: a status
+# [CAPABILITIES]: the capabilities
+# [MAINTAINER]: the maintainer
+include(a)
+include(b)
+pkg1     # Comment
+pkg2
+`),
+			Level: StrictValidation,
+		},
+		{
+			Contents: []byte(`# [TITLE]: a
+# [DESCRIPTION]: 
+# [MAINTAINER]: `),
+			Level: BasicValidation,
+		},
+
+		// Bundle header errors
+		{Contents: []byte(`# [TITLE]: b&ndle`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{Contents: []byte(`# [TITLE]: full`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{Contents: []byte(`# [TITLE]: MoM`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{
+			Contents: []byte(`# [TITLE]: a
+# [DESCRIPTION]: 
+# [MAINTAINER]: 
+# [STATUS]: 
+# [CAPABILITIES]: `),
+			Level: StrictValidation, ExpectedErrors: []string{"Empty Description in bundle header", "Empty Maintainer in bundle header", "Empty Status in bundle header", "Empty Capabilities in bundle header"}, ShouldFail: true,
+		},
+	}
+
+	for _, tt := range tests {
+		b, err := parseBundle(tt.Contents)
+		if err != nil {
+			t.Errorf("Could not parse bundle for test case: %s\nCONTENTS:\n%s\n", err, tt.Contents)
+		}
+
+		err = validateBundle(b, tt.Level)
+		failed := err != nil
+		if failed != tt.ShouldFail {
+			if tt.ShouldFail {
+				t.Errorf("unexpected success when parsing bundle\nCONTENTS:\n%s\nEXPECTED ERRORS:\n%q\n", tt.Contents, tt.ExpectedErrors)
+			} else {
+				t.Errorf("unexpected error parsing bundle: %s\nCONTENTS:\n%s", err, tt.Contents)
+			}
+			continue
+		}
+		if !tt.ShouldFail {
+			continue
+		}
+
+		for _, errString := range tt.ExpectedErrors {
+			if !strings.Contains(err.Error(), errString) {
+				t.Errorf("missing expected validation error when parsing bundle\nCONTENTS:\n%s\nERRORS:\n%s\nEXPECTED ERRORS: %q", tt.Contents, err.Error(), tt.ExpectedErrors)
+			}
+		}
+	}
+}
+
+func TestValidateBundleFile(t *testing.T) {
+	tests := []struct {
+		Filename       string
+		Contents       []byte
+		Level          ValidationLevel
+		ExpectedErrors []string
+		ShouldFail     bool
+	}{
+		{
+			Filename: "simple-bundle",
+			Contents: []byte(`# Simple fake bundle
+# [TITLE]: simple-bundle
+# [DESCRIPTION]: a description
+# [STATUS]: a status
+# [CAPABILITIES]: the capabilities
+# [MAINTAINER]: the maintainer
+include(a)
+include(b)
+pkg1     # Comment
+pkg2
+`),
+			Level: StrictValidation,
+		},
+
+		// Bundle filename errors
+		{Filename: "b&ndle", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name", "Missing end parenthesis"}, ShouldFail: true},
+		{Filename: "full", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name", "Missing end parenthesis"}, ShouldFail: true},
+		{Filename: "MoM", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name", "Missing end parenthesis"}, ShouldFail: true},
+		// Bundle filename header Title missmatch
+		{Filename: "foo", Contents: []byte(`# [TITLE]: bar`), Level: BasicValidation, ExpectedErrors: []string{"do not match"}, ShouldFail: true},
+		// Bundle header errors (catching errors passed up from validateBundle)
+		{Filename: "a", Contents: []byte(`# [TITLE]: `), Level: BasicValidation, ExpectedErrors: []string{"in bundle header Title"}, ShouldFail: true},
+		// Bundle contents error (catching errors passed up from parseBundle)
+		{Filename: "b", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
+	}
+
+	testDir, err := ioutil.TempDir("", "bundleset-test-")
+	if err != nil {
+		t.Fatalf("couldn't create temporary directory to write test cases: %s", err)
+	}
+	defer func() {
+		_ = os.RemoveAll(testDir)
+	}()
+
+	for _, tt := range tests {
+		bundleFile := filepath.Join(testDir, tt.Filename)
+		err = ioutil.WriteFile(bundleFile, []byte(tt.Contents), 0600)
+		if err != nil {
+			t.Fatalf("couldn't create temporary file for test case: %s", err)
+		}
+
+		err := validateBundleFile(bundleFile, tt.Level)
+		failed := err != nil
+		if failed != tt.ShouldFail {
+			if tt.ShouldFail {
+				t.Errorf("unexpected success when parsing bundle file\nFILE: %s\nCONTENTS:\n%s\nEXPECTED ERRORS:\n%q\n", tt.Filename, tt.Contents, tt.ExpectedErrors)
+			} else {
+				t.Errorf("unexpected error parsing bundle: %s\nCONTENTS:\n%s", err, tt.Contents)
+			}
+			continue
+		}
+		if !tt.ShouldFail {
+			continue
+		}
+
+		for _, errString := range tt.ExpectedErrors {
+			if !strings.Contains(err.Error(), errString) {
+				t.Errorf("missing expected validation error when parsing bundle\nFILENAME:\n%s\nCONTENTS:\n%s\nERRORS:\n%s\nEXPECTED ERRORS: %q", tt.Filename, tt.Contents, err.Error(), tt.ExpectedErrors)
+			}
 		}
 	}
 }

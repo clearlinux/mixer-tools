@@ -767,7 +767,7 @@ func (m *Manifest) subtractManifests(m2 *Manifest) {
 	}
 
 	for _, mi := range m2.Header.Includes {
-		m.subtractManifestFromManifest(mi)
+		m.subtractManifests(mi)
 	}
 }
 

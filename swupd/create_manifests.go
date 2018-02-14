@@ -117,18 +117,20 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		tmpManifests = append(tmpManifests, bundle)
 	}
 
-	// second loop reads includes and then subtracts manifests using the file lists
-	// populated in the last step
+	// second loop reads includes
 	for _, bundle := range tmpManifests {
 		if bundle.Name != "os-core" && bundle != newFull {
 			// read in bundle includes
 			if err := bundle.readIncludes(tmpManifests, c); err != nil {
 				return nil, err
 			}
-
-			// subtract manifests
-			bundle.subtractManifests(bundle)
 		}
+	}
+
+	// final loop performs manifest subtraction. Important this is done after all includes
+	// have been read so nested subtraction works.
+	for _, bundle := range tmpManifests {
+		bundle.subtractManifests(bundle)
 	}
 
 	// Need old MoM to get version of last bundle manifest

@@ -1738,7 +1738,7 @@ func archiveFiles(w io.Writer, srcs []string) error {
 }
 
 // BuildDeltaPacks between two versions of the mix.
-func (b *Builder) BuildDeltaPacks(from, to uint32) error {
+func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 	var err error
 
 	// TODO: Configuration parsing should handle this validation/conversion.
@@ -1771,12 +1771,12 @@ func (b *Builder) BuildDeltaPacks(from, to uint32) error {
 	}
 
 	chrootDir := filepath.Join(b.StateDir, "image")
-	return createDeltaPacks(fromManifest, toManifest, outputDir, chrootDir)
+	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir)
 }
 
 // BuildDeltaPacksPreviousVersions builds packs to version from up to
 // prev versions. It walks the Manifest "previous" field to find those from versions.
-func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
+func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport bool) error {
 	var err error
 
 	// TODO: Configuration parsing should handle this validation/conversion.
@@ -1820,7 +1820,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
 	chrootDir := filepath.Join(b.StateDir, "image")
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
-		err = createDeltaPacks(fromManifest, toManifest, outputDir, chrootDir)
+		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir)
 		if err != nil {
 			return err
 		}
@@ -1828,7 +1828,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32) error {
 	return nil
 }
 
-func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, outputDir, chrootDir string) error {
+func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, chrootDir string) error {
 	fmt.Printf("Creating delta packs from %d to %d\n", from.Header.Version, to.Header.Version)
 	bundlesToPack, err := swupd.FindBundlesToPack(from, to)
 	if err != nil {
@@ -1862,6 +1862,19 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, outputDir, chroo
 		if len(info.Warnings) > 0 {
 			for _, w := range info.Warnings {
 				fmt.Printf("    WARNING: %s\n", w)
+			}
+			fmt.Println()
+		}
+		if printReport {
+			max := 0
+			for _, e := range info.Entries {
+				if len(e.File.Name) > max {
+					max = len(e.File.Name)
+				}
+			}
+			fmt.Println("    Pack report:")
+			for _, e := range info.Entries {
+				fmt.Printf("      %-*s %s (%s)\n", max, e.File.Name, e.State, e.Reason)
 			}
 			fmt.Println()
 		}

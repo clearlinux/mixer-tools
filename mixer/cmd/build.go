@@ -188,6 +188,7 @@ var buildDeltaPacksFlags struct {
 	previousVersions uint32
 	from             uint32
 	to               uint32
+	report           bool
 }
 
 func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
@@ -208,9 +209,9 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 		fail(err)
 	}
 	if fromChanged {
-		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to)
+		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to, buildDeltaPacksFlags.report)
 	} else {
-		err = b.BuildDeltaPacksPreviousVersions(buildDeltaPacksFlags.previousVersions, buildDeltaPacksFlags.to)
+		err = b.BuildDeltaPacksPreviousVersions(buildDeltaPacksFlags.previousVersions, buildDeltaPacksFlags.to, buildDeltaPacksFlags.report)
 	}
 	if err != nil {
 		fail(err)
@@ -253,6 +254,7 @@ func init() {
 	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.from, "from", 0, "Generate packs from a specific version")
 	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.previousVersions, "previous-versions", 0, "Generate packs for multiple previous versions")
 	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.to, "to", 0, "Generate packs targeting a specific version")
+	buildDeltaPacksCmd.Flags().BoolVar(&buildDeltaPacksFlags.report, "report", false, "Report reason each file in to manifest was packed or not")
 
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)

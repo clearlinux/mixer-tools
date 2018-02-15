@@ -544,8 +544,8 @@ func deprecateOldRenames(oldRenames []*File) {
 			f.Rename = false
 			if !f.Present() {
 				f.Type = TypeUnset
+				f.Hash = 0
 			}
-			f.Hash = 0
 		}
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime"
 
 	"github.com/clearlinux/mixer-tools/builder"
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -35,9 +36,20 @@ type buildCmdFlags struct {
 	noPublish  bool
 	keepChroot bool
 	template   string
+
+	numFullfileWorkers int
 }
 
 var buildFlags buildCmdFlags
+
+func setWorkers(b *builder.Builder) {
+	var workers int
+	workers = buildFlags.numFullfileWorkers
+	if workers < 1 {
+		workers = runtime.NumCPU()
+	}
+	b.NumFullfileWorkers = workers
+}
 
 // buildCmd represents the base build command when called without any subcommands
 var buildCmd = &cobra.Command{
@@ -77,6 +89,7 @@ var buildChrootsCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
+		setWorkers(b)
 		err = buildChroots(b, buildFlags.noSigning)
 		if err != nil {
 			fail(err)
@@ -93,6 +106,7 @@ var buildUpdateCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
+		setWorkers(b)
 		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
 			failf("couldn't build update: %s", err)
@@ -115,6 +129,7 @@ var buildAllCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
+		setWorkers(b)
 		rpms, err := ioutil.ReadDir(b.RPMDir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
@@ -146,6 +161,7 @@ var buildImageCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
+		setWorkers(b)
 		err = b.BuildImage(buildFlags.format, buildFlags.template)
 		if err != nil {
 			failf("couldn't build image: %s", err)
@@ -208,6 +224,7 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		fail(err)
 	}
+	setWorkers(b)
 	if fromChanged {
 		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to, buildDeltaPacksFlags.report)
 	} else {
@@ -243,6 +260,7 @@ func init() {
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
 
+	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	RootCmd.AddCommand(buildCmd)
 
 	buildChrootsCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")

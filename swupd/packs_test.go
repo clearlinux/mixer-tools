@@ -487,7 +487,7 @@ func mustHaveNoWarnings(t *testing.T, info *PackInfo) {
 
 func mustCreateFullfiles(t *testing.T, m *Manifest, chrootDir, outputDir string) {
 	t.Helper()
-	_, err := CreateFullfiles(m, chrootDir, outputDir)
+	_, err := CreateFullfiles(m, chrootDir, outputDir, 0)
 	if err != nil {
 		t.Fatalf("couldn't create fullfiles: %s", err)
 	}

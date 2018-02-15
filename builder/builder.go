@@ -77,6 +77,8 @@ type Builder struct {
 
 	Signing int
 	Bump    int
+
+	NumFullfileWorkers int
 }
 
 // New will return a new instance of Builder with some predetermined sane
@@ -1491,9 +1493,10 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Stop()
 
 	timer.Start("CREATE FULLFILES")
+	fmt.Printf("Using %d workers\n", b.NumFullfileWorkers)
 	fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
 	fullChrootDir := filepath.Join(b.StateDir, "image", b.MixVer, "full")
-	info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir)
+	info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
 	if err != nil {
 		return err
 	}

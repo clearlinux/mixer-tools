@@ -39,6 +39,7 @@ type buildCmdFlags struct {
 
 	numFullfileWorkers int
 	numDeltaWorkers    int
+	numChrootWorkers   int
 }
 
 var buildFlags buildCmdFlags
@@ -55,6 +56,11 @@ func setWorkers(b *builder.Builder) {
 		workers = runtime.NumCPU()
 	}
 	b.NumDeltaWorkers = workers
+	workers = buildFlags.numChrootWorkers
+	if workers < 1 {
+		workers = runtime.NumCPU()
+	}
+	b.NumChrootWorkers = workers
 }
 
 // buildCmd represents the base build command when called without any subcommands
@@ -268,6 +274,7 @@ func init() {
 
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")
+	buildCmd.PersistentFlags().IntVar(&buildFlags.numChrootWorkers, "chroot-workers", 0, "Number of parallel workers when creating chroots, 0 means number of CPUs")
 	RootCmd.AddCommand(buildCmd)
 
 	buildChrootsCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")

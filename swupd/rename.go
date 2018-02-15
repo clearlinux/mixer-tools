@@ -22,9 +22,6 @@ import (
 	"strings"
 )
 
-// BSDIFFSIZE is smallest size of file to consider using bsdiff
-const BSDIFFSIZE = 200
-
 func renameDetection(manifest *Manifest, added []*File, removed []*File, c config) {
 	if len(added) == 0 || len(removed) == 0 {
 		return // nothing to rename
@@ -64,8 +61,8 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 	// Link things with the same names skipping digits
 	// First remove small files (not worth sending diff) and files which have
 	// exact match
-	added = trimSmall(trimRenamed(added), BSDIFFSIZE)     // Make it explicit we are doing two steps
-	removed = trimSmall(trimRenamed(removed), BSDIFFSIZE) // TODO. make it one pass.
+	added = trimSmall(trimRenamed(added), minimumSizeToMakeDeltaInBytes)     // Make it explicit we are doing two steps
+	removed = trimSmall(trimRenamed(removed), minimumSizeToMakeDeltaInBytes) // TODO. make it one pass.
 	//generate the pairs of *File and short name
 	pa := makePairedNames(added)
 	pr := makePairedNames(removed)

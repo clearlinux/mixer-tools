@@ -74,7 +74,10 @@ func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 
 	mustHaveNoWarnings(t, info)
 	mustHaveDeltaCount(t, info, 3)
-	mustHaveFullfileCount(t, info, 5)
+
+	// NOTE: This was 5 for old swupd-server, but the new code doesn't pack a fullfile
+	// if a delta already targets that file.
+	mustHaveFullfileCount(t, info, 4)
 
 	// Check that only the regular file to regular file deltas exist.
 	{

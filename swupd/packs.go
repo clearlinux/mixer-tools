@@ -170,7 +170,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 	}
 
 	// Add all deltas that have not failed.
-	hasDelta := make(map[*File]*Delta)
+	hasDelta := make(map[Hashval]*Delta)
 	for i := range deltas {
 		d := &deltas[i]
 		if d.Error != nil {
@@ -190,7 +190,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		}
 
 		info.DeltaCount++
-		hasDelta[d.to] = d
+		hasDelta[d.to.Hash] = d
 	}
 
 	// TODO: In some cases we could be packing both a delta and the fullfile. Should
@@ -205,7 +205,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			entry.Reason = "already in from manifest"
 			continue
 		}
-		if delta, ok := hasDelta[f]; ok {
+		if delta, ok := hasDelta[f.Hash]; ok {
 			entry.State = PackedDelta
 			entry.Reason = filepath.Base(delta.Path)
 			continue

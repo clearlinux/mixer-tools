@@ -35,8 +35,8 @@ type Delta struct {
 // CreateDeltas creates all delta files between the previous and current version of the
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
-// list.
-func CreateDeltas(manifest, statedir string, from, to uint32) ([]Delta, error) {
+// list. If number of workers is zero or less, 1 worker is used.
+func CreateDeltas(manifest, statedir string, from, to uint32, numWorkers int) ([]Delta, error) {
 	var c config
 
 	c, err := getConfig(statedir)
@@ -54,10 +54,10 @@ func CreateDeltas(manifest, statedir string, from, to uint32) ([]Delta, error) {
 		return nil, err
 	}
 
-	return createDeltasFromManifests(&c, oldManifest, newManifest)
+	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers)
 }
 
-func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) {
+func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int) ([]Delta, error) {
 	deltas, err := findDeltas(c, oldManifest, newManifest)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create deltas list %s", newManifest.Name)
@@ -67,15 +67,15 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest) ([
 		return []Delta{}, nil
 	}
 
-	// TODO: Unify these maxRoutines constants, get a better default (maybe NumCPUs)
-	// and make it configurable.
-	const maxRoutines = 3
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
 	var deltaQueue = make(chan *Delta)
 	var wg sync.WaitGroup
-	wg.Add(maxRoutines)
+	wg.Add(numWorkers)
 
 	// Delta creation takes a lot of memory, so create a limited amount of goroutines.
-	for i := 0; i < maxRoutines; i++ {
+	for i := 0; i < numWorkers; i++ {
 		go func() {
 			defer wg.Done()
 			for delta := range deltaQueue {

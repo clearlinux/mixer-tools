@@ -79,6 +79,7 @@ type Builder struct {
 	Bump    int
 
 	NumFullfileWorkers int
+	NumDeltaWorkers    int
 }
 
 // New will return a new instance of Builder with some predetermined sane
@@ -1533,7 +1534,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 		fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
 
 		var info *swupd.PackInfo
-		info, err = swupd.CreatePack(name, 0, version, outputDir, chrootDir)
+		info, err = swupd.CreatePack(name, 0, version, outputDir, chrootDir, 0)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't make pack for bundle %s", name)
 		}
@@ -1790,7 +1791,8 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 	}
 
 	chrootDir := filepath.Join(b.StateDir, "image")
-	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir)
+	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
+	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir, b.NumDeltaWorkers)
 }
 
 // BuildDeltaPacksPreviousVersions builds packs to version from up to
@@ -1834,12 +1836,13 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		cur = m.Header.Previous
 	}
 
+	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
 	fmt.Printf("Found %d previous versions\n", len(previousManifests))
 
 	chrootDir := filepath.Join(b.StateDir, "image")
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
-		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir)
+		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir, b.NumDeltaWorkers)
 		if err != nil {
 			return err
 		}
@@ -1847,7 +1850,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	return nil
 }
 
-func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, chrootDir string) error {
+func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, chrootDir string, numWorkers int) error {
 	fmt.Printf("Creating delta packs from %d to %d\n", from.Header.Version, to.Header.Version)
 	bundlesToPack, err := swupd.FindBundlesToPack(from, to)
 	if err != nil {
@@ -1873,7 +1876,7 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
 		fmt.Printf("  Creating delta pack for bundle %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
-		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, chrootDir)
+		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, chrootDir, numWorkers)
 		if err != nil {
 			return err
 		}

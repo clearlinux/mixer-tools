@@ -32,9 +32,10 @@ type FullfilesInfo struct {
 	CompressedCounts map[string]uint
 }
 
-// CreateFullfiles creates full file compressed tars for files in chrootDir and places them
-// in outputDir. It doesn't regenerate full files that already exist.
-func CreateFullfiles(m *Manifest, chrootDir, outputDir string) (*FullfilesInfo, error) {
+// CreateFullfiles creates full file compressed tars for files in chrootDir and places
+// them in outputDir. It doesn't regenerate full files that already exist. If number
+// of workers is zero or less, 1 worker is used.
+func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int) (*FullfilesInfo, error) {
 	var err error
 	if _, err = os.Stat(chrootDir); err != nil {
 		return nil, fmt.Errorf("couldn't access the full chroot: %s", err)
@@ -44,19 +45,20 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) (*FullfilesInfo, 
 		return nil, fmt.Errorf("couldn't create the full files directory: %s", err)
 	}
 
-	// TODO: Parametrize or pick a better value based on system.
-	const GoroutineCount = 3
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
 	var wg sync.WaitGroup
-	wg.Add(GoroutineCount)
+	wg.Add(numWorkers)
 
 	// Used to feed Files to the task runners.
 	taskCh := make(chan *File)
 
 	// Used by the task runners to indicate an error happened. The channel is buffered to ensure
 	// that all the goroutines can send their failure and finish.
-	errorCh := make(chan error, GoroutineCount)
+	errorCh := make(chan error, numWorkers)
 
-	infos := make([]FullfilesInfo, GoroutineCount)
+	infos := make([]FullfilesInfo, numWorkers)
 	for i := range infos {
 		info := &infos[i]
 		info.CompressedCounts = make(map[string]uint)
@@ -95,7 +97,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) (*FullfilesInfo, 
 		wg.Done()
 	}
 
-	for i := 0; i < GoroutineCount; i++ {
+	for i := 0; i < numWorkers; i++ {
 		go taskRunner(&infos[i])
 	}
 

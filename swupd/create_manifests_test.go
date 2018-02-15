@@ -774,6 +774,37 @@ func TestCreateRenamesOrphanedChain(t *testing.T) {
 	checkManifestMatches(t, testDir, "30", "test-bundle", res...)
 }
 
+func TestRenameFromResurrected(t *testing.T) {
+	ts := newTestSwupd(t, "rename-from-resurrected")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core"}
+	content := strings.Repeat("CONTENT", 200)
+
+	// Version 10
+	ts.write("image/10/os-core/foo1", content)
+	ts.createManifests(10)
+
+	// Version 20
+	ts.write("image/20/os-core/foo2", content)
+	ts.createManifests(20)
+
+	// Version 30
+	ts.write("image/30/os-core/foo1", content)
+	ts.write("image/30/os-core/foo2", content)
+	ts.createManifests(30)
+	m := ts.parseManifest(30, "os-core")
+	foo1 := fileInManifest(t, m, 30, "/foo1")
+	foo2 := fileInManifest(t, m, 20, "/foo2") // did not change in 30
+
+	if foo1.Rename {
+		t.Errorf("file %s incorrectly marked as rename", foo1.Name)
+	}
+	if foo2.Rename {
+		t.Errorf("file %s incorrectly marked as rename", foo1.Name)
+	}
+}
+
 func TestRenamePairHaveMatchingHashes(t *testing.T) {
 	ts := newTestSwupd(t, "rename-pair-")
 	defer ts.cleanup()

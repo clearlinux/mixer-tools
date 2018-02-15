@@ -878,6 +878,11 @@ const (
 
 // ListBundles prints out a bundle list in either a flat list or tree view
 func (b *Builder) ListBundles(listType listType, tree bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
 	var bundles bundleSet
 
 	// Get the bundle sets used for processing
@@ -1201,6 +1206,11 @@ func (b *Builder) createMixBundleDir() error {
 // using the m4 bundle configurations in conjunction with the YUM configuration file,
 // installing all required named packages into the roots.
 func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
 	// Generate the yum config file if it does not exist.
 	// This takes the template and adds the relevant local rpm repo path if needed
 	fmt.Println("Building chroots..")

@@ -33,6 +33,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
@@ -904,14 +905,6 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 		bundles = upstreamBundles
 	}
 
-	// Used for pretty-printing lists
-	var max int
-	for _, bundle := range bundles {
-		if len(bundle.Name) > max {
-			max = len(bundle.Name)
-		}
-	}
-
 	// Create the full, parsed set
 	set, err := b.getFullBundleSet(bundles)
 	if err != nil {
@@ -928,61 +921,57 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 		return nil
 	}
 
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 1, ' ', 0)
+
 	// Print a flat list and return
 	switch listType {
 	case MixList:
 		// Print the full, parsed set
 		sorted := getBundleSetKeysSorted(set)
 		for _, bundle := range sorted {
-			val := fmt.Sprintf("%-*s", max, set[bundle].Name)
-
-			if _, exists := localBundles[set[bundle].Name]; exists {
-				val += " (local)   "
+			var location string
+			if _, exists := localBundles[bundle]; exists {
+				location = "(local)"
 			} else {
-				val += " (upstream)"
+				location = "(upstream)"
 			}
-
-			if _, exists := bundles[set[bundle].Name]; !exists {
-				val += " (included)"
+			var included string
+			if _, exists := bundles[bundle]; !exists {
+				included = "(included)"
 			}
-
-			fmt.Println(val)
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, location, included)
 		}
 	case LocalList:
 		// Only print the top-level set
 		sorted := getBundleSetKeysSorted(bundles)
 		for _, bundle := range sorted {
-			val := fmt.Sprintf("%-*s", max, bundle)
-
+			var mix string
 			if _, exists := mixBundles[bundle]; exists {
-				val += " (in mix)"
-			} else {
-				val += "         "
+				mix = "(in mix)"
 			}
+			var masking string
 			if _, exists := upstreamBundles[bundle]; exists {
-				val += " (masking upstream)"
+				masking = "(masking upstream)"
 			}
-
-			fmt.Println(val)
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, mix, masking)
 		}
 	case UpstreamList:
 		// Only print the top-level set
 		sorted := getBundleSetKeysSorted(bundles)
 		for _, bundle := range sorted {
-			val := fmt.Sprintf("%-*s", max, bundle)
-
+			var mix string
 			if _, exists := mixBundles[bundle]; exists {
-				val += " (in mix)"
-			} else {
-				val += "         "
+				mix = "(in mix)"
 			}
+			var masked string
 			if _, exists := localBundles[bundle]; exists {
-				val += " (masked by local)"
+				masked = "(masked by local)"
 			}
-
-			fmt.Println(val)
+			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, mix, masked)
 		}
 	}
+
+	_ = tw.Flush()
 
 	return nil
 }

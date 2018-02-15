@@ -542,7 +542,9 @@ func deprecateOldRenames(oldRenames []*File) {
 	for _, f := range oldRenames {
 		if f.DeltaPeer == nil {
 			f.Rename = false
-			f.Type = TypeUnset
+			if !f.Present() {
+				f.Type = TypeUnset
+			}
 			f.Hash = 0
 		}
 	}

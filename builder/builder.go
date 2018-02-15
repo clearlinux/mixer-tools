@@ -80,6 +80,7 @@ type Builder struct {
 
 	NumFullfileWorkers int
 	NumDeltaWorkers    int
+	NumChrootWorkers   int
 }
 
 // New will return a new instance of Builder with some predetermined sane

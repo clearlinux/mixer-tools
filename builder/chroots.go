@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -256,28 +257,70 @@ src=%s
 	}
 
 	fmt.Println("Creating chroots for bundles")
-	// TODO: Use goroutines.
+
+	numWorkers := b.NumChrootWorkers
+	fmt.Printf("Using %d workers\n", numWorkers)
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	// Used to give bundles to the workers.
+	bundleCh := make(chan *bundle)
+
+	// Used by the workers to indicate an error happened. The channel is buffered to
+	// ensure that all the goroutines can send their failure and finish.
+	errorCh := make(chan error, numWorkers)
+
+	chrootWorker := func() {
+		for bundle := range bundleCh {
+			fmt.Printf("Creating %s chroot\n", bundle.Name)
+			cerr := helpers.RunCommandSilent("cp", "-a", "--preserve=all", osCoreDir, filepath.Join(chrootVersionDir, bundle.Name))
+			if cerr != nil {
+				errorCh <- cerr
+				break
+			}
+
+			fmt.Printf("Installing packages to %s\n", bundle.Name)
+			cerr = installPackagesToBundleChroot(packagerCmd, chrootVersionDir, bundle)
+			if cerr != nil {
+				errorCh <- cerr
+				break
+			}
+
+			cerr = cleanBundleChroot(chrootVersionDir, bundle)
+			if cerr != nil {
+				errorCh <- cerr
+				break
+			}
+		}
+		wg.Done()
+	}
+
+	for i := 0; i < numWorkers; i++ {
+		go chrootWorker()
+	}
+
 	for _, bundle := range set {
 		if bundle.Name == "os-core" {
 			continue
 		}
-
-		fmt.Printf("Creating %s chroot\n", bundle.Name)
-		err = helpers.RunCommandSilent("cp", "-a", "--preserve=all", osCoreDir, filepath.Join(chrootVersionDir, bundle.Name))
-		if err != nil {
-			return err
+		select {
+		case bundleCh <- bundle:
+		case err = <-errorCh:
+			// Break as soon as there is a failure.
+			break
 		}
+	}
+	close(bundleCh)
+	wg.Wait()
 
-		fmt.Printf("Installing packages to %s\n", bundle.Name)
-		err = installPackagesToBundleChroot(packagerCmd, chrootVersionDir, bundle)
-		if err != nil {
-			return err
-		}
-
-		err = cleanBundleChroot(chrootVersionDir, bundle)
-		if err != nil {
-			return err
-		}
+	// Sending loop might finish before any goroutine could send an error back, so check for
+	// error again after they are all done.
+	if err == nil && len(errorCh) > 0 {
+		err = <-errorCh
+	}
+	if err != nil {
+		return err
 	}
 
 	fmt.Printf("Adding swupd default values to '%s' bundle\n", cfg.UpdateBundle)

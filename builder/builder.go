@@ -81,6 +81,10 @@ type Builder struct {
 	NumFullfileWorkers int
 	NumDeltaWorkers    int
 	NumChrootWorkers   int
+
+	// Parsed versions.
+	MixVerUint32      uint32
+	UpstreamVerUint32 uint32
 }
 
 // New will return a new instance of Builder with some predetermined sane
@@ -421,6 +425,16 @@ func (b *Builder) ReadVersions() error {
 	} else {
 		b.UpstreamURL = strings.TrimSpace(string(ver))
 		b.UpstreamURL = strings.Replace(b.UpstreamURL, "\n", "", -1)
+	}
+
+	// Parse strings into valid version numbers.
+	b.MixVerUint32, err = parseUint32(b.MixVer)
+	if err != nil {
+		return errors.Wrapf(err, "Couldn't parse mix version")
+	}
+	b.UpstreamVerUint32, err = parseUint32(b.UpstreamVer)
+	if err != nil {
+		return errors.Wrapf(err, "Couldn't parse upstream version")
 	}
 
 	return nil
@@ -1357,13 +1371,6 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		return errors.Errorf("invalid format")
 	}
 
-	// TODO: move this to parsing configuration time.
-	var mixVerUint uint32
-	mixVerUint, err = parseUint32(b.MixVer)
-	if err != nil {
-		return errors.Wrapf(err, "couldn't parse mix version")
-	}
-
 	// Ensure the format dir exists.
 	formatDir := filepath.Join(b.StateDir, "www", "version", "format"+b.Format)
 	err = os.MkdirAll(formatDir, 0777)
@@ -1375,7 +1382,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	defer timer.WriteSummary(os.Stdout)
 
 	if UseNewSwupdServer {
-		err = b.buildUpdateWithNewSwupd(timer, mixVerUint, uint32(minVersion), formatUint, skipSigning)
+		err = b.buildUpdateWithNewSwupd(timer, b.MixVerUint32, uint32(minVersion), formatUint, skipSigning)
 	} else {
 		err = b.buildUpdateWithOldSwupd(timer, prefixflag, minVersion, skipSigning)
 	}
@@ -1764,18 +1771,11 @@ func archiveFiles(w io.Writer, srcs []string) error {
 func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 	var err error
 
-	// TODO: Configuration parsing should handle this validation/conversion.
-	var mixVersion uint32
-	mixVersion, err = parseUint32(b.MixVer)
-	if err != nil {
-		return errors.Wrapf(err, "couldn't parse mix version to use as target")
-	}
-
 	if to == 0 {
-		to = mixVersion
+		to = b.MixVerUint32
 	} else {
-		if to > mixVersion {
-			return errors.Errorf("--to version must be at most the latest mix version (%d)", mixVersion)
+		if to > b.MixVerUint32 {
+			return errors.Errorf("--to version must be at most the latest mix version (%d)", b.MixVerUint32)
 		}
 	}
 	if from >= to {
@@ -1803,18 +1803,11 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport bool) error {
 	var err error
 
-	// TODO: Configuration parsing should handle this validation/conversion.
-	var mixVersion uint32
-	mixVersion, err = parseUint32(b.MixVer)
-	if err != nil {
-		return errors.Wrapf(err, "couldn't parse mix version to use as target")
-	}
-
 	if to == 0 {
-		to = mixVersion
+		to = b.MixVerUint32
 	} else {
-		if to > mixVersion {
-			return errors.Errorf("--to version must be at most the latest mix version (%d)", mixVersion)
+		if to > b.MixVerUint32 {
+			return errors.Errorf("--to version must be at most the latest mix version (%d)", b.MixVerUint32)
 		}
 	}
 

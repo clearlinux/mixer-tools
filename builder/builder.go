@@ -239,6 +239,8 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 		upstreamVer = ver
 	}
 
+	fmt.Printf("Initializing mix version %s from upstream version %s\n", mixVer, upstreamVer)
+
 	// Deprecate '.clearversion' --> 'upstreamversion'
 	if _, err := os.Stat(filepath.Join(b.VersionDir, ".clearversion")); err == nil {
 		b.UpstreamVerFile = ".clearversion"

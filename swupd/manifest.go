@@ -756,6 +756,7 @@ func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
 			if f1.Status == f2.Status && f1.Type == f2.Type {
 				// this is expensive because we care about order at this point
 				m.Files = append(m.Files[:i], m.Files[i+1:]...)
+				m.Header.FileCount--
 			}
 
 			// only need to advance the m2.Files index since i now points to the next

@@ -187,8 +187,14 @@ func (b *Builder) initDirs() error {
 
 // Get latest CLR version
 func (b *Builder) getLatestUpstreamVersion() (string, error) {
+	return b.DownloadFileFromUpstream("/latest")
+}
+
+// DownloadFileFromUpstream will download a file from the Upstream URL
+// joined with the passed subpath. It will trim spaces from the result.
+func (b *Builder) DownloadFileFromUpstream(subpath string) (string, error) {
 	// Build the URL
-	end, err := url.Parse("/latest")
+	end, err := url.Parse(subpath)
 	if err != nil {
 		return "", err
 	}
@@ -197,14 +203,20 @@ func (b *Builder) getLatestUpstreamVersion() (string, error) {
 		return "", err
 	}
 
+	resolved := base.ResolveReference(end).String()
 	// Fetch the version and parse it
-	resp, err := http.Get(base.ResolveReference(end).String())
+	resp, err := http.Get(resolved)
 	if err != nil {
 		return "", err
 	}
 	defer func() {
 		_ = resp.Body.Close()
 	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("got status %q when downloading: %s", resp.Status, resolved)
+	}
+
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
@@ -1915,4 +1927,106 @@ func writeMetaFiles(path, format, version string) error {
 	}
 
 	return ioutil.WriteFile(filepath.Join(path, "mixer-src-version"), []byte(version), 0644)
+}
+
+func (b *Builder) getUpstreamFormatRange() (format string, first, latest uint32, err error) {
+	format, err = b.DownloadFileFromUpstream(fmt.Sprintf("update/%d/format", b.UpstreamVerUint32))
+	if err != nil {
+		return "", 0, 0, errors.Wrap(err, "couldn't download information about upstream")
+	}
+
+	readUint32 := func(subpath string) (uint32, error) {
+		str, rerr := b.DownloadFileFromUpstream(subpath)
+		if rerr != nil {
+			return 0, rerr
+		}
+		val, rerr := parseUint32(str)
+		if rerr != nil {
+			return 0, rerr
+		}
+		return val, nil
+	}
+
+	latest, err = readUint32(fmt.Sprintf("update/version/format%s/latest", format))
+	if err != nil {
+		return "", 0, 0, errors.Wrap(err, "couldn't read information about upstream")
+	}
+
+	// TODO: Clear Linux does produce the "first" files, but not sure mixes got
+	// those. We should add those (or change this to walk previous format latest).
+	first, err = readUint32(fmt.Sprintf("update/version/format%s/first", format))
+	if err != nil {
+		return "", 0, 0, errors.Wrap(err, "couldn't read information about upstream")
+	}
+
+	return format, first, latest, err
+}
+
+// PrintVersions prints the current mix and upstream versions, and the
+// latest version of upstream.
+func (b *Builder) PrintVersions() error {
+	format, first, latest, err := b.getUpstreamFormatRange()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf(`
+Current mix:               %d
+Current upstream:          %d (format: %s)
+
+First upstream in format:  %d
+Latest upstream in format: %d
+`, b.MixVerUint32, b.UpstreamVerUint32, format, first, latest)
+
+	return nil
+}
+
+// UpdateVersions will validate then update both mix and upstream versions. If upstream
+// version is 0, then the latest upstream version possible will be taken instead.
+func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
+	format, first, latest, err := b.getUpstreamFormatRange()
+	if err != nil {
+		return err
+	}
+
+	if nextMix <= b.MixVerUint32 {
+		return fmt.Errorf("invalid mix version to update (%d), need to be greater than current mix version (%d)", nextMix, b.MixVerUint32)
+	}
+
+	switch {
+	case nextUpstream == 0:
+		nextUpstream = latest
+
+	case nextUpstream < first, nextUpstream > latest:
+		return fmt.Errorf("invalid upstream version to update (%d) out of the format %s range: must be at least %d and at most %d", nextUpstream, format, first, latest)
+	}
+
+	// Verify the version exists by checking if its Manifest.MoM is around.
+	_, err = b.DownloadFileFromUpstream(fmt.Sprintf("/update/%d/Manifest.MoM", nextUpstream))
+	if err != nil {
+		return errors.Wrapf(err, "invalid upstream version %d", nextUpstream)
+	}
+
+	fmt.Printf(`Current mix:      %d
+Current upstream: %d (format: %s)
+
+Updated mix:      %d
+Updated upstream: %d (format: %s)
+`, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, format)
+
+	mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
+	err = ioutil.WriteFile(filepath.Join(b.VersionDir, b.MixVerFile), mixVerContents, 0644)
+	if err != nil {
+		return errors.Wrap(err, "couldn't write updated mix version")
+	}
+	fmt.Printf("\nWrote %s.\n", b.MixVerFile)
+
+	upstreamVerContents := []byte(fmt.Sprintf("%d\n", nextUpstream))
+	err = ioutil.WriteFile(filepath.Join(b.VersionDir, b.UpstreamVerFile), upstreamVerContents, 0644)
+	if err != nil {
+		return errors.Wrap(err, "couldn't write updated upstream version")
+	}
+	fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
+
+	return nil
 }

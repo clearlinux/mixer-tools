@@ -79,7 +79,7 @@ func main() {
 	}
 
 	log.Printf("Output directory: %s", *outputDir)
-	err = swupd.CreateFullfiles(m, chrootDir, *outputDir)
+	_, err = swupd.CreateFullfiles(m, chrootDir, *outputDir)
 	if err != nil {
 		log.Fatal(err)
 	}

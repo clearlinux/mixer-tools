@@ -1504,11 +1504,21 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Start("CREATE FULLFILES")
 	fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
 	fullChrootDir := filepath.Join(b.StateDir, "image", b.MixVer, "full")
-	// TODO: CreateFullfiles should return us feedback on what was
-	// done so we can report here.
-	err = swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir)
+	info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir)
 	if err != nil {
 		return err
+	}
+	// Print summary of fullfile generation.
+	{
+		total := info.Skipped + info.NotCompressed
+		fmt.Printf("- Already created: %d\n", info.Skipped)
+		fmt.Printf("- Not compressed:  %d\n", info.NotCompressed)
+		fmt.Printf("- Compressed\n")
+		for k, v := range info.CompressedCounts {
+			total += v
+			fmt.Printf("  - %-20s %d\n", k, v)
+		}
+		fmt.Printf("Total fullfiles: %d\n", total)
 	}
 	timer.Stop()
 

@@ -25,16 +25,23 @@ var fullfileCompressors = []struct {
 	{"external-xz", externalCompressFunc("xz")},
 }
 
+// FullfilesInfo holds statistics about a fullfile generation.
+type FullfilesInfo struct {
+	NotCompressed    uint
+	Skipped          uint
+	CompressedCounts map[string]uint
+}
+
 // CreateFullfiles creates full file compressed tars for files in chrootDir and places them
 // in outputDir. It doesn't regenerate full files that already exist.
-func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
+func CreateFullfiles(m *Manifest, chrootDir, outputDir string) (*FullfilesInfo, error) {
 	var err error
 	if _, err = os.Stat(chrootDir); err != nil {
-		return fmt.Errorf("couldn't access the full chroot: %s", err)
+		return nil, fmt.Errorf("couldn't access the full chroot: %s", err)
 	}
 	err = os.MkdirAll(outputDir, 0777)
 	if err != nil {
-		return fmt.Errorf("couldn't create the full files directory: %s", err)
+		return nil, fmt.Errorf("couldn't create the full files directory: %s", err)
 	}
 
 	// TODO: Parametrize or pick a better value based on system.
@@ -49,7 +56,13 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 	// that all the goroutines can send their failure and finish.
 	errorCh := make(chan error, GoroutineCount)
 
-	taskRunner := func() {
+	infos := make([]FullfilesInfo, GoroutineCount)
+	for i := range infos {
+		info := &infos[i]
+		info.CompressedCounts = make(map[string]uint)
+	}
+
+	taskRunner := func(info *FullfilesInfo) {
 		for f := range taskCh {
 			input := filepath.Join(chrootDir, f.Name)
 			name := f.Hash.String()
@@ -59,17 +72,17 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 
 			// Don't regenerate if file exists.
 			if _, err = os.Stat(output); err == nil {
-				// TODO: Should we validate it?
+				info.Skipped++
 				continue
 			}
 
 			switch f.Type {
 			case TypeDirectory:
-				err = createDirectoryFullfile(input, name, output)
+				err = createDirectoryFullfile(input, name, output, info)
 			case TypeLink:
-				err = createLinkFullfile(input, name, output)
+				err = createLinkFullfile(input, name, output, info)
 			case TypeFile:
-				err = createRegularFullfile(input, name, output)
+				err = createRegularFullfile(input, name, output, info)
 			default:
 				err = fmt.Errorf("file %s is of unsupported type %q", f.Name, f.Type)
 			}
@@ -83,7 +96,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 	}
 
 	for i := 0; i < GoroutineCount; i++ {
-		go taskRunner()
+		go taskRunner(&infos[i])
 	}
 
 	done := make(map[Hashval]bool)
@@ -108,10 +121,27 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string) error {
 	if err == nil && len(errorCh) > 0 {
 		err = <-errorCh
 	}
-	return err
+
+	if err != nil {
+		return nil, err
+	}
+
+	total := &FullfilesInfo{
+		CompressedCounts: make(map[string]uint),
+	}
+	for i := range infos {
+		info := &infos[i]
+		total.NotCompressed += info.NotCompressed
+		total.Skipped = info.Skipped
+		for k, v := range info.CompressedCounts {
+			total.CompressedCounts[k] += v
+		}
+	}
+
+	return total, nil
 }
 
-func createDirectoryFullfile(input, name, output string) error {
+func createDirectoryFullfile(input, name, output string, info *FullfilesInfo) error {
 	fi, err := os.Lstat(input)
 	if err != nil {
 		return fmt.Errorf("couldn't create fullfile from %s: %s", input, err)
@@ -131,11 +161,12 @@ func createDirectoryFullfile(input, name, output string) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create fullfile from %s: %s", input, err)
 	}
+	info.CompressedCounts["gzip"]++
 
 	return nil
 }
 
-func createLinkFullfile(input, name, output string) error {
+func createLinkFullfile(input, name, output string, info *FullfilesInfo) error {
 	fi, err := os.Lstat(input)
 	if err != nil {
 		return fmt.Errorf("couldn't create fullfile from %s: %s", input, err)
@@ -160,11 +191,12 @@ func createLinkFullfile(input, name, output string) error {
 	if err != nil {
 		return fmt.Errorf("couldn't create fullfile from %s: %s", input, err)
 	}
+	info.CompressedCounts["gzip"]++
 
 	return nil
 }
 
-func createRegularFullfile(input, name, output string) (err error) {
+func createRegularFullfile(input, name, output string, info *FullfilesInfo) (err error) {
 	// Ensure this is a regular file.
 	fi, err := os.Lstat(input)
 	if err != nil {
@@ -247,11 +279,16 @@ func createRegularFullfile(input, name, output string) (err error) {
 		}
 	}
 
+	var bestName string
+	if best != "" {
+		bestName = filepath.Ext(best)[1:]
+		info.CompressedCounts[bestName]++
+	} else {
+		bestName = "<uncompressed>"
+		info.NotCompressed++
+	}
+
 	if debugFullfiles {
-		bestName := "<uncompressed>"
-		if best != "" {
-			bestName = filepath.Ext(best)[1:]
-		}
 		log.Printf("DEBUG: best algorithm was %s", bestName)
 	}
 

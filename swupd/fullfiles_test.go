@@ -107,7 +107,7 @@ func TestCreateFullfiles(t *testing.T) {
 		m.Files = append(m.Files, f)
 	}
 
-	err = CreateFullfiles(m, chrootDir, outputDir)
+	_, err = CreateFullfiles(m, chrootDir, outputDir)
 	if err != nil {
 		t.Fatal(err)
 	}

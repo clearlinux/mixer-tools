@@ -256,7 +256,7 @@ src=%s
 		return errors.Wrap(err, "couldn't fix os-release file")
 	}
 
-	fmt.Println("Creating chroots for bundles")
+	fmt.Printf("Creating chroots for %d bundles\n", len(set))
 
 	numWorkers := b.NumChrootWorkers
 	fmt.Printf("Using %d workers\n", numWorkers)
@@ -280,7 +280,7 @@ src=%s
 				break
 			}
 
-			fmt.Printf("Installing packages to %s\n", bundle.Name)
+			fmt.Printf("... Installing packages to %s\n", bundle.Name)
 			cerr = installPackagesToBundleChroot(packagerCmd, chrootVersionDir, bundle)
 			if cerr != nil {
 				errorCh <- cerr
@@ -292,6 +292,7 @@ src=%s
 				errorCh <- cerr
 				break
 			}
+			fmt.Printf("... ... %s done.\n", bundle.Name)
 		}
 		wg.Done()
 	}

@@ -188,7 +188,7 @@ func fixupStatFields(needed []*File, m *Manifest, c *config) error {
 			bundleChroot = filepath.Join(c.imageBase, fmt.Sprint(m.Header.Previous), "full")
 		}
 		path := filepath.Join(bundleChroot, needed[i].Name)
-		fi, err := os.Stat(path)
+		fi, err := os.Lstat(path)
 		if err != nil {
 			return err
 		}

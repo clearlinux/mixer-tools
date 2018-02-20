@@ -1,6 +1,6 @@
 [main]
 cachedir=/var/cache/yum/clear/
-keepcache=0
+keepcache=1
 debuglevel=2
 logfile=/var/log/yum.log
 exactarch=1

@@ -50,19 +50,25 @@ for i in $(seq $1 10 $2); do
 		popd
 		exit 1
 	fi
-	mixer build chroots --new-swupd --new-chroots --chroot-workers 20
+	# increase the number of chroot-workers on larger systems
+	# keep in mind that this is network bound due to dnf installs
+	# of upstream tarballs
+	mixer build chroots --new-swupd --new-chroots --chroot-workers 8
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix chroots"
 		popd
 		exit 1
 	fi
-	mixer build update --new-swupd --fullfile-workers 56 --format $3
+	# increase the number of fullfile-workers on larger systems
+	mixer build update --new-swupd --fullfile-workers 8 --format $3
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix update"
 		popd
 		exit 1
 	fi
-	mixer build delta-packs --previous-versions 1 --new-swupd --delta-workers 6
+	# increase the number of delta-workers on larger systems
+	# this is memory-bound instead of cpu-bound
+	mixer build delta-packs --previous-versions 1 --new-swupd --delta-workers 4
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build delta packs"
 		popd

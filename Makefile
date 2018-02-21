@@ -37,10 +37,13 @@ endif
 
 build: gopath
 	go install ${GO_PACKAGE_PREFIX}/mixer
+	go install ${GO_PACKAGE_PREFIX}/mixer-completion
 
 install: gopath
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
+	$(GOPATH)/bin/mixer-completion bash
+	$(GOPATH)/bin/mixer-completion zsh
 	install -m 00755 pack-maker.sh $(DESTDIR)/usr/bin/mixer-pack-maker.sh
 	install -m 00755 superpack-maker.sh $(DESTDIR)/usr/bin/mixer-superpack-maker.sh
 	install -D -m 00644 yum.conf.in $(DESTDIR)/usr/share/defaults/mixer/yum.conf.in

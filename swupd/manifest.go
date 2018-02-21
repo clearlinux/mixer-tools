@@ -757,6 +757,7 @@ func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
 				// this is expensive because we care about order at this point
 				m.Files = append(m.Files[:i], m.Files[i+1:]...)
 				m.Header.FileCount--
+				m.Header.ContentSize -= uint64(f1.Info.Size())
 			}
 
 			// only need to advance the m2.Files index since i now points to the next

@@ -478,7 +478,7 @@ func TestContentSizeAcrossVersionsIncludes(t *testing.T) {
 	fullSize := manifests["full"].Header.ContentSize
 
 	checkSize(manifests["test-bundle1"], 4+7+emptySize)
-	checkSize(manifests["test-bundle2"], 5+emptySize)
+	checkSize(manifests["test-bundle2"], 5) // emptySize subtracted out
 
 	// Check that content size does add files from previous updates.
 	ts.copyChroots(10, 20)
@@ -490,7 +490,7 @@ func TestContentSizeAcrossVersionsIncludes(t *testing.T) {
 	manifests = mustParseAllManifests(t, 20, ts.path("www"))
 
 	checkSize(manifests["test-bundle1"], 4+7+10+emptySize)
-	checkSize(manifests["test-bundle2"], 5+8+emptySize)
+	checkSize(manifests["test-bundle2"], 5+8) // emptySize subtracted out
 
 	// os-core should have the same size as before.
 	checkSize(manifests["os-core"], osCoreSize)

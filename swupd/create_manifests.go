@@ -147,6 +147,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		if ver == 0 {
 			ver = ui.lastVersion
 		}
+		bundle.Header.Previous = ver
 
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
 		oldM := getOldManifest(oldMPath)
@@ -204,6 +205,10 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	lastVersion, err = readLastVerFile(filepath.Join(c.imageBase, "LAST_VER"))
 	if err != nil {
 		return nil, err
+	}
+
+	if minVersion > lastVersion {
+		lastVersion = minVersion
 	}
 
 	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")

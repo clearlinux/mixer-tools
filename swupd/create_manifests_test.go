@@ -412,6 +412,7 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 
 	// since the minVersion was set to this version the file version should
 	// be updated despite there being no change to the file.
+	ts.checkContains("www/20/Manifest.test-bundle", "previous:\t20")
 	ts.checkContains("www/20/Manifest.test-bundle", "20\t/foo\n")
 	ts.checkContains("www/20/Manifest.full", "20\t/foo\n")
 	ts.checkNotContains("www/20/Manifest.test-bundle", "10\t/foo\n")

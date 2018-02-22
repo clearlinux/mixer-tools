@@ -571,7 +571,7 @@ func (fs *testFileSystem) checkNotContains(subpath, sub string) {
 		fs.t.Errorf("couldn't open %s to check its contents: %s", subpath, err)
 	}
 	if bytes.Contains(contents, []byte(sub)) {
-		fs.t.Errorf("%s did not contain expected %q", subpath, sub)
+		fs.t.Errorf("%s contained unexpected %q", subpath, sub)
 	}
 }
 

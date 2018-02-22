@@ -60,7 +60,7 @@ for i in $(seq $1 10 $2); do
 		exit 1
 	fi
 	# increase the number of fullfile-workers on larger systems
-	mixer build update --new-swupd --fullfile-workers 8 --format $3
+	mixer build update --new-swupd --fullfile-workers 8 --min-version $1 --format $3
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix update"
 		popd

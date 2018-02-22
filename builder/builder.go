@@ -1902,6 +1902,10 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 }
 
 func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, chrootDir string, numWorkers int) error {
+	timer := &stopWatch{w: os.Stdout}
+	defer timer.WriteSummary(os.Stdout)
+	timer.Start("CREATE DELTA PACKS")
+
 	fmt.Printf("Creating delta packs from %d to %d\n", from.Header.Version, to.Header.Version)
 	bundlesToPack, err := swupd.FindBundlesToPack(from, to)
 	if err != nil {
@@ -1954,6 +1958,8 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 		fmt.Printf("    Fullfiles in pack: %d\n", info.FullfileCount)
 		fmt.Printf("    Deltas in pack: %d\n", info.DeltaCount)
 	}
+
+	timer.Stop()
 	return nil
 }
 

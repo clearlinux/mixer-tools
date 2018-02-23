@@ -25,10 +25,19 @@ if len(dev) != 1:
 	raise Exception("losetup failed to create loop device")
 time.sleep(1)
 
-src = dev[0] + "p4"
-dest = dev[0] + "p5"
+data_dev = dev[0] + "p4"
+hash_dev = dev[0] + "p5"
 
-command2 = "veritysetup --verbose format {0} {1}".format(src, dest)
+print("Creating files in " + data_dev)
+subprocess.check_output("rm -rf datamnt".split(" "))
+subprocess.check_output("mkdir datamnt".split(" "))
+subprocess.check_output("mount {0} datamnt".format(data_dev).split(" "))
+
+subprocess.check_output("echo \"echo \"data file 1 for testing dm-verity... \"\" > datamnt/file1.sh".split(" "))
+subprocess.check_output("echo \"echo \"data file 2 for testing dm-verity... \"\" > datamnt/file2.sh".split(" ")) 
+subprocess.check_output("umount datamnt".split(" "))
+
+command2 = "veritysetup --verbose format {0} {1}".format(data_dev, hash_dev)
 print("Starting " + command2)
 try:
 	cmd2 = subprocess.check_output(command2.split(" ")).decode("utf-8")\
@@ -48,7 +57,8 @@ root_hash = root_hash_str.replace('Root hash:      	','')
 print(salt)
 print(root_hash)
 
-#command3 = "veritysetup --verbose verify {0} {1} {2}".format(src, dest, root_hash)
+
+#command3 = "veritysetup --verbose verify {0} {1} {2}".format(data_dev, hash_dev, root_hash)
 
 #print("Starting " + command3)
 #try:
@@ -61,12 +71,12 @@ print(root_hash)
 #if cmd3[len(cmd3) - 1] != "Command successful.":
 #        raise Exception("veritysetup failed to verify")
 
-#bsize_command = "sudo blockdev --getsz {0}".format(src)
+#bsize_command = "sudo blockdev --getsz {0}".format(data_dev)
 
 #print("Starting " + bsize_command)
 #bsize = subprocess.check_output(bsize_command)
 #print(bsize)
-#arg = "0 " + bsize + " verity 1 " + src + " " + dest + " 4096 4096 52224 1 sha256 " + root_hash + " " + salt
+#arg = "0 " + bsize + " verity 1 " + data_dev + " " + hash_dev + " 4096 4096 52224 1 sha256 " + root_hash + " " + salt
 #command5 = "dmsetup create name -r --table \"{0}\"".format(arg)
 #print("Starting " + command5)
 #try:
@@ -78,7 +88,7 @@ print(root_hash)
 #time.sleep(20)
 
 
-#command4 = "veritysetup --verbose create vroot {0} {1} {2}".format(src, dest, root_hash)
+#command4 = "veritysetup --verbose create vroot {0} {1} {2}".format(data_dev, hash_dev, root_hash)
 #print("Starting " + command4)
 #try:
 #        cmd4 = subprocess.check_output(command4.split(" ")).decode("utf-8")\

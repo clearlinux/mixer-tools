@@ -27,15 +27,30 @@ time.sleep(1)
 
 data_dev = dev[0] + "p4"
 hash_dev = dev[0] + "p5"
+store_dev = dev[0] + "p6"
 
-print("Creating files in " + data_dev)
-subprocess.check_output("rm -rf datamnt".split(" "))
-subprocess.check_output("mkdir datamnt".split(" "))
-subprocess.check_output("mount {0} datamnt".format(data_dev).split(" "))
+print("Creating data files in " + data_dev)
+subprocess.check_output("rm -rf mnt".split(" "))
+subprocess.check_output("mkdir mnt".split(" "))
+subprocess.check_output("mount {0} mnt".format(data_dev).split(" "))
 
-subprocess.check_output("echo \"echo \"data file 1 for testing dm-verity... \"\" > datamnt/file1.sh".split(" "))
-subprocess.check_output("echo \"echo \"data file 2 for testing dm-verity... \"\" > datamnt/file2.sh".split(" ")) 
-subprocess.check_output("umount datamnt".split(" "))
+subprocess.check_output("touch mnt/file1.sh".split(" "))
+try:
+    outfile = open('mnt/file1.sh','w')
+    outfile.write("echo Testing dm-verity data1...")
+    outfile.close()
+except IOError:
+    print("I/O error")
+
+subprocess.check_output("touch mnt/file2.sh".split(" "))
+try:
+    outfile = open('mnt/file2.sh','w')
+    outfile.write("echo Testing dm-verity data2...")
+    outfile.close()
+except IOError:
+    print("I/O error")
+
+subprocess.check_output("umount mnt".split(" "))
 
 command2 = "veritysetup --verbose format {0} {1}".format(data_dev, hash_dev)
 print("Starting " + command2)
@@ -58,8 +73,30 @@ print(salt)
 print(root_hash)
 
 
-#command3 = "veritysetup --verbose verify {0} {1} {2}".format(data_dev, hash_dev, root_hash)
+subprocess.check_output("mount {0} mnt".format(store_dev).split(" "))
+print("Writing the root_hash to hash.txt in " + store_dev)
+subprocess.check_output("touch mnt/hash.txt".split(" "))
+try:
+    outfile = open('mnt/hash.txt','w')
+    outfile.write(root_hash)
+    outfile.close()
+except IOError:
+    print("I/O error")
 
+print("Writing the salt to salt.txt in " + store_dev)
+subprocess.check_output("touch mnt/salt.txt".split(" "))
+try:
+    outfile = open('mnt/salt.txt','w')
+    outfile.write(salt)
+    outfile.close()
+except IOError:
+    print("I/O error")
+
+subprocess.check_output("umount mnt".split(" "))
+subprocess.check_output("rm -rf mnt".split(" "))
+
+#command3 = "veritysetup --verbose verify {0} {1} {2}".format(data_dev, hash_dev, root_hash)
+#
 #print("Starting " + command3)
 #try:
 #        cmd3 = subprocess.check_output(command3.split(" ")).decode("utf-8")\
@@ -70,9 +107,9 @@ print(root_hash)
 #time.sleep(20)
 #if cmd3[len(cmd3) - 1] != "Command successful.":
 #        raise Exception("veritysetup failed to verify")
-
+#
 #bsize_command = "sudo blockdev --getsz {0}".format(data_dev)
-
+#
 #print("Starting " + bsize_command)
 #bsize = subprocess.check_output(bsize_command)
 #print(bsize)
@@ -86,8 +123,8 @@ print(root_hash)
 #        raise Exception("dmsetup command failed: {0}: {1}"
 #                            .format(command5, sys.exc_info()))
 #time.sleep(20)
-
-
+#
+#
 #command4 = "veritysetup --verbose create vroot {0} {1} {2}".format(data_dev, hash_dev, root_hash)
 #print("Starting " + command4)
 #try:

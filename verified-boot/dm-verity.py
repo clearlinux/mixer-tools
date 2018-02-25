@@ -60,7 +60,7 @@ try:
 except Exception:
 	raise Exception("veritysetup command failed: {0}: {1}"
 		            .format(command2, sys.exc_info()))
-time.sleep(20)
+time.sleep(5)
 if cmd2[len(cmd2) - 1] != "Command successful.":
 	raise Exception("veritysetup failed to format")
 salt_str = cmd2[len(cmd2) - 3]
@@ -88,6 +88,15 @@ subprocess.check_output("touch mnt/salt.txt".split(" "))
 try:
     outfile = open('mnt/salt.txt','w')
     outfile.write(salt)
+    outfile.close()
+except IOError:
+    print("I/O error")
+
+print("Writing veritysetup create command to vcreate.sh in " + store_dev)
+subprocess.check_output("touch mnt/vcreate.sh".split(" "))
+try:
+    outfile = open('mnt/vcreate.sh','w')
+    outfile.write("veritysetup --verbose create verity1 /dev/sda4 /dev/sda5 " + root_hash)
     outfile.close()
 except IOError:
     print("I/O error")

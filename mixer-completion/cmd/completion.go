@@ -17,24 +17,34 @@ package cmd
 import (
 	"errors"
 	"os"
+	"path/filepath"
 
 	mixerCmd "github.com/clearlinux/mixer-tools/mixer/cmd"
 	"github.com/spf13/cobra"
 )
+
+type completionCmdFlags struct {
+	path string
+}
+
+var completionFlags completionCmdFlags
+
 
 // CompletionCmd represents the base command for mixer-completion
 var CompletionCmd = &cobra.Command{
 	Use:   "mixer-completion",
 	Short: "Generate autocomplete files for mixer",
 	Long: `Generates autocomplete files for mixer. If no arguments are passed, or if
-'bash' is passed, a bash completion file is written to /etc/bash_completion.d/.
-If 'zsh' is passed, a zsh completion file is written to
-/usr/share/zsh/site-functions/.
+'bash' is passed, a bash completion file is written to 
+/usr/share/bash-completion/completions/mixer. If 'zsh' is passed, a zsh
+completion file is written to /usr/share/zsh/site-functions/_mixer. These
+locations can be overridden by passing '--path', with a full path to the chosen
+destination file.
 
 These files allow you to type, for example:
   mixer bun[TAB] -> mixer bundle a[TAB] -> mixer bundle add
 
-Note that this command must be run as root.`,
+Note that this command must be run as root if using the default file locations.`,
 	Args:      cobra.OnlyValidArgs,
 	ValidArgs: []string{"bash", "zsh"},
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -49,20 +59,31 @@ Note that this command must be run as root.`,
 			shell = "bash"
 		}
 
+		var path = completionFlags.path
 		var err error
 		switch shell {
 		case "bash":
-			if err = os.MkdirAll("/usr/share/bash-completion/completions", 0755); err != nil {
+			if path == "" {
+				path = "/usr/share/bash-completion/completions/mixer"
+			}
+			if err = os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 				return err
 			}
-			err = mixerCmd.RootCmd.GenBashCompletionFile("/usr/share/bash-completion/completions/mixer")
+			err = mixerCmd.RootCmd.GenBashCompletionFile(path)
 		case "zsh":
-			if err = os.MkdirAll("/usr/share/zsh/site-functions", 0755); err != nil {
+			if path == "" {
+				path = "/usr/share/zsh/site-functions/_mixer"
+			}
+			if err = os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 				return err
 			}
-			err = mixerCmd.RootCmd.GenZshCompletionFile("/usr/share/zsh/site-functions/_mixer")
+			err = mixerCmd.RootCmd.GenZshCompletionFile(path)
 		}
 
 		return err
 	},
+}
+
+func init() {
+	CompletionCmd.Flags().StringVar(&completionFlags.path, "path", "", "Completion file destination path override")
 }

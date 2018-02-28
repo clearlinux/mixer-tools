@@ -25,7 +25,7 @@ import (
 var addRPMCmd = &cobra.Command{
 	Use:   "add-rpms",
 	Short: "Add RPMs to local yum repository",
-	Long:  `Add RPMS from the configured RPMDIR to local yum repository`,
+	Long:  `Add RPMS from the configured LOCAL_RPM_DIR to local yum repository`,
 	Run:   runAddRPM,
 }
 
@@ -51,11 +51,11 @@ func runAddRPM(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 	if b.RPMDir == "" {
-		failf("RPMDIR not set in configuration")
+		failf("LOCAL_RPM_DIR not set in configuration")
 	}
 	rpms, err := ioutil.ReadDir(b.RPMDir)
 	if err != nil {
-		failf("cannot read RPMDIR: %s", err)
+		failf("cannot read LOCAL_RPM_DIR: %s", err)
 	}
 	err = b.AddRPMList(rpms)
 	if err != nil {

@@ -1705,11 +1705,11 @@ func (b *Builder) BuildImage(format string, template string) error {
 // generate a yum-consumable repository for the chroot builder to use.
 func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
 	if b.RepoDir == "" {
-		return errors.Errorf("REPODIR not set in configuration")
+		return errors.Errorf("LOCAL_REPO_DIR not set in configuration")
 	}
 	err := os.MkdirAll(b.RepoDir, 0755)
 	if err != nil {
-		return errors.Wrapf(err, "couldn't create REPODIR")
+		return errors.Wrapf(err, "couldn't create LOCAL_REPO_DIR")
 	}
 	for _, rpm := range rpms {
 		localPath := filepath.Join(b.RPMDir, rpm.Name())

@@ -51,6 +51,10 @@ var UseNewSwupdServer = false
 // building the chroots. This is an experimental feature.
 var UseNewChrootBuilder = false
 
+// Offline controls whether mixer attempts to automatically cache upstream
+// bundles. In offline mode, all necessary bundles must exist in local-bundles.
+var Offline = false
+
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {
@@ -488,6 +492,10 @@ func getUpstreamBundlesPath(ver string) string {
 }
 
 func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
+	if Offline {
+		return nil
+	}
+
 	// Make the folder to store upstream bundles if does not exist
 	if err := os.MkdirAll(upstreamBundlesBaseDir, 0777); err != nil {
 		return errors.Wrap(err, "Failed to create upstream-bundles dir.")
@@ -936,7 +944,10 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 	}
 	upstreamBundles, err := b.getDirBundlesListAsSet(getUpstreamBundlesPath(b.UpstreamVer))
 	if err != nil {
-		return err
+		if !Offline {
+			return err
+		}
+		upstreamBundles = make(bundleSet)
 	}
 
 	// Assign "top level" bundles

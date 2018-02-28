@@ -602,7 +602,7 @@ func (b *Builder) getBundleFromName(name string) (*bundle, error) {
 func (b *Builder) getMixBundlesListAsSet() (bundleSet, error) {
 	set := make(bundleSet)
 
-	bundles, err := helpers.ReadFileAndSplit(b.MixBundlesFile)
+	bundles, err := helpers.ReadFileAndSplit(filepath.Join(b.VersionDir, b.MixBundlesFile))
 	if os.IsNotExist(err) {
 		return set, nil
 	} else if err != nil {
@@ -649,7 +649,7 @@ func (b *Builder) getDirBundlesListAsSet(dir string) (bundleSet, error) {
 // List file. Values will be in sorted order.
 func (b *Builder) writeMixBundleList(set bundleSet) error {
 	data := []byte(strings.Join(getBundleSetKeysSorted(set), "\n"))
-	if err := ioutil.WriteFile(b.MixBundlesFile, data, 0644); err != nil {
+	if err := ioutil.WriteFile(filepath.Join(b.VersionDir, b.MixBundlesFile), data, 0644); err != nil {
 		return errors.Wrap(err, "Failed to write out Mix Bundle List")
 	}
 	return nil

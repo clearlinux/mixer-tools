@@ -29,7 +29,6 @@ type completionCmdFlags struct {
 
 var completionFlags completionCmdFlags
 
-
 // CompletionCmd represents the base command for mixer-completion
 var CompletionCmd = &cobra.Command{
 	Use:   "mixer-completion",

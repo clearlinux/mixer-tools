@@ -356,7 +356,7 @@ func (b *Builder) ReadBuilderConf() error {
 		{`^CERT\s*=\s*`, &b.Cert, true},
 		{`^CLEARVER\s*=\s*`, &b.UpstreamVer, false},
 		{`^FORMAT\s*=\s*`, &b.Format, true},
-		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &b.LocalBundleDir, true},
+		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &b.LocalBundleDir, false},
 		{`^MIXVER\s*=\s*`, &b.MixVer, false},
 		{`^LOCAL_REPO_DIR\s*=\s*`, &b.RepoDir, false},
 		{`^LOCAL_RPM_DIR\s*=\s*`, &b.RPMDir, false},
@@ -393,6 +393,16 @@ func (b *Builder) ReadBuilderConf() error {
 
 			return errors.Errorf("buildconf missing entry for variable: %s", missing)
 		}
+	}
+
+	if b.LocalBundleDir == "" {
+		pwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+		b.LocalBundleDir = filepath.Join(pwd, "local-bundles")
+		fmt.Printf("WARNING: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", b.LocalBundleDir)
+		fmt.Println("Please set this value to the location you want local bundle definition files to be stored.")
 	}
 
 	return nil

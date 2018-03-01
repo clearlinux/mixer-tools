@@ -75,7 +75,7 @@ except IOError:
 
 subprocess.check_output("umount mnt".split(" "))
 
-cmd = "veritysetup --verbose format {0} {1}".format(data_mapper, hash_mapper)
+cmd = "veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 format {0} {1}".format(data_mapper, hash_mapper)
 print("Executing: " + cmd)
 try:
     res = subprocess.check_output(cmd.split(" ")).decode("utf-8").splitlines()
@@ -113,7 +113,7 @@ print("Writing veritysetup create command to vcreate.sh in " + store_mapper)
 subprocess.check_output("touch mnt/vcreate.sh".split(" "))
 try:
     outfile = open('mnt/vcreate.sh','w')
-    outfile.write("veritysetup --verbose create " + verity_name + " /dev/sda" + str(data_num) + " /dev/sda" + str(hash_num) + " " + root_hash + "\n")
+    outfile.write("veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 create " + verity_name + " /dev/sda" + str(data_num) + " /dev/sda" + str(hash_num) + " " + root_hash + "\n")
     outfile.write("mkdir /mnt/vloop\n")
     outfile.write("mount /dev/mapper/" + verity_name + " /mnt/vloop")
     outfile.close()
@@ -131,17 +131,17 @@ except Exception:
 print(res[len(res) - 1])
 
 
-cmd = "veritysetup --verbose create {0} {1} {2} {3}".format(verity_name, data_mapper, hash_mapper, root_hash)
-print("Executing: " + cmd)
-try:
-    res = subprocess.check_output(cmd.split(" ")).decode("utf-8").splitlines()
-except Exception:
-    raise Exception("{0}: {1}".format(cmd, sys.exc_info()))
-print(res[len(res) - 1])
-
-cmd = "mount /dev/mapper/" + verity_name + " mnt"
-print("Executing: " + cmd)
-subprocess.check_output(cmd.split(" "))
+#cmd = "veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 create {0} {1} {2} {3}".format(verity_name, data_mapper, hash_mapper, root_hash)
+#print("Executing: " + cmd)
+#try:
+#    res = subprocess.check_output(cmd.split(" ")).decode("utf-8").splitlines()
+#except Exception:
+#    raise Exception("{0}: {1}".format(cmd, sys.exc_info()))
+#print(res[len(res) - 1])
+#
+#cmd = "mount /dev/mapper/" + verity_name + " mnt"
+#print("Executing: " + cmd)
+#subprocess.check_output(cmd.split(" "))
 print("Done!")
 
 #cmd = "blockdev --getsz {0}".format(data_mapper)

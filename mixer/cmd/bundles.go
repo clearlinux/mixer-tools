@@ -213,12 +213,13 @@ var bundleValidateCmd = &cobra.Command{
 checked; upstream bundles are trusted as valid. Valid bundles yield no output.
 Any invalid bundles will yield a non-zero return code.
 
-Basic validation includes checking syntax and structure, that the bundle has
-a valid name, and that the header 'Title' matches the bundle filename. Commands
-like 'mixer bundle edit' run basic validation automatically.
+Basic validation includes checking syntax and structure, and that the bundle has
+a valid name. Commands like 'mixer bundle edit' run basic validation
+automatically.
 
-An optional '--strict' flag allows you to additionally check that the other
-bundle header flags are parsable and non-empty.
+An optional '--strict' flag allows you to additionally check that the bundle 
+header fields are parsable and non-empty, and that the header 'Title' is itself
+valid and matches the bundle filename.
 
 Passing '--all-local' will run validation on all bundles in local-bundles.`,
 	RunE: func(cmd *cobra.Command, args []string) error {

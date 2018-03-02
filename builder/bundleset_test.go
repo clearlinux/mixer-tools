@@ -178,7 +178,6 @@ pkg2
 func TestValidateBundle(t *testing.T) {
 	tests := []struct {
 		Contents       []byte
-		Level          ValidationLevel
 		ExpectedErrors []string
 		ShouldFail     bool
 	}{
@@ -194,26 +193,20 @@ include(b)
 pkg1     # Comment
 pkg2
 `),
-			Level: StrictValidation,
-		},
-		{
-			Contents: []byte(`# [TITLE]: a
-# [DESCRIPTION]: 
-# [MAINTAINER]: `),
-			Level: BasicValidation,
 		},
 
 		// Bundle header errors
-		{Contents: []byte(`# [TITLE]: b&ndle`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
-		{Contents: []byte(`# [TITLE]: full`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
-		{Contents: []byte(`# [TITLE]: MoM`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{Contents: []byte(`# [TITLE]: b&ndle`), ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{Contents: []byte(`# [TITLE]: `), ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{Contents: []byte(`# [TITLE]: full`), ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
+		{Contents: []byte(`# [TITLE]: MoM`), ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
 		{
 			Contents: []byte(`# [TITLE]: a
 # [DESCRIPTION]: 
 # [MAINTAINER]: 
 # [STATUS]: 
 # [CAPABILITIES]: `),
-			Level: StrictValidation, ExpectedErrors: []string{"Empty Description in bundle header", "Empty Maintainer in bundle header", "Empty Status in bundle header", "Empty Capabilities in bundle header"}, ShouldFail: true,
+			ExpectedErrors: []string{"Empty Description in bundle header", "Empty Maintainer in bundle header", "Empty Status in bundle header", "Empty Capabilities in bundle header"}, ShouldFail: true,
 		},
 	}
 
@@ -223,7 +216,7 @@ pkg2
 			t.Errorf("Could not parse bundle for test case: %s\nCONTENTS:\n%s\n", err, tt.Contents)
 		}
 
-		err = validateBundle(b, tt.Level)
+		err = validateBundle(b)
 		failed := err != nil
 		if failed != tt.ShouldFail {
 			if tt.ShouldFail {
@@ -268,15 +261,17 @@ pkg2
 `),
 			Level: StrictValidation,
 		},
+		// Bundle filename header Title missmatch with basic validatoin
+		{Filename: "foobar", Contents: []byte(`# [TITLE]: barfoo`), Level: BasicValidation},
 
 		// Bundle filename errors
 		{Filename: "b&ndle", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name", "Missing end parenthesis"}, ShouldFail: true},
 		{Filename: "full", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name", "Missing end parenthesis"}, ShouldFail: true},
 		{Filename: "MoM", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Invalid bundle name", "Missing end parenthesis"}, ShouldFail: true},
-		// Bundle filename header Title missmatch
-		{Filename: "foo", Contents: []byte(`# [TITLE]: bar`), Level: BasicValidation, ExpectedErrors: []string{"do not match"}, ShouldFail: true},
+		// Bundle filename header Title missmatch with strict validation
+		{Filename: "foo", Contents: []byte(`# [TITLE]: bar`), Level: StrictValidation, ExpectedErrors: []string{"do not match"}, ShouldFail: true},
 		// Bundle header errors (catching errors passed up from validateBundle)
-		{Filename: "a", Contents: []byte(`# [TITLE]: `), Level: BasicValidation, ExpectedErrors: []string{"in bundle header Title"}, ShouldFail: true},
+		{Filename: "a", Contents: []byte(`# [TITLE]: `), Level: StrictValidation, ExpectedErrors: []string{"in bundle header Title"}, ShouldFail: true},
 		// Bundle contents error (catching errors passed up from parseBundle)
 		{Filename: "b", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
 	}

@@ -32,8 +32,10 @@ type bundle struct {
 	Header   bundleHeader
 
 	DirectIncludes []string
-	DirectPackages []string
+	DirectPackages map[string]bool
 	AllPackages    []string
+
+	Files map[string]bool
 }
 
 type bundleSet map[string]*bundle
@@ -54,7 +56,11 @@ func validateAndFillBundleSet(bundles bundleSet) error {
 	}
 	for _, b := range sortedBundles {
 		var allPackages []string
-		allPackages = append(allPackages, b.DirectPackages...)
+		for k, v := range b.DirectPackages {
+			if v {
+				allPackages = append(allPackages, k)
+			}
+		}
 		for _, include := range b.DirectIncludes {
 			allPackages = append(allPackages, bundles[include].AllPackages...)
 		}
@@ -297,7 +303,10 @@ func parseBundle(contents []byte) (*bundle, error) {
 	}
 
 	b.DirectIncludes = includes
-	b.DirectPackages = packages
+	b.DirectPackages = make(map[string]bool)
+	for _, p := range packages {
+		b.DirectPackages[p] = true
+	}
 
 	return &b, nil
 }

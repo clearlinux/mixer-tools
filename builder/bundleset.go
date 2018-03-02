@@ -137,9 +137,9 @@ const (
 func validateBundleFile(filename string, lvl ValidationLevel) error {
 	var errText string
 
-	name := filepath.Base(filename)
-	if err := validateBundleName(name); err != nil {
-		errText = err.Error() + fmt.Sprintf(" derived from file %s\n", filename)
+	// Basic Validation
+	if err := validateBundleFilename(filename); err != nil {
+		errText = err.Error() + "\n"
 	}
 
 	b, err := parseBundleFile(filename)
@@ -148,13 +148,22 @@ func validateBundleFile(filename string, lvl ValidationLevel) error {
 		return errors.New(errText)
 	}
 
-	if name != b.Header.Title {
-		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+	if lvl == BasicValidation {
+		if errText != "" {
+			return errors.New(strings.TrimSuffix(errText, "\n"))
+		}
+		return nil
 	}
 
-	err = validateBundle(b, lvl)
+	// Strict Validation
+	err = validateBundle(b)
 	if err != nil {
 		errText += err.Error() + "\n"
+	}
+
+	name := filepath.Base(filename)
+	if name != b.Header.Title {
+		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
 	}
 
 	if errText != "" {
@@ -172,39 +181,21 @@ func validateBundleName(name string) error {
 	return nil
 }
 
-func validateBundleFileName(name string, b *bundle) error {
-	var errText string
-
+func validateBundleFilename(filename string) error {
+	name := filepath.Base(filename)
 	if err := validateBundleName(name); err != nil {
-		errText = err.Error() + fmt.Sprintf(" derived from file %s\n", name)
-	}
-
-	if name != b.Header.Title {
-		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
-	}
-
-	if errText != "" {
-		return errors.New(strings.TrimSuffix(errText, "\n"))
+		return fmt.Errorf("Invalid bundle name %q derived from file %q", name, filename)
 	}
 
 	return nil
 }
 
-func validateBundle(b *bundle, lvl ValidationLevel) error {
+func validateBundle(b *bundle) error {
 	var errText string
 
-	// Basic validation
 	if err := validateBundleName(b.Header.Title); err != nil {
-		errText = err.Error() + " in bundle header Title"
+		errText = fmt.Sprintf("Invalid bundle name %q in bundle header Title\n", b.Header.Title)
 	}
-	if lvl == BasicValidation {
-		if errText != "" {
-			return errors.New(strings.TrimSuffix(errText, "\n"))
-		}
-		return nil
-	}
-
-	// Strict validation
 	if b.Header.Description == "" {
 		errText += "Empty Description in bundle header\n"
 	}

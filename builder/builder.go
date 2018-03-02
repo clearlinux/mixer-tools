@@ -604,10 +604,7 @@ func (b *Builder) getBundleFromName(name string) (*bundle, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = validateBundle(bundle, BasicValidation); err != nil {
-		return nil, err
-	}
-	if err = validateBundleFileName(name, bundle); err != nil {
+	if err = validateBundleFilename(path); err != nil {
 		return nil, err
 	}
 

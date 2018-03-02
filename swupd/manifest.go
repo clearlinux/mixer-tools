@@ -58,6 +58,7 @@ type Manifest struct {
 	Header       ManifestHeader
 	Files        []*File
 	DeletedFiles []*File
+	bundleInfo   bundleInfo
 }
 
 // MoM is a manifest that holds references to bundle manifests.
@@ -673,47 +674,6 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 		of.DeltaPeer = nf
 	}
 
-	return nil
-}
-
-func (m *Manifest) readIncludes(bundles []*Manifest, c config) error {
-	// read in <imageBase>/<version>/noship/<bundle>-includes
-	var err error
-	path := filepath.Join(c.imageBase, fmt.Sprint(m.Header.Version), "noship", m.Name+"-includes")
-	bundleNames, err := readIncludesFile(path)
-	if err != nil {
-		return err
-	}
-
-	includes := []*Manifest{}
-	// os-core is added as an include for every bundle
-	// handle it manually so we don't have to rely on the includes list having it
-	for _, b := range bundles {
-		if b.Name == "os-core" {
-			includes = append(includes, b)
-		}
-	}
-
-	for _, bn := range bundleNames {
-		// just add this one blindly since it is processed later
-		if bn == indexBundle {
-			includes = append(includes, &Manifest{Name: indexBundle})
-			continue
-		}
-
-		if bn == "os-core" {
-			// already added this one
-			continue
-		}
-
-		for _, b := range bundles {
-			if bn == b.Name {
-				includes = append(includes, b)
-			}
-		}
-	}
-
-	m.Header.Includes = includes
 	return nil
 }
 

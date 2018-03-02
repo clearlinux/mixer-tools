@@ -1362,6 +1362,14 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 	}
 
+	// Generate the certificate needed for signing verification if it does not exist
+	if signflag == false && template != nil {
+		err := helpers.GenerateCertificate(b.Cert, template, template, &privkey.PublicKey, privkey)
+		if err != nil {
+			return err
+		}
+	}
+
 	if UseNewChrootBuilder {
 		// Get the set of bundles for which to build chroots
 		set, err := b.getFullMixBundleSet()
@@ -1405,30 +1413,22 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 		if err != nil {
 			return err
 		}
-	}
 
-	// Generate the certificate needed for signing verification if it does not exist and insert it into the chroot
-	if signflag == false && template != nil {
-		err := helpers.GenerateCertificate(b.Cert, template, template, &privkey.PublicKey, privkey)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Only copy the certificate into the mix if it exists
-	if _, err := os.Stat(b.Cert); err == nil {
-		certdir := b.StateDir + "/image/" + b.MixVer + "/os-core-update/usr/share/clear/update-ca"
-		err = os.MkdirAll(certdir, 0755)
-		if err != nil {
-			helpers.PrintError(err)
-			return err
-		}
-		chrootcert := certdir + "/Swupd_Root.pem"
-		fmt.Println("Copying Certificate into chroot...")
-		err = helpers.CopyFile(chrootcert, b.Cert)
-		if err != nil {
-			helpers.PrintError(err)
-			return err
+		// Only copy the certificate into the mix if it exists
+		if _, err := os.Stat(b.Cert); err == nil {
+			certdir := filepath.Join(b.StateDir, "image", b.MixVer, "os-core-update/usr/share/clear/update-ca")
+			err = os.MkdirAll(certdir, 0755)
+			if err != nil {
+				helpers.PrintError(err)
+				return err
+			}
+			chrootcert := filepath.Join(certdir, "/Swupd_Root.pem")
+			fmt.Println("Copying Certificate into chroot...")
+			err = helpers.CopyFile(chrootcert, b.Cert)
+			if err != nil {
+				helpers.PrintError(err)
+				return err
+			}
 		}
 	}
 

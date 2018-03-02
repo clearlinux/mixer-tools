@@ -88,7 +88,7 @@ pkg1 # [TITLE]: wrongtitle
 		failed := err != nil
 		if failed != tt.ShouldFail {
 			if tt.ShouldFail {
-				t.Errorf("unexpected success when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%s", tt.Contents, b.DirectIncludes, b.DirectPackages)
+				t.Errorf("unexpected success when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%v", tt.Contents, b.DirectIncludes, b.DirectPackages)
 			} else {
 				t.Errorf("unexpected error parsing bundle: %s\nCONTENTS:\n%s", err, tt.Contents)
 			}
@@ -107,7 +107,7 @@ pkg1 # [TITLE]: wrongtitle
 		}
 
 		if !reflect.DeepEqual(b.DirectPackages, tt.ExpectedPackages) {
-			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%s\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
 	}
 }
@@ -155,7 +155,7 @@ pkg2
 		failed := err != nil
 		if failed != tt.ShouldFail {
 			if tt.ShouldFail {
-				t.Errorf("unexpected success when parsing bundle file\nFILE: %s\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%s", tt.Filename, tt.Contents, bundle.DirectIncludes, bundle.DirectPackages)
+				t.Errorf("unexpected success when parsing bundle file\nFILE: %s\nCONTENTS:\n%s\nPARSED INCLUDES: %s\nPARSED PACKAGES:\n%v", tt.Filename, tt.Contents, bundle.DirectIncludes, bundle.DirectPackages)
 			} else {
 				t.Errorf("unexpected error parsing bundle: %s\nCONTENTS:\n%s", err, tt.Contents)
 			}
@@ -170,7 +170,7 @@ pkg2
 		}
 
 		if !reflect.DeepEqual(bundle.DirectPackages, tt.ExpectedPackages) {
-			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%s\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
 	}
 }

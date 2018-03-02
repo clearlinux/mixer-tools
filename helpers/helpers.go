@@ -337,7 +337,7 @@ func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
 			// Finish without a newline to wrap well with the err.
 			fmt.Fprintf(&buf, "failed to execute")
 		}
-		return nil, errors.Wrap(err, buf.String())
+		return &outBuf, errors.Wrap(err, buf.String())
 	}
 	return &outBuf, nil
 }

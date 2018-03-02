@@ -738,6 +738,11 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 	// Add the ones passed in to the set
 	for _, bName := range bundles {
+		if _, exists := set[bName]; exists {
+			fmt.Printf("Bundle %s already in mix; skipping\n", bName)
+			continue
+		}
+
 		bundle, err := b.getBundleFromName(bName)
 		if err != nil {
 			return err
@@ -758,6 +763,11 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 		}
 
 		for _, bundle := range localSet {
+			if _, exists := set[bundle.Name]; exists {
+				fmt.Printf("Bundle %s already in mix; skipping\n", bundle.Name)
+				continue
+			}
+
 			set[bundle.Name] = bundle
 			fmt.Printf("Adding bundle %s from local bundles\n", bundle.Name)
 		}
@@ -772,6 +782,11 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 		}
 
 		for _, bundle := range upstreamSet {
+			if _, exists := set[bundle.Name]; exists {
+				fmt.Printf("Bundle %s already in mix; skipping\n", bundle.Name)
+				continue
+			}
+
 			set[bundle.Name] = bundle
 			fmt.Printf("Adding bundle %s from upstream bundles\n", bundle.Name)
 		}

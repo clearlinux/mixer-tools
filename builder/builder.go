@@ -571,7 +571,7 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 		return path, nil
 	}
 
-	return "", errors.Errorf("Cannot find bundle %s in local or upstream bundles", bundle)
+	return "", errors.Errorf("Cannot find bundle %q in local or upstream bundles", bundle)
 }
 
 // isLocalBundle checks a bundle filepath is local
@@ -739,7 +739,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 	// Add the ones passed in to the set
 	for _, bName := range bundles {
 		if _, exists := set[bName]; exists {
-			fmt.Printf("Bundle %s already in mix; skipping\n", bName)
+			fmt.Printf("Bundle %q already in mix; skipping\n", bName)
 			continue
 		}
 
@@ -748,9 +748,9 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 			return err
 		}
 		if b.isLocalBundle(bundle.Filename) {
-			fmt.Printf("Adding bundle %s from local bundles\n", bName)
+			fmt.Printf("Adding bundle %q from local bundles\n", bName)
 		} else {
-			fmt.Printf("Adding bundle %s from upstream bundles\n", bName)
+			fmt.Printf("Adding bundle %q from upstream bundles\n", bName)
 		}
 		set[bName] = bundle
 	}
@@ -764,12 +764,12 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 		for _, bundle := range localSet {
 			if _, exists := set[bundle.Name]; exists {
-				fmt.Printf("Bundle %s already in mix; skipping\n", bundle.Name)
+				fmt.Printf("Bundle %q already in mix; skipping\n", bundle.Name)
 				continue
 			}
 
 			set[bundle.Name] = bundle
-			fmt.Printf("Adding bundle %s from local bundles\n", bundle.Name)
+			fmt.Printf("Adding bundle %q from local bundles\n", bundle.Name)
 		}
 	}
 
@@ -783,12 +783,12 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 		for _, bundle := range upstreamSet {
 			if _, exists := set[bundle.Name]; exists {
-				fmt.Printf("Bundle %s already in mix; skipping\n", bundle.Name)
+				fmt.Printf("Bundle %q already in mix; skipping\n", bundle.Name)
 				continue
 			}
 
 			set[bundle.Name] = bundle
-			fmt.Printf("Adding bundle %s from upstream bundles\n", bundle.Name)
+			fmt.Printf("Adding bundle %q from upstream bundles\n", bundle.Name)
 		}
 	}
 
@@ -833,30 +833,30 @@ func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool
 
 		if local {
 			if _, err := os.Stat(filepath.Join(b.LocalBundleDir, bundle)); err == nil {
-				fmt.Printf("Removing bundle file for '%s' from local-bundles\n", bundle)
+				fmt.Printf("Removing bundle file for %q from local-bundles\n", bundle)
 				if err := os.Remove(filepath.Join(b.LocalBundleDir, bundle)); err != nil {
-					return errors.Wrapf(err, "Cannot remove bundle file for '%s' from local-bundles", bundle)
+					return errors.Wrapf(err, "Cannot remove bundle file for %q from local-bundles", bundle)
 				}
 
 				if !mix && inMix {
 					// Check if bundle is still available upstream
 					if _, err := b.getBundlePath(bundle); err != nil {
-						fmt.Printf("Warning: Invalid bundle left in mix: %s\n", bundle)
+						fmt.Printf("Warning: Invalid bundle left in mix: %q\n", bundle)
 					} else {
-						fmt.Printf("Mix bundle '%s' now points to upstream\n", bundle)
+						fmt.Printf("Mix bundle %q now points to upstream\n", bundle)
 					}
 				}
 			} else {
-				fmt.Printf("Bundle '%s' not found in local-bundles; skipping\n", bundle)
+				fmt.Printf("Bundle %q not found in local-bundles; skipping\n", bundle)
 			}
 		}
 
 		if mix {
 			if inMix {
-				fmt.Printf("Removing bundle '%s' from mix\n", bundle)
+				fmt.Printf("Removing bundle %q from mix\n", bundle)
 				delete(set, bundle)
 			} else {
-				fmt.Printf("Bundle '%s' not found in mix; skipping\n", bundle)
+				fmt.Printf("Bundle %q not found in mix; skipping\n", bundle)
 			}
 		}
 	}
@@ -1075,7 +1075,7 @@ func editBundleFile(editorCmd string, bundle string, path string) error {
 	// Make backup
 	backup := path + ".orig"
 	if err := helpers.CopyFileNoOverwrite(backup, path); err != nil && !os.IsExist(err) {
-		return errors.Wrapf(err, "Could not backup bundle '%s' file for editing", bundle)
+		return errors.Wrapf(err, "Could not backup bundle %q file for editing", bundle)
 	}
 
 	reader := bufio.NewReader(os.Stdin)
@@ -1085,7 +1085,7 @@ editLoop:
 	for {
 		if revert {
 			if err := helpers.CopyFile(path, backup); err != nil {
-				return errors.Wrapf(err, "Could not restore original from backup for bundle '%s'", bundle)
+				return errors.Wrapf(err, "Could not restore original from backup for bundle %q", bundle)
 			}
 		}
 
@@ -1096,12 +1096,12 @@ editLoop:
 		if err == nil {
 			// Clean-up backup
 			if err = os.Remove(backup); err != nil {
-				return errors.Wrapf(err, "Error cleaning up backup for bundle '%s'", bundle)
+				return errors.Wrapf(err, "Error cleaning up backup for bundle %q", bundle)
 			}
 			break editLoop
 		}
 
-		fmt.Printf("Error parsing bundle %s: %s\n", bundle, err)
+		fmt.Printf("Error parsing bundle %q: %s\n", bundle, err)
 		for {
 			// Ask the user if they want to retry, revert, or skip
 			fmt.Print("Would you like to edit as-is, revert and edit, or skip [Edit/Revert/Skip]?: ")
@@ -1119,10 +1119,10 @@ editLoop:
 				revert = true
 				continue editLoop
 			case "s", "skip":
-				fmt.Printf("Skipping bundle '%s' despite errors. Backup retained as '%s'\n", bundle, bundle+".orig")
+				fmt.Printf("Skipping bundle %q despite errors. Backup retained as %q\n", bundle, bundle+".orig")
 				break editLoop
 			default:
-				fmt.Printf("Invalid input: '%s'", text)
+				fmt.Printf("Invalid input: %q", text)
 			}
 		}
 	}
@@ -1176,7 +1176,7 @@ func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, g
 			if path == "" {
 				// Bunlde not found upstream, so create new
 				if err = createBundleFile(bundle, localPath); err != nil {
-					return errors.Wrapf(err, "Failed to write bundle template for bundle '%s'", bundle)
+					return errors.Wrapf(err, "Failed to write bundle template for bundle %q", bundle)
 				}
 			} else {
 				// Bundle found upstream, so copy over
@@ -1635,7 +1635,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 		var info *swupd.PackInfo
 		info, err = swupd.CreatePack(name, 0, version, outputDir, chrootDir, 0)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't make pack for bundle %s", name)
+			return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
 		}
 		if len(info.Warnings) > 0 {
 			fmt.Println("Warnings during pack:")
@@ -1965,7 +1965,7 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 		if !os.IsNotExist(err) {
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
-		fmt.Printf("  Creating delta pack for bundle %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+		fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
 		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, chrootDir, numWorkers)
 		if err != nil {
 			return err

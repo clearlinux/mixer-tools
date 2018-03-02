@@ -1483,14 +1483,15 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 				return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
 			}
 		}
-	}
-	// Hardlink the duplicate files. This helps when keeping the bundle chroots.
-	hardlinkcmd := exec.Command("hardlink", "-f", b.StateDir+"/image/"+b.MixVer+"/")
-	hardlinkcmd.Stdout = os.Stdout
-	hardlinkcmd.Stderr = os.Stderr
-	err = hardlinkcmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "couldn't perform hardlink step")
+	} else {
+		// Hardlink the duplicate files ONLY when keeping the bundle chroots.
+		hardlinkcmd := exec.Command("hardlink", "-f", filepath.Join(b.StateDir, "image", b.MixVer))
+		hardlinkcmd.Stdout = os.Stdout
+		hardlinkcmd.Stderr = os.Stderr
+		err = hardlinkcmd.Run()
+		if err != nil {
+			return errors.Wrapf(err, "couldn't perform hardlink step")
+		}
 	}
 	timer.Stop()
 

@@ -5,6 +5,7 @@ import sys
 import os
 import urllib.request as request
 import json
+import fnmatch
 
 #disk_image = "release.img"
 #infile_path = "file://" + os.path.abspath(sys.argv[1])
@@ -21,10 +22,12 @@ except Exception:
     raise Exception("{0}: {1}".format(cmd, sys.exc_info()))
 print(dev[len(dev) - 1])
 
+rootfs_num = 3
 data_num = 4
 hash_num = 5
 store_num = 6
 
+rootfs_dev = dev[0] + "p" + str(rootfs_num)
 data_dev = dev[0] + "p" + str(data_num)
 hash_dev = dev[0] + "p" + str(hash_num)
 store_dev = dev[0] + "p" + str(store_num)
@@ -72,11 +75,27 @@ print(salt)
 print(root_hash)
 
 
+verity_kernel_cmdline = " systemd.verity=yes roothash=" + root_hash + " systemd.verity_root_data=/dev/sda" + str(data_num) + " systemd.verity_root_hash=/dev/sda" + str(hash_num)
+subprocess.check_output("mount {0} mnt".format(rootfs_dev).split(" "))
+#res = subprocess.check_output("ls mnt/usr/lib/kernel/ | grep cmdline".split(" ")).decode("utf-8").splitlines()
+for fname in os.listdir('mnt/usr/lib/kernel/'):
+    if (fnmatch.fnmatch(fname, 'cmdline-*')):
+        path = "mnt/usr/lib/kernel/" + fname
+        print("Writing " + verity_kernel_cmdline + " to " + path + " in " + rootfs_dev)
+        try:
+            outfile = open(path, 'a')
+            outfile.write(verity_kernel_cmdline)
+            outfile.close()
+        except IOError:
+            print("I/O error")
+
+subprocess.check_output("umount mnt".split(" "))
+
 subprocess.check_output("mount {0} mnt".format(store_dev).split(" "))
 print("Writing the root_hash to hash.txt in " + store_dev)
 subprocess.check_output("touch mnt/hash.txt".split(" "))
 try:
-    outfile = open('mnt/hash.txt','w')
+    outfile = open('mnt/hash.txt', 'w')
     outfile.write(root_hash)
     outfile.close()
 except IOError:
@@ -85,7 +104,7 @@ except IOError:
 print("Writing the salt to salt.txt in " + store_dev)
 subprocess.check_output("touch mnt/salt.txt".split(" "))
 try:
-    outfile = open('mnt/salt.txt','w')
+    outfile = open('mnt/salt.txt', 'w')
     outfile.write(salt)
     outfile.close()
 except IOError:
@@ -94,7 +113,7 @@ except IOError:
 print("Writing veritysetup create command to vcreate.sh in " + store_dev)
 subprocess.check_output("touch mnt/vcreate.sh".split(" "))
 try:
-    outfile = open('mnt/vcreate.sh','w')
+    outfile = open('mnt/vcreate.sh', 'w')
     outfile.write("veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 create " + verity_name + " /dev/sda" + str(data_num) + " /dev/sda" + str(hash_num) + " " + root_hash + "\n")
     outfile.write("mkdir /mnt/vloop\n")
     outfile.write("mount /dev/mapper/" + verity_name + " /mnt/vloop")

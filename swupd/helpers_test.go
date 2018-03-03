@@ -2,13 +2,13 @@ package swupd
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strings"
 	"testing"
 	"text/template"
 )
@@ -29,21 +29,6 @@ func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
 	if !info.Mode().IsDir() || info.Mode().Perm() != perm {
 		t.Fatal(err)
 	}
-}
-
-func mustSetupTestDir(t *testing.T, testName string) string {
-	t.Helper()
-	oldDirs, _ := filepath.Glob("./testdata/cmtest-" + testName + ".*")
-	for _, d := range oldDirs {
-		removeAllIgnoreErr(d)
-	}
-
-	testDir, err := ioutil.TempDir("./testdata", "cmtest-"+testName+".")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return testDir
 }
 
 func mustInitStandardTest(t *testing.T, testDir, lastVer, ver string, bundles []string) {
@@ -78,33 +63,6 @@ func mustInitGroupsINI(t *testing.T, testDir string, bundles []string) {
 	if err := ioutil.WriteFile(filepath.Join(testDir, "groups.ini"), bs, 0644); err != nil {
 		t.Fatal(err)
 	}
-}
-
-func mustGenFile(t *testing.T, testDir, ver, bundle, fname, content string) {
-	t.Helper()
-	var err error
-	fpath := filepath.Join(testDir, "image", ver, bundle, filepath.Dir(fname))
-	err = os.MkdirAll(fpath, os.ModePerm)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = ioutil.WriteFile(filepath.Join(fpath, filepath.Base(fname)), []byte(content), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func removeIfNoErrors(t *testing.T, testDir string) {
-	if !t.Failed() {
-		_ = os.RemoveAll(testDir)
-	}
-}
-
-func mustGenBundleDir(t *testing.T, testDir, ver, bundle, dirName string) {
-	t.Helper()
-	dirPath := filepath.Join(testDir, "image", ver, bundle, dirName)
-	mustMkdir(t, dirPath)
 }
 
 var serverINITemplate = template.Must(template.New("server.ini").Parse(`
@@ -163,19 +121,6 @@ func mustSetLatestVer(t *testing.T, testDir, ver string) {
 	t.Helper()
 	err := ioutil.WriteFile(filepath.Join(testDir, "image/LAST_VER"), []byte(ver), 0644)
 	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-func mustInitIncludesFile(t *testing.T, testDir, ver, bundle string, includes []string) {
-	t.Helper()
-	noshipDir := filepath.Join(testDir, "image", ver, "noship")
-	if err := os.MkdirAll(noshipDir, os.ModePerm); err != nil {
-		t.Fatal(err)
-	}
-
-	ib := []byte(strings.Join(includes, "\n") + "\n")
-	if err := ioutil.WriteFile(filepath.Join(noshipDir, bundle+"-includes"), ib, 0644); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -276,36 +221,6 @@ func checkManifestNotContains(t *testing.T, testDir, ver, name string, subs ...s
 	for _, sub := range subs {
 		if bytes.Contains(b, []byte(sub)) {
 			t.Errorf("%s/Manifest.%s contained unexpected '%s'", ver, name, sub)
-		}
-	}
-}
-
-func checkFileContains(t *testing.T, path string, subs ...string) {
-	t.Helper()
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	for _, sub := range subs {
-		if !bytes.Contains(b, []byte(sub)) {
-			t.Errorf("%s did not contain expected '%s'", path, sub)
-		}
-	}
-}
-
-func checkFileNotContains(t *testing.T, path string, subs ...string) {
-	t.Helper()
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	for _, sub := range subs {
-		if bytes.Contains(b, []byte(sub)) {
-			t.Errorf("%s contains unexpected substring '%s'", path, sub)
 		}
 	}
 }
@@ -465,6 +380,133 @@ func (fs *testFileSystem) write(subpath, content string) {
 	if err != nil {
 		fs.t.Fatal(err)
 	}
+}
+
+func (fs *testFileSystem) initBundleInfo(version uint32, bundle string, includes []string) {
+	bi := bundleInfo{
+		Name:           bundle,
+		DirectIncludes: includes,
+		DirectPackages: make(map[string]bool),
+		Files:          make(map[string]bool),
+	}
+
+	b, err := json.Marshal(&bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	err = os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+	err = ioutil.WriteFile(path, b, 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
+func (fs *testFileSystem) addDirToFullChroot(version uint32, dir string) {
+	fileDir := filepath.Join(fs.Dir, "image", fmt.Sprint(version), "full", dir)
+	err := os.MkdirAll(fileDir, 0755)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
+func (fs *testFileSystem) addToFullChroot(version uint32, file, content string) {
+	fs.addDirToFullChroot(version, filepath.Dir(file))
+	fileDir := filepath.Join(fs.Dir, "image", fmt.Sprint(version), "full", filepath.Dir(file))
+	filePath := filepath.Join(fileDir, filepath.Base(file))
+	err := ioutil.WriteFile(filePath, []byte(content), 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
+func (fs *testFileSystem) addToBundleInfo(version uint32, bundle, file string) {
+	bundleInfoPath := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	biBytes, err := ioutil.ReadFile(bundleInfoPath)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	var bi bundleInfo
+	err = json.Unmarshal(biBytes, &bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	bi.Files[file] = true
+
+	b, err := json.Marshal(&bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(bundleInfoPath, b, 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
+func (fs *testFileSystem) addIncludesToBundleInfo(version uint32, bundle string, includes []string) {
+	bundleInfoPath := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	biBytes, err := ioutil.ReadFile(bundleInfoPath)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	var bi bundleInfo
+	err = json.Unmarshal(biBytes, &bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	bi.DirectIncludes = includes
+
+	b, err := json.Marshal(&bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(bundleInfoPath, b, 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
+func (fs *testFileSystem) addFile(version uint32, bundle, file, content string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fs.initBundleInfo(version, bundle, []string{})
+	}
+
+	fs.addToFullChroot(version, file, content)
+	fs.addToBundleInfo(version, bundle, file)
+}
+
+func (fs *testFileSystem) addDir(version uint32, bundle, dir string) {
+	fs.t.Helper()
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fs.initBundleInfo(version, bundle, []string{})
+	}
+
+	fs.addDirToFullChroot(version, dir)
+	fs.addToBundleInfo(version, bundle, dir)
+}
+
+func (fs *testFileSystem) addIncludes(version uint32, bundle string, includes []string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fs.initBundleInfo(version, bundle, []string{})
+	}
+
+	fs.addIncludesToBundleInfo(version, bundle, includes)
 }
 
 func (fs *testFileSystem) symlink(subpath, linkname string) {
@@ -632,6 +674,27 @@ func newTestSwupd(t *testing.T, prefix string) *testSwupd {
 
 // Create Manifests and bump to next version.
 func (ts *testSwupd) createManifests(version uint32) *MoM {
+	ts.t.Helper()
+	mustInitGroupsINI(ts.t, ts.Dir, ts.Bundles)
+
+	for _, name := range ts.Bundles {
+		ts.addFile(version, name, filepath.Join("/usr/share/clear/bundles", name), "")
+	}
+
+	osRelease := fmt.Sprintf("VERSION_ID=%d\n", version)
+	ts.addFile(version, "os-core", "/usr/lib/os-release", osRelease)
+
+	mom, err := CreateManifests(version, ts.MinVersion, ts.Format, ts.Dir)
+	if err != nil {
+		ts.t.Fatalf("error creating manifests for version %d: %s", version, err)
+	}
+
+	ts.write("image/LAST_VER", fmt.Sprintf("%d\n", version))
+
+	return mom
+}
+
+func (ts *testSwupd) createManifestsFromChroots(version uint32) *MoM {
 	ts.t.Helper()
 	mustInitGroupsINI(ts.t, ts.Dir, ts.Bundles)
 

@@ -13,7 +13,7 @@ func TestIncludeVersionBump(t *testing.T) {
 	// Version 10.
 	ts.Bundles = []string{"test-bundle"}
 	ts.write("image/10/test-bundle/foo", "foo")
-	ts.createManifests(10)
+	ts.createManifestsFromChroots(10)
 	ts.createFullfiles(10)
 	ts.createPack("os-core", 0, 10, ts.path("image"))
 	ts.createPack("test-bundle", 0, 10, ts.path("image"))
@@ -31,7 +31,7 @@ func TestIncludeVersionBump(t *testing.T) {
 	ts.write("image/20/included/bar", "bar")
 	ts.write("image/20/included-two/baz", "baz")
 	ts.write("image/20/noship/test-bundle-includes", "included\nincluded-two")
-	ts.createManifests(20)
+	ts.createManifestsFromChroots(20)
 	ts.createFullfiles(20)
 
 	ts.createPack("os-core", 0, 20, ts.path("image"))
@@ -56,7 +56,7 @@ func TestIncludeVersionBump(t *testing.T) {
 	ts.write("image/30/included-nested/foobarbaz", "foobarbaz")
 	ts.write("image/30/noship/test-bundle-includes", "included\nincluded-two")
 	ts.write("image/30/noship/included-includes", "included-nested")
-	ts.createManifests(30)
+	ts.createManifestsFromChroots(30)
 	ts.createFullfiles(30)
 
 	ts.checkExists("www/30/Manifest.os-core")
@@ -86,7 +86,7 @@ func TestFullRun(t *testing.T) {
 	ts.Bundles = []string{"os-core", "test-bundle"}
 
 	ts.write("image/10/test-bundle/foo", "foo")
-	ts.createManifests(10)
+	ts.createManifestsFromChroots(10)
 	ts.createFullfiles(10)
 
 	infoOsCore := ts.createPack("os-core", 0, 10, "")
@@ -127,7 +127,8 @@ func TestFullRunDelta(t *testing.T) {
 	ts.write("image/10/test-bundle/largefile", content)
 	ts.write("image/10/test-bundle/foo", "foo")
 	ts.write("image/10/test-bundle/foobarbaz", "foobarbaz")
-	ts.createManifests(10)
+	//ts.createManifests(10)
+	ts.createManifestsFromChroots(10)
 	ts.createFullfiles(10)
 
 	ts.createPack("os-core", 0, 10, ts.path("image"))
@@ -153,7 +154,8 @@ func TestFullRunDelta(t *testing.T) {
 	ts.write("image/20/noship/test-bundle-includes", "included\nincluded-two")
 	ts.write("image/20/noship/included-includes", "included-nested")
 
-	ts.createManifests(20)
+	//ts.createManifests(20)
+	ts.createManifestsFromChroots(20)
 	ts.createFullfiles(20)
 
 	ts.createPack("os-core", 0, 20, ts.path("image"))

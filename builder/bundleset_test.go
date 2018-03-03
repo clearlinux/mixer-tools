@@ -15,7 +15,7 @@ func TestParseBundle(t *testing.T) {
 		Contents         []byte
 		ExpectedHeader   bundleHeader
 		ExpectedIncludes []string
-		ExpectedPackages []string
+		ExpectedPackages map[string]bool
 		ShouldFail       bool
 	}{
 		{
@@ -38,7 +38,7 @@ pkg2
 				Maintainer:   "the maintainer",
 			},
 			ExpectedIncludes: []string{"a", "b"},
-			ExpectedPackages: []string{"pkg1", "pkg2"},
+			ExpectedPackages: map[string]bool{"pkg1": true, "pkg2": true},
 		},
 		{
 			Contents: []byte(`# Bundle with empty header values
@@ -55,7 +55,7 @@ pkg1
 				Description: "a description",
 			},
 			ExpectedIncludes: []string{"a"},
-			ExpectedPackages: []string{"pkg1"},
+			ExpectedPackages: map[string]bool{"pkg1": true},
 		},
 		{
 			Contents: []byte(`# Bundle with tricky comments
@@ -72,7 +72,7 @@ pkg1 # [TITLE]: wrongtitle
 				Description: "a description",
 			},
 			ExpectedIncludes: []string{"a"},
-			ExpectedPackages: []string{"pkg1"},
+			ExpectedPackages: map[string]bool{"pkg1": true},
 		},
 
 		// Error cases.
@@ -107,7 +107,7 @@ pkg1 # [TITLE]: wrongtitle
 		}
 
 		if !reflect.DeepEqual(b.DirectPackages, tt.ExpectedPackages) {
-			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%v", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
 	}
 }
@@ -117,7 +117,7 @@ func TestParseBundleFile(t *testing.T) {
 		Filename         string
 		Contents         []byte
 		ExpectedIncludes []string
-		ExpectedPackages []string
+		ExpectedPackages map[string]bool
 		ShouldFail       bool
 	}{
 		{
@@ -129,7 +129,7 @@ pkg1     # Comment
 pkg2
 `),
 			ExpectedIncludes: []string{"a", "b"},
-			ExpectedPackages: []string{"pkg1", "pkg2"},
+			ExpectedPackages: map[string]bool{"pkg1": true, "pkg2": true},
 		},
 
 		// Bundle contents error (catching parseBundle's error)
@@ -170,7 +170,7 @@ pkg2
 		}
 
 		if !reflect.DeepEqual(bundle.DirectPackages, tt.ExpectedPackages) {
-			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%s", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
+			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%v", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
 	}
 }

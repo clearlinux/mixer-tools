@@ -8,30 +8,28 @@ import (
 	"testing"
 )
 
-var largeString = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Quisque tempor quam id convallis convallis. Proin vehicula nisi in augue posuere lobortis. Quisque tincidunt elit ac facilisis auctor. Praesent facilisis ex eros, nec blandit dui suscipit porta. Nunc id nunc rhoncus, condimentum nibh at, fermentum sem. Nam mollis justo ac iaculis gravida. Vestibulum convallis congue dolor, vitae rutrum ex finibus vel. Phasellus convallis sem nunc, ac laoreet risus rhoncus fermentum. Interdum et malesuada fames ac ante ipsum primis in faucibus. Nullam eget pellentesque nulla. Etiam tristique non magna quis consectetur. In ac dolor sagittis, vulputate ante tincidunt, suscipit leo."
-
 func TestCreateDeltas(t *testing.T) {
-	testDir := mustSetupTestDir(t, "deltas")
-	defer removeIfNoErrors(t, testDir)
-	mustInitStandardTest(t, testDir, "0", "10", []string{"test-bundle1", "test-bundle2"})
-	mustGenFile(t, testDir, "10", "test-bundle1", "foo", largeString)
-	mustGenFile(t, testDir, "10", "test-bundle2", "bar", largeString)
-	mustCreateManifestsStandard(t, 10, testDir)
+	ts := newTestSwupd(t, "deltas")
+	defer ts.cleanup()
+	ts.Bundles = []string{"test-bundle1", "test-bundle2"}
+	ts.addFile(10, "test-bundle1", "/foo", strings.Repeat("foo", 100))
+	ts.addFile(10, "test-bundle2", "/bar", strings.Repeat("bar", 100))
+	ts.createManifests(10)
 
-	mustInitStandardTest(t, testDir, "10", "20", []string{"test-bundle1", "test-bundle2"})
-	mustGenFile(t, testDir, "20", "test-bundle1", "foo", largeString)
-	mustGenFile(t, testDir, "20", "test-bundle2", "bar", largeString+"testingdelta")
-	mustCreateManifestsStandard(t, 20, testDir)
-	mustMkdir(t, filepath.Join(testDir, "www/20/delta"))
+	ts.addFile(20, "test-bundle1", "/foo", strings.Repeat("foo", 100))
+	ts.addFile(20, "test-bundle2", "/bar", strings.Repeat("bar", 100)+"testingdelta")
+	ts.createManifests(20)
+	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
 
-	mustCreateAllDeltas(t, "Manifest.full", testDir, 10, 20)
-	mustExistDelta(t, testDir, "/bar", 10, 20)
+	mustCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
+	mustExistDelta(t, ts.Dir, "/bar", 10, 20)
 }
 
 // Imported from swupd-server/test/functional/no-delta.
 func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	ts := newTestSwupd(t, "no-deltas-")
 	defer ts.cleanup()
+	ts.Bundles = []string{"os-core"}
 
 	// NOTE: Currently the delta is compared to the real file, but a better
 	// approximation comparison would be with a compressed version of the real file
@@ -67,8 +65,8 @@ func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	ts.symlink("image/10/os-core/sym3", "file3")
 	ts.symlink("image/20/os-core/sym3", "file4")
 
-	ts.createManifests(10)
-	ts.createManifests(20)
+	ts.createManifestsFromChroots(10)
+	ts.createManifestsFromChroots(20)
 
 	info := ts.createPack("os-core", 10, 20, ts.path("image"))
 

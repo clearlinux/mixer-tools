@@ -183,45 +183,46 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	defer ts.cleanup()
 
 	// Used when counting fullfiles.
-	const emptyDirAndEmptyFile = 2
+	// this represents the /usr/share/clear/bundles/NAME file
+	// generated during ts.createManifests
+	const emptyFile = 1
 
 	ts.Bundles = []string{"editors", "shells"}
 
-	//
 	// In version 10, create two bundles and pass the chrootDir to pack creation.
-	//
-	ts.write("image/10/editors/emacs", "emacs contents")
-	ts.write("image/10/editors/joe", "joe contents")
-	ts.write("image/10/editors/vim", "vim contents")
+	ts.addFile(10, "editors", "/emacs", "emacs contents")
+	ts.addFile(10, "editors", "/joe", "joe contents")
+	ts.addFile(10, "editors", "/vim", "vim contents")
 
-	ts.write("image/10/shells/bash", "bash contents")
-	ts.write("image/10/shells/csh", "csh contents")
-	ts.write("image/10/shells/fish", "fish contents")
-	ts.write("image/10/shells/zsh", "zsh contents")
+	ts.addFile(10, "shells", "/bash", "bash contents")
+	ts.addFile(10, "shells", "/csh", "csh contents")
+	ts.addFile(10, "shells", "/fish", "fish contents")
+	ts.addFile(10, "shells", "/zsh", "zsh contents")
 
 	ts.createManifests(10)
 
 	// Let's create zero packs for version 10.
 	info := ts.createPack("editors", 0, 10, ts.path("image"))
 	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 3+emptyDirAndEmptyFile)
+	mustHaveFullfileCount(t, info, 3+emptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.editors"), ts.path("www/10/pack-editors-from-0.tar"))
 
 	info = ts.createPack("shells", 0, 10, ts.path("image"))
 	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 4+emptyDirAndEmptyFile)
+	mustHaveFullfileCount(t, info, 4+emptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.shells"), ts.path("www/10/pack-shells-from-0.tar"))
 
-	//
 	// In version 20, packs will use the fullfiles (not passing chrootDir when packing). Also
 	// check if errors happen when the fullfiles are missing.
-	//
 	ts.copyChroots(10, 20)
-	ts.rm("image/20/editors/vim")
-	ts.rm("image/20/editors/emacs")
-	ts.write("image/20/shells/ksh", "ksh contents")
+	ts.addFile(20, "editors", "/joe", "joe contents")
+	ts.addFile(20, "shells", "/bash", "bash contents")
+	ts.addFile(20, "shells", "/csh", "csh contents")
+	ts.addFile(20, "shells", "/fish", "fish contents")
+	ts.addFile(20, "shells", "/zsh", "zsh contents")
+	ts.addFile(20, "shells", "/ksh", "ksh contents")
 	ts.createManifests(20)
 
 	// Expect failure when creating packs without the fullfiles.
@@ -234,7 +235,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	// All the files in bundle editors are available, so it will pass work.
 	info = ts.createPack("editors", 0, 20, "")
 	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 1+emptyDirAndEmptyFile)
+	mustHaveFullfileCount(t, info, 1+emptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.editors"), ts.path("www/20/pack-editors-from-0.tar"))
 
@@ -249,7 +250,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	// Now we have all fullfiles for both versions.
 	info = ts.createPack("shells", 0, 20, "")
 	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 5+emptyDirAndEmptyFile)
+	mustHaveFullfileCount(t, info, 5+emptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.shells"), ts.path("www/20/pack-shells-from-0.tar"))
 }
@@ -514,26 +515,26 @@ func TestTwoDeltasForTheSameTarget(t *testing.T) {
 
 	// Version 10.
 	ts.Bundles = []string{"os-core"}
-	ts.write("image/10/os-core/fileA", content+"A")
-	ts.write("image/10/os-core/fileB", content+"B")
+	ts.addFile(10, "os-core", "/fileA", content+"A")
+	ts.addFile(10, "os-core", "/fileB", content+"B")
 	ts.createManifests(10)
 
 	// Version 20. Both files become the same.
-	ts.write("image/20/os-core/fileA", content+"SAME")
-	ts.write("image/20/os-core/fileB", content+"SAME")
+	ts.addFile(20, "os-core", "/fileA", content+"SAME")
+	ts.addFile(20, "os-core", "/fileB", content+"SAME")
 	ts.createManifests(20)
 
 	info := ts.createPack("os-core", 10, 20, ts.path("image"))
 	mustHaveNoWarnings(t, info)
 	mustHaveDeltaCount(t, info, 2)
 	{
-		hashA := ts.mustHashFile("image/10/os-core/fileA")
-		hashB := ts.mustHashFile("image/20/os-core/fileA")
+		hashA := ts.mustHashFile("image/10/full/fileA")
+		hashB := ts.mustHashFile("image/20/full/fileA")
 		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
 	}
 	{
-		hashA := ts.mustHashFile("image/10/os-core/fileB")
-		hashB := ts.mustHashFile("image/20/os-core/fileB")
+		hashA := ts.mustHashFile("image/10/full/fileB")
+		hashB := ts.mustHashFile("image/20/full/fileB")
 		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
 	}
 }
@@ -547,15 +548,15 @@ func TestPackRenames(t *testing.T) {
 	content := strings.Repeat("CONTENT", 1000)
 
 	// Version 10.
-	ts.write("image/10/os-core/file1", content+"10")
+	ts.addFile(10, "os-core", "/file1", content+"10")
 	ts.createManifests(10)
 
 	// Version 20 changes file1 contents.
-	ts.write("image/20/os-core/file1", content+"20")
+	ts.addFile(20, "os-core", "/file1", content+"20")
 	ts.createManifests(20)
 
 	// Version 30 changes file1 and renames to file2.
-	ts.write("image/30/os-core/file2", content+"30")
+	ts.addFile(30, "os-core", "/file2", content+"30")
 	ts.createManifests(30)
 
 	m := ts.parseManifest(30, "os-core")
@@ -565,12 +566,13 @@ func TestPackRenames(t *testing.T) {
 
 	// Version 40 just adds an unrelated file.
 	ts.copyChroots(30, 40)
-	ts.write("image/40/os-core/unrelated", "")
+	ts.addFile(40, "os-core", "/file2", content+"30")
+	ts.addFile(40, "os-core", "/unrelated", "")
 	ts.createManifests(40)
 
-	hashIn10 := ts.mustHashFile("image/10/os-core/file1")
-	hashIn20 := ts.mustHashFile("image/20/os-core/file1")
-	hashIn30 := ts.mustHashFile("image/30/os-core/file2")
+	hashIn10 := ts.mustHashFile("image/10/full/file1")
+	hashIn20 := ts.mustHashFile("image/20/full/file1")
+	hashIn30 := ts.mustHashFile("image/30/full/file2")
 
 	// Pack from 10->20 will contain a delta due to content change.
 	info := ts.createPack("os-core", 10, 20, ts.path("image"))

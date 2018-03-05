@@ -74,7 +74,7 @@ func recordFromFile(rootPath, path string, fi os.FileInfo) (*File, error) {
 		return nil, fmt.Errorf("%v is an unsupported file type", file.Name)
 	}
 
-	fh, err := Hashcalc(rootPath + file.Name)
+	fh, err := Hashcalc(filepath.Join(rootPath, file.Name))
 	if err != nil {
 		return nil, fmt.Errorf("hash calculation error: %v", err)
 	}

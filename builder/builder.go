@@ -1915,7 +1915,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		var m *swupd.Manifest
 		m, err = swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(cur), "Manifest.MoM"))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not find manifest for previous version %d, skipping...", cur)
+			fmt.Fprintf(os.Stderr, "could not find manifest for previous version %d, skipping...\n", cur)
 			continue
 		}
 		previousManifests = append(previousManifests, m)

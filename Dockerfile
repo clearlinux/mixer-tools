@@ -6,6 +6,7 @@ COPY . / /home/gopath/src/github.com/clearlinux/mixer-tools/
 RUN swupd bundle-add mixer go-basic c-basic os-core-update-dev && \
     git config --global user.email "travis@example.com" && \
     git config --global user.name "Travis CI" && \
+    mkdir -p /run/lock && \
     clrtrust generate && \
     go get -u gopkg.in/alecthomas/gometalinter.v2 && \
     gometalinter.v2 --install

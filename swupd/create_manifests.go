@@ -63,17 +63,11 @@ func initBuildDirs(version uint32, groups []string, imageBase string) error {
 	return nil
 }
 
-func getOldManifest(path string) *Manifest {
-	oldM, err := ParseManifestFile(path)
-	if err != nil {
-		// throw away read manifest if it is invalid
-		if strings.Contains(err.Error(), "invalid manifest") {
-			fmt.Fprintf(os.Stderr, "%s: %s\n", oldM.Name, err)
-		}
-		oldM = &Manifest{}
+func getOldManifest(path string) (*Manifest, error) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return &Manifest{}, nil
 	}
-
-	return oldM
+	return ParseManifestFile(path)
 }
 
 func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
@@ -135,7 +129,10 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 
 	// Need old MoM to get version of last bundle manifest
 	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
-	oldMoM := getOldManifest(oldMoMPath)
+	oldMoM, err := getOldManifest(oldMoMPath)
+	if err != nil {
+		return nil, err
+	}
 
 	// final loop detects changes, applies heuristics to files, and sorts the file lists
 	newManifests := []*Manifest{}
@@ -149,7 +146,10 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
-		oldM := getOldManifest(oldMPath)
+		oldM, err := getOldManifest(oldMPath)
+		if err != nil {
+			return nil, err
+		}
 		changedIncludes := compareIncludes(bundle, oldM)
 		oldM.sortFilesName()
 		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM, c, ui.minVersion)
@@ -232,7 +232,10 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 	timeStamp := time.Now()
 	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.MoM")
-	oldMoM := getOldManifest(oldMoMPath)
+	oldMoM, err := getOldManifest(oldMoMPath)
+	if err != nil {
+		return nil, err
+	}
 	oldFormat := oldMoM.Header.Format
 
 	// PROCESS BUNDLES

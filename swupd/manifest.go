@@ -982,7 +982,10 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	// link in old manifest for version information
 	// first get old MoM
 	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
-	oldMoM := getOldManifest(oldMoMPath)
+	oldMoM, err := getOldManifest(oldMoMPath)
+	if err != nil {
+		return nil, err
+	}
 
 	// get old version
 	ver := getManifestVerFromMoM(oldMoM, idxMan)
@@ -991,7 +994,10 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	}
 
 	oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+idxMan.Name)
-	oldM := getOldManifest(oldMPath)
+	oldM, err := getOldManifest(oldMPath)
+	if err != nil {
+		return nil, err
+	}
 	oldM.sortFilesName()
 	// linkPeersAndChange will update file versions correctly
 	_, _, _ = idxMan.linkPeersAndChange(oldM, *c, ui.minVersion)

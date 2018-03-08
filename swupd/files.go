@@ -192,6 +192,9 @@ func renameFromFlag(flag byte) (frename, error) {
 		return renameSet, nil
 	case '.':
 		return renameUnset, nil
+	case 'm':
+		// this is a special flag used by mixer-integration client-side
+		return renameUnset, nil
 	default:
 		return renameUnset, fmt.Errorf("invalid file rename flag: %v", flag)
 	}

@@ -60,7 +60,30 @@ func (m *Manifest) getBundleInfo(path string) error {
 		return err
 	}
 
-	return json.Unmarshal(biBytes, &m.bundleInfo)
+	err = json.Unmarshal(biBytes, &m.bundleInfo)
+	if err != nil {
+		return err
+	}
+
+	extraFilesPath := filepath.Join(filepath.Dir(path), m.Name+"-extra-files")
+	if _, err = os.Stat(extraFilesPath); err == nil {
+		extraFilesBytes, err := ioutil.ReadFile(extraFilesPath)
+		if err != nil {
+			return err
+		}
+
+		for _, f := range strings.Split(string(extraFilesBytes), "\n") {
+			if len(f) == 0 {
+				continue
+			}
+			if !strings.HasPrefix(f, "/") {
+				return fmt.Errorf("invalid extra file %s in %s, must start with '/'", f, extraFilesPath)
+			}
+			m.bundleInfo.Files[f] = true
+		}
+	}
+
+	return nil
 }
 
 func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {

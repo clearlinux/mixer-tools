@@ -186,3 +186,18 @@ func TestFullRunDelta(t *testing.T) {
 	// NOTE: original test checked whether the packs had the manifests inside. This is
 	// not done by new swupd since it seems the client doesn't take advantage of them.
 }
+
+func TestAddFilesToBundleInfo(t *testing.T) {
+	ts := newTestSwupd(t, "extra-files")
+	defer ts.cleanup()
+	ts.Bundles = []string{"os-core", "test-bundle"}
+	ts.addFile(10, "test-bundle", "/foo", "foo content")
+	ts.addExtraFile(10, "test-bundle", "/bar", "bar content")
+	ts.addExtraFile(10, "test-bundle", "/baz", "baz content")
+	ts.createManifests(10)
+
+	m := ts.parseManifest(10, "test-bundle")
+	fileInManifest(t, m, 10, "/foo")
+	fileInManifest(t, m, 10, "/bar")
+	fileInManifest(t, m, 10, "/baz")
+}

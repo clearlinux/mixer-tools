@@ -10,7 +10,7 @@ setup() {
 @test "Create initial mix 10" {
   mixer-init-versions $CLRVER 10
   clean-bundle-dir
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-10.log
 }
 
@@ -20,13 +20,13 @@ setup() {
   add-package "joe" "editors"
   add-bundle "os-core-update"
   add-package "bsdiff" "os-core-update"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-20.log
 }
 @test "Create version 30 with Clear bundle deleted" {
   mixer-init-versions $CLRVER 30
   remove-bundle "editors"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-30.log
 }
 

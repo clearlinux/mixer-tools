@@ -10,7 +10,7 @@ setup() {
 @test "Create initial mix 10" {
   mixer-init-versions $CLRVER 10
   clean-bundle-dir
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update
 }
 
@@ -19,14 +19,14 @@ setup() {
   add-bundle "editors"
   add-package "joe" "editors"
   add-package "nano" "editors"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-20.log
 }
 
 @test "Create version 30 with nano removed from editors bundle" {
   mixer-init-versions $CLRVER 30
   remove-package "nano" "editors"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-30.log
 }
 

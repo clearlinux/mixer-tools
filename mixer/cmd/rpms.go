@@ -24,8 +24,8 @@ import (
 
 var addRPMCmd = &cobra.Command{
 	Use:   "add-rpms",
-	Short: "Add RPMs to local yum repository",
-	Long:  `Add RPMS from the configured LOCAL_RPM_DIR to local yum repository`,
+	Short: "Add RPMs to local dnf repository",
+	Long:  `Add RPMS from the configured LOCAL_RPM_DIR to local dnf repository`,
 	Run:   runAddRPM,
 }
 

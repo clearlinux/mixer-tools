@@ -21,7 +21,7 @@ import (
 )
 
 // TODO: Move this to the more general configuration handling.
-type buildChrootsConfig struct {
+type buildBundlesConfig struct {
 	// [Server] section.
 	HasServerSection bool
 	DebugInfoBanned  string
@@ -36,13 +36,13 @@ type buildChrootsConfig struct {
 }
 
 // TODO: Move this to the more general configuration handling.
-func readBuildChrootsConfig(path string) (*buildChrootsConfig, error) {
+func readBuildBundlesConfig(path string) (*buildBundlesConfig, error) {
 	iniFile, err := ini.InsensitiveLoad(path)
 	if err != nil {
 		return nil, err
 	}
 
-	cfg := &buildChrootsConfig{}
+	cfg := &buildBundlesConfig{}
 
 	// TODO: Validate early the fields we read.
 	server, err := iniFile.GetSection("Server")
@@ -402,8 +402,6 @@ func createClearDir(chrootDir, version string) error {
 	if err != nil {
 		return err
 	}
-	// TODO: This seems to be the only thing that makes two consecutive chroots of the same
-	// version to be different. Use SOURCE_DATE_EPOCH if available?
 	versionstamp := fmt.Sprint(time.Now().Unix())
 	return ioutil.WriteFile(filepath.Join(clearDir, "versionstamp"), []byte(versionstamp), 0644)
 }
@@ -446,7 +444,7 @@ func buildOsCore(packagerCmd []string, chrootDir, version string) error {
 	return nil
 }
 
-func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildChrootsConfig, b *Builder) error {
+func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildBundlesConfig, b *Builder) error {
 	swupdDir := filepath.Join(chrootDir, "usr/share/defaults/swupd")
 	if err := os.MkdirAll(swupdDir, 0755); err != nil {
 		return err
@@ -476,8 +474,8 @@ func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildChrootsConfig, b *B
 	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.Format), 0644)
 }
 
-func installBundleToFull(packagerCmd []string, chrootVersionDir string, bundle *bundle) error {
-	baseDir := filepath.Join(chrootVersionDir, "full")
+func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle) error {
+	baseDir := filepath.Join(buildVersionDir, "full")
 	args := merge(packagerCmd, "--installroot="+baseDir, "install")
 	args = append(args, bundle.AllPackages...)
 	err := helpers.RunCommandSilent(args[0], args[1:]...)
@@ -494,14 +492,14 @@ func installBundleToFull(packagerCmd []string, chrootVersionDir string, bundle *
 	return ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644)
 }
 
-func buildFullChroot(cfg *buildChrootsConfig, b *Builder, set *bundleSet, packagerCmd []string, chrootVersionDir, version string) error {
+func buildFullChroot(cfg *buildBundlesConfig, b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
 	fmt.Println("Installing all bundles to full chroot")
 	totalBundles := len(*set)
 	i := 0
 	for _, bundle := range *set {
 		i++
 		fmt.Printf("[%d/%d] %s\n", i, totalBundles, bundle.Name)
-		fullDir := filepath.Join(chrootVersionDir, "full")
+		fullDir := filepath.Join(buildVersionDir, "full")
 		// special handling for os-core
 		if bundle.Name == "os-core" {
 			fmt.Println("... building special os-core content")
@@ -510,7 +508,7 @@ func buildFullChroot(cfg *buildChrootsConfig, b *Builder, set *bundleSet, packag
 			}
 		}
 
-		if err := installBundleToFull(packagerCmd, chrootVersionDir, bundle); err != nil {
+		if err := installBundleToFull(packagerCmd, buildVersionDir, bundle); err != nil {
 			return err
 		}
 
@@ -535,14 +533,14 @@ func writeBundleInfo(bundle *bundle, path string) error {
 	return ioutil.WriteFile(path, b, 0644)
 }
 
-func (b *Builder) buildBundleChroots(set bundleSet) error {
+func (b *Builder) buildBundles(set bundleSet) error {
 	var err error
 
 	if b.StateDir == "" {
 		return errors.Errorf("invalid empty state dir")
 	}
 
-	chrootDir := filepath.Join(b.StateDir, "image")
+	bundleDir := filepath.Join(b.StateDir, "image")
 
 	// TODO: Remove remaining references to outputDir. Let "build update" take care of
 	// bootstraping or cleaning up.
@@ -553,7 +551,7 @@ func (b *Builder) buildBundleChroots(set bundleSet) error {
 	}
 
 	// Bootstrap the directories.
-	err = os.MkdirAll(filepath.Join(chrootDir, "0"), 0755)
+	err = os.MkdirAll(filepath.Join(bundleDir, "0"), 0755)
 	if err != nil {
 		return err
 	}
@@ -565,7 +563,7 @@ func (b *Builder) buildBundleChroots(set bundleSet) error {
 	// TODO: Do not touch config code that is in flux at the moment, reparsing it here to grab
 	// information that previously Mixer didn't care about. Move that to the configuration part
 	// of Mixer.
-	cfg, err := readBuildChrootsConfig(b.BuildConf)
+	cfg, err := readBuildBundlesConfig(b.BuildConf)
 	if err != nil {
 		return err
 	}
@@ -607,10 +605,10 @@ src=%s
 	// Mixer is used to create both Clear Linux or a mix of it.
 	var version string
 	if b.MixVer != "" {
-		fmt.Printf("Creating chroots for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
+		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
 		version = b.MixVer
 	} else {
-		fmt.Printf("Creating chroots for version %s\n", b.UpstreamVer)
+		fmt.Printf("Creating bundles for version %s\n", b.UpstreamVer)
 		version = b.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
 		if version == "" {
@@ -618,11 +616,11 @@ src=%s
 		}
 	}
 
-	chrootVersionDir := filepath.Join(chrootDir, version)
-	fmt.Printf("Preparing new %s\n", chrootVersionDir)
-	fmt.Printf("  and yum config: %s\n", b.YumConf)
+	buildVersionDir := filepath.Join(bundleDir, version)
+	fmt.Printf("Preparing new %s\n", buildVersionDir)
+	fmt.Printf("  and dnf config: %s\n", b.DNFConf)
 
-	err = os.MkdirAll(chrootVersionDir, 0755)
+	err = os.MkdirAll(buildVersionDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -632,7 +630,7 @@ src=%s
 		for _, inc := range bundle.DirectIncludes {
 			fmt.Fprintf(&includes, "%s\n", inc)
 		}
-		err = ioutil.WriteFile(filepath.Join(chrootVersionDir, name+"-includes"), includes.Bytes(), 0644)
+		err = ioutil.WriteFile(filepath.Join(buildVersionDir, name+"-includes"), includes.Bytes(), 0644)
 		if err != nil {
 			return err
 		}
@@ -640,7 +638,7 @@ src=%s
 
 	packagerCmd := []string{
 		"dnf",
-		"--config=" + b.YumConf,
+		"--config=" + b.DNFConf,
 		"-y",
 		"--releasever=" + b.UpstreamVer,
 	}
@@ -648,7 +646,7 @@ src=%s
 	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))
 
 	var pkgs sync.Map
-	numWorkers := b.NumChrootWorkers
+	numWorkers := b.NumBundleWorkers
 	emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")
 	if err != nil {
 		return err
@@ -674,21 +672,19 @@ src=%s
 	addUpdateBundleSpecialFiles(b, updateBundle)
 
 	for _, bundle := range set {
-		err = writeBundleInfo(bundle, filepath.Join(chrootVersionDir, bundle.Name+"-info"))
+		err = writeBundleInfo(bundle, filepath.Join(buildVersionDir, bundle.Name+"-info"))
 		if err != nil {
 			return err
 		}
 	}
 
 	// install all bundles in the set (including os-core) to the full chroot
-	return buildFullChroot(cfg, b, &set, packagerCmd, chrootVersionDir, version)
+	return buildFullChroot(cfg, b, &set, packagerCmd, buildVersionDir, version)
 }
 
 // createVersionsFile creates a file that contains all the packages available for a specific
-// version. It uses one chroot to query information from the repositories using yum.
+// version. It uses one chroot to query information from the repositories using dnf.
 func createVersionsFile(baseDir string, packagerCmd []string) error {
-	// TODO: See if we query the list of packages some other way? Yum output is a bit
-	// unfriendly, see the workarounds below. When we move to dnf we may have better options.
 	args := merge(packagerCmd,
 		"--installroot="+filepath.Join(baseDir, "full"),
 		"--quiet",
@@ -745,17 +741,17 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 
 		fields := strings.Fields(text)
 		if len(fields) != 3 {
-			// The output for yum list wraps at 80 when lacking information about the
+			// The output for dnf list wraps at 80 when lacking information about the
 			// terminal, so we workaround by joining the next line and evaluating. See
 			// https://bugzilla.redhat.com/show_bug.cgi?id=584525 for the wrapping.
 			if scanner.Scan() {
 				text = text + scanner.Text()
 			} else {
-				return fmt.Errorf("couldn't parse line %q from yum list output", text)
+				return fmt.Errorf("couldn't parse line %q from dnf list output", text)
 			}
 			fields = strings.Fields(text)
 			if len(fields) != 3 {
-				return fmt.Errorf("couldn't parse merged line %q from yum list output", text)
+				return fmt.Errorf("couldn't parse merged line %q from dnf list output", text)
 			}
 		}
 

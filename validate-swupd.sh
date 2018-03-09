@@ -131,7 +131,7 @@ for i in $(ls update/www); do
 
 	set -x
 	echo $next | sudo tee $(pwd)/update/www/version/format$3/latest
-	swupd update --path os-$i-install -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
+	swupd update --path "os-$i-install" -F "$3" -u "file://$PWD/update/www" -C "$PWD/Swupd_Root.pem"
 	if [[ $? -ne 0 ]]; then
 		popd
 		exit 1

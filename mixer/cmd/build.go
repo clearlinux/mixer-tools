@@ -39,7 +39,7 @@ type buildCmdFlags struct {
 
 	numFullfileWorkers int
 	numDeltaWorkers    int
-	numChrootWorkers   int
+	numBundleWorkers   int
 }
 
 var buildFlags buildCmdFlags
@@ -56,11 +56,11 @@ func setWorkers(b *builder.Builder) {
 		workers = runtime.NumCPU()
 	}
 	b.NumDeltaWorkers = workers
-	workers = buildFlags.numChrootWorkers
+	workers = buildFlags.numBundleWorkers
 	if workers < 1 {
 		workers = runtime.NumCPU()
 	}
-	b.NumChrootWorkers = workers
+	b.NumBundleWorkers = workers
 }
 
 // buildCmd represents the base build command when called without any subcommands
@@ -69,7 +69,7 @@ var buildCmd = &cobra.Command{
 	Short: "Build various pieces of OS content",
 }
 
-func buildChroots(builder *builder.Builder, signflag bool) error {
+func buildBundles(builder *builder.Builder, signflag bool) error {
 	// Create the signing and validation key/cert
 	if _, err := os.Stat(builder.Cert); os.IsNotExist(err) {
 		fmt.Println("Generating certificate for signature validation...")
@@ -79,30 +79,31 @@ func buildChroots(builder *builder.Builder, signflag bool) error {
 		}
 		template := helpers.CreateCertTemplate()
 
-		err = builder.BuildChroots(template, privkey, signflag)
+		err = builder.BuildBundles(template, privkey, signflag)
 		if err != nil {
-			return errors.Wrap(err, "Error building chroots")
+			return errors.Wrap(err, "Error building bundles")
 		}
 	} else {
-		err := builder.BuildChroots(nil, nil, true)
+		err := builder.BuildBundles(nil, nil, true)
 		if err != nil {
-			return errors.Wrap(err, "Error building chroots")
+			return errors.Wrap(err, "Error building bundles")
 		}
 	}
 	return nil
 }
 
-var buildChrootsCmd = &cobra.Command{
-	Use:   "chroots",
-	Short: "Build the chroots for your mix",
-	Long:  `Build the chroots for your mix`,
+var buildBundlesCmd = &cobra.Command{
+	Use:     "bundles",
+	Aliases: []string{"chroots"},
+	Short:   "Build the bundles for your mix",
+	Long:    `Build the bundles for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
 		b, err := builder.NewFromConfig(config)
 		if err != nil {
 			fail(err)
 		}
 		setWorkers(b)
-		err = buildChroots(b, buildFlags.noSigning)
+		err = buildBundles(b, buildFlags.noSigning)
 		if err != nil {
 			fail(err)
 		}
@@ -149,9 +150,9 @@ var buildAllCmd = &cobra.Command{
 				failf("couldn't add the RPMs: %s", err)
 			}
 		}
-		err = buildChroots(b, buildFlags.noSigning)
+		err = buildBundles(b, buildFlags.noSigning)
 		if err != nil {
-			failf("couldn't build chroots: %s", err)
+			failf("couldn't build bundles: %s", err)
 		}
 		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
@@ -259,7 +260,7 @@ func setUpdateFlags(cmd *cobra.Command) {
 }
 
 var buildCmds = []*cobra.Command{
-	buildChrootsCmd,
+	buildBundlesCmd,
 	buildUpdateCmd,
 	buildAllCmd,
 	buildImageCmd,
@@ -274,11 +275,11 @@ func init() {
 
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")
-	buildCmd.PersistentFlags().IntVar(&buildFlags.numChrootWorkers, "chroot-workers", 0, "Number of parallel workers when creating chroots, 0 means number of CPUs")
+	buildCmd.PersistentFlags().IntVar(&buildFlags.numBundleWorkers, "bundle-workers", 0, "Number of parallel workers when building bundles, 0 means number of CPUs")
 	RootCmd.AddCommand(buildCmd)
 
-	buildChrootsCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
-	buildChrootsCmd.Flags().BoolVar(&builder.UseNewChrootBuilder, "new-chroots", false, "EXPERIMENTAL: Use new implementation of build chroots")
+	buildBundlesCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
+	buildBundlesCmd.Flags().BoolVar(&builder.UseNewChrootBuilder, "new-chroots", false, "EXPERIMENTAL: Use new implementation of build chroots")
 
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")
@@ -291,7 +292,7 @@ func init() {
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)
 
-	externalDeps[buildChrootsCmd] = []string{
+	externalDeps[buildBundlesCmd] = []string{
 		"m4",
 		"rpm",
 		"dnf",
@@ -307,7 +308,7 @@ func init() {
 		"ister.py",
 	}
 	externalDeps[buildAllCmd] = append(
-		externalDeps[buildChrootsCmd],
+		externalDeps[buildBundlesCmd],
 		append(externalDeps[buildUpdateCmd],
 			externalDeps[buildImageCmd]...)...)
 }

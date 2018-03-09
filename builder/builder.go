@@ -48,7 +48,9 @@ const Version = "4.1.0"
 var UseNewSwupdServer = false
 
 // UseNewChrootBuilder controls whether to use the new implementation of
-// building the chroots. This is an experimental feature.
+// building the bundles. This is an experimental feature.
+// We don't build chroots any more but leaving this as UseNewChrootBuilder since
+// it will be removed soon.
 var UseNewChrootBuilder = false
 
 // Offline controls whether mixer attempts to automatically cache upstream
@@ -76,15 +78,15 @@ type Builder struct {
 	UpstreamVer     string
 	UpstreamVerFile string
 	VersionDir      string
-	YumConf         string
-	YumTemplate     string
+	DNFConf         string
+	DNFTemplate     string
 
 	Signing int
 	Bump    int
 
 	NumFullfileWorkers int
 	NumDeltaWorkers    int
-	NumChrootWorkers   int
+	NumBundleWorkers   int
 
 	// Parsed versions.
 	MixVerUint32      uint32
@@ -96,7 +98,7 @@ type Builder struct {
 func New() *Builder {
 	return &Builder{
 		BuildScript:     "bundle-chroot-builder.py",
-		YumTemplate:     "/usr/share/defaults/mixer/yum.conf.in",
+		DNFTemplate:     "/usr/share/defaults/mixer/yum.conf.in",
 		UpstreamURLFile: "upstreamurl",
 		UpstreamVerFile: "upstreamversion",
 		MixBundlesFile:  "mixbundles",
@@ -174,7 +176,7 @@ func (b *Builder) initDirs() error {
 		}
 	}
 
-	// Create folder for local yum repo if defined but doesn't already exist
+	// Create folder for local dnf repo if defined but doesn't already exist
 	if b.RepoDir != "" {
 		if err := os.MkdirAll(b.RepoDir, 0777); err != nil {
 			return errors.Wrap(err, "Failed to create local rpms directory")
@@ -366,7 +368,7 @@ func (b *Builder) ReadBuilderConf() error {
 		{`^LOCAL_RPM_DIR\s*=\s*`, &b.RPMDir, false},
 		{`^SERVER_STATE_DIR\s*=\s*`, &b.StateDir, true},
 		{`^VERSIONS_PATH\s*=\s*`, &b.VersionDir, true},
-		{`^YUM_CONF\s*=\s*`, &b.YumConf, true},
+		{`^YUM_CONF\s*=\s*`, &b.DNFConf, true},
 	}
 
 	for _, h := range fields {
@@ -1279,7 +1281,7 @@ func (b *Builder) createMixBundleDir() error {
 		return errors.Errorf("Failed to create dir: %s", b.BundleDir)
 	}
 
-	// Get the set of bundles for which to build chroots
+	// Get the set of bundles to build
 	set, err := b.getFullMixBundleSet()
 	if err != nil {
 		return err
@@ -1299,25 +1301,27 @@ func (b *Builder) createMixBundleDir() error {
 	return nil
 }
 
-// BuildChroots will attempt to construct the chroots required by populating roots
-// using the m4 bundle configurations in conjunction with the YUM configuration file,
-// installing all required named packages into the roots.
-func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
+// BuildBundles will attempt to construct the bundles required by using the m4
+// bundle configurations in conjunction with the DNF configuration file,
+// resolving all files for each bundle using dnf resolve and no-op installs.
+// One full chroot is created from this step with the file contents of all
+// bundles.
+func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
 	}
 
-	// Generate the yum config file if it does not exist.
+	// Generate the dnf config file if it does not exist.
 	// This takes the template and adds the relevant local rpm repo path if needed
-	fmt.Println("Building chroots..")
+	fmt.Println("Building bundles...")
 
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 
-	timer.Start("BUILD CHROOTS")
-	if _, err := os.Stat(b.YumConf); os.IsNotExist(err) {
-		outfile, err := os.Create(b.YumConf)
+	timer.Start("BUILD BUNDLES")
+	if _, err := os.Stat(b.DNFConf); os.IsNotExist(err) {
+		outfile, err := os.Create(b.DNFConf)
 		if err != nil {
 			helpers.PrintError(err)
 			panic(err)
@@ -1326,7 +1330,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			_ = outfile.Close()
 		}()
 		if b.RepoDir == "" {
-			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.UpstreamURL, b.YumTemplate)
+			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.UpstreamURL, b.DNFTemplate)
 			cmd.Stdout = outfile
 			if err = cmd.Run(); err != nil {
 				helpers.PrintError(err)
@@ -1336,7 +1340,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			cmd := exec.Command("m4", "-D", "MIXER_REPO",
 				"-D", "MIXER_REPOPATH="+b.RepoDir,
 				"-D", "UPSTREAM_URL="+b.UpstreamURL,
-				b.YumTemplate)
+				b.DNFTemplate)
 			cmd.Stdout = outfile
 			if err = cmd.Run(); err != nil {
 				helpers.PrintError(err)
@@ -1371,7 +1375,7 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 	}
 
 	if UseNewChrootBuilder {
-		// Get the set of bundles for which to build chroots
+		// Get the set of bundles to build
 		set, err := b.getFullMixBundleSet()
 		if err != nil {
 			return err
@@ -1382,14 +1386,14 @@ func (b *Builder) BuildChroots(template *x509.Certificate, privkey *rsa.PrivateK
 			return err
 		}
 
-		// TODO: Merge the rest of this function into buildBundleChroots (or vice-versa).
-		err = b.buildBundleChroots(set)
+		// TODO: Merge the rest of this function into buildBundles (or vice-versa).
+		err = b.buildBundles(set)
 		if err != nil {
 			return err
 		}
 
 		// TODO: Move this logic to code that uses this.
-		// If LAST_VER don't exists, it means this is the first chroot we build,
+		// If LAST_VER don't exists, it means this is the first bundle we build,
 		// so initialize it to version "0".
 		lastVerPath := filepath.Join(b.StateDir, "image", "LAST_VER")
 		if _, err = os.Stat(lastVerPath); os.IsNotExist(err) {
@@ -1471,41 +1475,44 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 
 	if UseNewSwupdServer {
 		err = b.buildUpdateWithNewSwupd(timer, b.MixVerUint32, uint32(minVersion), formatUint, skipSigning)
+		if err != nil {
+			return err
+		}
 	} else {
 		err = b.buildUpdateWithOldSwupd(timer, prefixflag, minVersion, skipSigning)
-	}
-	if err != nil {
-		return err
-	}
-
-	timer.Start("MINIMIZE STORED CHROOTS")
-	// Clean up the bundle chroots as only the full chroot is needed from this point on.
-	if !keepChroots {
-		// Get the set of bundles for which chroots were built
-		var set bundleSet
-		set, err = b.getFullMixBundleSet()
 		if err != nil {
-			return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
+			return err
 		}
-		// Delete the bundle chroots
-		basedir := filepath.Join(b.StateDir, "image", b.MixVer)
-		for bundle := range set {
-			err = os.RemoveAll(filepath.Join(basedir, bundle))
+
+		timer.Start("MINIMIZE STORED CHROOTS")
+		// Clean up the bundle chroots as only the full chroot is needed from this point on.
+		if !keepChroots {
+			// Get the set of bundles for which chroots were built
+			var set bundleSet
+			set, err = b.getFullMixBundleSet()
 			if err != nil {
 				return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
 			}
+			// Delete the bundle chroots
+			basedir := filepath.Join(b.StateDir, "image", b.MixVer)
+			for bundle := range set {
+				err = os.RemoveAll(filepath.Join(basedir, bundle))
+				if err != nil {
+					return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
+				}
+			}
+		} else {
+			// Hardlink the duplicate files ONLY when keeping the bundle chroots.
+			hardlinkcmd := exec.Command("hardlink", "-f", filepath.Join(b.StateDir, "image", b.MixVer))
+			hardlinkcmd.Stdout = os.Stdout
+			hardlinkcmd.Stderr = os.Stderr
+			err = hardlinkcmd.Run()
+			if err != nil {
+				return errors.Wrapf(err, "couldn't perform hardlink step")
+			}
 		}
-	} else {
-		// Hardlink the duplicate files ONLY when keeping the bundle chroots.
-		hardlinkcmd := exec.Command("hardlink", "-f", filepath.Join(b.StateDir, "image", b.MixVer))
-		hardlinkcmd.Stdout = os.Stdout
-		hardlinkcmd.Stderr = os.Stderr
-		err = hardlinkcmd.Run()
-		if err != nil {
-			return errors.Wrapf(err, "couldn't perform hardlink step")
-		}
+		timer.Stop()
 	}
-	timer.Stop()
 
 	// Save upstream information.
 	if b.UpstreamURL != "" {
@@ -1615,7 +1622,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 	timer.Stop()
 
 	timer.Start("CREATE ZERO PACKS")
-	chrootDir := filepath.Join(b.StateDir, "image")
+	bundleDir := filepath.Join(b.StateDir, "image")
 	for _, bundle := range mom.Files {
 		// TODO: Evaluate if it's worth using goroutines.
 		name := bundle.Name
@@ -1633,7 +1640,7 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 		fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
 
 		var info *swupd.PackInfo
-		info, err = swupd.CreatePack(name, 0, version, outputDir, chrootDir, 0)
+		info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir, 0)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't make pack for bundle %s", name)
 		}
@@ -1736,7 +1743,7 @@ func (b *Builder) BuildImage(format string, template string) error {
 }
 
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to
-// generate a yum-consumable repository for the chroot builder to use.
+// generate a dnf-consumable repository for the bundle builder to use.
 func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
 	if b.RepoDir == "" {
 		return errors.Errorf("LOCAL_REPO_DIR not set in configuration")
@@ -1882,9 +1889,9 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 		return errors.Wrapf(err, "couldn't find manifest of from version")
 	}
 
-	chrootDir := filepath.Join(b.StateDir, "image")
+	bundleDir := filepath.Join(b.StateDir, "image")
 	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
-	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir, b.NumDeltaWorkers)
+	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
 }
 
 // BuildDeltaPacksPreviousVersions builds packs to version from up to
@@ -1925,10 +1932,10 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
 	fmt.Printf("Found %d previous versions\n", len(previousManifests))
 
-	chrootDir := filepath.Join(b.StateDir, "image")
+	bundleDir := filepath.Join(b.StateDir, "image")
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
-		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, chrootDir, b.NumDeltaWorkers)
+		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
 		if err != nil {
 			return err
 		}
@@ -1936,7 +1943,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	return nil
 }
 
-func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, chrootDir string, numWorkers int) error {
+func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, bundleDir string, numWorkers int) error {
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 	timer.Start("CREATE DELTA PACKS")
@@ -1966,7 +1973,7 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
 		fmt.Printf("  Creating delta pack for bundle %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
-		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, chrootDir, numWorkers)
+		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
 		if err != nil {
 			return err
 		}

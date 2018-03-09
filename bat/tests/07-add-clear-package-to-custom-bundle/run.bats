@@ -13,7 +13,7 @@ setup() {
   add-bundle "os-core-update"
   add-package "bsdiff" "os-core-update"
   add-package "swupd-client" "os-core-update"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update
 }
 
@@ -22,7 +22,7 @@ setup() {
   remove-package "swupd-client" "os-core-update"
   add-bundle "testbundle"
   add-package "swupd-client" "testbundle"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-20.log
 }
 

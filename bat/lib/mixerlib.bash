@@ -18,7 +18,7 @@ setup_builder_conf() {
 
 localize_builder_conf() {
   echo "LOCAL_RPM_DIR = $BATS_TEST_DIRNAME/local-rpms
-LOCAL_REPO_DIR = $BATS_TEST_DIRNAME/local-yum" >> $BATS_TEST_DIRNAME/builder.conf
+LOCAL_REPO_DIR = $BATS_TEST_DIRNAME/local-yum" | sudo tee -a $BATS_TEST_DIRNAME/builder.conf > /dev/null
 }
 
 mixer-init-versions() {

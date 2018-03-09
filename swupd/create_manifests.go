@@ -137,7 +137,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	for _, bundle := range tmpManifests {
 		if bundle.Name != "os-core" && bundle != newFull {
 			// read in bundle includes
-			if err := bundle.readIncludesFromBundleInfo(tmpManifests); err != nil {
+			if err = bundle.readIncludesFromBundleInfo(tmpManifests); err != nil {
 				return nil, err
 			}
 		}

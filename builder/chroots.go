@@ -141,7 +141,7 @@ func resolveFileName(path string) string {
 		return filepath.Join("/usr", path)
 	}
 	if path[:5] == "/lib/" {
-		return filepath.Join("/usr/lib64", path[4:])
+		return filepath.Join("/usr/lib", path[4:])
 	}
 	if pathLen < 6 {
 		return path

@@ -22,12 +22,15 @@ LOCAL_REPO_DIR = $BATS_TEST_DIRNAME/local-yum" | sudo tee -a $BATS_TEST_DIRNAME/
 }
 
 mixer-init-versions() {
+  sudo touch $BATS_TEST_DIRNAME/mixbundles
   sudo -E mixer init --clear-version $1 --mix-version $2 --new-swupd
+  sudo sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
 }
 
 clean-bundle-dir() {
-  sudo rm -rf $BUNDLE_DIR/*
+  sudo rm -rf $BUNDLE_DIR/* $BATS_TEST_DIRNAME/mixbundles
   echo -e "filesystem\n" | sudo tee $BUNDLE_DIR/os-core > /dev/null
+  sudo mixer bundle add os-core
 }
 
 mixer-build-chroots() {

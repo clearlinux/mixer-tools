@@ -21,12 +21,13 @@ try:
 except Exception:
     raise Exception("{0}: {1}".format(cmd, sys.exc_info()))
 print(dev[len(dev) - 1])
-
+boot_num = 1
 rootfs_num = 3
 data_num = 4
 hash_num = 5
 store_num = 6
 
+boot_dev = dev[0] + "p" + str(boot_num)
 rootfs_dev = dev[0] + "p" + str(rootfs_num)
 data_dev = dev[0] + "p" + str(data_num)
 hash_dev = dev[0] + "p" + str(hash_num)
@@ -76,12 +77,12 @@ print(root_hash)
 
 
 verity_kernel_cmdline = " systemd.verity=yes roothash=" + root_hash + " systemd.verity_root_data=/dev/sda" + str(data_num) + " systemd.verity_root_hash=/dev/sda" + str(hash_num)
-subprocess.check_output("mount {0} mnt".format(rootfs_dev).split(" "))
-#res = subprocess.check_output("ls mnt/usr/lib/kernel/ | grep cmdline".split(" ")).decode("utf-8").splitlines()
-for fname in os.listdir('mnt/usr/lib/kernel/'):
-    if (fnmatch.fnmatch(fname, 'cmdline-*')):
-        path = "mnt/usr/lib/kernel/" + fname
-        print("Writing " + verity_kernel_cmdline + " to " + path + " in " + rootfs_dev)
+subprocess.check_output("mount {0} mnt".format(boot_dev).split(" "))
+
+for fname in os.listdir('mnt/loader/entries/'):
+    if (fnmatch.fnmatch(fname, 'Clear-*')):
+        path = "mnt/loader/entries/" + fname
+        print("Writing " + verity_kernel_cmdline + " to " + path + " in " + boot_dev)
         try:
             outfile = open(path, 'a')
             outfile.write(verity_kernel_cmdline)

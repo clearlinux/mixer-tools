@@ -12,7 +12,7 @@ setup() {
   clean-bundle-dir
   add-bundle "os-core-update"
   add-package "bsdiff" "os-core-update"
-  add-package "swupd" "os-core-update"
+  add-package "swupd-client" "os-core-update"
   mixer-build-chroots
   mixer-create-update
 }

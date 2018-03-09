@@ -50,12 +50,12 @@ for i in $(seq $1 10 $2); do
 		popd
 		exit 1
 	fi
-	# increase the number of chroot-workers on larger systems
+	# increase the number of bundle-workers on larger systems
 	# keep in mind that this is network bound due to dnf installs
 	# of upstream tarballs
-	mixer build chroots --new-swupd --new-chroots --chroot-workers 8
+	mixer build bundles --new-swupd --new-chroots --bundle-workers 8
 	if [[ $? -ne 0 ]]; then
-		echo "failed to build mix chroots"
+		echo "failed to build mix bundles"
 		popd
 		exit 1
 	fi

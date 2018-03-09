@@ -13,7 +13,7 @@ setup() {
   add-bundle "os-core-update"
   add-package "swupd-client" "os-core-update"
   add-package "bsdiff" "os-core-update"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update
 }
 
@@ -21,7 +21,7 @@ setup() {
   mixer-init-versions $CLRVER 20
   remove-package "swupd-client" "os-core-update"
   add-package "swupd-client" "os-core"
-  mixer-build-chroots
+  mixer-build-bundles
   mixer-create-update > $BATS_TEST_DIRNAME/create_update-20.log
 }
 

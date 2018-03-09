@@ -33,8 +33,8 @@ clean-bundle-dir() {
   sudo mixer bundle add os-core
 }
 
-mixer-build-chroots() {
-  sudo -E mixer build chroots --config $BATS_TEST_DIRNAME/builder.conf --new-swupd --new-chroots
+mixer-build-bundles() {
+  sudo -E mixer build bundles --config $BATS_TEST_DIRNAME/builder.conf --new-swupd --new-chroots
 }
 
 mixer-create-update() {

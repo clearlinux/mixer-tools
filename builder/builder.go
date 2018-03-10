@@ -283,6 +283,17 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	}
 	b.MixVer = mixVer
 
+	// Parse strings into valid version numbers.
+	var err error
+	b.MixVerUint32, err = parseUint32(b.MixVer)
+	if err != nil {
+		return errors.Wrapf(err, "Couldn't parse mix version")
+	}
+	b.UpstreamVerUint32, err = parseUint32(b.UpstreamVer)
+	if err != nil {
+		return errors.Wrapf(err, "Couldn't parse upstream version")
+	}
+
 	// Initialize the Mix Bundles List
 	if _, err := os.Stat(filepath.Join(b.VersionDir, b.MixBundlesFile)); os.IsNotExist(err) {
 		// Add default bundles (or all)

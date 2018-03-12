@@ -492,7 +492,16 @@ func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *b
 	return ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644)
 }
 
+func clearDNFCache(packagerCmd []string) error {
+	args := merge(packagerCmd, "clean", "all")
+	return helpers.RunCommandSilent(args[0], args[1:]...)
+}
+
 func buildFullChroot(cfg *buildBundlesConfig, b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
+	fmt.Println("Cleaning DNF cache before full install")
+	if err := clearDNFCache(packagerCmd); err != nil {
+		return err
+	}
 	fmt.Println("Installing all bundles to full chroot")
 	totalBundles := len(*set)
 	i := 0

@@ -328,6 +328,24 @@ func parseNoopInstall(installOut string) []string {
 		if len(line) == 0 {
 			break
 		}
+
+		// When not running in a TTY dnf sets terminal line-width to a
+		// default 80 characters, then wraps their fields in an
+		// unpredictable way to be pleasing for they eye but not for
+		// the parser. If the line starts with more than one space (' ')
+		// character the previous line was wrapped and continues on
+		// this line.  Since we only care about the first field, the
+		// package name, just continue to the next line.
+		//
+		// example lines:
+		// ^ really-long-package-name-overflows-field$
+		// ^                         x86_64             12-10         clear$
+		// ^ reasonablepkgname       x86_64             deadcafedeadbeefdeadcafedeadbeef$
+		// ^                                                          clear$
+		if strings.HasPrefix(line, "  ") {
+			continue
+		}
+
 		pkgDeps = append(pkgDeps, strings.Fields(line)[0])
 	}
 	return pkgDeps

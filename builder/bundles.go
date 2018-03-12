@@ -475,12 +475,20 @@ func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildBundlesConfig, b *B
 }
 
 func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle) error {
+	var err error
 	baseDir := filepath.Join(buildVersionDir, "full")
 	args := merge(packagerCmd, "--installroot="+baseDir, "install")
-	args = append(args, bundle.AllPackages...)
-	err := helpers.RunCommandSilent(args[0], args[1:]...)
-	if err != nil {
-		return err
+	if len(bundle.DirectPackages) > 0 {
+		// There were packages directly included for this bundle so
+		// install to full chroot. This check is necessary so we don't
+		// call dnf install with no package listed.
+		for p := range bundle.DirectPackages {
+			args = append(args, p)
+		}
+		err = helpers.RunCommandSilent(args[0], args[1:]...)
+		if err != nil {
+			return err
+		}
 	}
 
 	bundleDir := filepath.Join(baseDir, "usr/share/clear/bundles")

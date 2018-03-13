@@ -676,7 +676,7 @@ func (b *Builder) getDirBundlesListAsSet(dir string) (bundleSet, error) {
 // writeMixBundleList writes the contents of a bundle set out to the Mix Bundles
 // List file. Values will be in sorted order.
 func (b *Builder) writeMixBundleList(set bundleSet) error {
-	data := []byte(strings.Join(getBundleSetKeysSorted(set), "\n"))
+	data := []byte(strings.Join(getBundleSetKeysSorted(set), "\n") + "\n")
 	if err := ioutil.WriteFile(filepath.Join(b.VersionDir, b.MixBundlesFile), data, 0644); err != nil {
 		return errors.Wrap(err, "Failed to write out Mix Bundle List")
 	}

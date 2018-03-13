@@ -1,0 +1,5 @@
+04-create-mix-with-custom-content
+=================================
+This test creates a mix version 10 with a unique bundle that does not exist
+upstream and contains a package that is not in upstream. All upstream bundles
+have been stripped down for efficiency and are thus edited local copies.

@@ -1,0 +1,5 @@
+03-create-mix-bump-version-add-remove-bundles
+=============================================
+This test creates an initial version 10, a version 20 with upstream bundles
+added, and a version 30 with one of those bundles removed. All bundles have been
+stripped down for efficiency, and all content comes from upstream.

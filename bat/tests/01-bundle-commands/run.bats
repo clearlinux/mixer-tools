@@ -3,6 +3,10 @@
 # shared test functions
 load ../../lib/mixerlib
 
+setup() {
+  global_setup
+}
+
 @test "Initialize a mix at version 10" {
   mixer init --clear-version $CLRVER --mix-version 10
   [[ -f $BATS_TEST_DIRNAME/builder.conf ]]

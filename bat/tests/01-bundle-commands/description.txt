@@ -1,4 +1,4 @@
 01-bundle-commands
-====================
+==================
 This test case tests the 'mixer bundle' commands for adding and removing bundles
 from your mix, and for manipulating upstream and local bundle definition files.

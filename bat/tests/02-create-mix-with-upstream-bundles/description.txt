@@ -1,0 +1,4 @@
+02-create-mix-with-upstream-bundles
+===================================
+This test case creates a mix with an unchanged upstream bundle. The default
+config is updated to support building a mix with just os-core.

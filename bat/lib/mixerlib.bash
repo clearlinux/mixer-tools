@@ -3,41 +3,41 @@
 # This library defines functions to use in the BATS test files during a local
 # test run with 'make check'.
 
-export cachedir="$HOME/.cache/mixer-tests"
-logdir="$BATS_TEST_DIRNAME/logs"
-BUNDLE_DIR="$BATS_TEST_DIRNAME/local-bundles"
+LOGDIR="$BATS_TEST_DIRNAME/logs"
+LOCAL_BUNDLE_DIR="$BATS_TEST_DIRNAME/local-bundles"
 CLRVER=$(curl https://download.clearlinux.org/latest)
 CLR_BUNDLES="$BATS_TEST_DIRNAME/upstream-bundles/clr-bundles-$CLRVER/bundles"
 BUNDLE_LIST="$BATS_TEST_DIRNAME/mixbundles"
-mkdir -p $cachedir
-mkdir -p $logdir
+mkdir -p $LOGDIR
 
-setup_builder_conf() {
-:
+global_setup() {
+: # Put content here for it to run for all tests
 }
 
 localize_builder_conf() {
-  echo "LOCAL_RPM_DIR = $BATS_TEST_DIRNAME/local-rpms
-LOCAL_REPO_DIR = $BATS_TEST_DIRNAME/local-yum" | sudo tee -a $BATS_TEST_DIRNAME/builder.conf > /dev/null
+  echo -e "LOCAL_RPM_DIR=$BATS_TEST_DIRNAME/local-rpms\nLOCAL_REPO_DIR=$BATS_TEST_DIRNAME/local-yum" >> $BATS_TEST_DIRNAME/builder.conf
 }
 
-mixer-init-versions() {
-  sudo touch $BATS_TEST_DIRNAME/mixbundles
-  sudo -E mixer init --clear-version $1 --mix-version $2 --new-swupd
-  sudo sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
+# Initializes a mix with the desired versions. Then for efficiency converts 
+# builder.conf to use os-core for the "update bundle", strips os-core to just
+# the filesystem, and adds only os-core to the mix
+mixer-init-stripped-down() {
+  touch $BATS_TEST_DIRNAME/mixbundles
+  mixer init --clear-version $1 --mix-version $2 --new-swupd
+  sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
+  echo "filesystem" > $LOCAL_BUNDLE_DIR/os-core
+  mixer bundle add os-core
 }
 
-clean-bundle-dir() {
-  sudo rm -rf $BUNDLE_DIR/* $BATS_TEST_DIRNAME/mixbundles
-  echo -e "filesystem\n" | sudo tee $BUNDLE_DIR/os-core > /dev/null
-  sudo mixer bundle add os-core
+mixer-versions-update() {
+  mixer versions update --mix-version $1
 }
 
 mixer-build-bundles() {
   sudo -E mixer build bundles --config $BATS_TEST_DIRNAME/builder.conf --new-swupd --new-chroots
 }
 
-mixer-create-update() {
+mixer-build-update() {
   sudo -E mixer build update --config $BATS_TEST_DIRNAME/builder.conf --new-swupd
 }
 
@@ -46,32 +46,30 @@ mixer-add-rpms() {
   sudo -E mixer add-rpms --config $BATS_TEST_DIRNAME/builder.conf --new-swupd
 }
 
-add-bundle() {
-  sudo touch $BUNDLE_DIR/$1
+create-empty-local-bundle() {
+  touch $LOCAL_BUNDLE_DIR/$1
 }
 
-add-package() {
-  echo $1 | sudo tee -a $BUNDLE_DIR/$2 > /dev/null
-  sudo mixer bundle add $2
+add-package-to-local-bundle() {
+  echo $1 >> $LOCAL_BUNDLE_DIR/$2
 }
 
-add-clear-bundle() {
-  sudo cp $CLR_BUNDLES/$1 $BUNDLE_DIR
-  sudo mixer bundle add $1
+remove-package-from-local-bundle() {
+  sed -i "/$1/d" $LOCAL_BUNDLE_DIR/$2
 }
 
-remove-bundle() {
-  sudo sed -i "/$1/d" $BUNDLE_LIST
+mixer-bundle-add() {
+  mixer bundle add $1
 }
 
-remove-package() {
-  sudo sed -i "/$1/d" $BUNDLE_DIR/$2
+mixer-bundle-remove() {
+  mixer bundle remove $1
 }
 
 download-rpm() {
   mkdir -p $BATS_TEST_DIRNAME/local-rpms
   pushd $BATS_TEST_DIRNAME/local-rpms
-  sudo curl -LO $1
+  curl -LO $1
   popd
 }
 

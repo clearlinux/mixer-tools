@@ -714,7 +714,28 @@ src=%s
 	}
 
 	// install all bundles in the set (including os-core) to the full chroot
-	return buildFullChroot(cfg, b, &set, packagerCmd, buildVersionDir, version)
+	err = buildFullChroot(cfg, b, &set, packagerCmd, buildVersionDir, version)
+	if err != nil {
+		return err
+	}
+
+	// create os-packages file for validation tools
+	return createOsPackagesFile(buildVersionDir)
+}
+
+// createOsPackagesFile creates a file that contains all the packages mapped to their
+// srpm names for use by validation tooling to identify orphaned packages and verify
+// there are no file collisions in the build.
+func createOsPackagesFile(buildVersionDir string) error {
+	fullChroot := filepath.Join(buildVersionDir, "full")
+	packages, err := helpers.RunCommandOutput(
+		"rpm", "--root="+fullChroot, "-qa", "--queryformat", "%{NAME}\t%{SOURCERPM}\n",
+	)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filepath.Join(buildVersionDir, "os-packages"), packages.Bytes(), 0644)
 }
 
 // createVersionsFile creates a file that contains all the packages available for a specific

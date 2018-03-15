@@ -42,7 +42,7 @@ mixer-create-update() {
 }
 
 mixer-add-rpms() {
-  mkdir -p ./local ./rpms
+  mkdir -p $BATS_TEST_DIRNAME/local-yum $BATS_TEST_DIRNAME/local-rpms
   sudo -E mixer add-rpms --config $BATS_TEST_DIRNAME/builder.conf --new-swupd
 }
 
@@ -69,9 +69,9 @@ remove-package() {
 }
 
 download-rpm() {
-  mkdir -p ./rpms
-  pushd rpms
-  sudo curl -O $1
+  mkdir -p $BATS_TEST_DIRNAME/local-rpms
+  pushd $BATS_TEST_DIRNAME/local-rpms
+  sudo curl -LO $1
   popd
 }
 

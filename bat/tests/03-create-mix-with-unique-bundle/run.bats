@@ -17,7 +17,7 @@ setup() {
 @test "Create version 20 with unique custom bundle" {
   localize_builder_conf
   mixer-init-versions $CLRVER 20
-  download-rpm "ftp://rpmfind.net/linux/fedora-secondary/development/rawhide/source/SRPMS/j/json-c-0.12-7.fc24.src.rpm"
+  download-rpm "http://rpmfind.net/linux/fedora/linux/development/rawhide/Everything/x86_64/os/Packages/j/json-c-0.13.1-1.fc29.i686.rpm"
   mixer-add-rpms
   add-bundle "testbundle"
   add-package "json-c" "testbundle"

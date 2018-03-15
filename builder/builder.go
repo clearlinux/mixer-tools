@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 	"text/tabwriter"
+	textTemplate "text/template" // "template" conflicts with crypto/x509
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
@@ -80,7 +81,6 @@ type Builder struct {
 	UpstreamVerFile   string
 	VersionDir        string
 	DNFConf           string
-	DNFTemplate       string
 
 	Signing int
 	Bump    int
@@ -102,7 +102,6 @@ var upstreamPackages = make(map[string]bool)
 func New() *Builder {
 	return &Builder{
 		BuildScript:       "bundle-chroot-builder.py",
-		DNFTemplate:       "/usr/share/defaults/mixer/yum.conf.in",
 		UpstreamURLFile:   "upstreamurl",
 		UpstreamVerFile:   "upstreamversion",
 		MixBundlesFile:    "mixbundles",
@@ -1410,11 +1409,45 @@ func (b *Builder) createMixBundleDir() error {
 	return nil
 }
 
-// BuildBundles will attempt to construct the bundles required by using the m4
-// bundle configurations in conjunction with the DNF configuration file,
-// resolving all files for each bundle using dnf resolve and no-op installs.
-// One full chroot is created from this step with the file contents of all
-// bundles.
+// If Base == true, template will include the [main] and [clear] sections.
+// If Local == true, template will include the [local] section.
+type dnfConf struct {
+	UpstreamURL, RepoDir string
+	Base, Local          bool
+}
+
+const dnfConfTemplate = `{{if .Base}}[main]
+cachedir=/var/cache/yum/clear/
+keepcache=0
+debuglevel=2
+logfile=/var/log/yum.log
+exactarch=1
+obsoletes=1
+gpgcheck=0
+plugins=0
+installonly_limit=3
+reposdir=/root/mash
+
+[clear]
+name=Clear
+failovermethod=priority
+baseurl={{.UpstreamURL}}/releases/$releasever/clear/x86_64/os/
+enabled=1
+gpgcheck=0
+{{end}}{{if .Local}}
+[local]
+name=Local
+failovermethod=priority
+baseurl=file://{{.RepoDir}}
+enabled=1
+gpgcheck=0
+priority=1
+{{end}}`
+
+// BuildBundles will attempt to construct the bundles required by generating a
+// DNF configuration file, then resolving all files for each bundle using dnf
+// resolve and no-op installs. One full chroot is created from this step with
+// the file contents of all bundles.
 func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
@@ -1429,36 +1462,44 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	defer timer.WriteSummary(os.Stdout)
 
 	timer.Start("BUILD BUNDLES")
+	conf := dnfConf{
+		UpstreamURL: b.UpstreamURL,
+		RepoDir:     b.RepoDir,
+	}
+
 	if _, err := os.Stat(b.DNFConf); os.IsNotExist(err) {
-		outfile, err := os.Create(b.DNFConf)
+		conf.Base = true
+		if b.RepoDir != "" {
+			conf.Local = true
+		}
+	} else if err == nil && b.RepoDir != "" {
+		// check if conf file contains local section
+		raw, err := ioutil.ReadFile(b.DNFConf)
 		if err != nil {
-			helpers.PrintError(err)
-			panic(err)
+			return err
+		}
+		if !strings.Contains(string(raw), "[local]") {
+			conf.Local = true
+		}
+	}
+
+	if conf.Base || conf.Local {
+		f, err := os.OpenFile(b.DNFConf, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+		if err != nil {
+			return err
 		}
 		defer func() {
-			_ = outfile.Close()
+			_ = f.Close()
 		}()
-		if b.RepoDir == "" {
-			cmd := exec.Command("m4", "-D", "UPSTREAM_URL="+b.UpstreamURL, b.DNFTemplate)
-			cmd.Stdout = outfile
-			if err = cmd.Run(); err != nil {
-				helpers.PrintError(err)
-				return err
-			}
-		} else {
-			cmd := exec.Command("m4", "-D", "MIXER_REPO",
-				"-D", "MIXER_REPOPATH="+b.RepoDir,
-				"-D", "UPSTREAM_URL="+b.UpstreamURL,
-				b.DNFTemplate)
-			cmd.Stdout = outfile
-			if err = cmd.Run(); err != nil {
-				helpers.PrintError(err)
-				return err
-			}
-		}
+
+		t, err := textTemplate.New("dnfConfTemplate").Parse(dnfConfTemplate)
 		if err != nil {
 			helpers.PrintError(err)
 			return err
+		}
+
+		if err = t.Execute(f, conf); err != nil {
+			return errors.Wrapf(err, "Failed to write to dnf file: %s", b.DNFConf)
 		}
 	}
 

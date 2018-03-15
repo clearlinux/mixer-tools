@@ -293,7 +293,6 @@ func init() {
 	setUpdateFlags(buildAllCmd)
 
 	externalDeps[buildBundlesCmd] = []string{
-		"m4",
 		"rpm",
 		"dnf",
 	}

@@ -28,20 +28,27 @@ import (
 
 // MixConfig represents the config parameters found in the builder config file.
 type MixConfig struct {
-	// [Builder]
-	BundleDir  string
-	Cert       string
-	StateDir   string
-	VersionDir string
-	DNFConf    string
+	Builder builderConf
+	Swupd   swupdConf
+	Mixer   mixerConf
+}
 
-	// [swupd]
+type builderConf struct {
+	BundleDir      string
+	Cert           string
+	ServerStateDir string
+	VersionPath    string
+	DNFConf        string
+}
+
+type swupdConf struct {
 	Format string
+}
 
-	// [Mixer]
+type mixerConf struct {
 	LocalBundleDir string
-	RepoDir        string
-	RPMDir         string
+	LocalRepoDir   string
+	LocalRPMDir    string
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
@@ -98,15 +105,15 @@ func (config *MixConfig) LoadConfig(filename string) error {
 		dest     *string
 		required bool
 	}{
-		{`^BUNDLE_DIR\s*=\s*`, &config.BundleDir, true}, //Note: Can be removed once UseNewChrootBuilder is obsolete
-		{`^CERT\s*=\s*`, &config.Cert, true},
-		{`^FORMAT\s*=\s*`, &config.Format, true},
-		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.LocalBundleDir, false},
-		{`^LOCAL_REPO_DIR\s*=\s*`, &config.RepoDir, false},
-		{`^LOCAL_RPM_DIR\s*=\s*`, &config.RPMDir, false},
-		{`^SERVER_STATE_DIR\s*=\s*`, &config.StateDir, true},
-		{`^VERSIONS_PATH\s*=\s*`, &config.VersionDir, true},
-		{`^YUM_CONF\s*=\s*`, &config.DNFConf, true},
+		{`^BUNDLE_DIR\s*=\s*`, &config.Builder.BundleDir, true}, //Note: Can be removed once UseNewChrootBuilder is obsolete
+		{`^CERT\s*=\s*`, &config.Builder.Cert, true},
+		{`^FORMAT\s*=\s*`, &config.Swupd.Format, true},
+		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
+		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
+		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
+		{`^SERVER_STATE_DIR\s*=\s*`, &config.Builder.ServerStateDir, true},
+		{`^VERSIONS_PATH\s*=\s*`, &config.Builder.VersionPath, true},
+		{`^YUM_CONF\s*=\s*`, &config.Builder.DNFConf, true},
 	}
 
 	for _, h := range fields {
@@ -139,13 +146,13 @@ func (config *MixConfig) LoadConfig(filename string) error {
 		}
 	}
 
-	if config.LocalBundleDir == "" {
+	if config.Mixer.LocalBundleDir == "" {
 		pwd, err := os.Getwd()
 		if err != nil {
 			return err
 		}
-		config.LocalBundleDir = filepath.Join(pwd, "local-bundles")
-		fmt.Printf("WARNING: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.LocalBundleDir)
+		config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
+		fmt.Printf("WARNING: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.Mixer.LocalBundleDir)
 		fmt.Println("Please set this value to the location you want local bundle definition files to be stored.")
 	}
 

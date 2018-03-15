@@ -112,7 +112,7 @@ var initCmd = &cobra.Command{
 		b := builder.New()
 		if config == "" {
 			// Create default config if necessary
-			if err := b.CreateDefaultConfig(initFlags.localRPMs); err != nil {
+			if err := b.Config.CreateDefaultConfig(initFlags.localRPMs); err != nil {
 				fail(err)
 			}
 		}

@@ -71,7 +71,7 @@ var buildCmd = &cobra.Command{
 
 func buildBundles(builder *builder.Builder, signflag bool) error {
 	// Create the signing and validation key/cert
-	if _, err := os.Stat(builder.Cert); os.IsNotExist(err) {
+	if _, err := os.Stat(builder.Config.Builder.Cert); os.IsNotExist(err) {
 		fmt.Println("Generating certificate for signature validation...")
 		privkey, err := helpers.CreateKeyPair()
 		if err != nil {
@@ -143,7 +143,7 @@ var buildAllCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-		rpms, err := ioutil.ReadDir(b.RPMDir)
+		rpms, err := ioutil.ReadDir(b.Config.Mixer.LocalRPMDir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
 			if err != nil {

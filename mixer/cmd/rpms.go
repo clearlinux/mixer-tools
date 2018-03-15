@@ -50,10 +50,10 @@ func runAddRPM(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	if b.RPMDir == "" {
+	if b.Config.Mixer.LocalRPMDir == "" {
 		failf("LOCAL_RPM_DIR not set in configuration")
 	}
-	rpms, err := ioutil.ReadDir(b.RPMDir)
+	rpms, err := ioutil.ReadDir(b.Config.Mixer.LocalRPMDir)
 	if err != nil {
 		failf("cannot read LOCAL_RPM_DIR: %s", err)
 	}

@@ -32,7 +32,7 @@ type buildBundlesConfig struct {
 	UpdateBundle string
 	ContentURL   string
 	VersionURL   string
-	// Format is already in b.Format.
+	// Format is already in b.Config.Swupd.Format.
 }
 
 // TODO: Move this to the more general configuration handling.
@@ -185,7 +185,7 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 		"/usr/share/defaults/swupd/format",
 	}
 
-	if _, err := os.Stat(b.Cert); err == nil {
+	if _, err := os.Stat(b.Config.Builder.Cert); err == nil {
 		filesToAdd = append(filesToAdd, "/usr/share/clear/update-ca/Swupd_Root.pem")
 	}
 
@@ -463,20 +463,20 @@ func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildBundlesConfig, b *B
 	}
 
 	// Only copy the certificate into the mix if it exists
-	if _, err := os.Stat(b.Cert); err == nil {
+	if _, err := os.Stat(b.Config.Builder.Cert); err == nil {
 		certdir := filepath.Join(chrootDir, "/usr/share/clear/update-ca")
 		err = os.MkdirAll(certdir, 0755)
 		if err != nil {
 			return err
 		}
 		chrootcert := filepath.Join(certdir, "Swupd_Root.pem")
-		err = helpers.CopyFile(chrootcert, b.Cert)
+		err = helpers.CopyFile(chrootcert, b.Config.Builder.Cert)
 		if err != nil {
 			return err
 		}
 	}
 
-	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.Format), 0644)
+	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.Config.Swupd.Format), 0644)
 }
 
 func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle) error {
@@ -558,15 +558,15 @@ func writeBundleInfo(bundle *bundle, path string) error {
 func (b *Builder) buildBundles(set bundleSet) error {
 	var err error
 
-	if b.StateDir == "" {
+	if b.Config.Builder.ServerStateDir == "" {
 		return errors.Errorf("invalid empty state dir")
 	}
 
-	bundleDir := filepath.Join(b.StateDir, "image")
+	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 
 	// TODO: Remove remaining references to outputDir. Let "build update" take care of
 	// bootstraping or cleaning up.
-	outputDir := filepath.Join(b.StateDir, "www")
+	outputDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
 
 	if _, ok := set["os-core"]; !ok {
 		return fmt.Errorf("os-core bundle not found")
@@ -600,7 +600,7 @@ func (b *Builder) buildBundles(set bundleSet) error {
 emptydir=%s/empty
 imagebase=%s/image/
 outputdir=%s/www/
-`, b.StateDir, b.StateDir, b.StateDir)
+`, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir)
 	if cfg.HasServerSection {
 		fmt.Fprintf(&serverINI, `
 [Debuginfo]
@@ -609,7 +609,7 @@ lib=%s
 src=%s
 `, cfg.DebugInfoBanned, cfg.DebugInfoLib, cfg.DebugInfoSrc)
 	}
-	err = ioutil.WriteFile(filepath.Join(b.StateDir, "server.ini"), serverINI.Bytes(), 0644)
+	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "server.ini"), serverINI.Bytes(), 0644)
 	if err != nil {
 		return err
 	}
@@ -619,7 +619,7 @@ src=%s
 	for _, bundle := range set {
 		fmt.Fprintf(&groupsINI, "[%s]\ngroup=%s\n\n", bundle.Name, bundle.Name)
 	}
-	err = ioutil.WriteFile(filepath.Join(b.StateDir, "groups.ini"), groupsINI.Bytes(), 0644)
+	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), groupsINI.Bytes(), 0644)
 	if err != nil {
 		return err
 	}
@@ -640,7 +640,7 @@ src=%s
 
 	buildVersionDir := filepath.Join(bundleDir, version)
 	fmt.Printf("Preparing new %s\n", buildVersionDir)
-	fmt.Printf("  and dnf config: %s\n", b.DNFConf)
+	fmt.Printf("  and dnf config: %s\n", b.Config.Builder.DNFConf)
 
 	err = os.MkdirAll(buildVersionDir, 0755)
 	if err != nil {
@@ -660,7 +660,7 @@ src=%s
 
 	packagerCmd := []string{
 		"dnf",
-		"--config=" + b.DNFConf,
+		"--config=" + b.Config.Builder.DNFConf,
 		"-y",
 		"--releasever=" + b.UpstreamVer,
 	}

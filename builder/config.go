@@ -19,6 +19,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -34,21 +35,21 @@ type MixConfig struct {
 }
 
 type builderConf struct {
-	BundleDir      string
-	Cert           string
-	ServerStateDir string
-	VersionPath    string
-	DNFConf        string
+	BundleDir      string `required:"true"`
+	Cert           string `required:"true"`
+	ServerStateDir string `required:"true"`
+	VersionPath    string `required:"true"`
+	DNFConf        string `required:"true"`
 }
 
 type swupdConf struct {
-	Format string
+	Format string `required:"true"`
 }
 
 type mixerConf struct {
-	LocalBundleDir string
-	LocalRepoDir   string
-	LocalRPMDir    string
+	LocalBundleDir string `required:"false"`
+	LocalRepoDir   string `required:"false"`
+	LocalRPMDir    string `required:"false"`
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
@@ -94,6 +95,23 @@ func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
 // LoadConfig loads a configuration file from a provided path or from local directory
 // is none is provided
 func (config *MixConfig) LoadConfig(filename string) error {
+	if err := config.parse(filename); err != nil {
+		return err
+	}
+
+	if err := config.expandEnv(); err != nil {
+		return err
+	}
+
+	if err := config.validate(); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func (config *MixConfig) parse(filename string) error {
 	lines, err := helpers.ReadFileAndSplit(filename)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read buildconf")
@@ -118,31 +136,10 @@ func (config *MixConfig) LoadConfig(filename string) error {
 
 	for _, h := range fields {
 		r := regexp.MustCompile(h.re)
-		// Look for Environment variables in the config file
-		re := regexp.MustCompile(`\$\{?([[:word:]]+)\}?`)
 		for _, i := range lines {
 			if m := r.FindIndex([]byte(i)); m != nil {
-				// We want the variable without the $ or {} for lookup checking
-				matches := re.FindAllStringSubmatch(i[m[1]:], -1)
-				for _, s := range matches {
-					if _, ok := os.LookupEnv(s[1]); !ok {
-						return errors.Errorf("buildconf contains an undefined environment variable: %s", s[1])
-					}
-				}
-
-				// Replace valid Environment Variables
-				*h.dest = os.ExpandEnv(i[m[1]:])
+				*h.dest = i[m[1]:]
 			}
-		}
-
-		if h.required && *h.dest == "" {
-			missing := h.re
-			re := regexp.MustCompile(`([[:word:]]+)\\s\*=`)
-			if matches := re.FindStringSubmatch(h.re); matches != nil {
-				missing = matches[1]
-			}
-
-			return errors.Errorf("buildconf missing entry for variable: %s", missing)
 		}
 	}
 
@@ -154,6 +151,50 @@ func (config *MixConfig) LoadConfig(filename string) error {
 		config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
 		fmt.Printf("WARNING: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.Mixer.LocalBundleDir)
 		fmt.Println("Please set this value to the location you want local bundle definition files to be stored.")
+	}
+
+	return nil
+}
+
+func (config *MixConfig) expandEnv() error {
+	re := regexp.MustCompile(`\$\{?([[:word:]]+)\}?`)
+	rv := reflect.ValueOf(config).Elem()
+
+	for i := 0; i < rv.NumField(); i++ {
+		sectionV := rv.Field(i)
+
+		for j := 0; j < sectionV.NumField(); j++ {
+			val := sectionV.Field(j).String()
+			matches := re.FindAllStringSubmatch(val, -1)
+
+			for _, s := range matches {
+				if _, ok := os.LookupEnv(s[1]); !ok {
+					return errors.Errorf("buildconf contains an undefined environment variable: %s\n", s[1])
+				}
+			}
+
+			sectionV.Field(j).SetString(os.ExpandEnv(val))
+		}
+
+	}
+
+	return nil
+}
+
+func (config *MixConfig) validate() error {
+	rv := reflect.ValueOf(config).Elem()
+
+	for i := 0; i < rv.NumField(); i++ {
+		sectionT := reflect.TypeOf(rv.Field(i).Interface())
+		sectionV := rv.Field(i)
+
+		for j := 0; j < sectionT.NumField(); j++ {
+			tag, ok := sectionT.Field(j).Tag.Lookup("required")
+
+			if ok && tag == "true" && sectionV.Field(j).String() == "" {
+				return errors.Errorf("Missing required field in config file: %s", sectionT.Field(j).Name)
+			}
+		}
 	}
 
 	return nil

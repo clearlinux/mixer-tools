@@ -15,6 +15,7 @@
 package builder
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -320,6 +321,20 @@ func (config *MixConfig) validate() error {
 			}
 		}
 	}
+
+	return nil
+}
+
+// Print print variables and values of a MixConfig struct
+func (config *MixConfig) Print() error {
+	sb := bytes.NewBufferString("")
+
+	enc := toml.NewEncoder(sb)
+	if err := enc.Encode(config); err != nil {
+		return err
+	}
+
+	fmt.Println(sb.String())
 
 	return nil
 }

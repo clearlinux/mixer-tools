@@ -108,6 +108,9 @@ func New() *Builder {
 // NewFromConfig creates a new Builder with the given Configuration.
 func NewFromConfig(conf string) (*Builder, error) {
 	b := New()
+	if err := b.Config.LoadDefaults(); err != nil {
+		return nil, err
+	}
 	if err := b.LoadBuilderConf(conf); err != nil {
 		return nil, err
 	}
@@ -1326,6 +1329,10 @@ priority=1
 // resolve and no-op installs. One full chroot is created from this step with
 // the file contents of all bundles.
 func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
+	if !UseNewChrootBuilder && UseNewConfig {
+		return errors.Errorf("--new-config flag requires the use of new chroots")
+	}
+
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err

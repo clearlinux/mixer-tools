@@ -143,6 +143,9 @@ func init() {
 	// TODO: Remove this once we migrate to new implementation.
 	RootCmd.PersistentFlags().BoolVar(&builder.UseNewSwupdServer, "new-swupd", false, "EXPERIMENTAL: Use new implementation of swupd-server when possible")
 
+	// TODO: Remove this once we drop the old config format
+	RootCmd.PersistentFlags().BoolVar(&builder.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")
+
 	RootCmd.PersistentFlags().BoolVar(&builder.Offline, "offline", false, "Skip caching upstream-bundles; work entirely with local-bundles")
 
 	RootCmd.AddCommand(initCmd)

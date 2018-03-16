@@ -23,38 +23,139 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/BurntSushi/toml"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 )
+
+// UseNewConfig controls whether to use the new TOML config format.
+// This is an experimental feature.
+var UseNewConfig = false
 
 // MixConfig represents the config parameters found in the builder config file.
 type MixConfig struct {
 	Builder builderConf
 	Swupd   swupdConf
+	Server  serverConf
 	Mixer   mixerConf
 }
 
 type builderConf struct {
-	BundleDir      string `required:"true"`
-	Cert           string `required:"true"`
-	ServerStateDir string `required:"true"`
-	VersionPath    string `required:"true"`
-	DNFConf        string `required:"true"`
+	BundleDir      string `required:"true" toml:"BUNDLE_DIR"`
+	Cert           string `required:"true" toml:"CERT"`
+	ServerStateDir string `required:"true" toml:"SERVER_STATE_DIR"`
+	VersionPath    string `required:"true" toml:"VERSIONS_PATH"`
+	DNFConf        string `required:"true" toml:"YUM_CONF"`
 }
 
 type swupdConf struct {
-	Format string `required:"true"`
+	Bundle     string `required:"false" toml:"BUNDLE"`
+	ContentURL string `required:"false" toml:"CONTENTURL"`
+	Format     string `required:"true" toml:"FORMAT"`
+	VersionURL string `required:"false" toml:"VERSIONURL"`
+}
+
+type serverConf struct {
+	DebugInfoBanned string `required:"false" toml:"DEBUG_INFO_BANNED"`
+	DebugInfoLib    string `required:"false" toml:"DEBUG_INFO_LIB"`
+	DebugInfoSrc    string `required:"false" toml:"DEBUG_INFO_SRC"`
 }
 
 type mixerConf struct {
-	LocalBundleDir string `required:"false"`
-	LocalRepoDir   string `required:"false"`
-	LocalRPMDir    string `required:"false"`
+	LocalBundleDir string `required:"false" toml:"LOCAL_BUNDLE_DIR"`
+	LocalRepoDir   string `required:"false" toml:"LOCAL_REPO_DIR"`
+	LocalRPMDir    string `required:"false" toml:"LOCAL_RPM_DIR"`
+}
+
+// LoadDefaults sets sane values for the config properties
+func (config *MixConfig) LoadDefaults() error {
+	if !UseNewConfig {
+		return nil
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// [Builder]
+	config.Builder.BundleDir = filepath.Join(pwd, "mix-bundles")
+	config.Builder.Cert = filepath.Join(pwd, "Swupd_Root.pem")
+	config.Builder.ServerStateDir = filepath.Join(pwd, "update")
+	config.Builder.VersionPath = pwd
+	config.Builder.DNFConf = filepath.Join(pwd, ".yum-mix.conf")
+
+	// [Swupd]
+	config.Swupd.Bundle = "os-core-update"
+	config.Swupd.ContentURL = "<URL where the content will be hosted>"
+	config.Swupd.Format = "1"
+	config.Swupd.VersionURL = "<URL where the version of the mix will be hosted>"
+
+	// [Server]
+	config.Server.DebugInfoBanned = "true"
+	config.Server.DebugInfoLib = "/usr/lib/debug"
+	config.Server.DebugInfoSrc = "/usr/src/debug"
+
+	// [Mixer]
+	config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
+	config.Mixer.LocalRPMDir = ""
+	config.Mixer.LocalRepoDir = ""
+
+	return nil
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
 // directory as base path for the variables values.
 func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
+	if !UseNewConfig {
+		return config.createLegacyConfig(localrpms)
+	}
+
+	if err := config.LoadDefaults(); err != nil {
+		return err
+	}
+
+	if localrpms {
+		pwd, err := os.Getwd()
+		if err != nil {
+			return err
+		}
+
+		config.Mixer.LocalRPMDir = filepath.Join(pwd, "local-rpms")
+		config.Mixer.LocalRepoDir = filepath.Join(pwd, "local-yum")
+	}
+
+	filename, err := GetConfigPath("")
+	if err != nil {
+		return err
+	}
+
+	return config.SaveConfig(filename)
+}
+
+// SaveConfig saves the properties in MixConfig to a TOML config file
+func (config *MixConfig) SaveConfig(filename string) error {
+	if !UseNewConfig {
+		return errors.Errorf("SaveConfig can only be used with --new-config flag")
+	}
+
+	w, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = w.Close()
+	}()
+
+	enc := toml.NewEncoder(w)
+	return enc.Encode(config)
+}
+
+func (config *MixConfig) createLegacyConfig(localrpms bool) error {
+	if UseNewConfig {
+		return errors.Errorf("createLegacyConfig is not compatible with --new-config flag")
+	}
+
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -95,23 +196,36 @@ func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
 // LoadConfig loads a configuration file from a provided path or from local directory
 // is none is provided
 func (config *MixConfig) LoadConfig(filename string) error {
-	if err := config.parse(filename); err != nil {
+	if err := config.Parse(filename); err != nil {
 		return err
 	}
-
 	if err := config.expandEnv(); err != nil {
 		return err
 	}
 
-	if err := config.validate(); err != nil {
-		return err
+	return config.validate()
+}
+
+// Parse reads the values from a config file without performing validation or env expansion
+func (config *MixConfig) Parse(filename string) error {
+	if !UseNewConfig {
+		if err := config.legacyParse(filename); err != nil {
+			return err
+		}
+	} else {
+		if _, err := toml.DecodeFile(filename, &config); err != nil {
+			return err
+		}
 	}
 
 	return nil
-
 }
 
-func (config *MixConfig) parse(filename string) error {
+func (config *MixConfig) legacyParse(filename string) error {
+	if UseNewConfig {
+		return errors.Errorf("legacyParse is not compatible with --new-config flag")
+	}
+
 	lines, err := helpers.ReadFileAndSplit(filename)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read buildconf")
@@ -123,15 +237,25 @@ func (config *MixConfig) parse(filename string) error {
 		dest     *string
 		required bool
 	}{
+		// [Builder]
 		{`^BUNDLE_DIR\s*=\s*`, &config.Builder.BundleDir, true}, //Note: Can be removed once UseNewChrootBuilder is obsolete
 		{`^CERT\s*=\s*`, &config.Builder.Cert, true},
-		{`^FORMAT\s*=\s*`, &config.Swupd.Format, true},
-		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
-		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
-		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
 		{`^SERVER_STATE_DIR\s*=\s*`, &config.Builder.ServerStateDir, true},
 		{`^VERSIONS_PATH\s*=\s*`, &config.Builder.VersionPath, true},
 		{`^YUM_CONF\s*=\s*`, &config.Builder.DNFConf, true},
+		// [Swupd]
+		{`^BUNDLE\s*=\s*`, &config.Swupd.Bundle, false},
+		{`^CONTENTURL\s*=\s*`, &config.Swupd.ContentURL, false},
+		{`^FORMAT\s*=\s*`, &config.Swupd.Format, true},
+		{`^VERSIONURL\s*=\s*`, &config.Swupd.VersionURL, false},
+		// [Server]
+		{`^debuginfo_banned\s*=\s*`, &config.Server.DebugInfoBanned, false},
+		{`^debuginfo_lib\s*=\s*`, &config.Server.DebugInfoLib, false},
+		{`^debuginfo_src\s*=\s*`, &config.Server.DebugInfoSrc, false},
+		// [Mixer]
+		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
+		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
+		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
 	}
 
 	for _, h := range fields {

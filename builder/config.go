@@ -325,6 +325,24 @@ func (config *MixConfig) validate() error {
 	return nil
 }
 
+// Convert parses an old config file and converts it to TOML format
+func (config *MixConfig) Convert(filename string) error {
+	// Force UseNewConfig to false
+	UseNewConfig = false
+	if err := config.Parse(filename); err != nil {
+		return err
+	}
+
+	if err := helpers.CopyFile(filename+".bkp", filename); err != nil {
+		return err
+	}
+
+	// Force UseNewConfig to true
+	UseNewConfig = true
+
+	return config.SaveConfig(filename)
+}
+
 // Print print variables and values of a MixConfig struct
 func (config *MixConfig) Print() error {
 	sb := bytes.NewBufferString("")

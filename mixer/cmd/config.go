@@ -52,9 +52,32 @@ environment variables will be expanded`,
 	},
 }
 
+var configConvertCmd = &cobra.Command{
+	Use:   "convert",
+	Short: "Converts an old config file to the new TOML format",
+	Long: `Convert an old config file to the new TOML format. The command will generate
+a backup file of the old config and will replace it with the converted one. Environment
+variables will not be expanded and the values will not be validated`,
+	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+		if config, err = builder.GetConfigPath(config); err != nil {
+			fail(err)
+			return
+		}
+
+		var mc builder.MixConfig
+		if err := mc.Convert(config); err != nil {
+			fail(err)
+			return
+		}
+
+	},
+}
+
 // List of all config commands
 var configCmds = []*cobra.Command{
 	configValidateCmd,
+	configConvertCmd,
 }
 
 func init() {

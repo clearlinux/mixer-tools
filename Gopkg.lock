@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  name = "github.com/BurntSushi/toml"
+  packages = ["."]
+  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
+  version = "v0.3.0"
+
+[[projects]]
   name = "github.com/go-ini/ini"
   packages = ["."]
   revision = "32e4c1e6bc4e7d0d8451aa6b75200d19e37a536a"
@@ -34,6 +40,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "80a01e2046d62fa9c31735141794005793264f5a4bc218210d6abb51d90d17ed"
+  inputs-digest = "54f12c04bf30404052834c768761deef34ce0e0d44c5ca84126cad8f32ec391d"
   solver-name = "gps-cdcl"
   solver-version = 1

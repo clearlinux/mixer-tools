@@ -221,6 +221,55 @@ func validateBundle(b *bundle) error {
 	return nil
 }
 
+// parsePackageBundleFile parses a file at filename containing a flat list of package
+// names to be converted to one-package bundles (pundles). Returns a map of package
+// names found in the file.
+func parsePackageBundleFile(filename string) (map[string]bool, error) {
+	packages := make(map[string]bool)
+	contents, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	pundleList := strings.Split(string(contents), "\n")
+	for _, p := range pundleList {
+		if len(p) == 0 {
+			// skip empty lines
+			continue
+		}
+
+		if p[0] == '#' {
+			// skip comments
+			continue
+		}
+
+		packages[p] = true
+	}
+
+	return packages, nil
+}
+
+// newBundleFromPackage creates a new bundle from a package name p
+func newBundleFromPackage(p, path string) (*bundle, error) {
+	if !validPackageNameRegex.MatchString(p) {
+		return nil, fmt.Errorf("Invalid package name %q", p)
+	}
+
+	if _, ok := localPackages[p]; !ok {
+		if _, ok = upstreamPackages[p]; !ok {
+			return nil, fmt.Errorf("no package for %q", p)
+		}
+	}
+
+	b := bundle{
+		Name:           p,
+		Filename:       path,
+		DirectPackages: map[string]bool{p: true, "filesystem": true},
+	}
+
+	return &b, nil
+}
+
 // parseBundleFile parses a bundle file identified by full filepath, and returns
 // a bundle object representation of that bundle.
 // Note: the Allpackages field of the bundles are left blank, as they cannot

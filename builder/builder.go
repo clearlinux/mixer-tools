@@ -63,23 +63,24 @@ type Builder struct {
 	BuildScript string
 	BuildConf   string
 
-	BundleDir       string
-	Cert            string
-	Format          string
-	LocalBundleDir  string
-	MixVer          string
-	MixVerFile      string
-	MixBundlesFile  string
-	RepoDir         string
-	RPMDir          string
-	StateDir        string
-	UpstreamURL     string
-	UpstreamURLFile string
-	UpstreamVer     string
-	UpstreamVerFile string
-	VersionDir      string
-	DNFConf         string
-	DNFTemplate     string
+	BundleDir         string
+	Cert              string
+	Format            string
+	LocalBundleDir    string
+	MixVer            string
+	MixVerFile        string
+	MixBundlesFile    string
+	LocalPackagesFile string
+	RepoDir           string
+	RPMDir            string
+	StateDir          string
+	UpstreamURL       string
+	UpstreamURLFile   string
+	UpstreamVer       string
+	UpstreamVerFile   string
+	VersionDir        string
+	DNFConf           string
+	DNFTemplate       string
 
 	Signing int
 	Bump    int
@@ -93,16 +94,20 @@ type Builder struct {
 	UpstreamVerUint32 uint32
 }
 
+var localPackages = make(map[string]bool)
+var upstreamPackages = make(map[string]bool)
+
 // New will return a new instance of Builder with some predetermined sane
 // default values.
 func New() *Builder {
 	return &Builder{
-		BuildScript:     "bundle-chroot-builder.py",
-		DNFTemplate:     "/usr/share/defaults/mixer/yum.conf.in",
-		UpstreamURLFile: "upstreamurl",
-		UpstreamVerFile: "upstreamversion",
-		MixBundlesFile:  "mixbundles",
-		MixVerFile:      "mixversion",
+		BuildScript:       "bundle-chroot-builder.py",
+		DNFTemplate:       "/usr/share/defaults/mixer/yum.conf.in",
+		UpstreamURLFile:   "upstreamurl",
+		UpstreamVerFile:   "upstreamversion",
+		MixBundlesFile:    "mixbundles",
+		LocalPackagesFile: "local-packages",
+		MixVerFile:        "mixversion",
 
 		Signing: 1,
 		Bump:    0,
@@ -514,6 +519,10 @@ func getUpstreamBundlesPath(ver string) string {
 	return filepath.Join(upstreamBundlesBaseDir, fmt.Sprintf(upstreamBundlesVerDirFmt, ver), upstreamBundlesBundleDir)
 }
 
+func (b *Builder) getLocalPackagesPath() string {
+	return filepath.Join(b.VersionDir, b.LocalPackagesFile)
+}
+
 func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 	if Offline {
 		return nil
@@ -568,9 +577,25 @@ func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 	return errors.Wrapf(os.Remove(tmptarfile), "Failed to remove temp bundle archive: %s", tmptarfile)
 }
 
+func setPackagesList(source *map[string]bool, filename string) error {
+	var err error
+	if len(*source) > 0 {
+		return nil
+	}
+	if _, err = os.Stat(filename); os.IsNotExist(err) {
+		return nil
+	}
+
+	*source, err = parsePackageBundleFile(filename)
+	return err
+}
+
 // getBundlePath returns the path to the bundle definition file for a given
-// bundle name, or error if it cannot be found. Looks first in local-bundles,
-// then upstream-bundles.
+// bundle name, or error if it cannot be found. Looks in the following order:
+// local-bundles/
+// local-packages
+// upstream-bundles/clr-bundles-<ver>/bundles/
+// upstream-bundles/clr-bundles-<ver>/packages
 func (b *Builder) getBundlePath(bundle string) (string, error) {
 	// Check local-bundles
 	path := filepath.Join(b.LocalBundleDir, bundle)
@@ -578,18 +603,40 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 		return path, nil
 	}
 
+	// Check local-packages
+	path = b.getLocalPackagesPath()
+	err := setPackagesList(&localPackages, path)
+	if err != nil {
+		return "", err
+	}
+
+	if _, ok := localPackages[bundle]; ok {
+		return path, nil
+	}
+
 	// Check upstream-bundles
 	path = filepath.Join(getUpstreamBundlesPath(b.UpstreamVer), bundle)
-	if _, err := os.Stat(path); err == nil {
+	if _, err = os.Stat(path); err == nil {
+		return path, nil
+	}
+
+	// Check upstream-packages
+	path = filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
+	err = setPackagesList(&upstreamPackages, path)
+	if err != nil {
+		return "", err
+	}
+
+	if _, ok := upstreamPackages[bundle]; ok {
 		return path, nil
 	}
 
 	return "", errors.Errorf("Cannot find bundle %q in local or upstream bundles", bundle)
 }
 
-// isLocalBundle checks a bundle filepath is local
+// isLocalBundle checks to see if a bundle filepath is a local bundle definition or package file
 func (b *Builder) isLocalBundle(path string) bool {
-	return strings.HasPrefix(path, b.LocalBundleDir)
+	return strings.HasPrefix(path, b.LocalBundleDir) || b.isLocalPackagePath(path)
 }
 
 func getBundleSetKeys(set bundleSet) []string {
@@ -608,12 +655,33 @@ func getBundleSetKeysSorted(set bundleSet) []string {
 	return keys
 }
 
+// isLocalPackagePath checks if path is a local-packages definition file
+func (b *Builder) isLocalPackagePath(path string) bool {
+	return strings.HasSuffix(path, b.LocalPackagesFile)
+}
+
+// isUpstreamPackagePath checks if path is an upstream packages definition file
+func isUpstreamPackagePath(path string) bool {
+	return strings.HasSuffix(path, "/packages")
+}
+
+// isPathToPackageFile checks if the path is a local or upstream package definition file
+func (b *Builder) isPathToPackageFile(path string) bool {
+	return b.isLocalPackagePath(path) || isUpstreamPackagePath(path)
+}
+
 func (b *Builder) getBundleFromName(name string) (*bundle, error) {
+	var bundle *bundle
 	path, err := b.getBundlePath(name)
 	if err != nil {
 		return nil, err
 	}
-	bundle, err := parseBundleFile(path)
+
+	if b.isPathToPackageFile(path) {
+		return newBundleFromPackage(name, path)
+	}
+
+	bundle, err = parseBundleFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -719,6 +787,25 @@ func (b *Builder) getFullBundleSet(bundles bundleSet) (bundleSet, error) {
 	return set, nil
 }
 
+func populateSetFromPackages(source *map[string]bool, dest bundleSet, filename string) error {
+	var err error
+	err = setPackagesList(source, filename)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to read packages file: %s", filename)
+	}
+	for k := range *source {
+		if _, ok := dest[k]; ok {
+			fmt.Printf("Bundle %q already in mix; skipping\n", k)
+			continue
+		}
+		dest[k], err = newBundleFromPackage(k, filename)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to add %q bundle to mix", k)
+		}
+	}
+	return nil
+}
+
 // getFullMixBundleSet returns the full set of mix bundle objects. It is a
 // convenience function that is equivalent to calling getFullBundleSet on the
 // results of getMixBundlesListAsSet.
@@ -774,6 +861,11 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 		if err != nil {
 			return errors.Wrapf(err, "Failed to read local bundles dir: %s", b.LocalBundleDir)
 		}
+		// handle packages defined in local-packages, if it exists
+		err = populateSetFromPackages(&localPackages, localSet, b.getLocalPackagesPath())
+		if err != nil {
+			return err
+		}
 
 		for _, bundle := range localSet {
 			if _, exists := set[bundle.Name]; exists {
@@ -792,6 +884,12 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 		upstreamSet, err := b.getDirBundlesListAsSet(upstreamBundleDir)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to read upstream bundles dir: %s", upstreamBundleDir)
+		}
+		// handle packages defined in upstream packages file, if it exists
+		upstreamPackagesFile := filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
+		err = populateSetFromPackages(&upstreamPackages, upstreamSet, upstreamPackagesFile)
+		if err != nil {
+			return err
 		}
 
 		for _, bundle := range upstreamSet {

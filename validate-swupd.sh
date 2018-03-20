@@ -50,6 +50,13 @@ for i in $(seq $1 10 $2); do
 		popd
 		exit 1
 	fi
+	echo "helloworld" >> local-packages
+	mixer bundle add helloworld
+	if [[ $? -ne 0 ]]; then
+		echo "failed to add mix bundles"
+		popd
+		exit 1
+	fi
 	# increase the number of bundle-workers on larger systems
 	# keep in mind that this is network bound due to dnf installs
 	# of upstream tarballs
@@ -100,12 +107,23 @@ for i in $(ls update/www); do
 		popd
 		exit 1
 	fi
-	swupd bundle-add bootloader os-core-update kernel-native -F $3 --path os-$i-install -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
+	swupd bundle-add bootloader os-core-update kernel-native helloworld -F $3 --path os-$i-install -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
 	if [[ $? -ne 0 ]]; then
 		echo "failed bundle-add"
 		popd
 		exit 1
 	fi
+
+	pushd os-$i-install
+	$(pwd)/usr/bin/helloworld
+	if [[ $? -ne 0 ]]; then
+		echo "failed helloworld"
+		popd
+		popd
+		exit 1
+	fi
+	popd
+
 	swupd bundle-remove -F $3 kernel-native --path os-$i-install  -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
 	if [[ $? -ne 0 ]]; then
 		echo "failed bundle-remove" 

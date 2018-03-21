@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 )
 
@@ -33,7 +32,7 @@ type bundle struct {
 
 	DirectIncludes []string
 	DirectPackages map[string]bool
-	AllPackages    []string
+	AllPackages    map[string]bool
 
 	Files map[string]bool
 }
@@ -55,22 +54,14 @@ func validateAndFillBundleSet(bundles bundleSet) error {
 		return err
 	}
 	for _, b := range sortedBundles {
-		var allPackages []string
+		b.AllPackages = make(map[string]bool)
 		for k, v := range b.DirectPackages {
-			if v {
-				allPackages = append(allPackages, k)
-			}
+			b.AllPackages[k] = v
 		}
 		for _, include := range b.DirectIncludes {
-			allPackages = append(allPackages, bundles[include].AllPackages...)
-		}
-		// Remove redundant packages.
-		sort.Strings(allPackages)
-		for i, p := range allPackages {
-			if i != 0 && allPackages[i-1] == p {
-				continue
+			for k, v := range bundles[include].AllPackages {
+				b.AllPackages[k] = v
 			}
-			b.AllPackages = append(b.AllPackages, p)
 		}
 	}
 

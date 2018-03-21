@@ -82,24 +82,6 @@ func readBuildBundlesConfig(path string) (*buildBundlesConfig, error) {
 	return cfg, nil
 }
 
-func updateBundlePackages(set bundleSet, packages *sync.Map) {
-	for _, b := range set {
-		for k := range b.DirectPackages {
-			deps, ok := packages.Load(k)
-			if !ok {
-				continue
-			}
-
-			for _, d := range deps.([]string) {
-				d = strings.Trim(d, " ")
-				if len(d) > 0 {
-					b.DirectPackages[d] = true
-				}
-			}
-		}
-	}
-}
-
 var bannedPaths = [...]string{
 	"/var/lib/",
 	"/var/cache/",
@@ -212,18 +194,21 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 
 func resolveFilesForBundle(bundle *bundle, packagerCmd []string) error {
 	bundle.Files = make(map[string]bool)
-	for p := range bundle.DirectPackages {
-		queryString := merge(packagerCmd, "repoquery", "-l", "--quiet", p)
-		outBuf, err := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
-		if err != nil {
-			return err
-		}
-		for _, f := range strings.Split(outBuf.String(), "\n") {
-			if len(f) > 0 {
-				addFileAndPath(bundle.Files, resolveFileName(f))
-			}
+
+	queryString := merge(packagerCmd, "repoquery", "-l", "--quiet")
+	for p := range bundle.AllPackages {
+		queryString = append(queryString, p)
+	}
+	outBuf, err := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
+	if err != nil {
+		return err
+	}
+	for _, f := range strings.Split(outBuf.String(), "\n") {
+		if len(f) > 0 {
+			addFileAndPath(bundle.Files, resolveFileName(f))
 		}
 	}
+
 	addFileAndPath(bundle.Files, fmt.Sprintf("/usr/share/clear/bundles/%s", bundle.Name))
 	fmt.Printf("Bundle %s\t%d files\n", bundle.Name, len(bundle.Files))
 	return nil
@@ -351,7 +336,7 @@ func parseNoopInstall(installOut string) []string {
 	return pkgDeps
 }
 
-func resolvePackages(numWorkers int, set bundleSet, packages *sync.Map, packagerCmd []string, emptyDir string) {
+func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) {
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
 	wg.Add(numWorkers)
@@ -361,27 +346,29 @@ func resolvePackages(numWorkers int, set bundleSet, packages *sync.Map, packager
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
 			packageNames := make(map[string]bool)
-			for k := range bundle.DirectPackages {
+			for k := range bundle.AllPackages {
 				packageNames[k] = true
 			}
+			queryString := merge(
+				packagerCmd,
+				"--installroot="+emptyDir,
+				"--assumeno",
+				"install",
+			)
 			for p := range packageNames {
-				queryString := merge(
-					packagerCmd,
-					"--installroot="+emptyDir,
-					"--assumeno",
-					"install",
-					p,
-				)
-				// ignore error from the --assumeno install. It is an error every time because
-				// --assumeno forces the install command to "abort" and return a non-zero exit
-				// status. This exit status is 1, which is the same as any other dnf install
-				// error. Fortunately if this is a different error than we expect, it should
-				// fail in the actual install to the full chroot.
-				outBuf, _ := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
-				depPkgs := parseNoopInstall(outBuf.String())
-				packages.Store(p, depPkgs)
-				_, _ = packages.Load(p)
+				queryString = append(queryString, p)
 			}
+			// ignore error from the --assumeno install. It is an error every time because
+			// --assumeno forces the install command to "abort" and return a non-zero exit
+			// status. This exit status is 1, which is the same as any other dnf install
+			// error. Fortunately if this is a different error than we expect, it should
+			// fail in the actual install to the full chroot.
+			outBuf, _ := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
+			depPkgs := parseNoopInstall(outBuf.String())
+			for _, d := range depPkgs {
+				bundle.AllPackages[d] = true
+			}
+
 			fmt.Printf("... done with %s\n", bundle.Name)
 		}
 		wg.Done()
@@ -496,11 +483,11 @@ func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *b
 	var err error
 	baseDir := filepath.Join(buildVersionDir, "full")
 	args := merge(packagerCmd, "--installroot="+baseDir, "install")
-	if len(bundle.DirectPackages) > 0 {
+	if len(bundle.AllPackages) > 0 {
 		// There were packages directly included for this bundle so
 		// install to full chroot. This check is necessary so we don't
 		// call dnf install with no package listed.
-		for p := range bundle.DirectPackages {
+		for p := range bundle.AllPackages {
 			args = append(args, p)
 		}
 		err = helpers.RunCommandSilent(args[0], args[1:]...)
@@ -680,15 +667,13 @@ src=%s
 
 	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))
 
-	var pkgs sync.Map
 	numWorkers := b.NumBundleWorkers
 	emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")
 	if err != nil {
 		return err
 	}
 
-	resolvePackages(numWorkers, set, &pkgs, packagerCmd, emptyDir)
-	updateBundlePackages(set, &pkgs)
+	resolvePackages(numWorkers, set, packagerCmd, emptyDir)
 
 	err = resolveFiles(numWorkers, set, packagerCmd)
 	if err != nil {

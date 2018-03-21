@@ -28,7 +28,7 @@ type bundleInfo struct {
 	Filename       string
 	DirectIncludes []string
 	DirectPackages map[string]bool
-	AllPackages    []string
+	AllPackages    map[string]bool
 	Files          map[string]bool
 }
 

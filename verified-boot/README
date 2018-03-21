@@ -3,8 +3,6 @@ Implementing dm-verity for a non-rootfs data partition in Clear Linux
 - Use mixer to create a CLR linux image with the following:
   - Enable support for dm-verity in the CLR linux image.
     - Set “CONFIG_DM_VERITY=y” in the kernel config file and build the linux kernel package.
-  - Add the "cryptsetup" package in the build.
-    - Add the bundle “os-core-dev” that contains the "cryptsetup" package.
   - Use the sample "release-image-config.json" file provided in this folder.
 
 - Run the "dm-verity-impl-1.py" program with input as the path to the .img file.

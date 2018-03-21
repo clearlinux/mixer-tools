@@ -117,6 +117,20 @@ func NewFromConfig(conf string) (*Builder, error) {
 	return b, nil
 }
 
+// GetConfigPath returns the default config path if the provided path is empty
+func GetConfigPath(path string) (string, error) {
+	if path != "" {
+		return path, nil
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(pwd, "builder.conf"), nil
+}
+
 // initDirs creates the directories mixer uses
 func (b *Builder) initDirs() error {
 	// Create folder to store local rpms if defined but doesn't already exist
@@ -283,15 +297,10 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // it was provided, otherwise it will fall back to reading the configuration from
 // the local builder.conf file.
 func (b *Builder) LoadBuilderConf(builderconf string) error {
-	if len(builderconf) > 0 {
-		b.BuildConf = builderconf
-	} else {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-
-		b.BuildConf = filepath.Join(pwd, "builder.conf")
+	var err error
+	b.BuildConf, err = GetConfigPath(builderconf)
+	if err != nil {
+		return err
 	}
 
 	return b.Config.LoadConfig(b.BuildConf)

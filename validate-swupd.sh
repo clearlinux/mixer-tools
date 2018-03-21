@@ -41,20 +41,17 @@ for i in $(seq $1 10 $2); do
 	mixer init --clear-version $i --mix-version "${i}"
 	if [[ $? -ne 0 ]]; then
 		echo "failed to init mix"
-		popd
 		exit 1
 	fi
 	mixer bundle add --all-upstream
 	if [[ $? -ne 0 ]]; then
 		echo "failed to add mix bundles"
-		popd
 		exit 1
 	fi
 	echo "helloworld" >> local-packages
 	mixer bundle add helloworld
 	if [[ $? -ne 0 ]]; then
 		echo "failed to add mix bundles"
-		popd
 		exit 1
 	fi
 	# increase the number of bundle-workers on larger systems
@@ -63,14 +60,12 @@ for i in $(seq $1 10 $2); do
 	mixer build bundles --new-swupd --new-chroots --bundle-workers 8
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix bundles"
-		popd
 		exit 1
 	fi
 	# increase the number of fullfile-workers on larger systems
 	mixer build update --new-swupd --fullfile-workers 8 --min-version $1 --format $3
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix update"
-		popd
 		exit 1
 	fi
 	# increase the number of delta-workers on larger systems
@@ -78,7 +73,6 @@ for i in $(seq $1 10 $2); do
 	mixer build delta-packs --previous-versions 1 --new-swupd --delta-workers 4
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build delta packs"
-		popd
 		exit 1
 	fi
 
@@ -104,13 +98,11 @@ for i in $(ls update/www); do
 	swupd verify --install --path os-$i-install -m $i -F $3 -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
 	if [[ $? -ne 0 ]]; then
 		echo "failed verify --install"
-		popd
 		exit 1
 	fi
 	swupd bundle-add bootloader os-core-update kernel-native helloworld -F $3 --path os-$i-install -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
 	if [[ $? -ne 0 ]]; then
 		echo "failed bundle-add"
-		popd
 		exit 1
 	fi
 
@@ -118,8 +110,6 @@ for i in $(ls update/www); do
 	$(pwd)/usr/bin/helloworld
 	if [[ $? -ne 0 ]]; then
 		echo "failed helloworld"
-		popd
-		popd
 		exit 1
 	fi
 	popd
@@ -127,12 +117,10 @@ for i in $(ls update/www); do
 	swupd bundle-remove -F $3 kernel-native --path os-$i-install  -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
 	if [[ $? -ne 0 ]]; then
 		echo "failed bundle-remove" 
-		popd
 		exit 1
 	fi
 	swupd verify -F $3 --path os-$i-install -u file://$(pwd)/update/www -C $(pwd)/Swupd_Root.pem
 	if [[ $? -ne 0 ]]; then
-		popd
 		exit 1
 	fi
 	# update latest file
@@ -151,12 +139,9 @@ for i in $(ls update/www); do
 	echo $next | sudo tee $(pwd)/update/www/version/format$3/latest
 	swupd update --path "os-$i-install" -F "$3" -u "file://$PWD/update/www" -C "$PWD/Swupd_Root.pem"
 	if [[ $? -ne 0 ]]; then
-		popd
 		exit 1
 	fi
 	set +x
 
 	rm -rf os-$i-install
 done
-
-popd

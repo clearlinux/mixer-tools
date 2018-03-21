@@ -6,6 +6,7 @@ import os
 import urllib.request as request
 import json
 import fnmatch
+import re
 
 disk_image = os.path.abspath(sys.argv[1])
 cmd = "losetup -f -P --show {0}".format(disk_image)
@@ -57,19 +58,51 @@ print("Generating the init file..")
 subprocess.check_output("touch initramfs/init".split(" "))
 try:
     outfile = open('initramfs/init', 'w')
+    outfile.write("mount -t proc none /proc\n")
+    outfile.write("mount -t sysfs none /sys\n")
     outfile.write("mount -t sbin none /sbin\n")
     outfile.write("mount -t bin none /bin\n")
     outfile.write("mount -t lib64 none /lib64\n")
+    outfile.write("mount -t devtmpfs none /dev\n")
+
     outfile.write("veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 create " + verity_name + " /dev/sda" + str(data_num) + " /dev/sda" + str(hash_num) + " " + root_hash + "\n")
-    outfile.write("mount /dev/mapper/" + verity_name + "/\n")
+    outfile.write("mount /dev/mapper/" + verity_name + " /\n")
+    outfile.write("umount /dev\n")
     outfile.write("umount /lib64\n")
     outfile.write("umount /bin\n")
     outfile.write("umount /sbin\n")
+    outfile.write("umount /sys\n")
+    outfile.write("umount /proc\n")
+
     outfile.write("exec switch_root / /sbin/init")
     outfile.close()
 except IOError:
     print("I/O error")
 subprocess.check_output("chmod +x initramfs/init".split(" "))
+
+subprocess.check_output("mount {0} mnt".format(boot_dev).split(" "))
+for fname in os.listdir('mnt/loader/entries/'):
+    if (fnmatch.fnmatch(fname, 'Clear-*')):
+        path = "mnt/loader/entries/" + fname
+        try:
+            outfile = open(path, 'r')
+            content = outfile.read()
+            print(content)
+            outfile.close()
+        except IOError:
+            print("I/O error")
+        content = re.sub(r"root=* quiet", "quiet", content)
+        content = re.sub(r"rw", "", content)
+        print(content)
+
+        try:
+            outfile = open(path, 'w')
+            outfile.write(content)
+            outfile.write("initrd EFI/" + initramfs_fname)
+            outfile.close()
+        except IOError:
+            print("I/O error")
+subprocess.check_output("umount mnt".split(" "))
 
 print("Updating boot files..")
 subprocess.check_output("sh {0} {1} {2}".format(boot_gen, boot_dev, initramfs_fname).split(" "))

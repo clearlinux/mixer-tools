@@ -1,6 +1,6 @@
 #!/bin/bash
 rm -rf initramfs
-mkdir -p initramfs/{sbin,bin,lib64/haswell,dev}
+mkdir -p initramfs/{bin,dev,etc,lib,lib64,lib64/haswell,mnt,proc,root,sbin,sys}
 
 mixversion=$(cat mixversion)
 echo $mixversion

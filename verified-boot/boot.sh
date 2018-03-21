@@ -6,6 +6,6 @@ echo $initramfs_fname
 mount $boot_dev mnt
 cd initramfs
 find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../mnt/EFI/$initramfs_fname
-echo "initrd EFI/$initramfs_fname"  >> ../mnt/loader/entries/Clear-linux-native-4.15.4-534.conf
+#echo "initrd EFI/$initramfs_fname"  >> ../mnt/loader/entries/Clear-linux-native-4.15.4-534.conf
 cd ..
 #umount mnt

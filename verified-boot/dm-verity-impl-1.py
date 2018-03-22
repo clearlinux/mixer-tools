@@ -54,11 +54,11 @@ for fname in os.listdir('mnt/loader/entries/'):
             outfile.close()
         except IOError:
             print("I/O error")
-#        content = re.sub(r"root=PARTUUID=", "cryptdevice=UUID=", content)
-#        kernel_cmdline = ":" + verity_name + " quiet"
-#        content = re.sub(r" quiet", kernel_cmdline, content)
+        content = re.sub(r"root=PARTUUID=", "cryptdevice=UUID=", content)
+        kernel_cmdline = ":" + verity_name + " quiet"
+        content = re.sub(r" quiet", kernel_cmdline, content)
         kernel_cmdline = "root=/dev/mapper/" + str(verity_name) + " systemd.verity=yes roothash=" + root_hash + " systemd.verity_root_data=/dev/sda" + str(data_num) + " systemd.verity_root_hash=/dev/sda" + str(hash_num) + " rootdelay=10 quiet"
-        content = re.sub(r"root=.* quiet", kernel_cmdline, content)
+        content = re.sub(r"quiet", kernel_cmdline, content)
         content = re.sub(r"rw", "ro", content)
         print(content)
 

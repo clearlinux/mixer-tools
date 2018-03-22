@@ -45,24 +45,6 @@ func initBuildEnv(c config) error {
 	return os.Mkdir(tmpDir, os.ModePerm)
 }
 
-// initBuildDirs creates the following directory structure
-// StateDir/
-//    image/
-//        <version>/
-//            <bundle1>/
-//            ...
-//    LAST_VER
-func initBuildDirs(version uint32, groups []string, imageBase string) error {
-	verDir := filepath.Join(imageBase, fmt.Sprint(version))
-	for _, bundle := range groups {
-		if err := os.MkdirAll(filepath.Join(verDir, bundle), 0755); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func getOldManifest(path string) (*Manifest, error) {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return &Manifest{}, nil
@@ -240,10 +222,6 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 	if oldFullManifest.Header.Format > format {
 		return nil, fmt.Errorf("new format %v is lower than old format %v", format, oldFullManifest.Header.Format)
-	}
-
-	if err = initBuildDirs(version, groups, c.imageBase); err != nil {
-		return nil, err
 	}
 
 	timeStamp := time.Now()

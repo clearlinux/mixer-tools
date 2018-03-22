@@ -27,28 +27,6 @@ func TestInitBuildEnv(t *testing.T) {
 	}
 }
 
-func TestInitBuildDirs(t *testing.T) {
-	var c config
-	var err error
-	bundles := []string{"os-core", "os-core-update", "test-bundle"}
-	c, _ = getConfig("./testdata/state_builddirs")
-	if c.imageBase, err = ioutil.TempDir("testdata", "image"); err != nil {
-		t.Fatalf("Could not initialize image dir for testing: %v", err)
-	}
-
-	defer removeAllIgnoreErr(c.imageBase)
-
-	if err = initBuildDirs(10, bundles, c.imageBase); err != nil {
-		t.Errorf("initBuildDirs raised unexpected error: %v", err)
-	}
-
-	mustDirExistsWithPerm(t, filepath.Join(c.imageBase, "10"), 0755)
-
-	for _, dir := range bundles {
-		mustDirExistsWithPerm(t, filepath.Join(c.imageBase, "10", dir), 0755)
-	}
-}
-
 func TestCreateManifestsBadMinVersion(t *testing.T) {
 	if _, err := CreateManifests(10, 20, 1, "testdir"); err == nil {
 		t.Error("No error raised with invalid minVersion (20) for version 10")
@@ -161,6 +139,7 @@ func TestCreateManifestFormatNoDecrement(t *testing.T) {
 		t.Fatal("unexpected success calling create manifests with decremented format")
 	}
 
+	ts.addFile(20, "os-core", "/bar", "bar")
 	_, err = CreateManifests(20, 0, ts.Format, ts.Dir)
 	if err != nil {
 		t.Fatalf("create manifests with same format as before failed: %s", err)

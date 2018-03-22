@@ -17,9 +17,11 @@ func syncToFull(version uint32, bundle string, imageBase string) error {
 
 	// append trailing slash to get contents only
 	bundlePath := filepath.Join(imageBase, fmt.Sprint(version), bundle) + "/"
-	cmd := exec.Command("rsync", "-aAX", "--ignore-existing", bundlePath, fullPath)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("rsync error: %v", err)
+	if _, err := os.Stat(bundlePath); err == nil {
+		cmd := exec.Command("rsync", "-aAX", "--ignore-existing", bundlePath, fullPath)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("rsync error: %v", err)
+		}
 	}
 
 	return nil

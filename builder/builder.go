@@ -402,6 +402,10 @@ func (b *Builder) getLocalPackagesPath() string {
 	return filepath.Join(b.Config.Builder.VersionPath, b.LocalPackagesFile)
 }
 
+func (b *Builder) getUpstreamPackagesPath() string {
+	return filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
+}
+
 func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 	if Offline {
 		return nil
@@ -500,7 +504,7 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 	}
 
 	// Check upstream-packages
-	path = filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
+	path = b.getUpstreamPackagesPath()
 	err = setPackagesList(&upstreamPackages, path)
 	if err != nil {
 		return "", err
@@ -765,8 +769,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 			return errors.Wrapf(err, "Failed to read upstream bundles dir: %s", upstreamBundleDir)
 		}
 		// handle packages defined in upstream packages file, if it exists
-		upstreamPackagesFile := filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
-		err = populateSetFromPackages(&upstreamPackages, upstreamSet, upstreamPackagesFile)
+		err = populateSetFromPackages(&upstreamPackages, upstreamSet, b.getUpstreamPackagesPath())
 		if err != nil {
 			return err
 		}
@@ -954,12 +957,22 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 	if err != nil {
 		return err
 	}
+	// handle packages defined in local-packages, if it exists
+	err = populateSetFromPackages(&localPackages, localBundles, b.getLocalPackagesPath())
+	if err != nil {
+		return err
+	}
 	upstreamBundles, err := b.getDirBundlesListAsSet(getUpstreamBundlesPath(b.UpstreamVer))
 	if err != nil {
 		if !Offline {
 			return err
 		}
 		upstreamBundles = make(bundleSet)
+	}
+	// handle packages defined in upstream packages file, if it exists
+	err = populateSetFromPackages(&upstreamPackages, upstreamBundles, b.getUpstreamPackagesPath())
+	if err != nil {
+		return err
 	}
 
 	// Assign "top level" bundles

@@ -41,7 +41,7 @@ import (
 )
 
 // Version of Mixer. Also used by the Makefile for releases.
-const Version = "4.1.2"
+const Version = "4.2.0"
 
 // UseNewSwupdServer controls whether to use the new implementation of
 // swupd-server (package swupd) when possible. This is an experimental feature.

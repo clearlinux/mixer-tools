@@ -17,20 +17,6 @@ func removeAllIgnoreErr(dir string) {
 	_ = os.RemoveAll(dir)
 }
 
-func mustDirExistsWithPerm(t *testing.T, path string, perm os.FileMode) {
-	t.Helper()
-	var err error
-	var info os.FileInfo
-	if info, err = os.Stat(path); err != nil {
-		t.Fatal(err)
-	}
-
-	// check if it is a directory or the perms don't match
-	if !info.Mode().IsDir() || info.Mode().Perm() != perm {
-		t.Fatal(err)
-	}
-}
-
 func mustInitStandardTest(t *testing.T, testDir, lastVer, ver string, bundles []string) {
 	t.Helper()
 	mustInitTestDir(t, testDir)

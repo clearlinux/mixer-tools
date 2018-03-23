@@ -887,9 +887,17 @@ func (b *Builder) buildTreePrintValue(bundle *bundle, level int, levelEnded []bo
 	// Set up the value for this bundle
 	value := bundle.Name
 	if b.isLocalBundle(bundle.Filename) {
-		value += " (local)"
+		if b.isLocalPackagePath(bundle.Filename) {
+			value += " (local package)"
+		} else {
+			value += " (local bundle)"
+		}
 	} else {
-		value += " (upstream)"
+		if isUpstreamPackagePath(bundle.Filename) {
+			value += " (upstream package)"
+		} else {
+			value += " (upstream bundle)"
+		}
 	}
 
 	if level == 0 {
@@ -1011,9 +1019,17 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 		for _, bundle := range sorted {
 			var location string
 			if _, exists := localBundles[bundle]; exists {
-				location = "(local)"
+				if b.isLocalPackagePath(localBundles[bundle].Filename) {
+					location = "(local package)"
+				} else {
+					location = "(local bundle)"
+				}
 			} else {
-				location = "(upstream)"
+				if isUpstreamPackagePath(upstreamBundles[bundle].Filename) {
+					location = "(upstream package)"
+				} else {
+					location = "(upstream bundle)"
+				}
 			}
 			var included string
 			if _, exists := bundles[bundle]; !exists {
@@ -1029,11 +1045,15 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := mixBundles[bundle]; exists {
 				mix = "(in mix)"
 			}
+			var pkg string
+			if b.isLocalPackagePath(localBundles[bundle].Filename) {
+				pkg = "(package)"
+			}
 			var masking string
 			if _, exists := upstreamBundles[bundle]; exists {
 				masking = "(masking upstream)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, mix, masking)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masking)
 		}
 	case UpstreamList:
 		// Only print the top-level set
@@ -1043,11 +1063,15 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := mixBundles[bundle]; exists {
 				mix = "(in mix)"
 			}
+			var pkg string
+			if isUpstreamPackagePath(upstreamBundles[bundle].Filename) {
+				pkg = "(package)"
+			}
 			var masked string
 			if _, exists := localBundles[bundle]; exists {
 				masked = "(masked by local)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, mix, masked)
+			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masked)
 		}
 	}
 

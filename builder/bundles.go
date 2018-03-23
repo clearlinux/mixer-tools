@@ -672,6 +672,9 @@ src=%s
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = os.RemoveAll(emptyDir)
+	}()
 
 	resolvePackages(numWorkers, set, packagerCmd, emptyDir)
 

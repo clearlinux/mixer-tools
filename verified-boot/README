@@ -1,4 +1,4 @@
-Implementing dm-verity for a non-rootfs data partition in Clear Linux
+Implementing dm-verity for a rootfs data partition in Clear Linux
 
 - Use mixer to create a CLR linux image with the following:
   - Enable support for dm-verity in the CLR linux image.
@@ -13,10 +13,3 @@ Implementing dm-verity for a non-rootfs data partition in Clear Linux
   E.g "sudo dd if=release.img of=/dev/sdd bs=4M status=progress"
 
 - Boot the target system from the USB stick.
-  On login, the non-rootfs partition is activated with dm-verity.
-  "dmsetup table" shows the details of the dm-verity hash table.
-  "lsblk -f" shows the data and hash partitions.
-
-- Mount /dev/mapper/root to a mount folder and access the contents of the partition.
-  E.g. "mount /dev/mapper/root /mnt/datadev/"
-       "sh /mnt/datadev/file1.sh"

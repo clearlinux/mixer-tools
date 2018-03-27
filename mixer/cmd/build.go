@@ -17,7 +17,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"github.com/clearlinux/mixer-tools/builder"
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -109,6 +111,151 @@ var buildBundlesCmd = &cobra.Command{
 	},
 }
 
+// buildOldFormatCmd is used to build the final version in the current format (the +10)
+// and ready the mix state for the new (+20) version to be built by a (possibly) newer mixer
+var buildOldFormatCmd = &cobra.Command{
+	Use:   "format-old",
+	Short: "Build the last version in the current format for the format bump",
+	Long:  `Build the last version in the current format for the format bump`,
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		// Update the mixversion just in case the user did not pass --increment
+		// This must be the +20 to write the new format data files even though we
+		// will build a +10 from the same content
+		for i := 0; i < 2; i++ {
+			if err = b.UpdateMixVer(); err != nil {
+				failf("Couldn't update Mix Version")
+			}
+			// Must re-read the builder or UpdateMixVer() will be a noop each iteration
+			if err = b.ReadVersions(); err != nil {
+				fail(err)
+			}
+		}
+
+		// Set format to format+1 so that the format file inserted into the
+		// update content is the new one
+		if err = b.UpdateFormatVersion(buildFlags.format); err != nil {
+			fail(err)
+		}
+		setWorkers(b)
+
+		fmt.Println(" Backing up full groups.ini")
+		// Back up groups.ini in case we have deprecated bundles to delete
+		if err = b.CopyFullGroupsINI(); err != nil {
+			fail(err)
+		}
+		// Fill this in w/Update bundle definitions
+		// if err := UpdateBudlesForFormatBump(); err != nil {...}
+
+		// Build the +20 (first build in new format) bundles
+		if err = buildBundles(b, buildFlags.noSigning); err != nil {
+			fail(err)
+		}
+
+		fmt.Println("Backing up trimmed groups.ini for future build")
+		// Copy the new trimmed groups.ini to use for the +20 build which will
+		// not have manifest created for fully deleted bundles
+		if err = b.CopyTrimmedGroupsINI(); err != nil {
+			fail(err)
+		}
+
+		// Copy +20 chroots to +10 so we can build last formatN build with the
+		// same content
+		prevVersion, err := strconv.Atoi(b.MixVer)
+		if err != nil {
+			fail(err)
+		}
+		prevVersion -= 10
+		source := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer)
+		dest := filepath.Join(b.Config.Builder.ServerStateDir, "image", strconv.Itoa(prevVersion))
+		fmt.Println(" Copying +20 chroots to +10 chroots")
+		if err = helpers.RunCommandSilent("cp", "-al", source, dest); err != nil {
+			failf("Failed to copy +20 chroots to +10: %s\n", err)
+		}
+
+		// Copy the old groups.ini file back which contains ALL original bundle names
+		// to account for any removed bundles in this build when creating manifests
+		fmt.Println(" Copying full groups.ini back to working directory")
+		if err = b.RevertFullGroupsINI(); err != nil {
+			fail(err)
+		}
+
+		// Set the format back to the previous format version before building the +10 update
+		prevFormat, err := strconv.Atoi(buildFlags.format)
+		if err != nil {
+			fail(err)
+		}
+		prevFormat--
+		if err = b.UpdateFormatVersion(strconv.Itoa(prevFormat)); err != nil {
+			fail(err)
+		}
+		// Set mixversion to the +10 since we have used +20 up to this point
+		if err = b.DecrementMixVer(); err != nil {
+			fail(err)
+		}
+		// Re-read builder.conf after updating format/mixver
+		if err = b.ReadVersions(); err != nil {
+			fail(err)
+		}
+		setWorkers(b)
+
+		// Build the update content for the +10 build
+		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		if err != nil {
+			failf("Couldn't build update: %s", err)
+		}
+		// Copy the trimmed groups.ini back for the +20 build to use
+		if err = b.RevertTrimmedGroupsINI(); err != nil {
+			fail(err)
+		}
+		// Update the format back to the formatN+1 version for +20 to use
+		if err = b.UpdateFormatVersion(buildFlags.format); err != nil {
+			fail(err)
+		}
+		// Set the previous format latest file to the +10 build
+		formatDir := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "format"+strconv.Itoa(prevFormat))
+		err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
+		if err != nil {
+			failf("Couldn't update the latest version")
+		}
+		// Incremement regardless of flag because +20 must be the next version
+		if err = b.UpdateMixVer(); err != nil {
+			failf("Couldn't update Mix Version")
+		}
+	},
+}
+
+var buildNewFormatCmd = &cobra.Command{
+	Use:   "format-new",
+	Short: "Build the first version in the new format for the format bump",
+	Long:  `Build the first version in the new format for the format bump`,
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		setWorkers(b)
+		ver, err := strconv.Atoi(b.MixVer)
+		if err != nil {
+			fail(err)
+		}
+		err = b.BuildUpdate(buildFlags.prefix, ver, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		if err != nil {
+			failf("Couldn't build update: %s", err)
+		}
+
+		if buildFlags.increment {
+			if err = b.UpdateMixVer(); err != nil {
+				failf("Couldn't update Mix Version")
+			}
+		}
+	},
+}
+
 var buildUpdateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Build the update content for your mix",
@@ -121,7 +268,7 @@ var buildUpdateCmd = &cobra.Command{
 		setWorkers(b)
 		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
-			failf("couldn't build update: %s", err)
+			failf("Couldn't build update: %s", err)
 		}
 
 		if buildFlags.increment {
@@ -146,16 +293,16 @@ var buildAllCmd = &cobra.Command{
 		if err == nil {
 			err = b.AddRPMList(rpms)
 			if err != nil {
-				failf("couldn't add the RPMs: %s", err)
+				failf("Couldn't add the RPMs: %s", err)
 			}
 		}
 		err = buildBundles(b, buildFlags.noSigning)
 		if err != nil {
-			failf("couldn't build bundles: %s", err)
+			failf("Couldn't build bundles: %s", err)
 		}
 		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
-			failf("couldn't build update: %s", err)
+			failf("Couldn't build update: %s", err)
 		}
 		err = b.UpdateMixVer()
 		if err != nil {
@@ -176,7 +323,7 @@ var buildImageCmd = &cobra.Command{
 		setWorkers(b)
 		err = b.BuildImage(buildFlags.format, buildFlags.template)
 		if err != nil {
-			failf("couldn't build image: %s", err)
+			failf("Couldn't build image: %s", err)
 		}
 	},
 }
@@ -255,6 +402,8 @@ var buildCmds = []*cobra.Command{
 	buildAllCmd,
 	buildImageCmd,
 	buildDeltaPacksCmd,
+	buildOldFormatCmd,
+	buildNewFormatCmd,
 }
 
 func init() {
@@ -284,6 +433,8 @@ func init() {
 
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)
+	setUpdateFlags(buildOldFormatCmd)
+	setUpdateFlags(buildNewFormatCmd)
 
 	externalDeps[buildBundlesCmd] = []string{
 		"rpm",

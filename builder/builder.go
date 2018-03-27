@@ -1292,6 +1292,18 @@ func (b *Builder) UpdateMixVer() error {
 	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
 }
 
+// DecrementMixVer automatically bumps the mixversion file down -10 to prepare for the next build
+// without requiring user intervention. This makes the flow slightly more automatable.
+func (b *Builder) DecrementMixVer() error {
+	// Deprecate '.mixversion' --> 'mixversion'
+	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
+		b.MixVerFile = ".mixversion"
+		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+	}
+	mixVer, _ := strconv.Atoi(b.MixVer)
+	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer-10)), 0644)
+}
+
 // createMixBundleDir generates the mix-bundles/ dir for chroot building. It will
 // clear the dir if it exists, compute the full list of bundles for the mix, and
 // copy the corresponding bundle files into mix-bundles/

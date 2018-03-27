@@ -15,9 +15,13 @@
 package builder
 
 import (
+	"fmt"
 	"io/ioutil"
+	"net/http"
 	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
@@ -64,3 +68,63 @@ func RevertTrimmedGroupsINI(b *Builder) error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "trimmed_groups.ini"))
 }
 
+func getLastBuildVersion(b *Builder) (string, error) {
+	// Likely the first build or some weirdness that requires us to get the container image and build it anyway
+	var lastVer []byte
+	var err error
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER")
+	if lastVer, err = ioutil.ReadFile(filename); err != nil {
+		return "", errors.Wrap(err, "Cannot find last built version, must get container image")
+	}
+	data := string(lastVer)
+	ver := strings.Split(data, "\n")
+
+	return ver[0], nil
+}
+
+// CheckBumpNeeded returns nil if it successfully deduces there is no format
+// bump boundary being crossed.
+func CheckBumpNeeded(b *Builder) (bool, error) {
+	version, err := getLastBuildVersion(b)
+	if err != nil {
+		return false, err
+	}
+	// Check what format our last built version is part of
+	versionURL := fmt.Sprintf("https://download.clearlinux.org/update/%s/format", version)
+	resp, err := http.Get(versionURL)
+	if err != nil {
+		return false, errors.Wrapf(err, "Failed to http.Get() %s", versionURL)
+	}
+	oldVer, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, errors.Wrapf(err, "Could not read format version from %s", versionURL)
+	}
+
+	// Check what format our to-be-built version is part of
+	versionURL = fmt.Sprintf("https://download.clearlinux.org/update/%s/format", b.MixVer)
+	resp, err = http.Get(versionURL)
+	if err != nil {
+		return false, errors.Wrapf(err, "Failed to http.Get() %s", versionURL)
+	}
+	newVer, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return false, errors.Wrapf(err, "Could not read format version from %s", versionURL)
+	}
+
+	// Check both formats are real numbers
+	oldFmt, err := strconv.ParseInt(string(oldVer), 10, 64)
+	if err != nil {
+		return false, errors.New("Old format is not a number")
+	}
+	newFmt, err := strconv.ParseInt(string(newVer), 10, 64)
+	if err != nil {
+		return false, errors.New("Old format is not a number")
+	}
+
+	// We always need to perform a format bump if these are not equal
+	if oldFmt != newFmt {
+		return true, nil
+	}
+
+	return false, nil
+}

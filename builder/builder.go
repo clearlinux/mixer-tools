@@ -1282,6 +1282,18 @@ func (b *Builder) UpdateMixVer() error {
 	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
 }
 
+// DecrementMixVer automatically bumps the mixversion file down -10 to prepare for the next build
+// without requiring user intervention. This makes the flow slightly more automatable.
+func (b *Builder) DecrementMixVer() error {
+	// Deprecate '.mixversion' --> 'mixversion'
+	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
+		b.MixVerFile = ".mixversion"
+		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+	}
+	mixVer, _ := strconv.Atoi(b.MixVer)
+	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer-10)), 0644)
+}
+
 // If Base == true, template will include the [main] and [clear] sections.
 // If Local == true, template will include the [local] section.
 type dnfConf struct {

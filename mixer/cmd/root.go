@@ -28,6 +28,7 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 var configFile string
@@ -63,6 +64,57 @@ var RootCmd = &cobra.Command{
 				os.Exit(0)
 			}
 		}
+
+		// Init needs to be handled differently because there is no config yet
+		if cmdContains(cmd, "init") {
+			return checkCmdDeps(cmd)
+		}
+
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+
+		// If running natively, check for format missmatch and warn
+		if builder.Native {
+			hostFormat, upstreamFormat, err := b.GetHostAndUpstreamFormats()
+			if err != nil {
+				fail(err)
+			}
+
+			if hostFormat == "" {
+				fmt.Println("Warning: Unable to determine host format. Running natively may fail.")
+			} else if hostFormat != upstreamFormat {
+				fmt.Println("Warning: The host format and mix upstream format do not match.",
+					"Mixer may be incompatible with this format; running natively may fail.")
+			}
+		}
+
+		// For build commands (except format bump commands), check if building
+		// across a format; if so, inform and exit.
+		// If it's a build command, but *NOT* a build format bump command
+		if !cmdContains(cmd, "format-new") && !cmdContains(cmd, "format-old") && cmdContains(cmd, "build") {
+			if bumpNeeded, err := b.CheckBumpNeeded(); err != nil {
+				return err
+			} else if bumpNeeded {
+				// Cancel native run and return
+				cmd.RunE = nil
+				cmd.Run = func(cmd *cobra.Command, args []string) {} // No-op
+				return nil
+			}
+		}
+
+		// If Native==false, run ONLY build commands in container
+		if !builder.Native && cmdContains(cmd, "build") {
+			if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
+				fail(err)
+			}
+			// Cancel native run and return
+			cmd.RunE = nil
+			cmd.Run = func(cmd *cobra.Command, args []string) {} // No-op
+			return nil
+		}
+
 		return checkCmdDeps(cmd)
 	},
 
@@ -152,6 +204,7 @@ func init() {
 	// TODO: Remove this once we drop the old config format
 	RootCmd.PersistentFlags().BoolVar(&config.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")
 
+	RootCmd.PersistentFlags().BoolVar(&builder.Native, "native", false, "Run mixer command on native host instead of in a container")
 	RootCmd.PersistentFlags().BoolVar(&builder.Offline, "offline", false, "Skip caching upstream-bundles; work entirely with local-bundles")
 
 	RootCmd.AddCommand(initCmd)
@@ -172,6 +225,34 @@ func init() {
 	externalDeps[initCmd] = []string{
 		"git",
 	}
+}
+
+// cmdContains returns true if cmd or any of its parents are named name
+func cmdContains(cmd *cobra.Command, name string) bool {
+	if cmd.Name() == name {
+		return true
+	}
+	if cmd.HasParent() {
+		return cmdContains(cmd.Parent(), name)
+	}
+	return false
+}
+
+func reconstructCommand(cmd *cobra.Command, args []string) []string {
+	command := []string{cmd.Name()}
+
+	// Loop back up parents, prepending command name
+	for p := cmd.Parent(); p != nil; p = p.Parent() {
+		command = append([]string{p.Name()}, command...)
+	}
+	// For each flag that was set, append its name and value
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		command = append(command, "--"+flag.Name+"="+flag.Value.String())
+	})
+	// Append args
+	command = append(command, args...)
+
+	return command
 }
 
 // externalDeps let commands keep track of their external program dependencies. Those will be

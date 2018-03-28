@@ -1,0 +1,36 @@
+#!/bin/busybox sh
+
+# Mount the /proc and /sys filesystems.
+echo "Inside initramfs..."
+bin/mount -t proc none /proc
+bin/mount -t sysfs none /sys
+cat /proc/cmdline
+
+echo "Mounting devtmpfs..."
+bin/mount -t devtmpfs none /dev
+
+bin/ls /dev/mapper
+
+# Do your stuff here.
+cmdline() {
+    local value
+    value=" $(cat /proc/cmdline) "
+    value="${value##* $1=}"
+    value="${value%% *}"
+    [ "$value" != "" ] && echo "$value"
+}
+
+# Mount the dm-verity data partition
+#mount -o ro $(findfs $(cmdline root)) /mnt/root
+bin/mount /dev/sda3 /mnt/root
+#bin/mount /dev/mapper/root /mnt/root/data
+
+# Clean up.
+echo "initramfs clean up tasks..."
+umount /proc
+umount /sys
+umount /dev
+
+# Boot the real thing.
+echo "Executing switch_root..."
+exec switch_root /mnt/root /usr/lib/systemd/systemd-bootchart

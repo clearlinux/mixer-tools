@@ -1,4 +1,4 @@
-Implementing dm-verity for a rootfs data partition in Clear Linux
+Implementing dm-verity for a non-rootfs data partition in Clear Linux
 
 - Use mixer to create a CLR linux image with the following:
   - Enable support for dm-verity in the CLR linux image.

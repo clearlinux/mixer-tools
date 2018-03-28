@@ -162,7 +162,7 @@ func addFileAndPath(destination map[string]bool, absPathsToFiles ...string) {
 				continue
 			}
 			path = filepath.Join(path, part)
-			destination[filepath.Join(path)] = true
+			destination[path] = true
 		}
 		destination[file] = true
 	}

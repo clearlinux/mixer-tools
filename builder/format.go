@@ -15,6 +15,7 @@
 package builder
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -83,8 +84,8 @@ func (b *Builder) getLastBuildVersion() (string, error) {
 	var err error
 
 	filename := filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER")
-	// Likely the first build
 	if lastVer, err = ioutil.ReadFile(filename); os.IsNotExist(err) {
+		// Likely the first build
 		return "", nil
 	} else if err != nil {
 		return "", errors.Wrap(err, "Cannot find last built version")
@@ -95,20 +96,45 @@ func (b *Builder) getLastBuildVersion() (string, error) {
 	return ver[0], nil
 }
 
+func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
+	lastMix, err := b.getLastBuildVersion()
+	if err != nil {
+		return "", err
+	} else if lastMix == "" {
+		return "", nil
+	}
+
+	var lastVer []byte
+
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "update/www", lastMix, "upstreamver")
+	if lastVer, err = ioutil.ReadFile(filename); os.IsNotExist(err) {
+		// Likely the first build
+		return "", nil
+	} else if err != nil {
+		return "", errors.Wrap(err, "Cannot find last built version's upstream version")
+	}
+	data := string(lastVer)
+	ver := strings.Split(data, "\n")
+
+	return ver[0], nil
+}
+
 // CheckBumpNeeded returns nil if it successfully deduces there is no format
 // bump boundary being crossed.
 func (b *Builder) CheckBumpNeeded() (bool, error) {
-	version, err := b.getLastBuildVersion()
+	version, err := b.getLastBuildUpstreamVersion()
 	if err != nil {
 		return false, err
+	} else if version == "" {
+		return false, nil
 	}
 	// Check what format our last built version is part of
-	oldVer, err := b.DownloadFileFromUpstream(filepath.Join("/update", version, "format"))
+	oldVer, err := b.DownloadFileFromUpstreamAsString(filepath.Join("/update", version, "format"))
 	if err != nil {
 		return false, errors.Wrapf(err, "Could not read format version from %s", b.UpstreamURL)
 	}
 	// Check what format our to-be-built version is part of
-	newVer, err := b.DownloadFileFromUpstream(filepath.Join("/update", b.MixVer, "format"))
+	newVer, err := b.DownloadFileFromUpstreamAsString(filepath.Join("/update", b.UpstreamVer, "format"))
 	if err != nil {
 		return false, errors.Wrapf(err, "Could not read format version from %s", b.UpstreamURL)
 	}
@@ -125,6 +151,16 @@ func (b *Builder) CheckBumpNeeded() (bool, error) {
 
 	// We always need to perform a format bump if these are not equal
 	if oldFmt != newFmt {
+		format, first, latest, err := b.getUpstreamFormatRange(version)
+		if err != nil {
+			return false, err
+		}
+		fmt.Printf("The upstream version for this build (%s) is outside the format range of your last mix "+
+			"(format %s, upstream versions %d to %d). This build cannot be done until you complete a "+
+			"format-bump build. Please run the following two commands to complete the format bump:\nmixer "+
+			"build format-old\nmixer build format-new\nOnce these have completed, you can re-run this build.\n",
+			b.UpstreamVer, format, first, latest)
+
 		return true, nil
 	}
 

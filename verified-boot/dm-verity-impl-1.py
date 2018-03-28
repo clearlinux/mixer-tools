@@ -17,12 +17,10 @@ except Exception:
     raise Exception("{0}: {1}".format(cmd, sys.exc_info()))
 print(dev[len(dev) - 1])
 boot_num = 1
-rootfs_num = 3
-data_num = 4
-hash_num = 5
+data_num = 3
+hash_num = 4
 
 boot_dev = dev[0] + "p" + str(boot_num)
-rootfs_dev = dev[0] + "p" + str(rootfs_num)
 data_dev = dev[0] + "p" + str(data_num)
 hash_dev = dev[0] + "p" + str(hash_num)
 
@@ -34,26 +32,6 @@ initramfs_fname = "initramfs.cpio.gz"
 subprocess.check_output("rm -rf mnt".split(" "))
 subprocess.check_output("mkdir mnt".split(" "))
 
-print("Creating data files in " + data_dev)
-subprocess.check_output("mount {0} mnt".format(data_dev).split(" "))
-
-subprocess.check_output("touch mnt/file1.sh".split(" "))
-try:
-    outfile = open('mnt/file1.sh','w')
-    outfile.write("echo Testing dm-verity data1...")
-    outfile.close()
-except IOError:
-    print("I/O error")
-
-subprocess.check_output("touch mnt/file2.sh".split(" "))
-try:
-    outfile = open('mnt/file2.sh','w')
-    outfile.write("echo Testing dm-verity data2...")
-    outfile.close()
-except IOError:
-    print("I/O error")
-
-subprocess.check_output("umount mnt".split(" "))
 
 cmd = "veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 format {0} {1}".format(data_dev, hash_dev)
 print("Executing: " + cmd)
@@ -85,17 +63,19 @@ try:
     outfile.write("bin/mount -t proc none /proc\n")
     outfile.write("bin/mount -t sysfs none /sys\n")
     outfile.write("bin/mount -t devtmpfs none /dev\n")
+    outfile.write("bin/mount -t tmpfs none /run\n")
 
     outfile.write("echo \"Executing veritysetup...\"\n")
     outfile.write("bin/veritysetup --verbose --data-block-size=1024 --hash-block-size=1024 create " + verity_name + " /dev/vda" + str(data_num) + " /dev/vda" + str(hash_num) + " " + root_hash + "\n")
-    outfile.write("bin/sleep 5\n")
-#    outfile.write("bin/mount /dev/mapper/" + verity_name + " /mnt/root\n")
-    outfile.write("bin/mount /dev/vda" + str(rootfs_num) + " /mnt/root\n")
-    outfile.write("bin/mount /dev/mapper/" + verity_name + " /mnt/root/mnt/datadev\n")
+    outfile.write("bin/sleep 0.25\n")
+    outfile.write("bin/mount /dev/mapper/" + verity_name + " /mnt/root\n")
+    outfile.write("bin/mount -t tmpfs tmpfs /mnt/root/etc\n")
+    outfile.write("bin/mount -t tmpfs tmpfs /mnt/root/var\n")
 
     outfile.write("bin/mount --move /proc /mnt/root/proc\n")
     outfile.write("bin/mount --move /sys /mnt/root/sys\n")
     outfile.write("bin/mount --move /dev /mnt/root/dev\n")
+    outfile.write("bin/mount --move /run /mnt/root/run\n")
     outfile.write("echo \"Executing switch_root...\"\n")
 
     outfile.write("exec bin/switch_root /mnt/root /usr/lib/systemd/systemd-bootchart")

@@ -1,6 +1,6 @@
 #!/bin/bash
 rm -rf initramfs
-mkdir -p initramfs/{bin,dev,etc,lib64/haswell,usr/lib64/haswell,mnt/root,mnt/data,proc,root,sbin,sys}
+mkdir -p initramfs/{bin,dev,etc,lib64/haswell,usr/lib64/haswell,mnt/root,proc,root,sbin,sys,run}
 
 mixversion=$(cat mixversion)
 echo $mixversion
@@ -15,7 +15,7 @@ cp -a update/image/$mixversion/full/lib64/{libpthread.so.0,librt.so.1,libacl.so.
 cp -a update/image/$mixversion/full/lib64/{haswell/libc.so.6,haswell/libm.so.6,haswell/libgcc_s.so.1,haswell/libc-2.27.so,haswell/libm-2.27.so} initramfs/lib64/haswell/
 
 
-cp -a update/image/$mixversion/full/sbin/{bash,sh,coreutils,mount,umount,veritysetup,switch_root,cat,sleep} initramfs/sbin/
-cp -a update/image/$mixversion/full/bin/{bash,sh,coreutils,mount,umount,veritysetup,switch_root,cat,sleep} initramfs/bin/
+cp -a update/image/$mixversion/full/sbin/{bash,sh,coreutils,mount,umount,veritysetup,switch_root,cat,sleep,ls} initramfs/sbin/
+cp -a update/image/$mixversion/full/bin/{bash,sh,coreutils,mount,umount,veritysetup,switch_root,cat,sleep,ls} initramfs/bin/
 
 #cp init initramfs/

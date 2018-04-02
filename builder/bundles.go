@@ -458,7 +458,8 @@ func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildBundlesConfig, b *B
 	if err := ioutil.WriteFile(filepath.Join(swupdDir, "contenturl"), cURLBytes, 0644); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join(swupdDir, "versionurl"), cURLBytes, 0644); err != nil {
+	vURLBytes := []byte(cfg.VersionURL)
+	if err := ioutil.WriteFile(filepath.Join(swupdDir, "versionurl"), vURLBytes, 0644); err != nil {
 		return err
 	}
 

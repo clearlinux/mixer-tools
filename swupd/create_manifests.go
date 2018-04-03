@@ -276,6 +276,12 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 			continue
 		}
 
+		// TODO: remove this after a format bump in Clear Linux
+		// this is a hack to set maximum contentsize to the incorrect maximum
+		// set in swupd-client v3.15.3
+		bMan.setMaxContentSizeHack()
+		// end hack
+
 		// sort by version then by filename, previously to this sort these bundles
 		// were sorted by file name only to make processing easier
 		bMan.sortFilesVersionName()

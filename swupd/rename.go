@@ -31,6 +31,9 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 	if err := fixupStatFields(removed, manifest, &c); err != nil {
 		panic(err)
 	}
+	if err := fixupStatFields(added, manifest, &c); err != nil {
+		panic(err)
+	}
 	// Handle pure renames first, don't need to worry about size. Should we skip zero size?
 	// just add call to trimSmall if so
 	// Sort by Hash. No need to have tiebreaker on name as the Manifest links by hash
@@ -90,7 +93,6 @@ func linkRenamePair(renameTo, renameFrom *File) {
 	renameTo.Rename = true
 	renameFrom.Rename = true
 	renameFrom.Type = TypeUnset
-	renameFrom.Hash = renameTo.Hash
 }
 
 // trimRenamed returns an slice which has had files with DeltaPeers purged
@@ -184,9 +186,7 @@ func fixupStatFields(needed []*File, m *Manifest, c *config) error {
 		if needed[i].Info != nil {
 			continue
 		}
-		if bundleChroot == "" {
-			bundleChroot = filepath.Join(c.imageBase, fmt.Sprint(m.Header.Previous), "full")
-		}
+		bundleChroot = filepath.Join(c.imageBase, fmt.Sprint(needed[i].Version), "full")
 		path := filepath.Join(bundleChroot, needed[i].Name)
 		fi, err := os.Lstat(path)
 		if err != nil {

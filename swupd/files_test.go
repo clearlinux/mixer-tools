@@ -209,8 +209,8 @@ func TestGetFlagString(t *testing.T) {
 		t.Error(err)
 	}
 
-	if flags != "F.br" {
-		t.Errorf("%s did not match expected F.br", flags)
+	if flags != "F.b." {
+		t.Errorf("%s did not match expected F.b.", flags)
 	}
 }
 

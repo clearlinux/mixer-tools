@@ -84,11 +84,6 @@ const (
 	renameSet   = true
 )
 
-var renameBytes = map[frename]byte{
-	renameUnset: '.',
-	renameSet:   'r',
-}
-
 // File represents an entry in a manifest
 type File struct {
 	Name    string
@@ -231,8 +226,7 @@ func (f *File) setFlags(flags string) error {
 func (f *File) GetFlagString() (string, error) {
 	if f.Type == TypeUnset &&
 		f.Status == StatusUnset &&
-		f.Modifier == ModifierUnset &&
-		f.Rename == renameUnset {
+		f.Modifier == ModifierUnset {
 		return "", fmt.Errorf("no flags are set on file %s", f.Name)
 	}
 
@@ -240,7 +234,7 @@ func (f *File) GetFlagString() (string, error) {
 		typeBytes[f.Type],
 		statusBytes[f.Status],
 		modifierBytes[f.Modifier],
-		renameBytes[f.Rename],
+		'.', // unused for now
 	}
 
 	return string(flagBytes), nil

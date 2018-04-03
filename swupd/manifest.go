@@ -393,16 +393,13 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 			// record that the file has changed
 			if of.Status == StatusDeleted || of.Status == StatusGhosted {
 				nf.Version = m.Header.Version
-				nf.Rename = of.Rename
 				added = append(added, nf)
 				ox++
 				nx++
 				continue
 			}
 			if nf.Hash == of.Hash && of.Version >= minVersion {
-				// file did not change, set version to the old version
-				// persist the Rename flag
-				nf.Rename = of.Rename
+				// same contents, version doesn't change.
 				nf.Version = of.Version
 			} else {
 				// if the file isn't exactly the same, record the change
@@ -462,22 +459,6 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 		removed = append(removed, of)
 	}
 
-	// link old and new renames in the manifest
-	oldRenames := m.linkOldRenames()
-	// detect new renames in this version
-	renameDetection(m, added, removed, c)
-	// deprecate any old renames here now that all relevant linking has been done
-	deprecateOldRenames(oldRenames)
-
-	// if a file still has deleted status here and is not a rename
-	// the has needs to be set to all zeros
-	for _, f := range removed {
-		if f.Status == StatusDeleted && !f.Rename {
-			f.Hash = 0
-			f.Type = TypeUnset
-		}
-	}
-
 	// finally re-sort since we changed the order
 	m.sortFilesName()
 	// return the number of changed, added, or deleted files in this
@@ -490,65 +471,9 @@ func (m *Manifest) newDeleted(df *File) {
 	df.Status = StatusDeleted
 	df.Type = TypeUnset
 	df.Modifier = ModifierUnset
+	df.Hash = 0
 	// Add file to manifest
 	m.Files = append(m.Files, df)
-}
-
-// linkOldRenames links renames present in a manifest already
-// this should be done before renameDetection is run
-func (m *Manifest) linkOldRenames() []*File {
-	fromRenames := []*File{}
-	toRenames := []*File{}
-	for _, f := range m.Files {
-		if f.Rename {
-			if f.Present() {
-				toRenames = append(toRenames, f)
-			} else {
-				fromRenames = append(fromRenames, f)
-			}
-		}
-	}
-
-	// sort by hash so we can do a O(n) walk
-	sort.Slice(fromRenames, func(i, j int) bool {
-		return fromRenames[i].Hash < fromRenames[j].Hash
-	})
-	sort.Slice(toRenames, func(i, j int) bool {
-		return toRenames[i].Hash < toRenames[j].Hash
-	})
-
-	for fx, tx := 0, 0; fx < len(fromRenames) && tx < len(toRenames); {
-		ff := fromRenames[fx]
-		tf := toRenames[tx]
-		switch {
-		case ff.Hash < tf.Hash: // no link for ff
-			fx++
-		case ff.Hash > tf.Hash: // no link for tf
-			tx++
-		default: // match, link
-			ff.DeltaPeer = tf
-			tf.DeltaPeer = ff
-			fx++
-			tx++
-		}
-	}
-
-	// return a list of all old renames for deprecateOldRenames
-	return append(fromRenames, toRenames...)
-}
-
-// deprecateOldRenames unmarks all unlinked renames in oldRenames
-// must be done after linkOldRenames and renameDetection has been done
-func deprecateOldRenames(oldRenames []*File) {
-	for _, f := range oldRenames {
-		if f.DeltaPeer == nil {
-			f.Rename = false
-			if !f.Present() {
-				f.Type = TypeUnset
-				f.Hash = 0
-			}
-		}
-	}
 }
 
 // linkDeltaPeersForPack sets the DeltaPeer of the files in newManifest that have the corresponding files
@@ -556,6 +481,8 @@ func deprecateOldRenames(oldRenames []*File) {
 func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error {
 	newIndex := 0
 	oldIndex := 0
+	added := []*File{}
+	removed := []*File{}
 
 	for newIndex < len(newManifest.Files) && oldIndex < len(oldManifest.Files) {
 		nf := newManifest.Files[newIndex]
@@ -563,16 +490,31 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 
 		switch {
 		case nf.Name < of.Name:
-			// Old file that is not in new manifest, no chance of delta.
+			// New file in new manifest, try for rename
+			if nf.Present() && nf.Type == TypeFile {
+				added = append(added, nf)
+			}
 			newIndex++
 
 		case nf.Name > of.Name:
-			// New file that wasn't present before, no chance of delta.
+			// Old file not in new manifest, try for rename
+			if of.Present() && of.Type == TypeFile {
+				removed = append(removed, of)
+			}
 			oldIndex++
 
 		default:
 			newIndex++
 			oldIndex++
+			if !nf.Present() && of.Present() && of.Type == TypeFile {
+				removed = append(removed, of)
+				continue
+			}
+
+			if nf.Present() && !of.Present() && nf.Type == TypeFile {
+				added = append(added, nf)
+				continue
+			}
 
 			// Matching names, we can have a delta if pass all the
 			// requirements below.
@@ -607,72 +549,8 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 		}
 	}
 
-	// TODO: At the moment swupd-client looks at the new manifest renames entries to make a
-	// decision whether it should get a delta or not. If we change that to look instead at the
-	// list of deltas in the pack, we could run the full rename detection logic between
-	// arbitrary pairs of manifests, i.e. for any pack combination, and possibly generating new
-	// deltas for that specific combination.
-
-	// Identify deltas that are relevant to be included based on the rename flag.
-	//
-	// First walk to find potential targets for a rename. We will generate only a single delta
-	// for each target.
-	targets := make(map[Hashval]*File)
-
-	for _, nf := range newManifest.Files {
-		if !bool(nf.Rename) || !nf.Present() {
-			// Not a rename target.
-			continue
-		}
-		if nf.DeltaPeer != nil {
-			// If there is a DeltaPeer matched by same name (not a rename),
-			// just keep that and don't look for another.
-			continue
-		}
-		_, ok := targets[nf.Hash]
-		if ok {
-			continue
-		}
-		targets[nf.Hash] = nf
-	}
-
-	// Then walk again to link the sources to the targets.
-	renames := make(map[string]*File)
-	for _, nf := range newManifest.Files {
-		if !bool(nf.Rename) || nf.Present() {
-			// Not a rename source.
-			continue
-		}
-		target, ok := targets[nf.Hash]
-		if !ok {
-			// TODO: This could be a warning to the caller. Not making it an error since
-			// the manifest is already written, and we can underdeliver deltas. Same
-			// applies for targets without suitable sources.
-			continue
-		}
-		renames[nf.Name] = target
-	}
-
-	// Finally walk the old manifest linking rename files that the source exist there. Note that
-	// we ignore the version when the rename was identified, because the client will look for
-	// this regardless that version.
-	for _, of := range oldManifest.Files {
-		if !of.Present() {
-			continue
-		}
-		if of.DeltaPeer != nil {
-			continue
-		}
-		nf, ok := renames[of.Name]
-		if !ok {
-			continue
-		}
-		if nf.DeltaPeer != nil {
-			continue
-		}
-		nf.DeltaPeer = of
-		of.DeltaPeer = nf
-	}
+	// Run rename detection on old and new manifests
+	renameDetection(newManifest, added, removed, *c)
 
 	return nil
 }

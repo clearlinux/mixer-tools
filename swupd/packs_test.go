@@ -559,11 +559,6 @@ func TestPackRenames(t *testing.T) {
 	ts.addFile(30, "os-core", "/file2", content+"30")
 	ts.createManifests(30)
 
-	m := ts.parseManifest(30, "os-core")
-	file1 := fileInManifest(t, m, 30, "/file1")
-	file2 := fileInManifest(t, m, 30, "/file2")
-	checkRenamePair(t, file1, file2)
-
 	// Version 40 just adds an unrelated file.
 	ts.copyChroots(30, 40)
 	ts.addFile(40, "os-core", "/file2", content+"30")
@@ -595,29 +590,6 @@ func TestPackRenames(t *testing.T) {
 
 	// Note that the delta refers to the version of the file, which is still 30.
 	checkFileInPack(t, ts.path("www/40/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-30-%s-%s", hashIn10, hashIn30))
-}
-
-func checkRenamePair(t *testing.T, from, to *File) {
-	t.Helper()
-	if from.Status != StatusDeleted {
-		t.Errorf("file %s is marked as %q, but expected \"d\" (deleted)", from.Name, from.Status)
-		return
-	}
-	if !from.Rename {
-		t.Errorf("file %s is not marked as rename, but expected it to be", from.Name)
-		return
-	}
-	if to.Status != StatusUnset {
-		t.Errorf("file %s is marked as %q, but expected \".\" (unset)", to.Name, to.Status)
-		return
-	}
-	if !to.Rename {
-		t.Errorf("file %s is not marked as rename, but expected it to be", to.Name)
-		return
-	}
-	if from.Hash != to.Hash {
-		t.Errorf("hash mismatch between from and to files: %s has hash %s and %s has hash %s", from.Name, from.Hash, to.Name, to.Hash)
-	}
 }
 
 func checkFileInPack(t *testing.T, packname, name string) {

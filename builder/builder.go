@@ -45,7 +45,7 @@ const Version = "4.2.1"
 
 // Native controls whether mixer runs the command on the native machine or in a
 // container.
-var Native = false
+var Native = true
 
 // UseNewSwupdServer controls whether to use the new implementation of
 // swupd-server (package swupd) when possible. This is an experimental feature.

@@ -2,7 +2,7 @@
     "DestinationType" : "virtual",
     "PartitionLayout" : [ { "disk" : "release.img", "partition" : 1, "size" : "64M", "type" : "EFI" },
                           { "disk" : "release.img", "partition" : 2, "size" : "16M", "type" : "swap" },
-                          { "disk" : "release.img", "partition" : 3, "size" : "6G", "type" : "linux" },
+                          { "disk" : "release.img", "partition" : 3, "size" : "3G", "type" : "linux" },
 			  { "disk" : "release.img", "partition" : 4, "size" : "500M", "type" : "linux" } ],
     "FilesystemTypes" : [ { "disk" : "release.img", "partition" : 1, "type" : "vfat" },
                           { "disk" : "release.img", "partition" : 2, "type" : "swap" },
@@ -12,6 +12,6 @@
                                { "disk" : "release.img", "partition" : 3, "mount" : "/" },
                                { "disk" : "release.img", "partition" : 4, "mount" : "/mnt/hashdev" } ],
     "Version": "latest",
-    "Bundles": ["kernel-native", "os-core-dev", "os-core-update", "editors", "containers-basic"]
+    "Bundles": ["verified-boot"]
 }
 

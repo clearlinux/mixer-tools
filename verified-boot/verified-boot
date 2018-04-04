@@ -1,0 +1,23 @@
+# [TITLE]: verified-boot
+# [DESCRIPTION]: 
+# [STATUS]: 
+# [CAPABILITIES]:
+# [MAINTAINER]: Reagan Lopez (reagan.lopez@intel.com)
+include(kernel-native)
+include(os-core)
+cryptsetup-dev
+coreutils
+libgpg-error-dev
+#glib-bin
+#glib-dev
+#glib-dev32
+#glibc-dev32
+#glibc-libc32
+#glibc-utils
+#libc6-dev
+#libc6-locale
+#libcap-dev
+#libcap-dev32
+#libcap-ng-dev
+#libcap-ng-dev32
+#libcgroup-dev

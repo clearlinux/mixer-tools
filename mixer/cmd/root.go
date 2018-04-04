@@ -204,7 +204,7 @@ func init() {
 	// TODO: Remove this once we drop the old config format
 	RootCmd.PersistentFlags().BoolVar(&config.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")
 
-	RootCmd.PersistentFlags().BoolVar(&builder.Native, "native", false, "Run mixer command on native host instead of in a container")
+	RootCmd.PersistentFlags().BoolVar(&builder.Native, "native", true, "Run mixer command on native host instead of in a container")
 	RootCmd.PersistentFlags().BoolVar(&builder.Offline, "offline", false, "Skip caching upstream-bundles; work entirely with local-bundles")
 
 	RootCmd.AddCommand(initCmd)
@@ -247,6 +247,9 @@ func reconstructCommand(cmd *cobra.Command, args []string) []string {
 	}
 	// For each flag that was set, append its name and value
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		if flag.Name == "native" {
+			return
+		}
 		command = append(command, "--"+flag.Name+"="+flag.Value.String())
 	})
 	// Append args

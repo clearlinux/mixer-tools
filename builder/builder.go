@@ -49,7 +49,7 @@ const Version = "4.6.1"
 
 // Native controls whether mixer runs the command on the native machine or in a
 // container.
-var Native = false
+var Native = true
 
 // Offline controls whether mixer attempts to automatically cache upstream
 // bundles. In offline mode, all necessary bundles must exist in local-bundles.

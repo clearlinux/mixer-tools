@@ -42,7 +42,6 @@ type MixConfig struct {
 }
 
 type builderConf struct {
-	BundleDir      string `required:"true" toml:"BUNDLE_DIR"`
 	Cert           string `required:"true" toml:"CERT"`
 	ServerStateDir string `required:"true" toml:"SERVER_STATE_DIR"`
 	VersionPath    string `required:"true" toml:"VERSIONS_PATH"`
@@ -80,7 +79,6 @@ func (config *MixConfig) LoadDefaults() error {
 	}
 
 	// [Builder]
-	config.Builder.BundleDir = filepath.Join(pwd, "mix-bundles")
 	config.Builder.Cert = filepath.Join(pwd, "Swupd_Root.pem")
 	config.Builder.ServerStateDir = filepath.Join(pwd, "update")
 	config.Builder.VersionPath = pwd
@@ -239,7 +237,6 @@ func (config *MixConfig) legacyParse(filename string) error {
 		required bool
 	}{
 		// [Builder]
-		{`^BUNDLE_DIR\s*=\s*`, &config.Builder.BundleDir, true}, //Note: Can be removed once UseNewChrootBuilder is obsolete
 		{`^CERT\s*=\s*`, &config.Builder.Cert, true},
 		{`^SERVER_STATE_DIR\s*=\s*`, &config.Builder.ServerStateDir, true},
 		{`^VERSIONS_PATH\s*=\s*`, &config.Builder.VersionPath, true},

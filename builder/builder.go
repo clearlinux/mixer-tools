@@ -47,12 +47,6 @@ const Version = "4.2.1"
 // swupd-server (package swupd) when possible. This is an experimental feature.
 var UseNewSwupdServer = false
 
-// UseNewChrootBuilder controls whether to use the new implementation of
-// building the bundles. This is an experimental feature.
-// We don't build chroots any more but leaving this as UseNewChrootBuilder since
-// it will be removed soon.
-var UseNewChrootBuilder = false
-
 // Offline controls whether mixer attempts to automatically cache upstream
 // bundles. In offline mode, all necessary bundles must exist in local-bundles.
 var Offline = false
@@ -1292,40 +1286,6 @@ func (b *Builder) UpdateMixVer() error {
 	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
 }
 
-// createMixBundleDir generates the mix-bundles/ dir for chroot building. It will
-// clear the dir if it exists, compute the full list of bundles for the mix, and
-// copy the corresponding bundle files into mix-bundles/
-// Note: this function is only needed for the old Bundle Chroot Builder, and can
-// be removed once the UseNewChrootBuilder flag is gone.
-func (b *Builder) createMixBundleDir() error {
-	// Wipe out the existing bundle dir, if it exists
-	if err := os.RemoveAll(b.Config.Builder.BundleDir); err != nil {
-		return errors.Errorf("Failed to clear out old dir: %s", b.Config.Builder.BundleDir)
-	}
-	if err := os.MkdirAll(b.Config.Builder.BundleDir, 0777); err != nil {
-		return errors.Errorf("Failed to create dir: %s", b.Config.Builder.BundleDir)
-	}
-
-	// Get the set of bundles to build
-	set, err := b.getFullMixBundleSet()
-	if err != nil {
-		return err
-	}
-
-	// Validate set
-	if err = validateAndFillBundleSet(set); err != nil {
-		return err
-	}
-
-	for _, bundle := range set {
-		if err = helpers.CopyFile(filepath.Join(b.Config.Builder.BundleDir, bundle.Name), bundle.Filename); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // If Base == true, template will include the [main] and [clear] sections.
 // If Local == true, template will include the [local] section.
 type dnfConf struct {
@@ -1366,10 +1326,6 @@ priority=1
 // resolve and no-op installs. One full chroot is created from this step with
 // the file contents of all bundles.
 func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
-	if !UseNewChrootBuilder && UseNewConfig {
-		return errors.Errorf("--new-config flag requires the use of new chroots")
-	}
-
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
@@ -1445,70 +1401,33 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 	}
 
-	if UseNewChrootBuilder {
-		// Get the set of bundles to build
-		set, err := b.getFullMixBundleSet()
-		if err != nil {
-			return err
-		}
-
-		// Validate set and compute AllPackages
-		if err = validateAndFillBundleSet(set); err != nil {
-			return err
-		}
-
-		// TODO: Merge the rest of this function into buildBundles (or vice-versa).
-		err = b.buildBundles(set)
-		if err != nil {
-			return err
-		}
-
-		// TODO: Move this logic to code that uses this.
-		// If LAST_VER don't exists, it means this is the first bundle we build,
-		// so initialize it to version "0".
-		lastVerPath := filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER")
-		if _, err = os.Stat(lastVerPath); os.IsNotExist(err) {
-			err = ioutil.WriteFile(lastVerPath, []byte("0\n"), 0644)
-			if err != nil {
-				return err
-			}
-		}
-
-	} else {
-		// Generate the mix-bundles list
-		if err := b.createMixBundleDir(); err != nil {
-			return err
-		}
-
-		// If this is a mix, we need to build with the Clear version, but publish the mix version
-		chrootcmd := exec.Command(b.BuildScript, "-c", b.BuildConf, "-m", b.MixVer, b.UpstreamVer)
-		chrootcmd.Stdout = os.Stdout
-		chrootcmd.Stderr = os.Stderr
-		err := chrootcmd.Run()
-		if err != nil {
-			return err
-		}
-
-		// Only copy the certificate into the mix if it exists
-		if _, err := os.Stat(b.Config.Builder.Cert); err == nil {
-			certdir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "os-core-update/usr/share/clear/update-ca")
-			err = os.MkdirAll(certdir, 0755)
-			if err != nil {
-				helpers.PrintError(err)
-				return err
-			}
-			chrootcert := filepath.Join(certdir, "/Swupd_Root.pem")
-			fmt.Println("Copying Certificate into chroot...")
-			err = helpers.CopyFile(chrootcert, b.Config.Builder.Cert)
-			if err != nil {
-				helpers.PrintError(err)
-				return err
-			}
-		}
+	// Get the set of bundles to build
+	set, err := b.getFullMixBundleSet()
+	if err != nil {
+		return err
 	}
 
-	// TODO: Remove all the files-* entries since they're now copied into the noship dir
-	// do code stuff here
+	// Validate set and compute AllPackages
+	if err = validateAndFillBundleSet(set); err != nil {
+		return err
+	}
+
+	// TODO: Merge the rest of this function into buildBundles (or vice-versa).
+	err = b.buildBundles(set)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Move this logic to code that uses this.
+	// If LAST_VER don't exists, it means this is the first bundle we build,
+	// so initialize it to version "0".
+	lastVerPath := filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER")
+	if _, err = os.Stat(lastVerPath); os.IsNotExist(err) {
+		err = ioutil.WriteFile(lastVerPath, []byte("0\n"), 0644)
+		if err != nil {
+			return err
+		}
+	}
 
 	timer.Stop()
 

@@ -92,7 +92,6 @@ var RootCmd = &cobra.Command{
 
 		// For build commands (except format bump commands), check if building
 		// across a format; if so, inform and exit.
-		// If it's a build command, but *NOT* a build format bump command
 		if !cmdContains(cmd, "format-new") && !cmdContains(cmd, "format-old") && cmdContains(cmd, "build") {
 			if bumpNeeded, err := b.CheckBumpNeeded(); err != nil {
 				return err

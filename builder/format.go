@@ -119,6 +119,31 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 	return ver[0], nil
 }
 
+// StageMixForBump prepares the mix for the two format bumps required to pass an
+// upstream format boundary. The current upstreamversion is saved in a temporary
+// ".bump" file, and replaced with the latest version in the format range of the
+// most recent build.
+func (b *Builder) stageMixForBump() error {
+	lastBuildVer, err := b.getLastBuildUpstreamVersion()
+	if err != nil {
+		return err
+	}
+	_, _, latest, err := b.getUpstreamFormatRange(lastBuildVer)
+	if err != nil {
+		return err
+	}
+
+	// Copy current upstreamversion to upstreamversion.bump
+	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
+	if err := helpers.CopyFile(vBFile, vFile); err != nil {
+		return err
+	}
+
+	// Set current upstreamversion to latest
+	return ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(latest), 10)), 0644)
+}
+
 // CheckBumpNeeded returns nil if it successfully deduces there is no format
 // bump boundary being crossed.
 func (b *Builder) CheckBumpNeeded() (bool, error) {
@@ -151,6 +176,11 @@ func (b *Builder) CheckBumpNeeded() (bool, error) {
 
 	// We always need to perform a format bump if these are not equal
 	if oldFmt != newFmt {
+		// Stage the upstreamversion file for bump
+		if err = b.stageMixForBump(); err != nil {
+			return false, errors.Wrap(err, "Failed to stage mix for format bump")
+		}
+
 		format, first, latest, err := b.getUpstreamFormatRange(version)
 		if err != nil {
 			return false, err

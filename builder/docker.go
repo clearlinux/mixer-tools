@@ -179,50 +179,81 @@ func reduceDockerMounts(paths []string) []string {
 	return paths
 }
 
+// canAccess checks whether mixer has read/write access to the given directory.
+// A nil error means success.
+func canAccess(dir string) error {
+	// Check read access
+	if _, err := ioutil.ReadDir(dir); err != nil {
+		return err
+	}
+	// Check write acess
+	f, err := ioutil.TempFile(dir, "")
+	if err != nil {
+		return fmt.Errorf("open %s: permission denied", dir)
+	}
+	defer func() {
+		_ = os.Remove(f.Name())
+		_ = f.Close()
+	}()
+
+	return nil
+}
+
+// getPathDir returns the directory portion of a config file path. If the path
+// is already to a directory, the path is returned unchanged. If it is instead
+// to a file or does not exist, its parent is returned. This is needed because
+// some values in the config are paths to files or directories that get created
+// by the commands, but their parent directory exists and needs to be mounted.
+func getDirFromConfigPath(path string) (string, error) {
+	f, err := os.Stat(path)
+	if os.IsNotExist(err) || (err == nil && !f.Mode().IsDir()) {
+		path = filepath.Dir(path)
+		f, err = os.Stat(path)
+	}
+	if err != nil {
+		return "", err
+	}
+
+	return path, nil
+}
+
+// addConfigFieldPaths loops through each field in a config section, verifying
+// and adding its value to the mounts slice.
+func addConfigFieldPaths(config reflect.Value, mounts *[]string) error {
+	for i := 0; i < config.NumField(); i++ {
+		path, err := getDirFromConfigPath(config.Field(i).String())
+		if err != nil {
+			return err
+		}
+		if !strings.HasPrefix(path, "/") { // filepath.Dir can return "."
+			continue
+		}
+		if err := canAccess(path); err != nil {
+			return err
+		}
+		*mounts = append(*mounts, path)
+	}
+	return nil
+}
+
 // getDockerMounts returns a minimal list of all directories in the config that
 // need to be mounted inside the container. Only the "Buiilder" and "Mixer"
 // sections of the conf are parsed.
-func (b *Builder) getDockerMounts() []string {
-	// Returns the longest substring of path that is the path to a directory.
-	var getMaxPath func(path string) string
-	getMaxPath = func(path string) string {
-		f, err := os.Stat(path)
-		if os.IsNotExist(err) {
-			// Try again on parent. This happens because some values in config
-			// are paths to files that get created by the commands, but their
-			// parent directory exists and needs to be mounted.
-			path = filepath.Dir(path)
-			return getMaxPath(path)
-		} else if err != nil {
-			return ""
-		}
-		if f.Mode().IsDir() {
-			return path
-		}
-		return filepath.Dir(path)
-	}
-
+func (b *Builder) getDockerMounts() ([]string, error) {
 	wd, _ := os.Getwd()
 	mounts := []string{wd}
 
-	config := reflect.ValueOf(b.Config.Builder)
-	for i := 0; i < config.NumField(); i++ {
-		field := getMaxPath(config.Field(i).String())
-		if !strings.HasPrefix(field, "/") {
-			continue
-		}
-		mounts = append(mounts, field)
-	}
-	config = reflect.ValueOf(b.Config.Mixer)
-	for i := 0; i < config.NumField(); i++ {
-		field := getMaxPath(config.Field(i).String())
-		if !strings.HasPrefix(field, "/") {
-			continue
-		}
-		mounts = append(mounts, field)
+	err := addConfigFieldPaths(reflect.ValueOf(b.Config.Builder), &mounts)
+	if err != nil {
+		return nil, err
 	}
 
-	return reduceDockerMounts(mounts)
+	err = addConfigFieldPaths(reflect.ValueOf(b.Config.Mixer), &mounts)
+	if err != nil {
+		return nil, err
+	}
+
+	return reduceDockerMounts(mounts), nil
 }
 
 // RunCommandInContainer will pull the content necessary to build a docker
@@ -234,7 +265,7 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 		return err
 	}
 
-	if err := b.buildDockerImage(format, fmt.Sprint(latest)); err != nil {
+	if err = b.buildDockerImage(format, fmt.Sprint(latest)); err != nil {
 		return err
 	}
 
@@ -253,7 +284,10 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 		"--entrypoint", cmd[0],
 	}
 
-	mounts := b.getDockerMounts()
+	mounts, err := b.getDockerMounts()
+	if err != nil {
+		return errors.Wrap(err, "Failed to extract mountable directories from config")
+	}
 	for _, path := range mounts {
 		dockerCmd = append(dockerCmd, "-v", fmt.Sprintf("%s:%s", path, path))
 	}

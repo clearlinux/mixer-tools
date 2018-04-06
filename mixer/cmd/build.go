@@ -248,6 +248,11 @@ var buildNewFormatCmd = &cobra.Command{
 			failf("Couldn't build update: %s", err)
 		}
 
+		// Reset upstreamversion if necessary
+		if err = b.UnstageMixFromBump(); err != nil {
+			fail(errors.Wrapf(err, "Failed to reset upstreamversion after bump"))
+		}
+
 		if buildFlags.increment {
 			if err = b.UpdateMixVer(); err != nil {
 				failf("Couldn't update Mix Version")

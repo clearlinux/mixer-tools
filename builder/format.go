@@ -122,7 +122,7 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 // StageMixForBump prepares the mix for the two format bumps required to pass an
 // upstream format boundary. The current upstreamversion is saved in a temporary
 // ".bump" file, and replaced with the latest version in the format range of the
-// most recent build.
+// most recent build. This process is undone via UnstageMixFromBump.
 func (b *Builder) stageMixForBump() error {
 	lastBuildVer, err := b.getLastBuildUpstreamVersion()
 	if err != nil {
@@ -142,6 +142,26 @@ func (b *Builder) stageMixForBump() error {
 
 	// Set current upstreamversion to latest
 	return ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(latest), 10)), 0644)
+}
+
+// UnstageMixFromBump resets the upstreamversion file from the temporary ".bump"
+// file, if it exists. This returns the user to their desired upstream version
+// after having completed the upstream format boundary bump builds.
+func (b *Builder) UnstageMixFromBump() error {
+	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
+
+	// No bump file; return early
+	if _, err := os.Stat(vBFile); os.IsNotExist(err) {
+		return nil
+	}
+
+	// Copy upstreamversion.bump to upstreamversion
+	if err := helpers.CopyFile(vFile, vBFile); err != nil {
+		return err
+	}
+
+	return os.Remove(vBFile)
 }
 
 // CheckBumpNeeded returns nil if it successfully deduces there is no format

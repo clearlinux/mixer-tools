@@ -43,10 +43,6 @@ import (
 // Version of Mixer. Also used by the Makefile for releases.
 const Version = "4.2.1"
 
-// UseNewSwupdServer controls whether to use the new implementation of
-// swupd-server (package swupd) when possible. This is an experimental feature.
-var UseNewSwupdServer = false
-
 // Offline controls whether mixer attempts to automatically cache upstream
 // bundles. In offline mode, all necessary bundles must exist in local-bundles.
 var Offline = false
@@ -1463,45 +1459,9 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 
-	if UseNewSwupdServer {
-		err = b.buildUpdateWithNewSwupd(timer, b.MixVerUint32, uint32(minVersion), formatUint, skipSigning)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = b.buildUpdateWithOldSwupd(timer, prefixflag, minVersion, skipSigning)
-		if err != nil {
-			return err
-		}
-
-		timer.Start("MINIMIZE STORED CHROOTS")
-		// Clean up the bundle chroots as only the full chroot is needed from this point on.
-		if !keepChroots {
-			// Get the set of bundles for which chroots were built
-			var set bundleSet
-			set, err = b.getFullMixBundleSet()
-			if err != nil {
-				return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
-			}
-			// Delete the bundle chroots
-			basedir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer)
-			for bundle := range set {
-				err = os.RemoveAll(filepath.Join(basedir, bundle))
-				if err != nil {
-					return errors.Wrap(err, "Ignored error when cleaning bundle chroots")
-				}
-			}
-		} else {
-			// Hardlink the duplicate files ONLY when keeping the bundle chroots.
-			hardlinkcmd := exec.Command("hardlink", "-f", filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer))
-			hardlinkcmd.Stdout = os.Stdout
-			hardlinkcmd.Stderr = os.Stderr
-			err = hardlinkcmd.Run()
-			if err != nil {
-				return errors.Wrapf(err, "couldn't perform hardlink step")
-			}
-		}
-		timer.Stop()
+	err = b.buildUpdateContent(timer, b.MixVerUint32, uint32(minVersion), formatUint, skipSigning)
+	if err != nil {
+		return err
 	}
 
 	// Save upstream information.
@@ -1540,7 +1500,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	return nil
 }
 
-func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, minVersion uint32, format uint32, skipSigning bool) error {
+func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVersion uint32, format uint32, skipSigning bool) error {
 	var err error
 
 	err = writeMetaFiles(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer), b.Config.Swupd.Format, Version)
@@ -1643,58 +1603,6 @@ func (b *Builder) buildUpdateWithNewSwupd(timer *stopWatch, mixVersion uint32, m
 		}
 		fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
 		fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
-	}
-	timer.Stop()
-
-	return nil
-}
-
-func (b *Builder) buildUpdateWithOldSwupd(timer *stopWatch, prefixflag string, minVersion int, skipSigning bool) error {
-	var err error
-
-	// Create update metadata for the mix.
-	timer.Start("CREATE MANIFESTS")
-	updatecmd := exec.Command(prefixflag+"swupd_create_update", "-S", b.Config.Builder.ServerStateDir, "--minversion", strconv.Itoa(minVersion), "-F", b.Config.Swupd.Format, "--osversion", b.MixVer)
-	updatecmd.Stdout = os.Stdout
-	updatecmd.Stderr = os.Stderr
-	err = updatecmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "failed to create update metadata")
-	}
-	timer.Stop()
-
-	// Sign the Manifest.MoM that was just created.
-	if !skipSigning {
-		err = b.SignManifestMoM()
-		if err != nil {
-			return err
-		}
-		fmt.Println("Signed Manifest.MoM")
-	}
-
-	// Create full files.
-	timer.Start("CREATE FULLFILES")
-	fullfilecmd := exec.Command(prefixflag+"swupd_make_fullfiles", "-S", b.Config.Builder.ServerStateDir, b.MixVer)
-	fullfilecmd.Stdout = os.Stdout
-	fullfilecmd.Stderr = os.Stderr
-	err = fullfilecmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "couldn't create fullfiles")
-	}
-	timer.Stop()
-
-	// Create zero packs.
-	timer.Start("CREATE ZERO PACKS")
-	zeropackArgs := []string{"--to", b.MixVer, "-S", b.Config.Builder.ServerStateDir}
-	if prefixflag != "" {
-		zeropackArgs = append(zeropackArgs, "--repodir", prefixflag)
-	}
-	zeropackcmd := exec.Command("mixer-pack-maker.sh", zeropackArgs...)
-	zeropackcmd.Stdout = os.Stdout
-	zeropackcmd.Stderr = os.Stderr
-	err = zeropackcmd.Run()
-	if err != nil {
-		return errors.Wrapf(err, "couldn't create zero packs")
 	}
 	timer.Stop()
 

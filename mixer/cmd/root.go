@@ -141,7 +141,10 @@ func init() {
 	_ = RootCmd.PersistentFlags().MarkHidden("cpu-profile")
 
 	// TODO: Remove this once we migrate to new implementation.
-	RootCmd.PersistentFlags().BoolVar(&builder.UseNewSwupdServer, "new-swupd", false, "EXPERIMENTAL: Use new implementation of swupd-server when possible")
+	unusedBoolFlag := false
+	RootCmd.PersistentFlags().BoolVar(&unusedBoolFlag, "new-swupd", false, "")
+	_ = RootCmd.Flags().MarkHidden("new-swupd")
+	_ = RootCmd.Flags().MarkDeprecated("new-swupd", "new functionality is now the standard behavior, this flag is obsolete and no longer used")
 
 	// TODO: Remove this once we drop the old config format
 	RootCmd.PersistentFlags().BoolVar(&builder.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")

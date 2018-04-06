@@ -187,9 +187,6 @@ var buildDeltaPacksCmd = &cobra.Command{
 	Short: "Build packs used to optimize update between versions",
 	Long: `Build packs used to optimize update between versions
 
-EXPERIMENTAL: this command only works with --new-swupd. For the
-current swupd-server implementation use mixer-pack-maker.sh program.
-
 When a swupd client updates a bundle, it looks for a pack file from
 its current version to the new version. If not available, the client
 will download the individual files necessary for the update. If a
@@ -221,12 +218,6 @@ var buildDeltaPacksFlags struct {
 }
 
 func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
-	if !builder.UseNewSwupdServer {
-		// TODO: Depending on how long we are going to live with both implementations, it
-		// might be worth making this command call the script when not using new swupd-server.
-		failf("build delta packs is only available with --new-swupd\nUse mixer-pack-maker.sh instead.")
-	}
-
 	fromChanged := cmd.Flags().Changed("from")
 	prevChanged := cmd.Flags().Changed("previous-versions")
 	if fromChanged == prevChanged {

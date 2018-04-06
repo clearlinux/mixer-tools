@@ -57,20 +57,20 @@ for i in $(seq $1 10 $2); do
 	# increase the number of bundle-workers on larger systems
 	# keep in mind that this is network bound due to dnf installs
 	# of upstream tarballs
-	mixer build bundles --new-swupd --bundle-workers 8
+	mixer build bundles --bundle-workers 8
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix bundles"
 		exit 1
 	fi
 	# increase the number of fullfile-workers on larger systems
-	mixer build update --new-swupd --fullfile-workers 8 --min-version $1 --format $3
+	mixer build update --fullfile-workers 8 --min-version $1 --format $3
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build mix update"
 		exit 1
 	fi
 	# increase the number of delta-workers on larger systems
 	# this is memory-bound instead of cpu-bound
-	mixer build delta-packs --previous-versions 1 --new-swupd --delta-workers 4
+	mixer build delta-packs --previous-versions 1 --delta-workers 4
 	if [[ $? -ne 0 ]]; then
 		echo "failed to build delta packs"
 		exit 1

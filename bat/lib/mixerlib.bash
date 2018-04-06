@@ -23,7 +23,7 @@ localize_builder_conf() {
 # the filesystem, and adds only os-core to the mix
 mixer-init-stripped-down() {
   touch $BATS_TEST_DIRNAME/mixbundles
-  mixer init --clear-version $1 --mix-version $2 --new-swupd
+  mixer init --clear-version $1 --mix-version $2
   sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
   echo "filesystem" > $LOCAL_BUNDLE_DIR/os-core
   mixer bundle add os-core
@@ -34,16 +34,16 @@ mixer-versions-update() {
 }
 
 mixer-build-bundles() {
-  sudo -E mixer build bundles --config $BATS_TEST_DIRNAME/builder.conf --new-swupd --new-chroots
+  sudo -E mixer build bundles --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-build-update() {
-  sudo -E mixer build update --config $BATS_TEST_DIRNAME/builder.conf --new-swupd
+  sudo -E mixer build update --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-add-rpms() {
   mkdir -p $BATS_TEST_DIRNAME/local-yum $BATS_TEST_DIRNAME/local-rpms
-  sudo -E mixer add-rpms --config $BATS_TEST_DIRNAME/builder.conf --new-swupd
+  sudo -E mixer add-rpms --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 create-empty-local-bundle() {

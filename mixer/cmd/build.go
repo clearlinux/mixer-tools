@@ -279,7 +279,10 @@ func init() {
 	RootCmd.AddCommand(buildCmd)
 
 	buildBundlesCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
-	buildBundlesCmd.Flags().BoolVar(&builder.UseNewChrootBuilder, "new-chroots", false, "EXPERIMENTAL: Use new implementation of build chroots")
+	unusedBoolFlag := false
+	buildBundlesCmd.Flags().BoolVar(&unusedBoolFlag, "new-chroots", false, "")
+	_ = buildBundlesCmd.Flags().MarkHidden("new-chroots")
+	_ = buildBundlesCmd.Flags().MarkDeprecated("new-chroots", "new functionality is now the standard behavior, this flag is obsolete and no longer used")
 
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")

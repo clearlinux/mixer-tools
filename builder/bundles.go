@@ -540,11 +540,11 @@ func buildFullChroot(cfg *buildBundlesConfig, b *Builder, set *bundleSet, packag
 	}
 	fmt.Println("Installing all bundles to full chroot")
 	totalBundles := len(*set)
+	fullDir := filepath.Join(buildVersionDir, "full")
 	i := 0
 	for _, bundle := range *set {
 		i++
 		fmt.Printf("[%d/%d] %s\n", i, totalBundles, bundle.Name)
-		fullDir := filepath.Join(buildVersionDir, "full")
 		// special handling for os-core
 		if bundle.Name == "os-core" {
 			fmt.Println("... building special os-core content")

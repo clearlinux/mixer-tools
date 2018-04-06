@@ -123,11 +123,6 @@ var buildOldFormatCmd = &cobra.Command{
 			fail(err)
 		}
 
-		// Stage the upstreamversion file for bump
-		if err = b.StageMixForBump(); err != nil {
-			fail(errors.Wrap(err, "Failed to stage mix for format bump"))
-		}
-
 		// Update the mixversion just in case the user did not pass --increment
 		// This must be the +20 to write the new format data files even though we
 		// will build a +10 from the same content

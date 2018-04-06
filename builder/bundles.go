@@ -511,6 +511,28 @@ func clearDNFCache(packagerCmd []string) error {
 	return helpers.RunCommandSilent(args[0], args[1:]...)
 }
 
+func rmDNFStatePaths(fullDir string) {
+	dnfStatePaths := []string{
+		"/var/lib/cache/yum",
+		"/var/cache/yum",
+		"/var/cache/dnf",
+		"/var/lib/dnf",
+		"/var/lib/rpm",
+	}
+	for _, p := range dnfStatePaths {
+		_ = os.RemoveAll(filepath.Join(fullDir, p))
+	}
+
+	// Now remove the logs from /var/log, but leave the directory
+	logFiles, err := filepath.Glob(filepath.Join(fullDir, "/var/log/*.log"))
+	if err != nil {
+		return
+	}
+	for _, f := range logFiles {
+		_ = os.RemoveAll(f)
+	}
+}
+
 func buildFullChroot(cfg *buildBundlesConfig, b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
 	fmt.Println("Cleaning DNF cache before full install")
 	if err := clearDNFCache(packagerCmd); err != nil {
@@ -709,7 +731,17 @@ src=%s
 	}
 
 	// create os-packages file for validation tools
-	return createOsPackagesFile(buildVersionDir)
+	err = createOsPackagesFile(buildVersionDir)
+	if err != nil {
+		return err
+	}
+
+	// now that all dnf/yum/rpm operations have completed
+	// remove all packager state files from chroot
+	// This is not a critical step, just to prevent these files from
+	// making it into the Manifest.full
+	rmDNFStatePaths(filepath.Join(buildVersionDir, "full"))
+	return nil
 }
 
 // createOsPackagesFile creates a file that contains all the packages mapped to their

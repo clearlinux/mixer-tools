@@ -1945,7 +1945,10 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 			return errors.Errorf("--to version must be at most the latest mix version (%d)", b.MixVerUint32)
 		}
 	}
-	if from >= to {
+	if from == to {
+		fmt.Println("the --from version matches the --to version, nothing to do")
+		return nil
+	} else if from > to {
 		return errors.Errorf("the --from version must be smaller than the --to version")
 	}
 

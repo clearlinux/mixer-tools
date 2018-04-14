@@ -192,20 +192,22 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 	addFileAndPath(bundle.Files, filesToAdd...)
 }
 
-func resolveFilesForBundle(bundle *bundle, packagerCmd []string) error {
+func resolveFilesForBundle(bundle *bundle, repoPkgs map[string][]string, packagerCmd []string) error {
 	bundle.Files = make(map[string]bool)
 
-	queryString := merge(packagerCmd, "repoquery", "-l", "--quiet")
-	for p := range bundle.AllPackages {
-		queryString = append(queryString, p)
-	}
-	outBuf, err := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
-	if err != nil {
-		return err
-	}
-	for _, f := range strings.Split(outBuf.String(), "\n") {
-		if len(f) > 0 {
-			addFileAndPath(bundle.Files, resolveFileName(f))
+	for repo, pkgs := range repoPkgs {
+		queryString := merge(packagerCmd, "repoquery", "-l", "--quiet", "--repo", repo)
+		for _, p := range pkgs {
+			queryString = append(queryString, p)
+		}
+		outBuf, err := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
+		if err != nil {
+			return err
+		}
+		for _, f := range strings.Split(outBuf.String(), "\n") {
+			if len(f) > 0 {
+				addFileAndPath(bundle.Files, resolveFileName(f))
+			}
 		}
 	}
 
@@ -214,7 +216,7 @@ func resolveFilesForBundle(bundle *bundle, packagerCmd []string) error {
 	return nil
 }
 
-func resolveFiles(numWorkers int, set bundleSet, packagerCmd []string) error {
+func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[string][]string, packagerCmd []string) error {
 	var err error
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving files using %d workers\n", numWorkers)
@@ -229,7 +231,8 @@ func resolveFiles(numWorkers int, set bundleSet, packagerCmd []string) error {
 	fileWorker := func() {
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
-			err = resolveFilesForBundle(bundle, packagerCmd)
+			// Resolve files for this bundle, passing it the map of repos to packages
+			err = resolveFilesForBundle(bundle, bundleRepoPkgs[bundle.Name], packagerCmd)
 			if err != nil {
 				// break on the first error we get
 				// causes wg.Done to be called and the worker to exit
@@ -267,9 +270,10 @@ func resolveFiles(numWorkers int, set bundleSet, packagerCmd []string) error {
 }
 
 // NO-OP INSTALL OUTPUT EXAMPLE
-// Truncated at 80 columns to make it more readable
-// The section we care about is everything from "Installing dependencies:" to
-// the next blank line.
+// Truncated at 80 characters to make it more readable, but the full output is a
+// five-column list of Package, Arch, Version, Repository, and Size.
+// The section we care about is everything from "Installing:" to the next blank
+// line.
 //
 // Last metadata expiration check: 0:00:00 ago on Wed 07 Mar 2018 04:05:44 PM PS
 // Dependencies resolved.
@@ -300,47 +304,45 @@ func resolveFiles(numWorkers int, set bundleSet, packagerCmd []string) error {
 // Transaction Summary
 // =============================================================================
 // <more metadata>
-func parseNoopInstall(installOut string) []string {
-	pkgDeps := []string{}
+func parseNoopInstall(installOut string) map[string][]string {
+	repoPkgs := make(map[string][]string)
 
-	if !strings.Contains(installOut, "Installing dependencies:") {
-		return pkgDeps
-	}
-	// we know it will have at least a length of 2 since the split string exists
-	pkgList := strings.Split(installOut, "Installing dependencies:\n")[1]
+	// Split out the section between the install list and the transaction Summary
+	pkgList := strings.Split(installOut, "Installing:\n")[1]
 	pkgList = strings.Split(pkgList, "\n\nTransaction Summary")[0]
-	for _, line := range strings.Split(pkgList, "\n") {
-		if len(line) == 0 {
-			break
-		}
 
-		// When not running in a TTY dnf sets terminal line-width to a
-		// default 80 characters, then wraps their fields in an
-		// unpredictable way to be pleasing for they eye but not for
-		// the parser. If the line starts with more than one space (' ')
-		// character the previous line was wrapped and continues on
-		// this line.  Since we only care about the first field, the
-		// package name, just continue to the next line.
-		//
-		// example lines:
-		// ^ really-long-package-name-overflows-field$
-		// ^                         x86_64             12-10         clear$
-		// ^ reasonablepkgname       x86_64             deadcafedeadbeefdeadcafedeadbeef$
-		// ^                                                          clear$
-		if strings.HasPrefix(line, "  ") {
-			continue
-		}
-
-		pkgDeps = append(pkgDeps, strings.Fields(line)[0])
+	// When not running in a TTY, dnf sets terminal line-width to a default 80
+	// characters, then wraps their fields in an unpredictable way to be
+	// pleasing to the eye but not to a parser. The result always represents a
+	// five-column, whitespace-separated list, but the whitespace between the
+	// columns can be variable length and include a newline. Note that the fifth
+	// column itself contains a space.
+	//
+	// example lines:
+	// ^ really-long-package-name-overflows-field$
+	// ^                         x86_64             12-10         clear   4.2 k$
+	// ^ reasonablepkgname       x86_64             deadcafedeadbeefdeadcafedeadbeef$
+	// ^                                                          clear   5.5 M$
+	var r = regexp.MustCompile(` (\S+)\s+\S+\s+\S+\s+(\S+)\s+\S+ \S+\n`)
+	matches := r.FindAllStringSubmatch(pkgList, -1)
+	for _, match := range matches {
+		repoPkgs[match[2]] = append(repoPkgs[match[2]], match[1])
 	}
-	return pkgDeps
+	return repoPkgs
 }
 
-func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) {
+func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) map[string]map[string][]string {
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
 	wg.Add(numWorkers)
 	bundleCh := make(chan *bundle)
+	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
+	bundleRepoPkgs := make(map[string]map[string][]string)
+	// Prepopulate the top-level map so that its size is not changed by the
+	// worker goroutines.
+	for bundle := range set {
+		bundleRepoPkgs[bundle] = make(map[string][]string)
+	}
 
 	packageWorker := func() {
 		for bundle := range bundleCh {
@@ -364,9 +366,13 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// error. Fortunately if this is a different error than we expect, it should
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
-			depPkgs := parseNoopInstall(outBuf.String())
-			for _, d := range depPkgs {
-				bundle.AllPackages[d] = true
+			bundleRepoPkgs[bundle.Name] = parseNoopInstall(outBuf.String())
+
+			for _, pkgs := range bundleRepoPkgs[bundle.Name] {
+				// Add packages to bundle's AllPackages
+				for _, pkg := range pkgs {
+					bundle.AllPackages[pkg] = true
+				}
 			}
 
 			fmt.Printf("... done with %s\n", bundle.Name)
@@ -384,6 +390,8 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 
 	close(bundleCh)
 	wg.Wait()
+
+	return bundleRepoPkgs
 }
 
 func installFilesystem(packagerCmd []string, chrootDir string) error {
@@ -699,9 +707,10 @@ src=%s
 		_ = os.RemoveAll(emptyDir)
 	}()
 
-	resolvePackages(numWorkers, set, packagerCmd, emptyDir)
+	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
+	bundleRepoPkgs := resolvePackages(numWorkers, set, packagerCmd, emptyDir)
 
-	err = resolveFiles(numWorkers, set, packagerCmd)
+	err = resolveFiles(numWorkers, set, bundleRepoPkgs, packagerCmd)
 	if err != nil {
 		return err
 	}

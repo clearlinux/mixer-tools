@@ -272,8 +272,8 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[s
 // NO-OP INSTALL OUTPUT EXAMPLE
 // Truncated at 80 characters to make it more readable, but the full output is a
 // five-column list of Package, Arch, Version, Repository, and Size.
-// The section we care about is everything from "Installing:" to the next blank
-// line.
+// The section we care about is everything from "Installing:" to "Transaction
+// Summary"
 //
 // Last metadata expiration check: 0:00:00 ago on Wed 07 Mar 2018 04:05:44 PM PS
 // Dependencies resolved.
@@ -309,7 +309,7 @@ func parseNoopInstall(installOut string) map[string][]string {
 
 	// Split out the section between the install list and the transaction Summary
 	pkgList := strings.Split(installOut, "Installing:\n")[1]
-	pkgList = strings.Split(pkgList, "\n\nTransaction Summary")[0]
+	pkgList = strings.Split(pkgList, "\nTransaction Summary")[0]
 
 	// When not running in a TTY, dnf sets terminal line-width to a default 80
 	// characters, then wraps their fields in an unpredictable way to be

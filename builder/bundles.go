@@ -307,9 +307,15 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[s
 func parseNoopInstall(installOut string) map[string][]string {
 	repoPkgs := make(map[string][]string)
 
-	// Split out the section between the install list and the transaction Summary
-	pkgList := strings.Split(installOut, "Installing:\n")[1]
-	pkgList = strings.Split(pkgList, "\nTransaction Summary")[0]
+	// Split out the section between the install list and the transaction Summary.
+	parts := strings.Split(installOut, "Installing:\n")
+	if len(parts) < 2 {
+		// If there is no such section, e.g. dnf fails because there's
+		// no matching package (so no "Installing:"), we return an empty
+		// set. Real failure will happen later when doing the actual install.
+		return repoPkgs
+	}
+	pkgList := strings.Split(parts[1], "\nTransaction Summary")[0]
 
 	// When not running in a TTY, dnf sets terminal line-width to a default 80
 	// characters, then wraps their fields in an unpredictable way to be
@@ -366,6 +372,9 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// error. Fortunately if this is a different error than we expect, it should
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
+
+			// TODO: parseNoopInstall may fail, so consider a way to stop the processing
+			// once we find that failure. See how errorCh works in fullfiles.go.
 			bundleRepoPkgs[bundle.Name] = parseNoopInstall(outBuf.String())
 
 			for _, pkgs := range bundleRepoPkgs[bundle.Name] {

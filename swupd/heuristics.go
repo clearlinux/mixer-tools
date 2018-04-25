@@ -101,6 +101,7 @@ func (f *File) setBootFromPathname() {
 		"/usr/lib/kernel/",
 		"/usr/lib/gummiboot",
 		"/usr/bin/gummiboot",
+		"/usr/src/linux-",
 	}
 
 	for _, path := range bootPaths {

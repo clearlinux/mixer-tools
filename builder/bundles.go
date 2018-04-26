@@ -666,12 +666,12 @@ src=%s
 
 	// Mixer is used to create both Clear Linux or a mix of it.
 	var version string
-	if b.MixVer != "" {
-		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
-		version = b.MixVer
+	if b.Config.Builder.MixVer != "" {
+		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.Config.Builder.MixVer, b.Config.Builder.UpstreamVer)
+		version = b.Config.Builder.MixVer
 	} else {
-		fmt.Printf("Creating bundles for version %s\n", b.UpstreamVer)
-		version = b.UpstreamVer
+		fmt.Printf("Creating bundles for version %s\n", b.Config.Builder.UpstreamVer)
+		version = b.Config.Builder.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
 		if version == "" {
 			return errors.Errorf("no Mixver or Clearver set, unable to proceed")
@@ -702,7 +702,7 @@ src=%s
 		"dnf",
 		"--config=" + b.Config.Builder.DNFConf,
 		"-y",
-		"--releasever=" + b.UpstreamVer,
+		"--releasever=" + b.Config.Builder.UpstreamVer,
 	}
 
 	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))

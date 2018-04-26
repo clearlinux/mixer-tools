@@ -56,13 +56,10 @@ type Builder struct {
 	BuildScript string
 	BuildConf   string
 
-	MixVer            string
 	MixVerFile        string
 	MixBundlesFile    string
 	LocalPackagesFile string
-	UpstreamURL       string
 	UpstreamURLFile   string
-	UpstreamVer       string
 	UpstreamVerFile   string
 
 	Signing int
@@ -162,7 +159,7 @@ func (b *Builder) DownloadFileFromUpstream(subpath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	base, err := url.Parse(b.UpstreamURL)
+	base, err := url.Parse(b.Config.Builder.UpstreamURL)
 	if err != nil {
 		return "", err
 	}
@@ -200,54 +197,65 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 		return err
 	}
 
-	// Set up mix metadata
-	// Deprecate '.clearurl' --> 'upstreamurl'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
-		b.UpstreamURLFile = ".clearurl"
-		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
-	}
-	if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile), []byte(upstreamURL), 0644); err != nil {
-		return err
-	}
-	b.UpstreamURL = upstreamURL
+	//TODO: Check before overwrite once old config is removed since new config already have default set
+	b.Config.Builder.UpstreamURL = upstreamURL
+	b.Config.Builder.UpstreamVer = upstreamVer
+	b.Config.Builder.MixVer = mixVer
 
-	if upstreamVer == "latest" {
+	if b.Config.Builder.UpstreamVer == "latest" {
 		ver, err := b.getLatestUpstreamVersion()
 		if err != nil {
 			return errors.Wrap(err, "Failed to retrieve latest published upstream version")
 		}
-		upstreamVer = ver
+
+		b.Config.Builder.UpstreamVer = ver
+
+		if UseNewConfig {
+			if err := b.Config.SaveConfig(b.BuildConf); err != nil {
+				return err
+			}
+		}
 	}
 
-	fmt.Printf("Initializing mix version %s from upstream version %s\n", mixVer, upstreamVer)
+	fmt.Printf("Initializing mix version %s from upstream version %s\n", b.Config.Builder.MixVer, b.Config.Builder.UpstreamVer)
 
-	// Deprecate '.clearversion' --> 'upstreamversion'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
-		b.UpstreamVerFile = ".clearversion"
-		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
-	}
-	if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), []byte(upstreamVer), 0644); err != nil {
-		return err
-	}
-	b.UpstreamVer = upstreamVer
+	// Set up mix metadata
+	if !UseNewConfig {
+		// Deprecate '.clearurl' --> 'upstreamurl'
+		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
+			b.UpstreamURLFile = ".clearurl"
+			fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+		}
+		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile), []byte(b.Config.Builder.UpstreamURL), 0644); err != nil {
+			return err
+		}
 
-	// Deprecate '.mixversion' --> 'mixversion'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
-		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		// Deprecate '.clearversion' --> 'upstreamversion'
+		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
+			b.UpstreamVerFile = ".clearversion"
+			fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+		}
+		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), []byte(b.Config.Builder.UpstreamVer), 0644); err != nil {
+			return err
+		}
+
+		// Deprecate '.mixversion' --> 'mixversion'
+		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
+			b.MixVerFile = ".mixversion"
+			fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		}
+		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(b.Config.Builder.MixVer), 0644); err != nil {
+			return err
+		}
 	}
-	if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(mixVer), 0644); err != nil {
-		return err
-	}
-	b.MixVer = mixVer
 
 	// Parse strings into valid version numbers.
 	var err error
-	b.MixVerUint32, err = parseUint32(b.MixVer)
+	b.MixVerUint32, err = parseUint32(b.Config.Builder.MixVer)
 	if err != nil {
 		return errors.Wrapf(err, "Couldn't parse mix version")
 	}
-	b.UpstreamVerUint32, err = parseUint32(b.UpstreamVer)
+	b.UpstreamVerUint32, err = parseUint32(b.Config.Builder.UpstreamVer)
 	if err != nil {
 		return errors.Wrapf(err, "Couldn't parse upstream version")
 	}
@@ -278,7 +286,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 		if err := helpers.Git("add", "."); err != nil {
 			return err
 		}
-		commitMsg := fmt.Sprintf("Initial mix version %s from upstream version %s", b.MixVer, b.UpstreamVer)
+		commitMsg := fmt.Sprintf("Initial mix version %s from upstream version %s", b.Config.Builder.MixVer, b.Config.Builder.UpstreamVer)
 		if err := helpers.Git("commit", "-m", commitMsg); err != nil {
 			return err
 		}
@@ -303,50 +311,53 @@ func (b *Builder) LoadBuilderConf(builderconf string) error {
 // ReadVersions will initialise the mix versions (mix and clearlinux) from
 // the configuration files in the version directory.
 func (b *Builder) ReadVersions() error {
-	// Deprecate '.mixversion' --> 'mixversion'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
-		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
-	}
-	ver, err := ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile))
-	if err != nil {
-		return err
-	}
-	b.MixVer = strings.TrimSpace(string(ver))
-	b.MixVer = strings.Replace(b.MixVer, "\n", "", -1)
+	if !UseNewConfig {
+		// Deprecate '.mixversion' --> 'mixversion'
+		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
+			b.MixVerFile = ".mixversion"
+			fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		}
+		ver, err := ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile))
+		if err != nil {
+			return err
+		}
+		b.Config.Builder.MixVer = strings.TrimSpace(string(ver))
+		b.Config.Builder.MixVer = strings.Replace(b.Config.Builder.MixVer, "\n", "", -1)
 
-	// Deprecate '.clearversion' --> 'upstreamversion'
-	if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
-		b.UpstreamVerFile = ".clearversion"
-		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
-	}
-	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile))
-	if err != nil {
-		return err
-	}
-	b.UpstreamVer = strings.TrimSpace(string(ver))
-	b.UpstreamVer = strings.Replace(b.UpstreamVer, "\n", "", -1)
+		// Deprecate '.clearversion' --> 'upstreamversion'
+		if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
+			b.UpstreamVerFile = ".clearversion"
+			fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+		}
+		ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile))
+		if err != nil {
+			return err
+		}
+		b.Config.Builder.UpstreamVer = strings.TrimSpace(string(ver))
+		b.Config.Builder.UpstreamVer = strings.Replace(b.Config.Builder.UpstreamVer, "\n", "", -1)
 
-	// Deprecate '.clearversion' --> 'upstreamurl'
-	if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
-		b.UpstreamURLFile = ".clearurl"
-		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
-	}
-	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
-		b.UpstreamURL = ""
-	} else {
-		b.UpstreamURL = strings.TrimSpace(string(ver))
-		b.UpstreamURL = strings.Replace(b.UpstreamURL, "\n", "", -1)
+		// Deprecate '.clearversion' --> 'upstreamurl'
+		if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
+			b.UpstreamURLFile = ".clearurl"
+			fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+		}
+		ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "WARNING: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
+			b.Config.Builder.UpstreamURL = ""
+		} else {
+			b.Config.Builder.UpstreamURL = strings.TrimSpace(string(ver))
+			b.Config.Builder.UpstreamURL = strings.Replace(b.Config.Builder.UpstreamURL, "\n", "", -1)
+		}
 	}
 
 	// Parse strings into valid version numbers.
-	b.MixVerUint32, err = parseUint32(b.MixVer)
+	var err error
+	b.MixVerUint32, err = parseUint32(b.Config.Builder.MixVer)
 	if err != nil {
 		return errors.Wrapf(err, "Couldn't parse mix version")
 	}
-	b.UpstreamVerUint32, err = parseUint32(b.UpstreamVer)
+	b.UpstreamVerUint32, err = parseUint32(b.Config.Builder.UpstreamVer)
 	if err != nil {
 		return errors.Wrapf(err, "Couldn't parse upstream version")
 	}
@@ -357,7 +368,7 @@ func (b *Builder) ReadVersions() error {
 // SignManifestMoM will sign the Manifest.MoM file in in place based on the Mix
 // version read from builder.conf.
 func (b *Builder) SignManifestMoM() error {
-	mom := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "Manifest.MoM")
+	mom := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.Config.Builder.MixVer, "Manifest.MoM")
 	sig := mom + ".sig"
 
 	// Call openssl because signing and pkcs7 stuff is not well supported in Go yet.
@@ -394,7 +405,7 @@ func (b *Builder) getLocalPackagesPath() string {
 }
 
 func (b *Builder) getUpstreamPackagesPath() string {
-	return filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
+	return filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.Config.Builder.UpstreamVer), "packages")
 }
 
 func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
@@ -489,7 +500,7 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 	}
 
 	// Check upstream-bundles
-	path = filepath.Join(getUpstreamBundlesPath(b.UpstreamVer), bundle)
+	path = filepath.Join(getUpstreamBundlesPath(b.Config.Builder.UpstreamVer), bundle)
 	if _, err = os.Stat(path); err == nil {
 		return path, nil
 	}
@@ -700,7 +711,7 @@ func (b *Builder) getFullMixBundleSet() (bundleSet, error) {
 // Bundles List will be in sorted order.
 func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, git bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(b.Config.Builder.UpstreamVer, true); err != nil {
 		return err
 	}
 
@@ -754,7 +765,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 	// Add all upstream bundles to the bundles
 	if allUpstream {
-		upstreamBundleDir := getUpstreamBundlesPath(b.UpstreamVer)
+		upstreamBundleDir := getUpstreamBundlesPath(b.Config.Builder.UpstreamVer)
 		upstreamSet, err := b.getDirBundlesListAsSet(upstreamBundleDir)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to read upstream bundles dir: %s", upstreamBundleDir)
@@ -786,7 +797,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 		if err := helpers.Git("add", "."); err != nil {
 			return err
 		}
-		commitMsg := fmt.Sprintf("Added bundles from local-bundles or upstream version %s\n\nBundles added: %v", b.UpstreamVer, bundles)
+		commitMsg := fmt.Sprintf("Added bundles from local-bundles or upstream version %s\n\nBundles added: %v", b.Config.Builder.UpstreamVer, bundles)
 		if err := helpers.Git("commit", "-q", "-m", commitMsg); err != nil {
 			return err
 		}
@@ -801,7 +812,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 // Bundles List will be in sorted order.
 func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(b.Config.Builder.UpstreamVer, true); err != nil {
 		return err
 	}
 
@@ -941,7 +952,7 @@ const (
 // ListBundles prints out a bundle list in either a flat list or tree view
 func (b *Builder) ListBundles(listType listType, tree bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(b.Config.Builder.UpstreamVer, true); err != nil {
 		return err
 	}
 
@@ -961,7 +972,7 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 	if err != nil {
 		return err
 	}
-	upstreamBundles, err := b.getDirBundlesListAsSet(getUpstreamBundlesPath(b.UpstreamVer))
+	upstreamBundles, err := b.getDirBundlesListAsSet(getUpstreamBundlesPath(b.Config.Builder.UpstreamVer))
 	if err != nil {
 		if !Offline {
 			return err
@@ -1176,7 +1187,7 @@ func createBundleFile(bundle string, path string) error {
 // needed), and 'add' will also add the bundles to the mix.
 func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, git bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(b.Config.Builder.UpstreamVer, true); err != nil {
 		return err
 	}
 
@@ -1274,13 +1285,23 @@ func (b *Builder) ValidateBundles(bundles []string, lvl ValidationLevel) error {
 // UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
 // without requiring user intervention. This makes the flow slightly more automatable.
 func (b *Builder) UpdateMixVer() error {
-	// Deprecate '.mixversion' --> 'mixversion'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
-		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+	mixVer, _ := strconv.Atoi(b.Config.Builder.MixVer)
+	b.Config.Builder.MixVer = strconv.Itoa(mixVer + 10)
+
+	if !UseNewConfig {
+		// Deprecate '.mixversion' --> 'mixversion'
+		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
+			b.MixVerFile = ".mixversion"
+			fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		}
+		return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(b.Config.Builder.MixVer), 0644)
 	}
-	mixVer, _ := strconv.Atoi(b.MixVer)
-	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
+
+	if err := b.ReadVersions(); err != nil {
+		return err
+	}
+
+	return b.Config.SaveConfig(b.BuildConf)
 }
 
 // If Base == true, template will include the [main] and [clear] sections.
@@ -1321,7 +1342,7 @@ priority=1
 // NewDNFConfIfNeeded creates a new DNF configuration file if it does not already exist
 func (b *Builder) NewDNFConfIfNeeded() error {
 	conf := dnfConf{
-		UpstreamURL: b.UpstreamURL,
+		UpstreamURL: b.Config.Builder.UpstreamURL,
 		RepoDir:     b.Config.Mixer.LocalRepoDir,
 	}
 
@@ -1369,7 +1390,7 @@ func (b *Builder) NewDNFConfIfNeeded() error {
 // the file contents of all bundles.
 func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(b.Config.Builder.UpstreamVer, true); err != nil {
 		return err
 	}
 
@@ -1386,13 +1407,13 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	}
 
 	// If MIXVER already exists, wipe it so it's a fresh build
-	if _, err := os.Stat(b.Config.Builder.ServerStateDir + "/image/" + b.MixVer); err == nil {
-		fmt.Printf("Wiping away previous version %s...\n", b.MixVer)
-		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/www/" + b.MixVer)
+	if _, err := os.Stat(b.Config.Builder.ServerStateDir + "/image/" + b.Config.Builder.MixVer); err == nil {
+		fmt.Printf("Wiping away previous version %s...\n", b.Config.Builder.MixVer)
+		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/www/" + b.Config.Builder.MixVer)
 		if err != nil {
 			return err
 		}
-		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/image/" + b.MixVer)
+		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/image/" + b.Config.Builder.MixVer)
 		if err != nil {
 			return err
 		}
@@ -1474,16 +1495,16 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	}
 
 	// Save upstream information.
-	if b.UpstreamURL != "" {
-		fmt.Printf("Saving the upstream URL: %s\n", b.UpstreamURL)
-		upstreamURLFile := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "/upstreamurl")
-		err = ioutil.WriteFile(upstreamURLFile, []byte(b.UpstreamURL), 0644)
+	if b.Config.Builder.UpstreamURL != "" {
+		fmt.Printf("Saving the upstream URL: %s\n", b.Config.Builder.UpstreamURL)
+		upstreamURLFile := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.Config.Builder.MixVer, "/upstreamurl")
+		err = ioutil.WriteFile(upstreamURLFile, []byte(b.Config.Builder.UpstreamURL), 0644)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't write upstreamurl file")
 		}
-		fmt.Printf("Saving the upstream version: %s\n", b.UpstreamVer)
-		upstreamVerFile := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "upstreamver")
-		err = ioutil.WriteFile(upstreamVerFile, []byte(b.UpstreamVer), 0644)
+		fmt.Printf("Saving the upstream version: %s\n", b.Config.Builder.UpstreamVer)
+		upstreamVerFile := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.Config.Builder.MixVer, "upstreamver")
+		err = ioutil.WriteFile(upstreamVerFile, []byte(b.Config.Builder.UpstreamVer), 0644)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't write upstreamver file")
 		}
@@ -1495,13 +1516,13 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 		return nil
 	}
 
-	fmt.Printf("Setting latest version to %s\n", b.MixVer)
+	fmt.Printf("Setting latest version to %s\n", b.Config.Builder.MixVer)
 
-	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
+	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.Config.Builder.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest version")
 	}
-	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER"), []byte(b.MixVer), 0644)
+	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER"), []byte(b.Config.Builder.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest version")
 	}
@@ -1512,7 +1533,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVersion uint32, format uint32, skipSigning bool) error {
 	var err error
 
-	err = writeMetaFiles(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer), b.Config.Swupd.Format, Version)
+	err = writeMetaFiles(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.Config.Builder.MixVer), b.Config.Swupd.Format, Version)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write update metadata files")
 	}
@@ -1560,8 +1581,8 @@ func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVer
 
 	timer.Start("CREATE FULLFILES")
 	fmt.Printf("Using %d workers\n", b.NumFullfileWorkers)
-	fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
-	fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full")
+	fullfilesDir := filepath.Join(outputDir, b.Config.Builder.MixVer, "files")
+	fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.Config.Builder.MixVer, "full")
 	info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
 	if err != nil {
 		return err
@@ -2150,19 +2171,30 @@ Updated mix:      %d
 Updated upstream: %d (format: %s)
 `, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, format)
 
-	mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
-	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)
-	if err != nil {
-		return errors.Wrap(err, "couldn't write updated mix version")
-	}
-	fmt.Printf("\nWrote %s.\n", b.MixVerFile)
+	b.Config.Builder.MixVer = fmt.Sprintf("%d", nextMix)
+	b.Config.Builder.UpstreamVer = fmt.Sprintf("%d", nextUpstream)
 
-	upstreamVerContents := []byte(fmt.Sprintf("%d\n", nextUpstream))
-	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), upstreamVerContents, 0644)
-	if err != nil {
-		return errors.Wrap(err, "couldn't write updated upstream version")
-	}
-	fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
+	if !UseNewConfig {
+		mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
+		err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)
+		if err != nil {
+			return errors.Wrap(err, "couldn't write updated mix version")
+		}
+		fmt.Printf("\nWrote %s.\n", b.MixVerFile)
 
-	return nil
+		upstreamVerContents := []byte(fmt.Sprintf("%d\n", nextUpstream))
+		err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), upstreamVerContents, 0644)
+		if err != nil {
+			return errors.Wrap(err, "couldn't write updated upstream version")
+		}
+		fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
+
+		return nil
+	}
+
+	if err := b.ReadVersions(); err != nil {
+		return err
+	}
+
+	return b.Config.SaveConfig(b.BuildConf)
 }

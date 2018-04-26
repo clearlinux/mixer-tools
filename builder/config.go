@@ -46,6 +46,10 @@ type builderConf struct {
 	ServerStateDir string `required:"true" toml:"SERVER_STATE_DIR"`
 	VersionPath    string `required:"true" toml:"VERSIONS_PATH"`
 	DNFConf        string `required:"true" toml:"YUM_CONF"`
+	//TODO: Change required to true when old config is removed
+	MixVer      string `required:"false" toml:"MIX_VERSION"`
+	UpstreamVer string `required:"false" toml:"UPSTREAM_VERSION"`
+	UpstreamURL string `required:"false" toml:"UPSTREAM_URL"`
 }
 
 type swupdConf struct {
@@ -83,6 +87,9 @@ func (config *MixConfig) LoadDefaults() error {
 	config.Builder.ServerStateDir = filepath.Join(pwd, "update")
 	config.Builder.VersionPath = pwd
 	config.Builder.DNFConf = filepath.Join(pwd, ".yum-mix.conf")
+	config.Builder.MixVer = "10"
+	config.Builder.UpstreamVer = "latest"
+	config.Builder.UpstreamURL = "https://download.clearlinux.org"
 
 	// [Swupd]
 	config.Swupd.Bundle = "os-core-update"

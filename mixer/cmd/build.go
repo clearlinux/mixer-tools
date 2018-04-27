@@ -97,7 +97,7 @@ var buildBundlesCmd = &cobra.Command{
 	Short:   "Build the bundles for your mix",
 	Long:    `Build the bundles for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -114,7 +114,7 @@ var buildUpdateCmd = &cobra.Command{
 	Short: "Build the update content for your mix",
 	Long:  `Build the update content for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -137,7 +137,7 @@ var buildAllCmd = &cobra.Command{
 	Short: "Build all content for mix with default options",
 	Long:  `Build all content for mix with default options`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -169,7 +169,7 @@ var buildImageCmd = &cobra.Command{
 	Short: "Build an image from the mix content",
 	Long:  `Build an image from the mix content`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -223,7 +223,7 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 		return errors.Errorf("either --from or --previous-versions must be set, but not both")
 	}
 
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -260,7 +260,7 @@ var buildCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range buildCmds {
 		buildCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
+		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")

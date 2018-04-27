@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/spf13/cobra"
 )
 
@@ -32,13 +32,13 @@ var configValidateCmd = &cobra.Command{
 environment variables will be expanded`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		if configFile, err = builder.GetConfigPath(configFile); err != nil {
+		if configFile, err = config.GetConfigPath(configFile); err != nil {
 			// Print error, but don't print command usage
 			fail(err)
 			return
 		}
 
-		var mc builder.MixConfig
+		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
 			return
@@ -60,12 +60,12 @@ a backup file of the old config and will replace it with the converted one. Envi
 variables will not be expanded and the values will not be validated`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		if configFile, err = builder.GetConfigPath(configFile); err != nil {
+		if configFile, err = config.GetConfigPath(configFile); err != nil {
 			fail(err)
 			return
 		}
 
-		var mc builder.MixConfig
+		var mc config.MixConfig
 		if err := mc.Convert(configFile); err != nil {
 			fail(err)
 			return

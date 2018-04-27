@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/go-ini/ini"
 	"github.com/pkg/errors"
@@ -607,7 +608,7 @@ func (b *Builder) buildBundles(set bundleSet) error {
 	// TODO: Do not touch config code that is in flux at the moment, reparsing it here to grab
 	// information that previously Mixer didn't care about. Move that to the configuration part
 	// of Mixer.
-	if !UseNewConfig {
+	if !config.UseNewConfig {
 		err := readBuildBundlesConfig(b)
 		if err != nil {
 			return err

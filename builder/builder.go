@@ -35,6 +35,7 @@ import (
 	"text/tabwriter"
 	textTemplate "text/template" // "template" conflicts with crypto/x509
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
 	"github.com/go-ini/ini"
@@ -51,7 +52,7 @@ var Offline = false
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {
-	Config MixConfig
+	Config config.MixConfig
 
 	BuildScript string
 	BuildConf   string
@@ -106,20 +107,6 @@ func NewFromConfig(conf string) (*Builder, error) {
 		return nil, err
 	}
 	return b, nil
-}
-
-// GetConfigPath returns the default config path if the provided path is empty
-func GetConfigPath(path string) (string, error) {
-	if path != "" {
-		return path, nil
-	}
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(pwd, "builder.conf"), nil
 }
 
 // initDirs creates the directories mixer uses
@@ -210,7 +197,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 
 		b.Config.Builder.UpstreamVer = ver
 
-		if UseNewConfig {
+		if config.UseNewConfig {
 			if err := b.Config.SaveConfig(b.BuildConf); err != nil {
 				return err
 			}
@@ -220,7 +207,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	fmt.Printf("Initializing mix version %s from upstream version %s\n", b.Config.Builder.MixVer, b.Config.Builder.UpstreamVer)
 
 	// Set up mix metadata
-	if !UseNewConfig {
+	if !config.UseNewConfig {
 		// Deprecate '.clearurl' --> 'upstreamurl'
 		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
 			b.UpstreamURLFile = ".clearurl"
@@ -300,7 +287,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // the local builder.conf file.
 func (b *Builder) LoadBuilderConf(builderconf string) error {
 	var err error
-	b.BuildConf, err = GetConfigPath(builderconf)
+	b.BuildConf, err = config.GetConfigPath(builderconf)
 	if err != nil {
 		return err
 	}
@@ -311,7 +298,7 @@ func (b *Builder) LoadBuilderConf(builderconf string) error {
 // ReadVersions will initialise the mix versions (mix and clearlinux) from
 // the configuration files in the version directory.
 func (b *Builder) ReadVersions() error {
-	if !UseNewConfig {
+	if !config.UseNewConfig {
 		// Deprecate '.mixversion' --> 'mixversion'
 		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 			b.MixVerFile = ".mixversion"
@@ -1288,7 +1275,7 @@ func (b *Builder) UpdateMixVer() error {
 	mixVer, _ := strconv.Atoi(b.Config.Builder.MixVer)
 	b.Config.Builder.MixVer = strconv.Itoa(mixVer + 10)
 
-	if !UseNewConfig {
+	if !config.UseNewConfig {
 		// Deprecate '.mixversion' --> 'mixversion'
 		if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 			b.MixVerFile = ".mixversion"
@@ -2174,7 +2161,7 @@ Updated upstream: %d (format: %s)
 	b.Config.Builder.MixVer = fmt.Sprintf("%d", nextMix)
 	b.Config.Builder.UpstreamVer = fmt.Sprintf("%d", nextUpstream)
 
-	if !UseNewConfig {
+	if !config.UseNewConfig {
 		mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
 		err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)
 		if err != nil {

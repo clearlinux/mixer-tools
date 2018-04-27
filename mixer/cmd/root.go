@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/config"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -147,7 +148,7 @@ func init() {
 	_ = RootCmd.Flags().MarkDeprecated("new-swupd", "new functionality is now the standard behavior, this flag is obsolete and no longer used")
 
 	// TODO: Remove this once we drop the old config format
-	RootCmd.PersistentFlags().BoolVar(&builder.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")
+	RootCmd.PersistentFlags().BoolVar(&config.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")
 
 	RootCmd.PersistentFlags().BoolVar(&builder.Offline, "offline", false, "Skip caching upstream-bundles; work entirely with local-bundles")
 

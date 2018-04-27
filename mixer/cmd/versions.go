@@ -63,7 +63,7 @@ func init() {
 	versionsCmd.AddCommand(versionsUpdateCmd)
 	RootCmd.AddCommand(versionsCmd)
 
-	versionsUpdateCmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
+	versionsUpdateCmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	versionsUpdateCmd.Flags().Uint32Var(&versionsUpdateFlags.mixVersion, "mix-version", 0, "Set a specific mix version")
 	versionsUpdateCmd.Flags().StringVar(&versionsUpdateFlags.upstreamVersion, "upstream-version", "", "Next upstream version (either version number or 'latest')")
 	versionsUpdateCmd.Flags().StringVar(&versionsUpdateFlags.upstreamVersion, "clear-version", "", "Alias to --upstream-version")
@@ -71,7 +71,7 @@ func init() {
 }
 
 func runVersions(cmd *cobra.Command, args []string) {
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -82,7 +82,7 @@ func runVersions(cmd *cobra.Command, args []string) {
 }
 
 func runVersionsUpdate(cmd *cobra.Command, args []string) {
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}

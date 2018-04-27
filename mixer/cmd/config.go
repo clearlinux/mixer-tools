@@ -34,13 +34,13 @@ var configValidateCmd = &cobra.Command{
 environment variables will be expanded`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		if config, err = builder.GetConfigPath(config); err != nil {
+		if configFile, err = builder.GetConfigPath(configFile); err != nil {
 			// Print error, but don't print command usage
 			fail(err)
 		}
 
 		var mc builder.MixConfig
-		if err := mc.LoadConfig(config); err != nil {
+		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
 		}
 
@@ -59,12 +59,12 @@ a backup file of the old config and will replace it with the converted one. Envi
 variables will not be expanded and the values will not be validated`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		if config, err = builder.GetConfigPath(config); err != nil {
+		if configFile, err = builder.GetConfigPath(configFile); err != nil {
 			fail(err)
 		}
 
 		var mc builder.MixConfig
-		if err := mc.Convert(config); err != nil {
+		if err := mc.Convert(configFile); err != nil {
 			fail(err)
 		}
 
@@ -84,16 +84,16 @@ var configSetCmd = &cobra.Command{
 		}
 
 		var err error
-		if config, err = builder.GetConfigPath(config); err != nil {
+		if configFile, err = builder.GetConfigPath(configFile); err != nil {
 			fail(err)
 		}
 
 		var mc builder.MixConfig
-		if err := mc.LoadConfig(config); err != nil {
+		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
 		}
 
-		if err := mc.SetProperty(config, args[0], args[1]); err != nil {
+		if err := mc.SetProperty(configFile, args[0], args[1]); err != nil {
 			fail(err)
 		}
 
@@ -110,7 +110,7 @@ var configCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range configCmds {
 		configCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
+		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	RootCmd.AddCommand(configCmd)

@@ -75,7 +75,7 @@ var repoCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range repoCmds {
 		repoCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
+		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	RootCmd.AddCommand(repoCmd)
@@ -85,7 +85,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
 		fail(errors.New("add requires exactly two arguments: <repo-name> <repo-url>"))
 	}
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -101,7 +101,7 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
 		fail(errors.New("remove requires exactly one argument: <name>"))
 	}
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -114,7 +114,7 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 }
 
 func runListRepos(cmd *cobra.Command, args []string) {
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -126,7 +126,7 @@ func runListRepos(cmd *cobra.Command, args []string) {
 }
 
 func runInitRepo(cmd *cobra.Command, args []string) {
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -142,7 +142,7 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(errors.New("set-url requires exactly two arguments: <name> <url>"))
 	}
 
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}

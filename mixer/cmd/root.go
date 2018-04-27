@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var config string
+var configFile string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -110,13 +110,13 @@ var initCmd = &cobra.Command{
 		}
 
 		b := builder.New()
-		if config == "" {
+		if configFile == "" {
 			// Create default config if necessary
 			if err := b.Config.CreateDefaultConfig(initFlags.localRPMs); err != nil {
 				fail(err)
 			}
 		}
-		if err := b.LoadBuilderConf(config); err != nil {
+		if err := b.LoadBuilderConf(configFile); err != nil {
 			fail(err)
 		}
 		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixver), initFlags.allLocal, initFlags.allUpstream, initFlags.upstreamURL, initFlags.git)
@@ -161,7 +161,7 @@ func init() {
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")
 	initCmd.Flags().BoolVar(&initFlags.localRPMs, "local-rpms", false, "Create and configure local RPMs directories")
-	initCmd.Flags().StringVar(&config, "config", "", "Supply a specific builder.conf to use for mixing")
+	initCmd.Flags().StringVar(&configFile, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")
 

@@ -35,6 +35,7 @@ import (
 	"text/tabwriter"
 	textTemplate "text/template" // "template" conflicts with crypto/x509
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
 	"github.com/go-ini/ini"
@@ -51,7 +52,7 @@ var Offline = false
 // A Builder contains all configurable fields required to perform a full mix
 // operation, and is used to encapsulate life time data.
 type Builder struct {
-	Config MixConfig
+	Config config.MixConfig
 
 	BuildScript string
 	BuildConf   string
@@ -109,20 +110,6 @@ func NewFromConfig(conf string) (*Builder, error) {
 		return nil, err
 	}
 	return b, nil
-}
-
-// GetConfigPath returns the default config path if the provided path is empty
-func GetConfigPath(path string) (string, error) {
-	if path != "" {
-		return path, nil
-	}
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-
-	return filepath.Join(pwd, "builder.conf"), nil
 }
 
 // initDirs creates the directories mixer uses
@@ -292,7 +279,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // the local builder.conf file.
 func (b *Builder) LoadBuilderConf(builderconf string) error {
 	var err error
-	b.BuildConf, err = GetConfigPath(builderconf)
+	b.BuildConf, err = config.GetConfigPath(builderconf)
 	if err != nil {
 		return err
 	}

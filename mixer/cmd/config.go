@@ -15,8 +15,7 @@
 package cmd
 
 import (
-	"github.com/clearlinux/mixer-tools/builder"
-
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
@@ -34,12 +33,12 @@ var configValidateCmd = &cobra.Command{
 environment variables will be expanded`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		if configFile, err = builder.GetConfigPath(configFile); err != nil {
+		if configFile, err = config.GetConfigPath(configFile); err != nil {
 			// Print error, but don't print command usage
 			fail(err)
 		}
 
-		var mc builder.MixConfig
+		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
 		}
@@ -59,11 +58,11 @@ a backup file of the old config and will replace it with the converted one. Envi
 variables will not be expanded and the values will not be validated`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		if configFile, err = builder.GetConfigPath(configFile); err != nil {
+		if configFile, err = config.GetConfigPath(configFile); err != nil {
 			fail(err)
 		}
 
-		var mc builder.MixConfig
+		var mc config.MixConfig
 		if err := mc.Convert(configFile); err != nil {
 			fail(err)
 		}
@@ -79,16 +78,16 @@ var configSetCmd = &cobra.Command{
 	the existence of the provided property, but will not validate the value provided.`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		if !builder.UseNewConfig {
+		if !config.UseNewConfig {
 			fail(errors.New("config set requires `--new-config` flag`"))
 		}
 
 		var err error
-		if configFile, err = builder.GetConfigPath(configFile); err != nil {
+		if configFile, err = config.GetConfigPath(configFile); err != nil {
 			fail(err)
 		}
 
-		var mc builder.MixConfig
+		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
 		}

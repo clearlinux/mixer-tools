@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package config
 
 import (
 	"bytes"
@@ -390,4 +390,18 @@ func (config *MixConfig) Print() error {
 	fmt.Println(sb.String())
 
 	return nil
+}
+
+// GetConfigPath returns the default config path if the provided path is empty
+func GetConfigPath(path string) (string, error) {
+	if path != "" {
+		return path, nil
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(pwd, "builder.conf"), nil
 }

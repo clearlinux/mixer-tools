@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
 	"io/ioutil"
 
 	"github.com/clearlinux/mixer-tools/builder"
@@ -29,8 +31,16 @@ var addRPMCmd = &cobra.Command{
 	Run:   runAddRPM,
 }
 
+var addRepoCmd = &cobra.Command{
+	Use:   "add-repo NAME URL",
+	Short: "Add repo NAME at URL",
+	Long:  `Add the repo at URL as a repo from which to pull RPMs for building bundles`,
+	Run:   runAddRepo,
+}
+
 var rpmCmds = []*cobra.Command{
 	addRPMCmd,
+	addRepoCmd,
 }
 
 func init() {
@@ -61,4 +71,20 @@ func runAddRPM(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
+}
+
+func runAddRepo(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		fail(errors.New("add-repo requires 2 arguments: <repo-name> <repo-url>"))
+	}
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.AddRepo(args)
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Added %s repo at %s url.\n", args[0], args[1])
 }

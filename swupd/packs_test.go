@@ -255,6 +255,64 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.shells"), ts.path("www/20/pack-shells-from-0.tar"))
 }
 
+func TestCreatePackNonConsecutiveDeltas(t *testing.T) {
+	ts := newTestSwupd(t, "create-pack-ncd")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "contents"}
+
+	contents := strings.Repeat("large", 1000)
+	if len(contents) < minimumSizeToMakeDeltaInBytes {
+		t.Fatal("test content size is invalid")
+	}
+
+	ts.addFile(10, "contents", "/A", contents+"A")
+	ts.addFile(10, "contents", "/B", contents+"B")
+	ts.addFile(10, "contents", "/C", contents+"C")
+	ts.createManifests(10)
+	hashA := ts.mustHashFile("image/10/full/A")
+	hashB := ts.mustHashFile("image/10/full/B")
+	hashC := ts.mustHashFile("image/10/full/C")
+
+	ts.addFile(20, "contents", "/A1", contents+"A1")
+	ts.addFile(20, "contents", "/B", contents+"B")
+	ts.addFile(20, "contents", "/C1", contents+"C1")
+	ts.createManifests(20)
+	hashA1 := ts.mustHashFile("image/20/full/A1")
+	hashC1 := ts.mustHashFile("image/20/full/C1")
+
+	ts.addFile(30, "contents", "/A", contents+"A")
+	ts.addFile(30, "contents", "/B1", contents+"B1")
+	ts.addFile(30, "contents", "/C2", contents+"C2")
+	ts.createManifests(30)
+	hashB1 := ts.mustHashFile("image/30/full/B1")
+	hashC2 := ts.mustHashFile("image/30/full/C2")
+
+	info := ts.createPack("contents", 10, 20, ts.path("image"))
+	mustHaveDeltaCount(t, info, 2)
+	checkFileInPack(t, ts.path("www/20/pack-contents-from-10.tar"),
+		fmt.Sprintf("delta/10-20-%s-%s", hashA, hashA1))
+	checkFileInPack(t, ts.path("www/20/pack-contents-from-10.tar"),
+		fmt.Sprintf("delta/10-20-%s-%s", hashC, hashC1))
+
+	info = ts.createPack("contents", 20, 30, ts.path("image"))
+	mustHaveDeltaCount(t, info, 3)
+	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
+		fmt.Sprintf("delta/20-30-%s-%s", hashA1, hashA))
+	// note that the from version is 10 since the B file did not change in 20
+	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
+		fmt.Sprintf("delta/10-30-%s-%s", hashB, hashB1))
+	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
+		fmt.Sprintf("delta/20-30-%s-%s", hashC1, hashC2))
+
+	info = ts.createPack("contents", 10, 30, ts.path("image"))
+	mustHaveDeltaCount(t, info, 2)
+	checkFileInPack(t, ts.path("www/30/pack-contents-from-10.tar"),
+		fmt.Sprintf("delta/10-30-%s-%s", hashB, hashB1))
+	checkFileInPack(t, ts.path("www/30/pack-contents-from-10.tar"),
+		fmt.Sprintf("delta/10-30-%s-%s", hashC, hashC2))
+}
+
 func TestCreatePackWithDelta(t *testing.T) {
 	fs := newTestFileSystem(t, "create-pack-")
 	defer fs.cleanup()

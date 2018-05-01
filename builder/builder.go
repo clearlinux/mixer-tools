@@ -37,6 +37,7 @@ import (
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
+	"github.com/go-ini/ini"
 	"github.com/pkg/errors"
 )
 
@@ -1317,24 +1318,7 @@ gpgcheck=0
 priority=1
 {{end}}`
 
-// BuildBundles will attempt to construct the bundles required by generating a
-// DNF configuration file, then resolving all files for each bundle using dnf
-// resolve and no-op installs. One full chroot is created from this step with
-// the file contents of all bundles.
-func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
-	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
-		return err
-	}
-
-	// Generate the dnf config file if it does not exist.
-	// This takes the template and adds the relevant local rpm repo path if needed
-	fmt.Println("Building bundles...")
-
-	timer := &stopWatch{w: os.Stdout}
-	defer timer.WriteSummary(os.Stdout)
-
-	timer.Start("BUILD BUNDLES")
+func (b *Builder) newDNFConfIfNeeded() error {
 	conf := dnfConf{
 		UpstreamURL: b.UpstreamURL,
 		RepoDir:     b.Config.Mixer.LocalRepoDir,
@@ -1374,6 +1358,30 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 		if err = t.Execute(f, conf); err != nil {
 			return errors.Wrapf(err, "Failed to write to dnf file: %s", b.Config.Builder.DNFConf)
 		}
+	}
+	return nil
+}
+
+// BuildBundles will attempt to construct the bundles required by generating a
+// DNF configuration file, then resolving all files for each bundle using dnf
+// resolve and no-op installs. One full chroot is created from this step with
+// the file contents of all bundles.
+func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
+	// Fetch upstream bundle files if needed
+	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+		return err
+	}
+
+	// Generate the dnf config file if it does not exist.
+	// This takes the template and adds the relevant local rpm repo path if needed
+	fmt.Println("Building bundles...")
+
+	timer := &stopWatch{w: os.Stdout}
+	defer timer.WriteSummary(os.Stdout)
+
+	timer.Start("BUILD BUNDLES")
+	if err := b.newDNFConfIfNeeded(); err != nil {
+		return err
 	}
 
 	// If MIXVER already exists, wipe it so it's a fresh build
@@ -1638,6 +1646,65 @@ func (b *Builder) BuildImage(format string, template string) error {
 	imagecmd.Stderr = os.Stderr
 
 	return imagecmd.Run()
+}
+
+type dnfRepoConf struct {
+	RepoName, RepoURL string
+}
+
+const dnfConfRepoTemplate = `
+[{{.RepoName}}]
+name={{.RepoName}}
+failovermethod=priority
+baseurl={{.RepoURL}}
+enabled=1
+gpgcheck=0
+priority=1
+`
+
+// AddRepo adds and enables a repo configuration named repoInfo[0] pointing at
+// URL repoInfo[1]. It calls b.newDNFConfIfNeeded() to create the DNF config if it
+// does not exist and performs a check to see if the repo passed has already
+// been configured.
+func (b *Builder) AddRepo(repoInfo []string) error {
+	repo := dnfRepoConf{
+		RepoName: repoInfo[0],
+		RepoURL:  repoInfo[1],
+	}
+
+	if err := b.newDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
+	f, err := os.OpenFile(b.Config.Builder.DNFConf, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		helpers.PrintError(err)
+		return err
+	}
+
+	DNFConf, err := ini.InsensitiveLoad(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	_, err = DNFConf.GetSection(repo.RepoName)
+	if err == nil {
+		return fmt.Errorf("repo %s already exists in %s, not adding duplicate",
+			repo.RepoName,
+			b.Config.Builder.DNFConf)
+	}
+
+	t, err := textTemplate.New("dnfConfRepoTemplate").Parse(dnfConfRepoTemplate)
+	if err != nil {
+		helpers.PrintError(err)
+		return err
+	}
+
+	if err = t.Execute(f, repo); err != nil {
+		return errors.Wrapf(err, "Failed to write to dnf file: %s", b.Config.Builder.DNFConf)
+	}
+
+	return nil
 }
 
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to

@@ -1728,6 +1728,34 @@ func (b *Builder) RemoveRepo(name string) error {
 	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
 }
 
+// ListRepos lists all configured repositories in the DNF configuration file.
+// This will fail if a DNF conf has not yet been generated.
+func (b *Builder) ListRepos() error {
+	if _, err := os.Stat(b.Config.Builder.DNFConf); os.IsNotExist(err) {
+		return err
+	}
+
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	for _, s := range DNFConf.Sections() {
+		name := s.Key("name").Value()
+		if name == "" {
+			continue
+		}
+
+		url := s.Key("baseurl").Value()
+		if url == "" {
+			continue
+		}
+
+		fmt.Printf("%s\t%s\n", name, url)
+	}
+	return nil
+}
+
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to
 // generate a dnf-consumable repository for the bundle builder to use.
 func (b *Builder) AddRPMList(rpms []os.FileInfo) error {

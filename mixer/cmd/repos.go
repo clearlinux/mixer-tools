@@ -43,9 +43,17 @@ var removeRepoCmd = &cobra.Command{
 	Run:   runRemoveRepo,
 }
 
+var listReposCmd = &cobra.Command{
+	Use:   "list",
+	Short: "List all configured RPM Repositories",
+	Long:  `List all RPM repositories configured in the DNF configuration file used by mixer`,
+	Run:   runListRepos,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
 	removeRepoCmd,
+	listReposCmd,
 }
 
 func init() {
@@ -87,4 +95,16 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Removed %s repo.\n", args[0])
+}
+
+func runListRepos(cmd *cobra.Command, args []string) {
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.ListRepos()
+	if err != nil {
+		fail(err)
+	}
 }

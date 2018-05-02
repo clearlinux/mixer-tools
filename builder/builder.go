@@ -1682,7 +1682,7 @@ func (b *Builder) AddRepo(repoInfo []string) error {
 		return err
 	}
 
-	DNFConf, err := ini.InsensitiveLoad(b.Config.Builder.DNFConf)
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
 	if err != nil {
 		return err
 	}

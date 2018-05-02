@@ -15,50 +15,52 @@
 package cmd
 
 import (
-	"io/ioutil"
+	"errors"
+	"fmt"
 
 	"github.com/clearlinux/mixer-tools/builder"
 
 	"github.com/spf13/cobra"
 )
 
-var addRPMCmd = &cobra.Command{
-	Use:   "add-rpms",
-	Short: "Add RPMs to local dnf repository",
-	Long:  `Add RPMS from the configured LOCAL_RPM_DIR to local dnf repository`,
-	Run:   runAddRPM,
+// Top level repo command ('mixer repo')
+var repoCmd = &cobra.Command{
+	Use:   "repo",
+	Short: "Add, list, or remove RPM repositories for use by mixer",
 }
 
-var rpmCmds = []*cobra.Command{
-	addRPMCmd,
+var addRepoCmd = &cobra.Command{
+	Use:   "add <name> <url>",
+	Short: "Add repo <name> at <url>",
+	Long:  `Add the repo at <url> as a repo from which to pull RPMs for building bundles`,
+	Run:   runAddRepo,
+}
+
+var repoCmds = []*cobra.Command{
+	addRepoCmd,
 }
 
 func init() {
-	for _, cmd := range rpmCmds {
-		RootCmd.AddCommand(cmd)
+	for _, cmd := range repoCmds {
+		repoCmd.AddCommand(cmd)
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
 
-	externalDeps[addRPMCmd] = []string{
-		"createrepo_c",
-		"hardlink",
-	}
+	RootCmd.AddCommand(repoCmd)
 }
 
-func runAddRPM(cmd *cobra.Command, args []string) {
+func runAddRepo(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		fail(errors.New("add requires 2 arguments: <repo-name> <repo-url>"))
+	}
 	b, err := builder.NewFromConfig(config)
 	if err != nil {
 		fail(err)
 	}
-	if b.Config.Mixer.LocalRPMDir == "" {
-		failf("LOCAL_RPM_DIR not set in configuration")
-	}
-	rpms, err := ioutil.ReadDir(b.Config.Mixer.LocalRPMDir)
-	if err != nil {
-		failf("cannot read LOCAL_RPM_DIR: %s", err)
-	}
-	err = b.AddRPMList(rpms)
+
+	err = b.AddRepo(args)
 	if err != nil {
 		fail(err)
 	}
+	fmt.Printf("Added %s repo at %s url.\n", args[0], args[1])
 }

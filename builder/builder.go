@@ -411,16 +411,16 @@ func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 
 	// Clear out other bundle dirs if needed
 	if prune {
-		files, err := ioutil.ReadDir(upstreamBundlesBaseDir)
+		files, err := helpers.ListVisibleFiles(upstreamBundlesBaseDir)
 		if err != nil {
 			return errors.Wrap(err, "Failed to read bundles for pruning.")
 		}
 		curver := getUpstreamBundlesVerDir(ver)
 		for _, file := range files {
 			// Skip the current version cache, but delete all others
-			if file.Name() != curver {
-				if err = os.RemoveAll(filepath.Join(upstreamBundlesBaseDir, file.Name())); err != nil {
-					return errors.Wrapf(err, "Failed to remove %s while pruning bundles", file.Name())
+			if file != curver {
+				if err = os.RemoveAll(filepath.Join(upstreamBundlesBaseDir, file)); err != nil {
+					return errors.Wrapf(err, "Failed to remove %s while pruning bundles", file)
 				}
 			}
 		}
@@ -600,17 +600,17 @@ func (b *Builder) getMixBundlesListAsSet() (bundleSet, error) {
 func (b *Builder) getDirBundlesListAsSet(dir string) (bundleSet, error) {
 	set := make(bundleSet)
 
-	files, err := ioutil.ReadDir(dir)
+	files, err := helpers.ListVisibleFiles(dir)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to read bundles dir: %s", dir)
 	}
 
 	for _, file := range files {
-		bundle, err := b.getBundleFromName(file.Name())
+		bundle, err := b.getBundleFromName(file)
 		if err != nil {
 			return nil, err
 		}
-		set[file.Name()] = bundle
+		set[file] = bundle
 	}
 	return set, nil
 }
@@ -1237,14 +1237,14 @@ func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, g
 
 // ValidateLocalBundles runs bundle parsing validation on all local bundles.
 func (b *Builder) ValidateLocalBundles(lvl ValidationLevel) error {
-	files, err := ioutil.ReadDir(b.Config.Mixer.LocalBundleDir)
+	files, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalBundleDir)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read local-bundles")
 	}
 
 	bundles := make([]string, len(files))
 	for i, file := range files {
-		bundles[i] = file.Name()
+		bundles[i] = file
 	}
 
 	return b.ValidateBundles(bundles, lvl)
@@ -1759,7 +1759,7 @@ func (b *Builder) ListRepos() error {
 
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to
 // generate a dnf-consumable repository for the bundle builder to use.
-func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
+func (b *Builder) AddRPMList(rpms []string) error {
 	if b.Config.Mixer.LocalRepoDir == "" {
 		return errors.Errorf("LOCAL_REPO_DIR not set in configuration")
 	}
@@ -1768,16 +1768,16 @@ func (b *Builder) AddRPMList(rpms []os.FileInfo) error {
 		return errors.Wrapf(err, "couldn't create LOCAL_REPO_DIR")
 	}
 	for _, rpm := range rpms {
-		localPath := filepath.Join(b.Config.Mixer.LocalRPMDir, rpm.Name())
+		localPath := filepath.Join(b.Config.Mixer.LocalRPMDir, rpm)
 		if err := checkRPM(localPath); err != nil {
 			return err
 		}
 		// Skip RPM already in repo.
-		repoPath := filepath.Join(b.Config.Mixer.LocalRepoDir, rpm.Name())
+		repoPath := filepath.Join(b.Config.Mixer.LocalRepoDir, rpm)
 		if _, err := os.Stat(repoPath); err == nil {
 			continue
 		}
-		fmt.Printf("Hardlinking %s to repodir\n", rpm.Name())
+		fmt.Printf("Hardlinking %s to repodir\n", rpm)
 		if err := os.Link(localPath, repoPath); err != nil {
 			// Fallback to copying the file if hardlink fails.
 			err = helpers.CopyFile(repoPath, localPath)

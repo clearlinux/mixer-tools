@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"runtime"
 
@@ -143,7 +142,7 @@ var buildAllCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-		rpms, err := ioutil.ReadDir(b.Config.Mixer.LocalRPMDir)
+		rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
 			if err != nil {

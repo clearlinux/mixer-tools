@@ -1707,6 +1707,27 @@ func (b *Builder) AddRepo(repoInfo []string) error {
 	return nil
 }
 
+// RemoveRepo removes a configured repo <name> if it exists in the DNF configuration.
+// This will fail if a DNF conf has not yet been generated.
+func (b *Builder) RemoveRepo(name string) error {
+	if _, err := os.Stat(b.Config.Builder.DNFConf); os.IsNotExist(err) {
+		return err
+	}
+
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	_, err = DNFConf.GetSection(name)
+	if err != nil {
+		fmt.Printf("Repo %s does not exist.\n", name)
+	}
+
+	DNFConf.DeleteSection(name)
+	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
+}
+
 // AddRPMList copies rpms into the repodir and calls createrepo_c on it to
 // generate a dnf-consumable repository for the bundle builder to use.
 func (b *Builder) AddRPMList(rpms []os.FileInfo) error {

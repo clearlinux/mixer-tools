@@ -36,8 +36,16 @@ var addRepoCmd = &cobra.Command{
 	Run:   runAddRepo,
 }
 
+var removeRepoCmd = &cobra.Command{
+	Use:   "remove <name>",
+	Short: "Removes repo <name> from the DNF conf used by mixer",
+	Long:  `Remove the repo named <name> from the configured DNF conf used by mixer`,
+	Run:   runRemoveRepo,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
+	removeRepoCmd,
 }
 
 func init() {
@@ -63,4 +71,20 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Added %s repo at %s url.\n", args[0], args[1])
+}
+
+func runRemoveRepo(cmd *cobra.Command, args []string) {
+	if len(args) != 1 {
+		fail(errors.New("remove requires one argument: <name>"))
+	}
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.RemoveRepo(args[0])
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Removed %s repo.\n", args[0])
 }

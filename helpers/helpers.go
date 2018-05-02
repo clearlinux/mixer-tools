@@ -31,6 +31,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -340,4 +341,27 @@ func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
 		return &outBuf, errors.Wrap(err, buf.String())
 	}
 	return &outBuf, nil
+}
+
+// ListVisibleFiles reads the directory named by dirname and returns a sorted list
+// of names
+func ListVisibleFiles(dirname string) ([]string, error) {
+	f, err := os.Open(dirname)
+	if err != nil {
+		return nil, err
+	}
+
+	list, err := f.Readdirnames(-1)
+	_ = f.Close()
+	if err != nil && err != io.EOF {
+		return nil, err
+	}
+	filtered := make([]string, 0, len(list))
+	for i := range list {
+		if list[i][0] != '.' {
+			filtered = append(filtered, list[i])
+		}
+	}
+	sort.Strings(filtered)
+	return filtered, nil
 }

@@ -15,9 +15,8 @@
 package cmd
 
 import (
-	"io/ioutil"
-
 	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/helpers"
 
 	"github.com/spf13/cobra"
 )
@@ -53,7 +52,7 @@ func runAddRPM(cmd *cobra.Command, args []string) {
 	if b.Config.Mixer.LocalRPMDir == "" {
 		failf("LOCAL_RPM_DIR not set in configuration")
 	}
-	rpms, err := ioutil.ReadDir(b.Config.Mixer.LocalRPMDir)
+	rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
 	if err != nil {
 		failf("cannot read LOCAL_RPM_DIR: %s", err)
 	}

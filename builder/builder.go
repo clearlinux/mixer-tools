@@ -1318,7 +1318,8 @@ gpgcheck=0
 priority=1
 {{end}}`
 
-func (b *Builder) newDNFConfIfNeeded() error {
+// NewDNFConfIfNeeded creates a new DNF configuration file if it does not already exist
+func (b *Builder) NewDNFConfIfNeeded() error {
 	conf := dnfConf{
 		UpstreamURL: b.UpstreamURL,
 		RepoDir:     b.Config.Mixer.LocalRepoDir,
@@ -1380,7 +1381,7 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	defer timer.WriteSummary(os.Stdout)
 
 	timer.Start("BUILD BUNDLES")
-	if err := b.newDNFConfIfNeeded(); err != nil {
+	if err := b.NewDNFConfIfNeeded(); err != nil {
 		return err
 	}
 
@@ -1663,7 +1664,7 @@ priority=1
 `
 
 // AddRepo adds and enables a repo configuration named repoInfo[0] pointing at
-// URL repoInfo[1]. It calls b.newDNFConfIfNeeded() to create the DNF config if it
+// URL repoInfo[1]. It calls b.NewDNFConfIfNeeded() to create the DNF config if it
 // does not exist and performs a check to see if the repo passed has already
 // been configured.
 func (b *Builder) AddRepo(repoInfo []string) error {
@@ -1672,7 +1673,7 @@ func (b *Builder) AddRepo(repoInfo []string) error {
 		RepoURL:  repoInfo[1],
 	}
 
-	if err := b.newDNFConfIfNeeded(); err != nil {
+	if err := b.NewDNFConfIfNeeded(); err != nil {
 		return err
 	}
 

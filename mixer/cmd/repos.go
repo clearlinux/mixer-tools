@@ -50,10 +50,18 @@ var listReposCmd = &cobra.Command{
 	Run:   runListRepos,
 }
 
+var initRepoCmd = &cobra.Command{
+	Use:   "init",
+	Short: "Initialize the DNF conf with default repo enabled",
+	Long:  `Initialize the DNF configuration file with the default 'Clear' repo enabled`,
+	Run:   runInitRepo,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
 	removeRepoCmd,
 	listReposCmd,
+	initRepoCmd,
 }
 
 func init() {
@@ -104,6 +112,18 @@ func runListRepos(cmd *cobra.Command, args []string) {
 	}
 
 	err = b.ListRepos()
+	if err != nil {
+		fail(err)
+	}
+}
+
+func runInitRepo(cmd *cobra.Command, args []string) {
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.NewDNFConfIfNeeded()
 	if err != nil {
 		fail(err)
 	}

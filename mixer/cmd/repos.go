@@ -57,11 +57,19 @@ var initRepoCmd = &cobra.Command{
 	Run:   runInitRepo,
 }
 
+var setURLRepoCmd = &cobra.Command{
+	Use:   "set-url <name> <url>",
+	Short: "Sets the URL for repo <name> to <url>",
+	Long:  `Sets the URL, for repo <name> to <url>. If <name> does not exist the repo will be added to the configuration.`,
+	Run:   runSetURLRepo,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
 	removeRepoCmd,
 	listReposCmd,
 	initRepoCmd,
+	setURLRepoCmd,
 }
 
 func init() {
@@ -82,7 +90,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	err = b.AddRepo(args)
+	err = b.AddRepo(args[0], args[1])
 	if err != nil {
 		fail(err)
 	}
@@ -127,4 +135,21 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
+}
+
+func runSetURLRepo(cmd *cobra.Command, args []string) {
+	if len(args) != 2 {
+		fail(errors.New("set-url requires two arguments: <name> <url>"))
+	}
+
+	b, err := builder.NewFromConfig(config)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.SetURLRepo(args[0], args[1])
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Set %s baseurl to %s.\n", args[0], args[1])
 }

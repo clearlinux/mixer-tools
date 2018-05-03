@@ -1663,14 +1663,14 @@ gpgcheck=0
 priority=1
 `
 
-// AddRepo adds and enables a repo configuration named repoInfo[0] pointing at
-// URL repoInfo[1]. It calls b.NewDNFConfIfNeeded() to create the DNF config if it
+// AddRepo adds and enables a repo configuration named <name> pointing at
+// URL <url>. It calls b.NewDNFConfIfNeeded() to create the DNF config if it
 // does not exist and performs a check to see if the repo passed has already
 // been configured.
-func (b *Builder) AddRepo(repoInfo []string) error {
+func (b *Builder) AddRepo(name, url string) error {
 	repo := dnfRepoConf{
-		RepoName: repoInfo[0],
-		RepoURL:  repoInfo[1],
+		RepoName: name,
+		RepoURL:  url,
 	}
 
 	if err := b.NewDNFConfIfNeeded(); err != nil {
@@ -1706,6 +1706,33 @@ func (b *Builder) AddRepo(repoInfo []string) error {
 	}
 
 	return nil
+}
+
+// SetURLRepo sets the URL for the repo <name> to <url>. If <name> does not exist it is
+// created.
+func (b *Builder) SetURLRepo(name, url string) error {
+	if err := b.NewDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	s, err := DNFConf.GetSection(name)
+	if err != nil {
+		// the section doesn't exist, just add a new one
+		return b.AddRepo(name, url)
+	}
+
+	k, err := s.GetKey("baseurl")
+	if err != nil {
+		return err
+	}
+
+	k.SetValue(url)
+	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
 }
 
 // RemoveRepo removes a configured repo <name> if it exists in the DNF configuration.

@@ -83,7 +83,7 @@ func init() {
 
 func runAddRepo(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		fail(errors.New("add requires 2 arguments: <repo-name> <repo-url>"))
+		fail(errors.New("add requires exactly two arguments: <repo-name> <repo-url>"))
 	}
 	b, err := builder.NewFromConfig(config)
 	if err != nil {
@@ -99,7 +99,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {
 	if len(args) != 1 {
-		fail(errors.New("remove requires one argument: <name>"))
+		fail(errors.New("remove requires exactly one argument: <name>"))
 	}
 	b, err := builder.NewFromConfig(config)
 	if err != nil {
@@ -139,7 +139,7 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 
 func runSetURLRepo(cmd *cobra.Command, args []string) {
 	if len(args) != 2 {
-		fail(errors.New("set-url requires two arguments: <name> <url>"))
+		fail(errors.New("set-url requires exactly two arguments: <name> <url>"))
 	}
 
 	b, err := builder.NewFromConfig(config)

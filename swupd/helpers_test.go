@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"testing"
 	"text/template"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 func removeAllIgnoreErr(dir string) {
@@ -171,8 +173,11 @@ func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) *MoM 
 }
 
 func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, testDir string) *MoM {
+	var c config.MixConfig
+	c.LoadDefaults()
+
 	t.Helper()
-	mom, err := CreateManifests(ver, minVer, format, testDir)
+	mom, err := CreateManifests(c, ver, minVer, format, testDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -229,7 +234,12 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 
 func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
 	t.Helper()
-	deltas, err := CreateDeltas(manifest, statedir, from, to, 0)
+
+	var c config.MixConfig
+	c.LoadDefaults()
+	c.Builder.ServerStateDir = statedir
+
+	deltas, err := CreateDeltas(c, manifest, from, to, 0)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}
@@ -686,7 +696,10 @@ func (ts *testSwupd) createManifests(version uint32) *MoM {
 	osRelease := fmt.Sprintf("VERSION_ID=%d\n", version)
 	ts.addFile(version, "os-core", "/usr/lib/os-release", osRelease)
 
-	mom, err := CreateManifests(version, ts.MinVersion, ts.Format, ts.Dir)
+	var c config.MixConfig
+	c.LoadDefaults()
+
+	mom, err := CreateManifests(c, version, ts.MinVersion, ts.Format, ts.Dir)
 	if err != nil {
 		ts.t.Fatalf("error creating manifests for version %d: %s", version, err)
 	}
@@ -707,7 +720,10 @@ func (ts *testSwupd) createManifestsFromChroots(version uint32) *MoM {
 	osRelease := fmt.Sprintf("VERSION_ID=%d\n", version)
 	ts.write(filepath.Join("image", fmt.Sprint(version), "os-core", "usr/lib/os-release"), osRelease)
 
-	mom, err := CreateManifests(version, ts.MinVersion, ts.Format, ts.Dir)
+	var c config.MixConfig
+	c.LoadDefaults()
+
+	mom, err := CreateManifests(c, version, ts.MinVersion, ts.Format, ts.Dir)
 	if err != nil {
 		ts.t.Fatalf("error creating manifests for version %d: %s", version, err)
 	}

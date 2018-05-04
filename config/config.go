@@ -73,10 +73,6 @@ type mixerConf struct {
 
 // LoadDefaults sets sane values for the config properties
 func (config *MixConfig) LoadDefaults() error {
-	if !UseNewConfig {
-		return nil
-	}
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err

@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"testing"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 func TestInitBuildEnv(t *testing.T) {
@@ -17,7 +19,12 @@ func TestInitBuildEnv(t *testing.T) {
 
 	defer removeAllIgnoreErr(sdir)
 
-	if err = initBuildEnv(config{stateDir: sdir}); err != nil {
+	var c config.MixConfig
+	c.LoadDefaults()
+	c.Builder.ServerStateDir = sdir
+	sdata := swupdDataFromConfig(c)
+
+	if err = initBuildEnv(sdata); err != nil {
 		t.Errorf("initBuildEnv raised unexpected error: %v", err)
 	}
 
@@ -27,7 +34,10 @@ func TestInitBuildEnv(t *testing.T) {
 }
 
 func TestCreateManifestsBadMinVersion(t *testing.T) {
-	if _, err := CreateManifests(10, 20, 1, "testdir"); err == nil {
+	var c config.MixConfig
+	c.LoadDefaults()
+
+	if _, err := CreateManifests(c, 10, 20, 1, "testdir"); err == nil {
 		t.Error("No error raised with invalid minVersion (20) for version 10")
 	}
 }
@@ -132,14 +142,17 @@ func TestCreateManifestFormatNoDecrement(t *testing.T) {
 
 	ts.copyChroots(10, 20)
 
+	var c config.MixConfig
+	c.LoadDefaults()
+
 	// Using a decremented format results in failure.
-	_, err := CreateManifests(20, 0, ts.Format-1, ts.Dir)
+	_, err := CreateManifests(c, 20, 0, ts.Format-1, ts.Dir)
 	if err == nil {
 		t.Fatal("unexpected success calling create manifests with decremented format")
 	}
 
 	ts.addFile(20, "os-core", "/bar", "bar")
-	_, err = CreateManifests(20, 0, ts.Format, ts.Dir)
+	_, err = CreateManifests(c, 20, 0, ts.Format, ts.Dir)
 	if err != nil {
 		t.Fatalf("create manifests with same format as before failed: %s", err)
 	}

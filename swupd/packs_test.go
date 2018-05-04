@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 func TestFindBundlesToPack(t *testing.T) {
@@ -225,8 +228,11 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	ts.addFile(20, "shells", "/ksh", "ksh contents")
 	ts.createManifests(20)
 
+	var c config.MixConfig
+	c.LoadDefaults()
+
 	// Expect failure when creating packs without the fullfiles.
-	_, err := CreatePack("editors", 0, 20, ts.path("www"), "", 0)
+	_, err := CreatePack(c, "editors", 0, 20, ts.path("www"), "", 0)
 	if err == nil {
 		t.Fatalf("unexpected success creating pack without chrootDir nor fullfiles available")
 	}
@@ -241,7 +247,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 
 	// Expect failure when creating packs for bundle shells, it won't find the new
 	// shell added in version 20.
-	_, err = CreatePack("shells", 0, 20, ts.path("www"), "", 0)
+	_, err = CreatePack(c, "shells", 0, 20, ts.path("www"), "", 0)
 	if err == nil {
 		t.Fatalf("unexpected success creating pack without all fullfiles available")
 	}
@@ -384,9 +390,12 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 	// Make the chrootDir incomplete.
 	fs.rm("image/10/full/emacs")
 
+	var c config.MixConfig
+	c.LoadDefaults()
+
 	// Creating a pack should fail, no way to get emacs contents from neither chroot
 	// or fullfile.
-	info, err := CreatePack("editors", 0, 10, fs.path("www"), fs.path("image"), 0)
+	info, err := CreatePack(c, "editors", 0, 10, fs.path("www"), fs.path("image"), 0)
 	if err == nil {
 		t.Fatalf("unexpected success when creating pack with incomplete chroot")
 	}
@@ -512,8 +521,12 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 }
 
 func mustCreatePack(t *testing.T, name string, fromVersion, toVersion uint32, outputDir, chrootDir string) *PackInfo {
+	var c config.MixConfig
+	c.LoadDefaults()
+	c.Builder.ServerStateDir = filepath.Join(outputDir, "..")
+
 	t.Helper()
-	info, err := CreatePack(name, fromVersion, toVersion, outputDir, chrootDir, 0)
+	info, err := CreatePack(c, name, fromVersion, toVersion, outputDir, chrootDir, 0)
 	if err != nil {
 		t.Fatalf("error creating pack for bundle %s: %s", name, err)
 	}

@@ -1525,7 +1525,7 @@ func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVer
 		return errors.Wrapf(err, "failed to write update metadata files")
 	}
 	timer.Start("CREATE MANIFESTS")
-	mom, err := swupd.CreateManifests(mixVersion, minVersion, uint(format), b.Config.Builder.ServerStateDir)
+	mom, err := swupd.CreateManifests(b.Config, mixVersion, minVersion, uint(format), b.Config.Builder.ServerStateDir)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create update metadata")
 	}
@@ -1607,7 +1607,7 @@ func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVer
 		fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
 
 		var info *swupd.PackInfo
-		info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir, 0)
+		info, err = swupd.CreatePack(b.Config, name, 0, version, outputDir, bundleDir, 0)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
 		}
@@ -1944,7 +1944,7 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
-	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
+	return b.createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
 }
 
 // BuildDeltaPacksPreviousVersions builds packs to version from up to
@@ -1988,7 +1988,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
-		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
+		err = b.createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
 		if err != nil {
 			return err
 		}
@@ -1996,7 +1996,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	return nil
 }
 
-func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, bundleDir string, numWorkers int) error {
+func (b *Builder) createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool, outputDir, bundleDir string, numWorkers int) error {
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 	timer.Start("CREATE DELTA PACKS")
@@ -2015,18 +2015,18 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 	sort.Strings(orderedBundles)
 
 	for _, name := range orderedBundles {
-		b := bundlesToPack[name]
-		packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
+		bp := bundlesToPack[name]
+		packPath := filepath.Join(outputDir, fmt.Sprint(bp.ToVersion), swupd.GetPackFilename(bp.Name, bp.FromVersion))
 		_, err = os.Lstat(packPath)
 		if err == nil {
-			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", bp.Name, bp.FromVersion, bp.ToVersion)
 			continue
 		}
 		if !os.IsNotExist(err) {
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
-		fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
-		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
+		fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", bp.Name, bp.FromVersion, bp.ToVersion)
+		info, err := swupd.CreatePack(b.Config, bp.Name, bp.FromVersion, bp.ToVersion, outputDir, bundleDir, numWorkers)
 		if err != nil {
 			return err
 		}

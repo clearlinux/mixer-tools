@@ -375,7 +375,7 @@ func (m *Manifest) sortFilesVersionName() {
 // in the chroot for that manifest. Link delta peers with the oldManifest
 // if the file in the oldManifest is not deleted or ghosted.
 // Expects m and oldManifest files lists to be sorted by name only
-func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersion uint32) (int, int, int) {
+func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c swupdData, minVersion uint32) (int, int, int) {
 	// set previous version to oldManifest version
 	m.Header.Previous = oldManifest.Header.Version
 
@@ -478,7 +478,7 @@ func (m *Manifest) newDeleted(df *File) {
 
 // linkDeltaPeersForPack sets the DeltaPeer of the files in newManifest that have the corresponding files
 // in oldManifest.
-func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error {
+func linkDeltaPeersForPack(c *swupdData, oldManifest, newManifest *Manifest) error {
 	newIndex := 0
 	oldIndex := 0
 	added := []*File{}
@@ -707,7 +707,7 @@ type bundleIndex struct {
 	bsize uint64
 }
 
-func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
+func constructIndex(c *swupdData, ui *UpdateInfo, f2b []*bundleIndex) error {
 	// sort by filename then by bundle size
 	sort.Slice(f2b[:], func(i, j int) bool {
 		if f2b[i].fname == f2b[j].fname {
@@ -744,7 +744,7 @@ func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
 // sorts the index first by filename then by bundle name. writeIndexManifest creates a new
 // bundle in which the file will live. This bundle is added to the "full" manifest which
 // is part of the bundles slice. A pointer to the new manifest is returned on success.
-func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manifest, error) {
+func writeIndexManifest(c *swupdData, ui *UpdateInfo, bundles []*Manifest) (*Manifest, error) {
 	fileToBundles := []*bundleIndex{}
 	var newFull, newOsCore *Manifest
 	for _, b := range bundles {

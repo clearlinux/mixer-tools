@@ -8,6 +8,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 )
@@ -36,28 +37,24 @@ type Delta struct {
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
 // list. If number of workers is zero or less, 1 worker is used.
-func CreateDeltas(manifest, statedir string, from, to uint32, numWorkers int) ([]Delta, error) {
-	var c config
-
-	c, err := getConfig(statedir)
-	if err != nil {
-		return nil, err
-	}
+func CreateDeltas(c config.MixConfig, manifest string, from, to uint32, numWorkers int) ([]Delta, error) {
+	sdata := swupdDataFromConfig(c)
 
 	var oldManifest *Manifest
 	var newManifest *Manifest
+	var err error
 
-	if oldManifest, err = ParseManifestFile(filepath.Join(c.outputDir, fmt.Sprintf("%d", from), manifest)); err != nil {
+	if oldManifest, err = ParseManifestFile(filepath.Join(sdata.outputDir, fmt.Sprintf("%d", from), manifest)); err != nil {
 		return nil, err
 	}
-	if newManifest, err = ParseManifestFile(filepath.Join(c.outputDir, fmt.Sprintf("%d", to), manifest)); err != nil {
+	if newManifest, err = ParseManifestFile(filepath.Join(sdata.outputDir, fmt.Sprintf("%d", to), manifest)); err != nil {
 		return nil, err
 	}
 
-	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers)
+	return createDeltasFromManifests(&sdata, oldManifest, newManifest, numWorkers)
 }
 
-func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int) ([]Delta, error) {
+func createDeltasFromManifests(c *swupdData, oldManifest, newManifest *Manifest, numWorkers int) ([]Delta, error) {
 	deltas, err := findDeltas(c, oldManifest, newManifest)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create deltas list %s", newManifest.Name)
@@ -96,7 +93,7 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, nu
 	return deltas, nil
 }
 
-func createDelta(c *config, delta *Delta) error {
+func createDelta(c *swupdData, delta *Delta) error {
 	if _, err := os.Stat(delta.Path); err == nil {
 		// Skip existing deltas. Not verifying since client is resilient about that.
 		return nil
@@ -141,7 +138,7 @@ func createDelta(c *config, delta *Delta) error {
 	return nil
 }
 
-func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) {
+func findDeltas(c *swupdData, oldManifest, newManifest *Manifest) ([]Delta, error) {
 	oldManifest.sortFilesName()
 	newManifest.sortFilesName()
 

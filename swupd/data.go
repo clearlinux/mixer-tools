@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/go-ini/ini"
 )
 
@@ -31,79 +32,32 @@ type dbgConfig struct {
 	src    string
 }
 
-type config struct {
-	stateDir  string
+type swupdData struct {
+	config config.MixConfig
+
 	emptyDir  string
 	imageBase string
 	outputDir string
 	debuginfo dbgConfig
 }
 
-var defaultConfig = config{
-	stateDir:  "/var/lib/swupd",
-	emptyDir:  "/var/lib/swupd/empty",
-	imageBase: "/var/lib/swupd/image",
-	outputDir: "/var/lib/swupd/www",
-	debuginfo: dbgConfig{
-		banned: true,
-		lib:    "/usr/lib/debug",
-		src:    "/usr/src/debug",
-	},
-}
+func swupdDataFromConfig(c config.MixConfig) swupdData {
+	var sdata swupdData
 
-func getConfig(stateDir string) (config, error) {
-	var s string
-	if stateDir != "" {
-		s = stateDir
-	} else {
-		s = defaultConfig.stateDir
-	}
+	sdata.config = c
 
-	return readServerINI(s, filepath.Join(s, "server.ini"))
-}
+	sdata.emptyDir = filepath.Join(c.Builder.ServerStateDir, "empty")
+	sdata.imageBase = filepath.Join(c.Builder.ServerStateDir, "image")
+	sdata.outputDir = filepath.Join(c.Builder.ServerStateDir, "www")
 
-// readServerINI reads the server.ini file from path. Raises an error when the file
-// exists but it was unable to be loaded
-func readServerINI(stateDir, path string) (config, error) {
-	if !exists(path) {
-		// just use defaults
-		return defaultConfig, nil
-	}
+	var dbg dbgConfig
+	dbg.banned = c.Server.DebugInfoBanned == "true"
+	dbg.lib = c.Server.DebugInfoLib
+	dbg.src = c.Server.DebugInfoSrc
 
-	userConfig := defaultConfig
-	userConfig.stateDir = stateDir
+	sdata.debuginfo = dbg
 
-	cfg, err := ini.InsensitiveLoad(path)
-	if err != nil {
-		// server.ini exists, but we were unable to read it
-		return defaultConfig, err
-	}
-
-	if key, err := cfg.Section("Server").GetKey("emptydir"); err == nil {
-		userConfig.emptyDir = key.Value()
-	}
-
-	if key, err := cfg.Section("Server").GetKey("imagebase"); err == nil {
-		userConfig.imageBase = key.Value()
-	}
-
-	if key, err := cfg.Section("Server").GetKey("outputdir"); err == nil {
-		userConfig.outputDir = key.Value()
-	}
-
-	if key, err := cfg.Section("Debuginfo").GetKey("banned"); err == nil {
-		userConfig.debuginfo.banned = (key.Value() == "true")
-	}
-
-	if key, err := cfg.Section("Debuginfo").GetKey("lib"); err == nil {
-		userConfig.debuginfo.lib = key.Value()
-	}
-
-	if key, err := cfg.Section("Debuginfo").GetKey("src"); err == nil {
-		userConfig.debuginfo.src = key.Value()
-	}
-
-	return userConfig, nil
+	return sdata
 }
 
 // readGroupsINI reads the groups.ini file from path. Raises an error when the

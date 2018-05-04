@@ -21,6 +21,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 // UpdateInfo contains the meta information for the current update
@@ -34,8 +36,8 @@ type UpdateInfo struct {
 	timeStamp   time.Time
 }
 
-func initBuildEnv(c config) error {
-	tmpDir := filepath.Join(c.stateDir, "temp")
+func initBuildEnv(sdata swupdData) error {
+	tmpDir := filepath.Join(sdata.config.Builder.ServerStateDir, "temp")
 	// remove old directory
 	if err := os.RemoveAll(tmpDir); err != nil {
 		return err
@@ -52,7 +54,7 @@ func getOldManifest(path string) (*Manifest, error) {
 	return ParseManifestFile(path)
 }
 
-func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
+func processBundles(ui UpdateInfo, sdata swupdData) ([]*Manifest, error) {
 	var newFull *Manifest
 	var err error
 	tmpManifests := []*Manifest{}
@@ -74,13 +76,13 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			// track full manifest so we can do extra processing later
 			// (maximizeFull)
 			newFull = bundle
-			chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
+			chroot := filepath.Join(sdata.imageBase, fmt.Sprint(ui.version), "full")
 			err = newFull.addFilesFromChroot(chroot)
 		} else {
-			biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
+			biPath := filepath.Join(sdata.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
 			useBundleInfo := true
 			if _, err = os.Stat(biPath); os.IsNotExist(err) {
-				err = syncToFull(ui.version, bundle.Name, c.imageBase)
+				err = syncToFull(ui.version, bundle.Name, sdata.imageBase)
 				if err != nil {
 					return nil, err
 				}
@@ -93,7 +95,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			}
 
 			if useBundleInfo {
-				err = bundle.addFilesFromBundleInfo(c, ui.version)
+				err = bundle.addFilesFromBundleInfo(sdata, ui.version)
 			}
 		}
 		if err != nil {
@@ -107,8 +109,8 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 
 		// remove banned debuginfo if configured to do so
-		if c.debuginfo.banned {
-			bundle.removeDebuginfo(c.debuginfo)
+		if sdata.debuginfo.banned {
+			bundle.removeDebuginfo(sdata.debuginfo)
 		}
 
 		bundle.sortFilesName()
@@ -132,7 +134,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	}
 
 	// Need old MoM to get version of last bundle manifest
-	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(sdata.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
 	oldMoM, err := getOldManifest(oldMoMPath)
 	if err != nil {
 		return nil, err
@@ -149,14 +151,14 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			ver = ui.lastVersion
 		}
 
-		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
+		oldMPath := filepath.Join(sdata.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
 		oldM, err := getOldManifest(oldMPath)
 		if err != nil {
 			return nil, err
 		}
 		changedIncludes := compareIncludes(bundle, oldM)
 		oldM.sortFilesName()
-		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM, c, ui.minVersion)
+		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM, sdata, ui.minVersion)
 		// if nothing changed, skip
 		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
 			continue
@@ -178,39 +180,37 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 }
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
-func CreateManifests(version uint32, minVersion uint32, format uint, statedir string) (*MoM, error) {
+func CreateManifests(c config.MixConfig, version uint32, minVersion uint32, format uint, statedir string) (*MoM, error) {
 	var err error
-	var c config
+	var sdata swupdData
 
 	if minVersion > version {
 		return nil, fmt.Errorf("minVersion (%v), must be between 0 and %v (inclusive)",
 			minVersion, version)
 	}
 
-	c, err = getConfig(statedir)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Found server.ini, but was unable to read it. "+
-			"Continuing with default configuration\n")
-	}
+	c.Builder.ServerStateDir = statedir
 
-	if err = initBuildEnv(c); err != nil {
+	sdata = swupdDataFromConfig(c)
+
+	if err = initBuildEnv(sdata); err != nil {
 		return nil, err
 	}
 
 	var groups []string
-	if groups, err = readGroupsINI(filepath.Join(c.stateDir, "groups.ini")); err != nil {
+	if groups, err = readGroupsINI(filepath.Join(sdata.config.Builder.ServerStateDir, "groups.ini")); err != nil {
 		return nil, err
 	}
 
 	groups = append(groups, "full")
 
 	var lastVersion uint32
-	lastVersion, err = readLastVerFile(filepath.Join(c.imageBase, "LAST_VER"))
+	lastVersion, err = readLastVerFile(filepath.Join(sdata.imageBase, "LAST_VER"))
 	if err != nil {
 		return nil, err
 	}
 
-	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
+	oldFullManifestPath := filepath.Join(sdata.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
 	oldFullManifest, err := ParseManifestFile(oldFullManifestPath)
 	if err != nil {
 		// throw away read manifest if it is invalid
@@ -225,7 +225,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	timeStamp := time.Now()
-	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(sdata.outputDir, fmt.Sprint(lastVersion), "Manifest.MoM")
 	oldMoM, err := getOldManifest(oldMoMPath)
 	if err != nil {
 		return nil, err
@@ -243,11 +243,11 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		timeStamp:   timeStamp,
 	}
 	var newManifests []*Manifest
-	if newManifests, err = processBundles(ui, c); err != nil {
+	if newManifests, err = processBundles(ui, sdata); err != nil {
 		return nil, err
 	}
 
-	verOutput := filepath.Join(c.outputDir, fmt.Sprint(version))
+	verOutput := filepath.Join(sdata.outputDir, fmt.Sprint(version))
 	if err = os.MkdirAll(verOutput, 0755); err != nil {
 		return nil, err
 	}
@@ -312,7 +312,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	// now append all old manifests
 	for _, m := range newMoM.Files {
 		if m.Version < version {
-			oldMPath := filepath.Join(c.outputDir, fmt.Sprint(m.Version), "Manifest."+m.Name)
+			oldMPath := filepath.Join(sdata.outputDir, fmt.Sprint(m.Version), "Manifest."+m.Name)
 			var oldM *Manifest
 			oldM, err = ParseManifestFile(oldMPath)
 			if err != nil {
@@ -323,7 +323,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	var osIdx *Manifest
-	if osIdx, err = writeIndexManifest(&c, &ui, allManifests); err != nil {
+	if osIdx, err = writeIndexManifest(&sdata, &ui, allManifests); err != nil {
 		return nil, err
 	}
 

@@ -619,23 +619,6 @@ func (b *Builder) buildBundles(set bundleSet) error {
 		return fmt.Errorf("couldn't find bundle %q specified in configuration as the update bundle", b.Config.Swupd.Bundle)
 	}
 
-	// Write INI files. These are used to communicate to the next step of mixing (build update).
-	var serverINI bytes.Buffer
-	fmt.Fprintf(&serverINI, `[Server]
-emptydir=%s/empty
-imagebase=%s/image/
-outputdir=%s/www/
-[Debuginfo]
-banned=%s
-lib=%s
-src=%s
-`, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir,
-		b.Config.Server.DebugInfoBanned, b.Config.Server.DebugInfoLib, b.Config.Server.DebugInfoSrc)
-
-	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "server.ini"), serverINI.Bytes(), 0644)
-	if err != nil {
-		return err
-	}
 	// TODO: If we are using INI files that are case insensitive, we need to be more restrictive
 	// in bundleset to check for that. See also readGroupsINI in swupd package.
 	var groupsINI bytes.Buffer

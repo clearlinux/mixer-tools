@@ -10,6 +10,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 func TestReadManifestHeaderManifest(t *testing.T) {
@@ -398,11 +400,15 @@ func TestLinkPeersAndChange(t *testing.T) {
 		"6": {false, ""},
 	}
 
+	var c config.MixConfig
+	c.LoadDefaults()
+	sdata := swupdDataFromConfig(c)
+
 	// linkPeersAndChange requires mNew and mOld to have file lists sorted
 	// by name.
 	mNew.sortFilesName()
 	mOld.sortFilesName()
-	changed, added, deleted := mNew.linkPeersAndChange(&mOld, config{}, 0)
+	changed, added, deleted := mNew.linkPeersAndChange(&mOld, sdata, 0)
 	if changed != 2 {
 		t.Errorf("%v files detected as changed when 2 was expected", changed)
 	}

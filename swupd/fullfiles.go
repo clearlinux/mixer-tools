@@ -66,6 +66,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int) (
 
 	taskRunner := func(info *FullfilesInfo) {
 		for f := range taskCh {
+			var tErr error
 			input := filepath.Join(chrootDir, f.Name)
 			name := f.Hash.String()
 			// NOTE: to make life simpler for the client, always use .tar extension even
@@ -73,24 +74,24 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int) (
 			output := filepath.Join(outputDir, name+".tar")
 
 			// Don't regenerate if file exists.
-			if _, err = os.Stat(output); err == nil {
+			if _, tErr = os.Stat(output); tErr == nil {
 				info.Skipped++
 				continue
 			}
 
 			switch f.Type {
 			case TypeDirectory:
-				err = createDirectoryFullfile(input, name, output, info)
+				tErr = createDirectoryFullfile(input, name, output, info)
 			case TypeLink:
-				err = createLinkFullfile(input, name, output, info)
+				tErr = createLinkFullfile(input, name, output, info)
 			case TypeFile:
-				err = createRegularFullfile(input, name, output, info)
+				tErr = createRegularFullfile(input, name, output, info)
 			default:
-				err = fmt.Errorf("file %s is of unsupported type %q", f.Name, f.Type)
+				tErr = fmt.Errorf("file %s is of unsupported type %q", f.Name, f.Type)
 			}
 
-			if err != nil {
-				errorCh <- err
+			if tErr != nil {
+				errorCh <- tErr
 				break
 			}
 		}

@@ -77,11 +77,17 @@ var modifierBytes = map[ModifierFlag]byte{
 	ModifierBoot:   'b',
 }
 
-type frename bool
+// RenameFlag describes the third position in the flag string
+// and was used to represent a rename flag (deprecated) and is
+// now used to represent a mixer-generated manifest to be merged
+// with an upstream manifest via client-side mixer integration
+type RenameFlag uint8
 
+// Valid values for RenameFlag
 const (
-	renameUnset = false
-	renameSet   = true
+	RenameUnset RenameFlag = iota
+	RenameSet
+	MixManifest
 )
 
 // File represents an entry in a manifest
@@ -94,7 +100,7 @@ type File struct {
 	Type     TypeFlag
 	Status   StatusFlag
 	Modifier ModifierFlag
-	Rename   frename
+	Rename   RenameFlag
 
 	// renames
 	RenameScore uint16
@@ -181,17 +187,17 @@ func modifierFromFlag(flag byte) (ModifierFlag, error) {
 }
 
 // setRenameFromFlag set rename flag from flag byte
-func renameFromFlag(flag byte) (frename, error) {
+func renameFromFlag(flag byte) (RenameFlag, error) {
 	switch flag {
 	case 'r':
-		return renameSet, nil
+		return RenameSet, nil
 	case '.':
-		return renameUnset, nil
+		return RenameUnset, nil
 	case 'm':
 		// this is a special flag used by mixer-integration client-side
-		return renameUnset, nil
+		return MixManifest, nil
 	default:
-		return renameUnset, fmt.Errorf("invalid file rename flag: %v", flag)
+		return RenameUnset, fmt.Errorf("invalid file rename flag: %v", flag)
 	}
 }
 
@@ -230,11 +236,19 @@ func (f *File) GetFlagString() (string, error) {
 		return "", fmt.Errorf("no flags are set on file %s", f.Name)
 	}
 
+	// only write a '.' or 'm' to a manifest
+	// the 'r' flag is deprecated
+	var renameByte byte
+	renameByte = '.'
+	if f.Rename == MixManifest {
+		renameByte = 'm'
+	}
+
 	flagBytes := []byte{
 		typeBytes[f.Type],
 		statusBytes[f.Status],
 		modifierBytes[f.Modifier],
-		'.', // unused for now
+		renameByte,
 	}
 
 	return string(flagBytes), nil

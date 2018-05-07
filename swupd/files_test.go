@@ -122,10 +122,10 @@ func TestModifierFromFlag(t *testing.T) {
 func TestRenameFromFlag(t *testing.T) {
 	testCases := []struct {
 		flag     byte
-		expected frename
+		expected RenameFlag
 	}{
-		{'r', renameSet},
-		{'.', renameUnset},
+		{'r', RenameSet},
+		{'.', RenameUnset},
 	}
 
 	for _, tc := range testCases {
@@ -137,7 +137,7 @@ func TestRenameFromFlag(t *testing.T) {
 			}
 
 			if f.Rename != tc.expected {
-				t.Errorf("file rename was set to %t from %v flag", f.Rename, tc.flag)
+				t.Errorf("file rename was set to %v from %v flag", f.Rename, tc.flag)
 			}
 		})
 	}
@@ -150,7 +150,7 @@ func TestRenameFromFlag(t *testing.T) {
 			t.Error("setRenameFromFlag did not fail with invalid input")
 		}
 
-		if f.Rename != renameUnset {
+		if f.Rename != RenameUnset {
 			t.Error("file rename was set to true from invalid flag")
 		}
 	})

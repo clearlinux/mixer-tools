@@ -90,8 +90,8 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 func linkRenamePair(renameTo, renameFrom *File) {
 	renameTo.DeltaPeer = renameFrom
 	renameFrom.DeltaPeer = renameTo
-	renameTo.Rename = true
-	renameFrom.Rename = true
+	renameTo.Rename = RenameSet
+	renameFrom.Rename = RenameSet
 	renameFrom.Type = TypeUnset
 }
 

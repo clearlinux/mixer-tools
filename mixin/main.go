@@ -228,12 +228,46 @@ func AddPackage(pkg, bundle string, build bool) error {
 		return err
 	}
 
-	if !build {
-		return nil
+	if build {
+		return buildMix(false)
 	}
 
+	return nil
+}
+
+func buildMix(prepNeeded bool) error {
+	var err error
 	lastVer := getLastVersion()
+	ver, err := getCurrentVersion()
+	if err != nil {
+		return err
+	}
+	mixVer := ver * 1000
 	oldMix := filepath.Join(mixWS, fmt.Sprintf("update/www/%d", mixVer-10))
+	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
+	if err != nil {
+		return err
+	}
+	b.NumBundleWorkers = runtime.NumCPU()
+	b.NumFullfileWorkers = runtime.NumCPU()
+
+	err = os.Chdir(mixWS)
+	if err != nil {
+		return err
+	}
+
+	if prepNeeded {
+		rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
+		if err != nil {
+			return err
+		}
+
+		err = b.AddRPMList(rpms)
+		if err != nil {
+			return err
+		}
+	}
+
 	if lastVer != 0 {
 		// older version mix exists, make the mix clean (pre-merge) before building
 		_ = os.Rename(filepath.Join(oldMix, "Manifest.MoM"),

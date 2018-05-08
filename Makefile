@@ -44,8 +44,6 @@ install: gopath
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
 	$(GOPATH)/bin/mixer-completion bash --path $(DESTDIR)/usr/share/bash-completion/completions/mixer
 	$(GOPATH)/bin/mixer-completion zsh --path $(DESTDIR)/usr/share/zsh/site-functions/_mixer
-	install -m 00755 pack-maker.sh $(DESTDIR)/usr/bin/mixer-pack-maker.sh
-	install -m 00755 superpack-maker.sh $(DESTDIR)/usr/bin/mixer-superpack-maker.sh
 
 check: gopath
 	go test -cover ${GO_PACKAGE_PREFIX}/...

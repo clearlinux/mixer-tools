@@ -16,6 +16,13 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"runtime"
+
+	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/helpers"
 
 	"github.com/spf13/cobra"
 )
@@ -65,9 +72,92 @@ func init() {
 }
 
 func runAddPackage(cmd *cobra.Command, args []string) {
-	err := AddPackage(args[0], args[1], packageAddFlags.build)
+	err := addPackage(args[0], args[1], packageAddFlags.build)
 	if err != nil {
 		fail(err)
 	}
 	fmt.Printf("Added %s package to %s bundle.\n", args[0], args[1])
+}
+
+func setUpMixDir(bundle string, upstreamVer, mixVer int) error {
+	var err error
+	err = os.MkdirAll(filepath.Join(mixWS, "local-rpms"), 755)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "builder.conf"),
+		[]byte(builderConf), 0644)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "mixversion"),
+		[]byte(fmt.Sprintf("%d", mixVer)), 0644)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "mixbundles"),
+		[]byte(fmt.Sprintf("%s\nos-core", bundle)), 0644)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filepath.Join(mixWS, "upstreamversion"), []byte(fmt.Sprintf("%d", upstreamVer)), 0644)
+}
+
+func addPackage(pkg, bundle string, build bool) error {
+	var err error
+
+	ver, err := getCurrentVersion()
+	if err != nil {
+		return err
+	}
+	mixVer := ver * 1000
+	if _, err = os.Stat(filepath.Join(mixWS, "builder.conf")); os.IsNotExist(err) {
+		err = setUpMixDir(bundle, ver, mixVer)
+		if err != nil {
+			return err
+		}
+	}
+
+	err = os.Chdir(mixWS)
+	if err != nil {
+		return err
+	}
+
+	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
+	if err != nil {
+		return err
+	}
+	err = b.InitMix(fmt.Sprintf("%d", ver), fmt.Sprintf("%d", mixVer),
+		false, false, "https://download.clearlinux.org", false)
+	if err != nil {
+		return err
+	}
+	b.NumBundleWorkers = runtime.NumCPU()
+	b.NumFullfileWorkers = runtime.NumCPU()
+
+	err = b.EditBundles([]string{bundle}, true, true, false)
+	if err != nil {
+		return err
+	}
+
+	err = appendToFile(filepath.Join(mixWS, "local-bundles", bundle), fmt.Sprintf("%s\n", pkg))
+	if err != nil {
+		return err
+	}
+
+	rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
+	if err != nil {
+		return err
+	}
+
+	err = b.AddRPMList(rpms)
+	if err != nil {
+		return err
+	}
+
+	if build {
+		return buildMix(false)
+	}
+
+	return nil
 }

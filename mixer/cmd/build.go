@@ -291,9 +291,7 @@ func init() {
 	}
 	externalDeps[buildUpdateCmd] = []string{
 		"hardlink",
-		"mixer-pack-maker.sh",
 		"openssl",
-		"parallel", // Used by pack-maker.
 		"xz",
 	}
 	externalDeps[buildImageCmd] = []string{

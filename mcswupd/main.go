@@ -187,6 +187,11 @@ func mergeMoMs(mixWS string, mixVer, lastVer int) error {
 func main() {
 	var err error
 
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, `Usage of %s:
+	%s <bundle-name> <absolute/path/to/rpm>`, os.Args[0], os.Args[0])
+	}
+
 	flag.Parse()
 	if len(flag.Args()) != 2 {
 		flag.Usage()

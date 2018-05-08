@@ -37,11 +37,13 @@ endif
 
 build: gopath
 	go install ${GO_PACKAGE_PREFIX}/mixer
+	go install ${GO_PACKAGE_PREFIX}/mcswupd
 	go install ${GO_PACKAGE_PREFIX}/mixer-completion
 
 install: gopath
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
+	install -m 00755 $(GOPATH)/bin/mcswupd $(DESTDIR)/usr/bin/.
 	$(GOPATH)/bin/mixer-completion bash --path $(DESTDIR)/usr/share/bash-completion/completions/mixer
 	$(GOPATH)/bin/mixer-completion zsh --path $(DESTDIR)/usr/share/zsh/site-functions/_mixer
 	install -m 00755 pack-maker.sh $(DESTDIR)/usr/bin/mixer-pack-maker.sh

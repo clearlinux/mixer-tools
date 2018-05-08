@@ -189,7 +189,7 @@ func main() {
 
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, `Usage of %s:
-	%s <bundle-name> <absolute/path/to/rpm>`, os.Args[0], os.Args[0])
+	%s <bundle-name> <path/to/rpm>`, os.Args[0], os.Args[0])
 	}
 
 	flag.Parse()
@@ -210,6 +210,12 @@ func main() {
 		failIfErr(err)
 	}
 
+	// do this before changing into the mixWS so relative paths can be used
+	err = os.Link(pkg, filepath.Join(mixWS, "local-rpms", filepath.Base(pkg)))
+	if !os.IsExist(err) {
+		failIfErr(err)
+	}
+
 	err = os.Chdir(mixWS)
 	failIfErr(err)
 
@@ -227,11 +233,6 @@ func main() {
 	pkgName := filepath.Base(strings.TrimRight(pkg, ".rpm"))
 	err = appendToFile(filepath.Join(mixWS, "local-bundles", bundle), fmt.Sprintf("%s\n", pkgName))
 	failIfErr(err)
-
-	err = os.Link(pkg, filepath.Join(mixWS, "local-rpms", filepath.Base(pkg)))
-	if !os.IsExist(err) {
-		failIfErr(err)
-	}
 
 	err = b.AddRPMList([]string{filepath.Base(pkg)})
 	failIfErr(err)

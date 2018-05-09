@@ -23,8 +23,8 @@ import (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:  "mcswupd",
-	Long: `mcswupd is a client tool used to add local or remote content to the client's update stream.`,
+	Use:  "mixin",
+	Long: `mixin is a client tool used to add local or remote content to the client's update stream.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Use cmd here to print exactly like other prints of Usage (that might be
 		// configurable).

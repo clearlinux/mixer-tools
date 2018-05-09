@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -84,4 +85,44 @@ func excludeName(man *swupd.Manifest, exclude string) {
 			break
 		}
 	}
+}
+
+func setUpMixDir(bundle string, upstreamVer, mixVer int) error {
+	var err error
+	err = os.MkdirAll(filepath.Join(mixWS, "local-rpms"), 755)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "builder.conf"),
+		[]byte(builderConf), 0644)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "mixversion"),
+		[]byte(fmt.Sprintf("%d", mixVer)), 0644)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "mixbundles"),
+		[]byte(fmt.Sprintf("%s\nos-core", bundle)), 0644)
+	if err != nil {
+		return err
+	}
+	err = ioutil.WriteFile(filepath.Join(mixWS, "upstreamurl"),
+		[]byte("https://download.clearlinux.org"), 0644)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(filepath.Join(mixWS, "upstreamversion"), []byte(fmt.Sprintf("%d", upstreamVer)), 0644)
+}
+
+func setUpMixDirIfNeeded(bundle string, ver, mixVer int) error {
+	var err error
+	if _, err = os.Stat(filepath.Join(mixWS, "builder.conf")); os.IsNotExist(err) {
+		err = setUpMixDir(bundle, ver, mixVer)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

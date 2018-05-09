@@ -21,7 +21,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 
+	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
 
 	"github.com/pkg/errors"
@@ -87,7 +89,7 @@ func excludeName(man *swupd.Manifest, exclude string) {
 	}
 }
 
-func setUpMixDir(bundle string, upstreamVer, mixVer int) error {
+func setUpMixDir(upstreamVer, mixVer int) error {
 	var err error
 	err = os.MkdirAll(filepath.Join(mixWS, "local-rpms"), 755)
 	if err != nil {
@@ -104,7 +106,7 @@ func setUpMixDir(bundle string, upstreamVer, mixVer int) error {
 		return err
 	}
 	err = ioutil.WriteFile(filepath.Join(mixWS, "mixbundles"),
-		[]byte(fmt.Sprintf("%s\nos-core", bundle)), 0644)
+		[]byte("os-core"), 0644)
 	if err != nil {
 		return err
 	}
@@ -116,13 +118,44 @@ func setUpMixDir(bundle string, upstreamVer, mixVer int) error {
 	return ioutil.WriteFile(filepath.Join(mixWS, "upstreamversion"), []byte(fmt.Sprintf("%d", upstreamVer)), 0644)
 }
 
-func setUpMixDirIfNeeded(bundle string, ver, mixVer int) error {
+func setUpMixDirIfNeeded(ver, mixVer int) error {
 	var err error
 	if _, err = os.Stat(filepath.Join(mixWS, "builder.conf")); os.IsNotExist(err) {
-		err = setUpMixDir(bundle, ver, mixVer)
+		err = setUpMixDir(ver, mixVer)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func parseHeaderNoopInstall(pkg, installOut string) (string, error) {
+	parts := strings.Split(installOut, "Installing:\n")
+	if len(parts) < 2 {
+		// dnf failure - no such package
+		return "", errors.New("no such package")
+	}
+	var r = regexp.MustCompile(fmt.Sprintf(` (%s)\s+\S+\s+\S+\s+(\S+)\s+\S+ \S+\n`, pkg))
+	matches := r.FindStringSubmatch(parts[1])
+	if len(matches) == 3 {
+		return matches[2], nil
+	}
+	return "", errors.New("unable to find repo for package")
+}
+
+func getPackageRepo(pkg string, ver int, config string) (string, error) {
+	packagerCmd := []string{
+		"dnf",
+		"--config=" + config,
+		fmt.Sprintf("--releasever=%d", ver),
+		"install",
+		"--assumeno",
+		pkg,
+	}
+
+	// ignore error here because passing --assumeno to dnf install always
+	// results in an error due to the aborted install. Instead rely on the
+	// error to come from parseHeaderNoopInstall
+	outBuf, _ := helpers.RunCommandOutput(packagerCmd[0], packagerCmd[1:]...)
+	return parseHeaderNoopInstall(pkg, outBuf.String())
 }

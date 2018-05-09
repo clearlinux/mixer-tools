@@ -39,9 +39,10 @@ into the local-rpms repository under /usr/share/mix.`,
 // only addPackage exists for now, but leave 'add' as a subcommand to 'package
 // to enable future 'remove' and 'list' commands.
 var addPackageCmd = &cobra.Command{
-	Use:   "add <package-name> <bundle-name> [options]",
-	Short: "Add package <package-name> to the <bundle-name> bundle",
-	Long: `Add the package <package-name> to the <bundle-name> bundle.
+	Use:   "add <package-name> [options]",
+	Short: "Add package <package-name> to a bundle",
+	Long: `Add the package <package-name> to a bundle named after the repo
+that provides the package.
 Optionally add the --build command to immediately update your mix with this new
 package/bundle definition. Leave the --build flag off to add multiple packages
 before building your mix.`,
@@ -71,66 +72,72 @@ func init() {
 }
 
 func runAddPackage(cmd *cobra.Command, args []string) {
-	err := addPackage(args[0], args[1], packageAddFlags.build)
+	bundle, err := addPackage(args[0], packageAddFlags.build)
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Added %s package to %s bundle.\n", args[0], args[1])
+	fmt.Printf("Added %s package to %s bundle.\n", args[0], bundle)
 }
 
-func addPackage(pkg, bundle string, build bool) error {
+func addPackage(pkg string, build bool) (string, error) {
 	var err error
+	var bundle string
 
 	ver, err := getCurrentVersion()
 	if err != nil {
-		return err
+		return "", err
 	}
 	mixVer := ver * 1000
-	err = setUpMixDirIfNeeded(bundle, ver, mixVer)
+	err = setUpMixDirIfNeeded(ver, mixVer)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = os.Chdir(mixWS)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
 	if err != nil {
-		return err
+		return "", err
 	}
 	err = b.InitMix(fmt.Sprintf("%d", ver), fmt.Sprintf("%d", mixVer),
 		false, false, "https://download.clearlinux.org", false)
 	if err != nil {
-		return err
+		return "", err
 	}
 	b.NumBundleWorkers = runtime.NumCPU()
 	b.NumFullfileWorkers = runtime.NumCPU()
 
+	bundle, err = getPackageRepo(pkg, ver, b.Config.Builder.DNFConf)
+	if err != nil {
+		return "", err
+	}
+
 	err = b.EditBundles([]string{bundle}, true, true, false)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = appendToFile(filepath.Join(mixWS, "local-bundles", bundle), fmt.Sprintf("%s\n", pkg))
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	err = b.AddRPMList(rpms)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if build {
-		return buildMix(false)
+		return bundle, buildMix(false)
 	}
 
-	return nil
+	return bundle, err
 }

@@ -86,7 +86,7 @@ func repoPrep() error {
 		return err
 	}
 	mixVer := ver * 1000
-	err = setUpMixDirIfNeeded("", ver, mixVer)
+	err = setUpMixDirIfNeeded(ver, mixVer)
 	if err != nil {
 		return err
 	}

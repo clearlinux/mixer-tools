@@ -52,12 +52,10 @@ func getOldManifest(path string) (*Manifest, error) {
 	return ParseManifestFile(path)
 }
 
-func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
-	var newFull *Manifest
+func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	var err error
 	tmpManifests := []*Manifest{}
 	totalBundles := len(ui.bundles)
-	// first loop sets up initial bundle manifests and adds files to them
 	for i, bundleName := range ui.bundles {
 		fmt.Printf("[%d/%d] %s\n", i+1, totalBundles, bundleName)
 		bundle := &Manifest{
@@ -71,11 +69,11 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 
 		if bundleName == "full" {
-			// track full manifest so we can do extra processing later
-			// (maximizeFull)
-			newFull = bundle
+			// full manifest needs to be processed differently
+			// by reading the files directly from the full chroot.
+			// No bundle-info file exists for full.
 			chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
-			err = newFull.addFilesFromChroot(chroot)
+			err = bundle.addFilesFromChroot(chroot)
 		} else {
 			biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
 			useBundleInfo := true
@@ -115,9 +113,25 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		tmpManifests = append(tmpManifests, bundle)
 	}
 
-	// second loop reads includes
+	return tmpManifests, nil
+}
+
+func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
+	var newFull *Manifest
+	var err error
+	// initialize bundles with with all files and their info
+	tmpManifests, err := initBundles(ui, c)
+	if err != nil {
+		return nil, err
+	}
+
+	// read includes for subtraction processing
 	for _, bundle := range tmpManifests {
-		if bundle.Name != "os-core" && bundle != newFull {
+		if bundle.Name == "full" {
+			newFull = bundle
+			continue
+		}
+		if bundle.Name != "os-core" {
 			// read in bundle includes
 			if err = bundle.readIncludesFromBundleInfo(tmpManifests); err != nil {
 				return nil, err
@@ -125,7 +139,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 	}
 
-	// final loop performs manifest subtraction. Important this is done after all includes
+	// Perform manifest subtraction. Important this is done after all includes
 	// have been read so nested subtraction works.
 	for _, bundle := range tmpManifests {
 		bundle.subtractManifests(bundle)
@@ -175,6 +189,72 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	maximizeFull(newFull, newManifests)
 
 	return newManifests, nil
+}
+
+func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest) {
+	for _, f := range appendFrom.Files {
+		if f.findFileNameInSlice(appendTo.Files) == nil {
+			if f.Name == indexBundle {
+				// this is generated new each time
+				continue
+			}
+			appendTo.Files = append(appendTo.Files, f)
+		}
+	}
+}
+
+// writeBundleManifests writes all bundle manifests in newManifests,
+// populates the MoM, and returns the full manifest for this update.
+func (MoM *Manifest) writeBundleManifests(newManifests []*Manifest, out string) (*Manifest, error) {
+	var newFull *Manifest
+	var err error
+	// write manifests then add them to the MoM
+	for _, bMan := range newManifests {
+		if bMan.Name == "full" {
+			// record full manifest to return it from this function
+			newFull = bMan
+			continue
+		}
+
+		// TODO: remove this after a format bump in Clear Linux
+		// this is a hack to set maximum contentsize to the incorrect maximum
+		// set in swupd-client v3.15.3
+		bMan.setMaxContentSizeHack()
+		// end hack
+
+		// sort by version then by filename, previously to this sort these bundles
+		// were sorted by file name only to make processing easier
+		bMan.sortFilesVersionName()
+		manPath := filepath.Join(out, "Manifest."+bMan.Name)
+		if err = bMan.WriteManifestFile(manPath); err != nil {
+			return nil, err
+		}
+
+		// add bundle to Manifest.MoM
+		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version); err != nil {
+			return nil, err
+		}
+	}
+
+	return newFull, nil
+}
+
+func aggregateManifests(newManifests []*Manifest, newMoM *Manifest, version uint32, c config) ([]*Manifest, error) {
+	allManifests := newManifests
+	var err error
+	for _, m := range newMoM.Files {
+		if m.Version >= version {
+			continue
+		}
+		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(m.Version), "Manifest."+m.Name)
+		var oldM *Manifest
+		oldM, err = ParseManifestFile(oldMPath)
+		if err != nil {
+			return nil, err
+		}
+		allManifests = append(allManifests, oldM)
+	}
+	return allManifests, nil
 }
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
@@ -267,59 +347,18 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		},
 	}
 
-	var newFull *Manifest
-	// write manifests then add them to the MoM
-	for _, bMan := range newManifests {
-		// handle the full manifest last
-		if bMan.Name == "full" {
-			newFull = bMan
-			continue
-		}
-
-		// TODO: remove this after a format bump in Clear Linux
-		// this is a hack to set maximum contentsize to the incorrect maximum
-		// set in swupd-client v3.15.3
-		bMan.setMaxContentSizeHack()
-		// end hack
-
-		// sort by version then by filename, previously to this sort these bundles
-		// were sorted by file name only to make processing easier
-		bMan.sortFilesVersionName()
-		manPath := filepath.Join(verOutput, "Manifest."+bMan.Name)
-		if err = bMan.WriteManifestFile(manPath); err != nil {
-			return nil, err
-		}
-
-		// add bundle to Manifest.MoM
-		if err = newMoM.createManifestRecord(verOutput, manPath, version); err != nil {
-			return nil, err
-		}
+	newFull, err := newMoM.writeBundleManifests(newManifests, verOutput)
+	if err != nil {
+		return nil, err
 	}
 
 	// copy over unchanged manifests
-	for _, m := range oldMoM.Files {
-		if m.findFileNameInSlice(newMoM.Files) == nil {
-			if m.Name == indexBundle {
-				// this is generated new each time
-				continue
-			}
-			newMoM.Files = append(newMoM.Files, m)
-		}
-	}
+	addUnchangedManifests(&newMoM, oldMoM)
 
 	// allManifests must include newManifests plus all old ones in the MoM.
-	allManifests := newManifests
-	// now append all old manifests
-	for _, m := range newMoM.Files {
-		if m.Version < version {
-			oldMPath := filepath.Join(c.outputDir, fmt.Sprint(m.Version), "Manifest."+m.Name)
-			var oldM *Manifest
-			oldM, err = ParseManifestFile(oldMPath)
-			if err != nil {
-				return nil, err
-			}
-			allManifests = append(allManifests, oldM)
-		}
+	allManifests, err := aggregateManifests(newManifests, &newMoM, version, c)
+	if err != nil {
+		return nil, err
 	}
 
 	var osIdx *Manifest
@@ -354,10 +393,10 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		Manifest:       newMoM,
 		UpdatedBundles: make([]*Manifest, 0, len(newManifests)),
 	}
+
+	result.FullManifest = newFull
 	for _, b := range newManifests {
-		if b.Name == "full" {
-			result.FullManifest = b
-		} else {
+		if b.Name != "full" {
 			result.UpdatedBundles = append(result.UpdatedBundles, b)
 		}
 	}

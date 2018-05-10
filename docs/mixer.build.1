@@ -1,0 +1,304 @@
+.\" Man page generated from reStructuredText.
+.
+.TH MIXER.BUILD 1 "" "" ""
+.SH NAME
+mixer.build \- Build varioius pieces of OS content
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+\fBmixer build [command] [flags]\fP
+.SH DESCRIPTION
+.sp
+Builds various pieces of OS content and output update metadata to
+\fI<mixer/workspace>/update/www/<version>/\fP\&. This metadata can be published
+directly to a web\-server and consumed by client update systems via the
+\fBswupd\fP(1) update tool. All steps can be run at once using \fBbuild all\fP or
+the steps can be run individually using the subcommands.
+.SH OPTIONS
+.sp
+In addition to the globally recognized \fBmixer\fP flags (see \fBmixer\fP(1) for
+more details), the following options are recognized across all \fBbuild\fP
+subcommands.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-bundle\-workers\fP
+.sp
+Number of parallel workers when building bundles, passing 0 or omitting this
+flag defaults the number of workers to the number of CPUs on the system.
+.IP \(bu 2
+\fB\-\-delta\-workers\fP
+.sp
+Number of parallel workers when creating deltas, passing 0 or omitting this
+flag defaults the number of workers to the number of CPUs on the system.
+.IP \(bu 2
+\fB\-\-fullfile\-workers\fP
+.sp
+Number of parallel workers when creating fullfiles, passing 0 or omitting this
+flag defaults the number of workers to the number of CPUs on the system.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild\fP help information and exit.
+.UNINDENT
+.SH SUBCOMMANDS
+.sp
+\fBall\fP
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.INDENT 3.5
+Build all content for the mix. Implicitly runs \fBbuild bundles\fP followed by
+\fBbuild update\fP\&. In addition to the global options \fBmixer build all\fP
+takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-format {number}\fP
+.sp
+Supply the format number to use for the build.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild all\fP help information and exit.
+.IP \(bu 2
+\fB\-\-increment\fP
+.sp
+Automatically increment the mix version post build.
+.IP \(bu 2
+\fB\-\-min\-version {version}\fP
+.sp
+Supply minimum version for \fBmixer\fP to use old content from. This option
+tells \fBmixer\fP to regenerate all mix content starting from a certain
+version. \fBmixer\fP will not use any OS content from a version older than
+the min\-version passed here.
+.IP \(bu 2
+\fB\-\-no\-publish\fP
+.sp
+Do not update the LAST_VER file after the update. Any \fBswupd\fP client
+configured to update from the mix will not be made aware of the new mix
+version and will therefore not attempt an update.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-no\-signing\fP
+.sp
+Do not generate a certificate and do not sign the Manifest.MoM
+.IP \(bu 2
+\fB\-\-prefix {path}\fP
+.sp
+Supply the \fIpath\fP to the file system where the \fBswupd\fP binaries live.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBbundles\fP
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.INDENT 3.5
+Build the bundles for your mix. This is done by extracting dependency
+information and file lists for each package in each bundle definition for the
+mix. In addition to the global options \fBmixer build bundles\fP takes the
+following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild bundles\fP help information and exit.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-no\-signing\fP
+.sp
+Do not generate a certificate and do not sign the Manifest.MoM
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBdelta\-packs\fP
+.INDENT 0.0
+.INDENT 3.5
+Build packs to optimize \fBswupd update\fPs between versions. When a
+\fBswupd\fP client updates a bundle it looks for a pack file from its current
+version to the new version. If available \fBswupd\fP will download and apply
+the pack content to the file system. Delta packs contain binary diff files
+that describe changes between updates whenever possible and full files only
+when necessary. Because of this delta packs are a significant performance
+optimization for client updates. Because the client can fall back to full
+files if a pack is not available, delta packs are not necessary for a
+functional update. In addition to the global options \fBmixer build
+delta\-packs\fP takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-from {version}\fP
+.sp
+Generate packs from the specified \fIversion\fP\&.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild bundles\fP help information and exit.
+.IP \(bu 2
+\fB\-\-previous\-versions {number}\fP
+.sp
+Generate packs for \fInumber\fP of previous versions.
+.IP \(bu 2
+\fB\-\-report\fP
+.sp
+Report reason each file in the \fIto\fP manifest was packed in the delta pack
+or not.
+.IP \(bu 2
+\fB\-\-to {version}\fP
+.sp
+Generate packs targeting a specific \fIto\fP \fIversion\fP\&.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBimage\fP
+.INDENT 0.0
+.INDENT 3.5
+Build an image from the mix content. In addition to the global options
+\fBmixer build image\fP takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-format {number}\fP
+.sp
+Supply the format \fInumber\fP used for the mix.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild bundles\fP help information and exit.
+.IP \(bu 2
+\fB\-\-template {path}\fP
+.sp
+Provide the \fIpath\fP to the image template file to use.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBupdate\fP
+.INDENT 0.0
+.INDENT 3.5
+.INDENT 0.0
+.INDENT 3.5
+Build the update content for the mix. This command builds the actual update
+metadata (manifests) and content (full files and zero packs) necessary for
+\fBswupd\fP to perform updates on client systems. \fBupdate\fP relies on the
+output of \fBbuild bundles\fP as the input for this step and expects the
+output of \fBbuild bundles\fP to exist in the
+\fI<mixer/workspace>/update/image/<version>\fP directory. In addition to the
+global options \fBmixer build update\fP takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-format {number}\fP
+.sp
+Supply the format \fInumber\fP used for the mix.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild bundles\fP help information and exit.
+.IP \(bu 2
+\fB\-\-increment\fP
+.sp
+Automatically increment the mix version post build.
+.IP \(bu 2
+\fB\-\-min\-version {version}\fP
+.sp
+Supply minimum version for \fBmixer\fP to use old content from. This option
+tells \fBmixer\fP to regenerate all mix content starting from a certain
+version. \fBmixer\fP will not use any OS content from a version older than
+the min\-version passed here.
+.IP \(bu 2
+\fB\-\-no\-publish\fP
+.sp
+Do not update the LAST_VER file after the update. Any \fBswupd\fP client
+configured to update from the mix will not be made aware of the new mix
+version and will therefore not attempt an update.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-no\-signing\fP
+.sp
+Do not generate a certificate and do not sign the Manifest.MoM
+.IP \(bu 2
+\fB\-\-prefix {path}\fP
+.sp
+Supply the \fIpath\fP to the file system where the \fBswupd\fP binaries live.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.SH EXIT STATUS
+.sp
+On success, 0 is returned. A non\-zero return code indicates a failure.
+.SS SEE ALSO
+.INDENT 0.0
+.IP \(bu 2
+\fBmixer\fP(1)
+.IP \(bu 2
+\fBswupd\fP(1)
+.UNINDENT
+.SH COPYRIGHT
+(C) 2018 Intel Corporation, CC-BY-SA-3.0
+.\" Generated by docutils manpage writer.
+.

@@ -46,6 +46,7 @@ install: gopath
 	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.
 	$(GOPATH)/bin/mixer-completion bash --path $(DESTDIR)/usr/share/bash-completion/completions/mixer
 	$(GOPATH)/bin/mixer-completion zsh --path $(DESTDIR)/usr/share/zsh/site-functions/_mixer
+	install -m 00644 $(MANPAGES) $(DESTDIR)/usr/share/man/man1/
 
 check: gopath
 	go test -cover ${GO_PACKAGE_PREFIX}/...
@@ -100,3 +101,18 @@ release:
 	fi; \
 	git archive --format=tar.gz --verbose -o mixer-tools-$$VERSION.tar.gz HEAD --prefix=mixer-tools-$$VERSION/
 
+MANPAGES = \
+	docs/mixer.1 \
+	docs/mixer.add-rpms.1 \
+	docs/mixer.build.1 \
+	docs/mixer.bundle.1 \
+	docs/mixer.config.1 \
+	docs/mixer.init.1 \
+	docs/mixer.repo.1 \
+	docs/mixer.versions.1
+
+man: $(MANPAGES)
+
+% : %.rst
+	mkdir -p "$$(dirname $@)"
+	rst2man.py "$<" > "$@.tmp" && mv -f "$@.tmp" "$@"

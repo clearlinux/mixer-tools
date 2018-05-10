@@ -1,0 +1,260 @@
+.\" Man page generated from reStructuredText.
+.
+.TH MIXER.BUNDLE 1 "" "" ""
+.SH NAME
+mixer.bundle \- Perform various configuration actions on bundles
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+\fBmixer bundle [command] [flags]\fP
+.SH DESCRIPTION
+.sp
+Performs various configuration actions on upstream and local bundle definition
+files. List and validate mix bundles. Validate local bundle definition files.
+.SH SUBCOMMANDS
+.sp
+\fBadd {bundle} [{bundle}...] [flags]\fP
+.INDENT 0.0
+.INDENT 3.5
+Add local or upstream bundles to your mix by modifying the mix bundles list
+at \fI<mixer/workspace>/mixbundles\fP\&. In addition to the global options \fBmixer
+bundle add\fP takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-all\-local\fP
+.sp
+Add all local bundles defined in \fI<mixer/workspace>/local\-bundles\fP to the
+mix. This command takes precedence over bundle list.
+.IP \(bu 2
+\fB\-\-all\-upstream\fP
+.sp
+Add all upstream bundles (cached in \fI<mixer/workspace>/upstream\-bundles\fP
+to the mix. This command takes precedence over bundle list.
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-git\fP
+.sp
+Automatically apply a new git commit after modifying the mix bundles list
+or bundle definitions. This is useful if your local bundles are kept under
+version control.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbundle add\fP help information and exit.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBedit\fP
+.INDENT 0.0
+.INDENT 3.5
+Edits local and upstream bundle definition files. This command will locate
+the bundle (looking first in local\-bundles, then in upstream\-bundles), and
+launch an editor to edit it. If the bundle is only found upstream, the
+bundle file will first be copied to your local\-bundles directory for
+editing. If the bundle is not found anywhere, a blank template is created
+with the correct name. When the editor closes, the bundle file is then
+parsed for validity.
+.sp
+The editor is configured via environment variables. VISUAL takes precedence
+to EDITOR. If neither are set, the tool defaults to nano. If nano is not
+installed, the tool will skip editing, and act as if \(aq\-\-suppress\-editor\(aq had
+been passed.
+.sp
+Passing \(aq\-\-suppress\-editor\(aq will suppress launching the editor, and will
+thus only copy the bundle file to local\-bundles (if it is only found
+upstream), or create the blank template (if it was not found anywhere). This
+can be useful if you want to add a bundle to local\-bundles, but wish to edit
+it at a later time.
+.sp
+Passing \(aq\-\-add\(aq will also add the bundle(s) to your mix. Please note that
+bundles are added after all bundles are edited, and thus will not be added
+if any errors are encountered earlier on.
+.sp
+In addition to the global options \fBmixer bundle edit\fP takes the following
+options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-add\fP
+.sp
+Add the bundle(s) to your mix after editing.
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-git\fP
+.sp
+Automatically apply a new git commit after modifying the mix bundles list
+or bundle definitions. This is useful if your local bundles are kept under
+version control.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbundle edit\fP help information and exit.
+.IP \(bu 2
+\fB\-\-suppress\-editor\fP
+.sp
+Suppress launching editor and only copy to local\-bundles or create a
+template for the bundle.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBlist [mix|local|upstream] [flags]\fP
+.INDENT 0.0
+.INDENT 3.5
+List the bundles in the mix, the available local bundles, or the available
+upstream bundles. In addition to the global options \fBmixer bundle list\fP
+takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fBmix\fP
+.sp
+List the bundles in the mix.
+.IP \(bu 2
+\fBlocal\fP
+.sp
+List available locally\-defined bundles.
+.IP \(bu 2
+\fBupstream\fP
+.sp
+List available upstream bundles.
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbundle list\fP help information and exit.
+.IP \(bu 2
+\fB\-\-tree\fP
+.sp
+Pretty\-print the bundle list as a tree showing include information.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBremove\fP
+.INDENT 0.0
+.INDENT 3.5
+Removes bundles from your mix by modifying the mix bundle list (stored in
+the \fI<mixer/workspace>/mixbundles\fP file). The mix bundle list is parsed, the
+bundles are removed, and the resultant list is written back out in sorted
+order. If bundles do not exist in the mix, they are skipped. In addition to
+the global options \fBmixer bundle remove\fP takes the following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-\-git\fP
+.sp
+Automatically apply a new git commit after modifying the mix bundles list
+or bundle definitions. This is useful if your local bundles are kept under
+version control.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbundle remove\fP help information and exit.
+.IP \(bu 2
+\fB\-\-local\fP
+.sp
+Also remove the bundle file from local\-bundles. This action is
+irrevocable.
+.IP \(bu 2
+\fB\-\-mix={bool}\fP
+.sp
+Remove bundle from the mix bundle list. This defaults to true.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
+\fBvalidate\fP
+.INDENT 0.0
+.INDENT 3.5
+Checks bundle definition files for validity. Only local bundle files are
+checked; upstream bundles are trusted as valid. Valid bundles yield no
+output. Any invalid bundles will yield a non\-zero return code.
+.sp
+Basic validation includes checking syntax and structure, and that the bundle
+has a valid name. Commands like \fBmixer bundle edit\fP run basic validation
+automatically.
+.sp
+In addition to the global options \fBmixer bundle remove\fP takes the
+following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-all\-local\fP
+.sp
+Run validation against all local bundles.
+.IP \(bu 2
+\fB\-c, \-\-config {path}\fP
+.sp
+Optionally tell \fBmixer\fP to use the configuration file at \fIpath\fP\&. Uses
+the default \fIbuilder.conf\fP in the mixer workspace if this option is not
+provided.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbundle validate\fP help information and exit.
+.IP \(bu 2
+\fB\-\-strict\fP
+.sp
+Perform strict validation to additionally check that the bundle header
+fields are parse\-able and non\-empty, and that the header \(aqTitle\(aq is itself
+valid and matches the bundle filename.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.SH EXIT STATUS
+.sp
+On success, 0 is returned. A non\-zero return code indicates a failure.
+.SS SEE ALSO
+.INDENT 0.0
+.IP \(bu 2
+\fBmixer\fP(1)
+.UNINDENT
+.SH COPYRIGHT
+(C) 2018 Intel Corporation, CC-BY-SA-3.0
+.\" Generated by docutils manpage writer.
+.

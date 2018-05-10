@@ -1,0 +1,196 @@
+.\" Man page generated from reStructuredText.
+.
+.TH MIXER 1 "" "" ""
+.SH NAME
+mixer \- OS software update mixer
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+\fBmixer [subcommand] <flags>\fP
+.SH DESCRIPTION
+.sp
+\fBmixer\fP(1) is a software update generator that uses input RPMs and bundle
+definition files to create update metadata consumable by \fBswupd\fP(1).
+.sp
+\fBmixer\fP operates in a mix workspace using configuration files existing in the
+workspace. The tool allows users to use RPMs from an upstream URL (default
+download.clearlinux.org), provide their own RPMs, and use RPMs from other remote
+repositories to build updates. Users can also define their own local bundle
+definitions as well as use the default bundle definitions from the upstream URL.
+.sp
+\fBmixer\fP provides commands to manage local RPMs and bundle definitions and
+configure remote RPM repositories.
+.sp
+The output of \fBmixer\fP is a set of manifests readable by \fBswupd\fP as well as
+all the OS content \fBswupd\fP needs to perform its update operations. The OS
+content includes all the files in an update as well as zero\- and delta\-packs for
+improved update performance. See \fBswupd\fP(1) for more details.
+.SH OPTIONS
+.sp
+The following options are applicable to most subcommands, and can be
+used to modify the core behavior and resources that \fBmixer\fP uses.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display general help information. If put after a subcommand, it will
+display help specific to that subcommand.
+.IP \(bu 2
+\fB\-\-check\fP
+.sp
+Check all external dependencies needed by mixer.
+.IP \(bu 2
+\fB\-v, \-\-version\fP
+.sp
+Displays the version information of the \fBmixer\fP program and exit.
+.IP \(bu 2
+\fB\-\-offline\fP
+.sp
+Skip caching upstream bundles and work entirely with local bundles.
+Do not reach out over network to perform operations.
+.UNINDENT
+.SH SUBCOMMANDS
+.sp
+\fBadd\-rpms\fP
+.INDENT 0.0
+.INDENT 3.5
+Add RPMs from the configured LOCAL_RPM_DIR to the local dnf repository.
+See \fBmixer.add\-rpms\fP(1) for more details.
+.UNINDENT
+.UNINDENT
+.sp
+\fBbuild\fP
+.INDENT 0.0
+.INDENT 3.5
+Build various pieces of OS content, including all metadata needed by
+\fBswupd\fP to perform updates. \fBmixer build\fP is a complicated tool in
+itself. See \fBmixer.build\fP(1) for more details.
+.UNINDENT
+.UNINDENT
+.sp
+\fBbundle\fP
+.INDENT 0.0
+.INDENT 3.5
+Perform various configuration actions on local and upstream bundles. The
+user can add or remove bundles from their mix, edit local and upstream
+bundles, create new bundle definitions, or validate local bundle definition
+files. See \fBmixer.bundle\fP(1) for more details.
+.UNINDENT
+.UNINDENT
+.sp
+\fBconfig\fP
+.INDENT 0.0
+.INDENT 3.5
+Perform configuration related actions, including configuration file
+validation and conversion from deprecated formats. See \fBmixer.config\fP(1)
+for more details.
+.UNINDENT
+.UNINDENT
+.sp
+\fBhelp\fP
+.INDENT 0.0
+.INDENT 3.5
+Print help text for any \fBmixer\fP subcommand.
+.UNINDENT
+.UNINDENT
+.sp
+\fBinit\fP
+.INDENT 0.0
+.INDENT 3.5
+Initialize \fBmixer\fP configuration and workspace. See \fBmixer.init\fP(1) for
+more details.
+.UNINDENT
+.UNINDENT
+.sp
+\fBrepo\fP
+.INDENT 0.0
+.INDENT 3.5
+Add, list, remove, or edit RPM repositories to be used by mixer. This
+subcommand allows users to configure which remote or local repositories
+mixer should use to look for RPMs. See \fBmixer.repo\fP(1) for more
+information.
+.UNINDENT
+.UNINDENT
+.sp
+\fBversions\fP
+.INDENT 0.0
+.INDENT 3.5
+Manage mix and upstream versions. By itself the command will print the
+current version of mix and upstream, and also report the latest version of
+upstream available. Also allows the user to update mix and upstream
+versions. See \fBmixer.versions\fP(1) for more details.
+.UNINDENT
+.UNINDENT
+.SH FILES
+.sp
+\fI<mixer/workspace>/builder.conf\fP
+.INDENT 0.0
+.INDENT 3.5
+The mixer configuration file.
+.UNINDENT
+.UNINDENT
+.sp
+\fI<mixer/workspace>/.yum\-mix.conf\fP
+.INDENT 0.0
+.INDENT 3.5
+The default location for the DNF configuration file.
+.UNINDENT
+.UNINDENT
+.SH EXIT STATUS
+.sp
+On success, 0 is returned. A non\-zero return code indicates a failure.
+.SS SEE ALSO
+.INDENT 0.0
+.IP \(bu 2
+\fBmixer.add\-rpms\fP(1)
+.IP \(bu 2
+\fBmixer.build\fP(1)
+.IP \(bu 2
+\fBmixer.bundle\fP(1)
+.IP \(bu 2
+\fBmixer.config\fP(1)
+.IP \(bu 2
+\fBmixer.init\fP(1)
+.IP \(bu 2
+\fBmixer.repo\fP(1)
+.IP \(bu 2
+\fBmixer.versions\fP(1)
+.IP \(bu 2
+\fBswupd\fP(1)
+.IP \(bu 2
+\fI\%https://github.com/clearlinux/mixer\-tools\fP
+.IP \(bu 2
+\fI\%https://github.com/clearlinux/swupd\-client\fP
+.IP \(bu 2
+\fI\%https://clearlinux.org/documentation/\fP
+.UNINDENT
+.SH COPYRIGHT
+(C) 2018 Intel Corporation, CC-BY-SA-3.0
+.\" Generated by docutils manpage writer.
+.

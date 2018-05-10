@@ -171,7 +171,7 @@ func buildMix(prepNeeded bool) error {
 
 	cert := "/usr/share/ca-certs/Swupd_Root.pem"
 
-	_, err = helpers.RunCommandOutput("openssl", "smime", "-verify", "-in", "Manifest.MoM.sig",
+	err = helpers.RunCommandSilent("openssl", "smime", "-verify", "-in", "Manifest.MoM.sig",
 		"-inform", "der", "-content", "Manifest.MoM", "-CAfile", cert)
 	if err != nil {
 		return err
@@ -185,7 +185,7 @@ func buildMix(prepNeeded bool) error {
 	}
 
 	mixDir := filepath.Join(mixWS, fmt.Sprintf("update/www/%d", mixVer))
-	_, err = helpers.RunCommandOutput("openssl", "smime", "-sign", "-binary", "-in",
+	err = helpers.RunCommandSilent("openssl", "smime", "-sign", "-binary", "-in",
 		filepath.Join(mixDir, "Manifest.MoM"),
 		"-signer", filepath.Join(mixWS, "Swupd_Root.pem"),
 		"-inkey", filepath.Join(mixWS, "private.pem"),
@@ -204,7 +204,7 @@ func buildMix(prepNeeded bool) error {
 	if err != nil {
 		return err
 	}
-	_, err = helpers.RunCommandOutput("tar", "-C", mixDir, "-cvf", "Manifest.MoM.tar", "Manifest.MoM")
+	err = helpers.RunCommandSilent("tar", "-C", mixDir, "-cvf", "Manifest.MoM.tar", "Manifest.MoM")
 	if err != nil {
 		return err
 	}

@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"github.com/clearlinux/mixer-tools/builder"
+
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -74,10 +76,40 @@ variables will not be expanded and the values will not be validated`,
 	},
 }
 
+var configSetCmd = &cobra.Command{
+	Use:   "set <property> <value>",
+	Short: "Set a property in the config file to a given value",
+	Long: `This command will parse the provided property in the format 'Section.Property',
+	assign the provided value and update the config file. The command will only validate
+	the existence of the provided property, but will not validate the value provided.`,
+	Args: cobra.ExactArgs(2),
+	Run: func(cmd *cobra.Command, args []string) {
+		if !builder.UseNewConfig {
+			fail(errors.New("config set requires `--new-config` flag`"))
+		}
+
+		var err error
+		if config, err = builder.GetConfigPath(config); err != nil {
+			fail(err)
+		}
+
+		var mc builder.MixConfig
+		if err := mc.LoadConfig(config); err != nil {
+			fail(err)
+		}
+
+		if err := mc.SetProperty(config, args[0], args[1]); err != nil {
+			fail(err)
+		}
+
+	},
+}
+
 // List of all config commands
 var configCmds = []*cobra.Command{
 	configValidateCmd,
 	configConvertCmd,
+	configSetCmd,
 }
 
 func init() {

@@ -192,6 +192,38 @@ func (config *MixConfig) createLegacyConfig(localrpms bool) error {
 	return ioutil.WriteFile(builderconf, []byte(data), 0666)
 }
 
+// SetProperty parse a property in the format "Section.Property", finds and sets it within the
+// config structure and saves the config file.
+func (config *MixConfig) SetProperty(filename string, propertyStr string, value string) error {
+	if !UseNewConfig {
+		return errors.Errorf("SetProperty requires --new-config flag")
+	}
+
+	tokens := strings.Split(propertyStr, ".")
+	property, sections := tokens[len(tokens)-1], tokens[:len(tokens)-1]
+
+	sectionV := reflect.ValueOf(config).Elem()
+	for i := 0; i < len(sections); i++ {
+		sectionV = sectionV.FieldByName(sections[i])
+
+		if !sectionV.IsValid() {
+			return errors.Errorf("Unknown config sectionV: '%s'", tokens[i])
+		}
+	}
+
+	sectionT := reflect.TypeOf(sectionV.Interface())
+	for i := 0; i < sectionV.NumField(); i++ {
+		tag, ok := sectionT.Field(i).Tag.Lookup("toml")
+
+		if ok && tag == property {
+			sectionV.Field(i).SetString(value)
+			return config.SaveConfig(filename)
+		}
+	}
+
+	return errors.Errorf("Property not found in config file: '%s'", property)
+}
+
 // LoadConfig loads a configuration file from a provided path or from local directory
 // is none is provided
 func (config *MixConfig) LoadConfig(filename string) error {

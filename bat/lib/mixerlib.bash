@@ -23,27 +23,27 @@ localize_builder_conf() {
 # the filesystem, and adds only os-core to the mix
 mixer-init-stripped-down() {
   touch $BATS_TEST_DIRNAME/mixbundles
-  mixer init --clear-version $1 --mix-version $2
+  mixer $MIXARGS init --clear-version $1 --mix-version $2
   sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
   echo "filesystem" > $LOCAL_BUNDLE_DIR/os-core
-  mixer bundle add os-core
+  mixer $MIXARGS bundle add os-core
 }
 
 mixer-versions-update() {
-  mixer versions update --mix-version $1
+  mixer $MIXARGS versions update --mix-version $1
 }
 
 mixer-build-bundles() {
-  sudo -E mixer build bundles --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS build bundles --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-build-update() {
-  sudo -E mixer build update --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-add-rpms() {
   mkdir -p $BATS_TEST_DIRNAME/local-yum $BATS_TEST_DIRNAME/local-rpms
-  sudo -E mixer add-rpms --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS add-rpms --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 create-empty-local-bundle() {
@@ -59,11 +59,11 @@ remove-package-from-local-bundle() {
 }
 
 mixer-bundle-add() {
-  mixer bundle add $1
+  mixer $MIXARGS bundle add $1
 }
 
 mixer-bundle-remove() {
-  mixer bundle remove $1
+  mixer $MIXARGS bundle remove $1
 }
 
 download-rpm() {

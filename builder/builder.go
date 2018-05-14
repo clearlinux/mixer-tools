@@ -1555,6 +1555,15 @@ func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVer
 			return err
 		}
 	}
+
+	// Now tar the full manifest, since it doesn't show up in the MoM
+	fmt.Println("  full")
+	f := filepath.Join(thisVersionDir, "Manifest.full")
+	err = createCompressedArchive(f+".tar", f)
+	if err != nil {
+		return err
+	}
+
 	// TODO: Create manifest tars for Manifest.MoM and the mom.UpdatedBundles.
 	timer.Stop()
 

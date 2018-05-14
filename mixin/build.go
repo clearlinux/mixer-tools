@@ -107,14 +107,17 @@ func mergeMoMs(mixWS string, mixVer, lastVer int) error {
 func buildMix(prepNeeded bool) error {
 	var err error
 	lastVer := getLastVersion()
+	mixFlagFile := filepath.Join(mixWS, ".valid-mix")
 	ver, err := getCurrentVersion()
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	mixVer := ver * 1000
 	oldMix := filepath.Join(mixWS, fmt.Sprintf("update/www/%d", mixVer-10))
 	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	b.NumBundleWorkers = runtime.NumCPU()
@@ -122,17 +125,20 @@ func buildMix(prepNeeded bool) error {
 
 	err = os.Chdir(mixWS)
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 
 	if prepNeeded {
 		rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
 		if err != nil {
+			_ = os.Remove(mixFlagFile)
 			return err
 		}
 
 		err = b.AddRPMList(rpms)
 		if err != nil {
+			_ = os.Remove(mixFlagFile)
 			return err
 		}
 	}
@@ -146,10 +152,12 @@ func buildMix(prepNeeded bool) error {
 	}
 	err = buildBundles(b)
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	err = b.BuildUpdate("", 0, "", false, true, false)
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	if lastVer != 0 {
@@ -162,10 +170,12 @@ func buildMix(prepNeeded bool) error {
 	upstreamMoM := fmt.Sprintf("https://download.clearlinux.org/update/%d/Manifest.MoM", ver)
 	err = helpers.Download("Manifest.MoM", upstreamMoM)
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	err = helpers.Download("Manifest.MoM.sig", upstreamMoM+".sig")
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 
@@ -174,6 +184,7 @@ func buildMix(prepNeeded bool) error {
 	err = helpers.RunCommandSilent("openssl", "smime", "-verify", "-in", "Manifest.MoM.sig",
 		"-inform", "der", "-content", "Manifest.MoM", "-CAfile", cert)
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	fmt.Println("* Verified upstream Manifest.MoM")
@@ -181,6 +192,7 @@ func buildMix(prepNeeded bool) error {
 	// merge upstream MoM with mixer MoM
 	err = mergeMoMs(mixWS, mixVer, ver)
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 
@@ -192,19 +204,29 @@ func buildMix(prepNeeded bool) error {
 		"-outform", "DER",
 		"-out", filepath.Join(mixDir, "Manifest.MoM.sig"))
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 
 	err = os.Rename(filepath.Join(mixDir, "Manifest.MoM"),
 		filepath.Join(mixDir, fmt.Sprintf("Manifest.MoM.%d", mixVer)))
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	err = os.Rename("Manifest.MoM", filepath.Join(mixDir, "Manifest.MoM"))
 	if err != nil {
+		_ = os.Remove(mixFlagFile)
 		return err
 	}
 	err = helpers.RunCommandSilent("tar", "-C", mixDir, "-cvf", "Manifest.MoM.tar", "Manifest.MoM")
+	if err != nil {
+		_ = os.Remove(mixFlagFile)
+		return err
+	}
+
+	// write a file that says this mix is ready to be consumed
+	_, err = os.OpenFile(mixFlagFile, os.O_RDONLY|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}

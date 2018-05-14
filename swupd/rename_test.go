@@ -4,6 +4,8 @@ import (
 	"os"
 	"syscall"
 	"testing"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 // Need to set up a type to hold the FileInfo
@@ -134,10 +136,14 @@ func TestRename(t *testing.T) {
 			remove: []string{"S1", "L3", "S2", "L1"}, add: []string{"L4", "L2"},
 			partner: []int{-1, 0, -1, 1}},
 	}
+	var c config.MixConfig
+	c.LoadDefaults()
+	sdata := swupdDataFromConfig(c)
+
 	for _, tc := range tests {
 		add := filelist(t, sn, tc.add)
 		remove := markdelete(filelist(t, sn, tc.remove))
-		renameDetection(&Manifest{}, add, remove, config{})
+		renameDetection(&Manifest{}, add, remove, sdata)
 		if len(tc.partner) != len(tc.remove) {
 			t.Fatalf("Invalid testcase %v, wrong partner length", tc)
 		}

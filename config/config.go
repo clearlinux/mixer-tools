@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package config
 
 import (
 	"bytes"
@@ -46,6 +46,10 @@ type builderConf struct {
 	ServerStateDir string `required:"true" toml:"SERVER_STATE_DIR"`
 	VersionPath    string `required:"true" toml:"VERSIONS_PATH"`
 	DNFConf        string `required:"true" toml:"YUM_CONF"`
+	//TODO: Change required to true when old config is removed
+	MixVer      string `required:"false" toml:"MIX_VERSION"`
+	UpstreamVer string `required:"false" toml:"UPSTREAM_VERSION"`
+	UpstreamURL string `required:"false" toml:"UPSTREAM_URL"`
 }
 
 type swupdConf struct {
@@ -69,10 +73,6 @@ type mixerConf struct {
 
 // LoadDefaults sets sane values for the config properties
 func (config *MixConfig) LoadDefaults() error {
-	if !UseNewConfig {
-		return nil
-	}
-
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -83,6 +83,9 @@ func (config *MixConfig) LoadDefaults() error {
 	config.Builder.ServerStateDir = filepath.Join(pwd, "update")
 	config.Builder.VersionPath = pwd
 	config.Builder.DNFConf = filepath.Join(pwd, ".yum-mix.conf")
+	config.Builder.MixVer = "10"
+	config.Builder.UpstreamVer = "latest"
+	config.Builder.UpstreamURL = "https://download.clearlinux.org"
 
 	// [Swupd]
 	config.Swupd.Bundle = "os-core-update"
@@ -352,4 +355,18 @@ func (config *MixConfig) Print() error {
 	fmt.Println(sb.String())
 
 	return nil
+}
+
+// GetConfigPath returns the default config path if the provided path is empty
+func GetConfigPath(path string) (string, error) {
+	if path != "" {
+		return path, nil
+	}
+
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(pwd, "builder.conf"), nil
 }

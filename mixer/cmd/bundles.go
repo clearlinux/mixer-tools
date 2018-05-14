@@ -50,7 +50,7 @@ resultant list is written back out in sorted order.`,
 			}
 		}
 
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -92,7 +92,7 @@ and now reference the original upstream version. If the bundle was custom, and
 no upstream alternative exists, a warning will be returned.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -125,7 +125,7 @@ var bundleListCmd = &cobra.Command{
 			return errors.New("bundle list takes at most one argument")
 		}
 
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -186,7 +186,7 @@ bundles are added after all bundles are edited, and thus will not be added if
 any errors are encountered earlier on.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -227,7 +227,7 @@ Passing '--all-local' will run validation on all bundles in local-bundles.`,
 			return errors.New("bundle validate requires at least 1 argument if --all-local is not passed")
 		}
 
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -264,7 +264,7 @@ var bundlesCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range bundlesCmds {
 		bundleCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
+		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	RootCmd.AddCommand(bundleCmd)

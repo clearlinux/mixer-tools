@@ -24,6 +24,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"github.com/clearlinux/mixer-tools/config"
 )
 
 const debugPacks = false
@@ -82,7 +84,7 @@ func (state PackState) String() string {
 // fullfiles. If not empty, chrootDir is tried first as a fast alternative to
 // decompressing the fullfiles. Multiple workers are used to parallelize delta creation.
 // If number of workers is zero or less, 1 worker is used.
-func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string, numWorkers int) (info *PackInfo, err error) {
+func WritePack(c config.MixConfig, w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string, numWorkers int) (info *PackInfo, err error) {
 	if toManifest == nil {
 		return nil, fmt.Errorf("need a valid toManifest")
 	}
@@ -106,14 +108,10 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 	}
 
 	if fromManifest != nil {
-		// TODO: Make WritePack itself take a Config.
-		var c config
-		c, err = getConfig(filepath.Join(outputDir, ".."))
-		if err != nil {
-			return nil, err
-		}
+		// TODO: Make WritePack itself take a swupdData.
+		sdata := swupdDataFromConfig(c)
 
-		deltas, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers)
+		deltas, err = createDeltasFromManifests(&sdata, fromManifest, toManifest, numWorkers)
 		if err != nil {
 			return nil, err
 		}
@@ -532,7 +530,7 @@ func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, 
 // Empty packs will lead to not creating the pack.
 // Multiple workers are used to parallelize delta creation. If number of workers is zero or
 // less, 1 worker is used.
-func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string, numWorkers int) (*PackInfo, error) {
+func CreatePack(c config.MixConfig, name string, fromVersion, toVersion uint32, outputDir, chrootDir string, numWorkers int) (*PackInfo, error) {
 	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
 	toM, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
 	if err != nil {
@@ -552,7 +550,7 @@ func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir
 	if err != nil {
 		return nil, err
 	}
-	info, err := WritePack(output, fromM, toM, outputDir, chrootDir, numWorkers)
+	info, err := WritePack(c, output, fromM, toM, outputDir, chrootDir, numWorkers)
 	if err != nil {
 		_ = output.Close()
 		_ = os.RemoveAll(packPath)

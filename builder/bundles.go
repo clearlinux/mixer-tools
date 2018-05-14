@@ -15,71 +15,54 @@ import (
 	"sync"
 	"time"
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/go-ini/ini"
 	"github.com/pkg/errors"
 )
 
 // TODO: Move this to the more general configuration handling.
-type buildBundlesConfig struct {
-	// [Server] section.
-	HasServerSection bool
-	DebugInfoBanned  string
-	DebugInfoLib     string
-	DebugInfoSrc     string
-
-	// [swupd] section.
-	UpdateBundle string
-	ContentURL   string
-	VersionURL   string
-	// Format is already in b.Config.Swupd.Format.
-}
-
-// TODO: Move this to the more general configuration handling.
-func readBuildBundlesConfig(path string) (*buildBundlesConfig, error) {
-	iniFile, err := ini.InsensitiveLoad(path)
+func readBuildBundlesConfig(b *Builder) error {
+	iniFile, err := ini.InsensitiveLoad(b.BuildConf)
 	if err != nil {
-		return nil, err
+		return err
 	}
-
-	cfg := &buildBundlesConfig{}
 
 	// TODO: Validate early the fields we read.
 	server, err := iniFile.GetSection("Server")
 	if err == nil {
-		cfg.HasServerSection = true
-		cfg.DebugInfoBanned = server.Key("debuginfo_banned").Value()
-		cfg.DebugInfoLib = server.Key("debuginfo_lib").Value()
-		cfg.DebugInfoSrc = server.Key("debuginfo_src").Value()
+		b.Config.Server.DebugInfoBanned = server.Key("debuginfo_banned").Value()
+		b.Config.Server.DebugInfoLib = server.Key("debuginfo_lib").Value()
+		b.Config.Server.DebugInfoSrc = server.Key("debuginfo_src").Value()
 	}
 
 	swupd, err := iniFile.GetSection("swupd")
 	if err != nil {
-		return nil, fmt.Errorf("error in configuration file %s: %s", path, err)
+		return fmt.Errorf("error in configuration file %s: %s", b.BuildConf, err)
 	}
 
 	getKey := func(section *ini.Section, name string) (string, error) {
 		key, kerr := section.GetKey(name)
 		if kerr != nil {
-			return "", fmt.Errorf("error in configuration file %s: %s", path, kerr)
+			return "", fmt.Errorf("error in configuration file %s: %s", b.BuildConf, kerr)
 		}
 		return key.Value(), nil
 	}
 
-	cfg.UpdateBundle, err = getKey(swupd, "BUNDLE")
+	b.Config.Swupd.Bundle, err = getKey(swupd, "BUNDLE")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cfg.ContentURL, err = getKey(swupd, "CONTENTURL")
+	b.Config.Swupd.ContentURL, err = getKey(swupd, "CONTENTURL")
 	if err != nil {
-		return nil, err
+		return err
 	}
-	cfg.VersionURL, err = getKey(swupd, "VERSIONURL")
+	b.Config.Swupd.VersionURL, err = getKey(swupd, "VERSIONURL")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return cfg, nil
+	return nil
 }
 
 var bannedPaths = [...]string{
@@ -466,16 +449,16 @@ func buildOsCore(packagerCmd []string, chrootDir, version string) error {
 	return nil
 }
 
-func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildBundlesConfig, b *Builder) error {
+func genUpdateBundleSpecialFiles(chrootDir string, b *Builder) error {
 	swupdDir := filepath.Join(chrootDir, "usr/share/defaults/swupd")
 	if err := os.MkdirAll(swupdDir, 0755); err != nil {
 		return err
 	}
-	cURLBytes := []byte(cfg.ContentURL)
+	cURLBytes := []byte(b.Config.Swupd.ContentURL)
 	if err := ioutil.WriteFile(filepath.Join(swupdDir, "contenturl"), cURLBytes, 0644); err != nil {
 		return err
 	}
-	vURLBytes := []byte(cfg.VersionURL)
+	vURLBytes := []byte(b.Config.Swupd.VersionURL)
 	if err := ioutil.WriteFile(filepath.Join(swupdDir, "versionurl"), vURLBytes, 0644); err != nil {
 		return err
 	}
@@ -550,7 +533,7 @@ func rmDNFStatePaths(fullDir string) {
 	}
 }
 
-func buildFullChroot(cfg *buildBundlesConfig, b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
+func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
 	fmt.Println("Cleaning DNF cache before full install")
 	if err := clearDNFCache(packagerCmd); err != nil {
 		return err
@@ -575,9 +558,9 @@ func buildFullChroot(cfg *buildBundlesConfig, b *Builder, set *bundleSet, packag
 		}
 
 		// special handling for update bundle
-		if bundle.Name == cfg.UpdateBundle {
+		if bundle.Name == b.Config.Swupd.Bundle {
 			fmt.Printf("... Adding swupd default values to %s bundle\n", bundle.Name)
-			if err := genUpdateBundleSpecialFiles(fullDir, cfg, b); err != nil {
+			if err := genUpdateBundleSpecialFiles(fullDir, b); err != nil {
 				return err
 			}
 		}
@@ -625,34 +608,17 @@ func (b *Builder) buildBundles(set bundleSet) error {
 	// TODO: Do not touch config code that is in flux at the moment, reparsing it here to grab
 	// information that previously Mixer didn't care about. Move that to the configuration part
 	// of Mixer.
-	cfg, err := readBuildBundlesConfig(b.BuildConf)
-	if err != nil {
-		return err
+	if !config.UseNewConfig {
+		err := readBuildBundlesConfig(b)
+		if err != nil {
+			return err
+		}
 	}
 
-	if _, ok := set[cfg.UpdateBundle]; !ok {
-		return fmt.Errorf("couldn't find bundle %q specified in configuration as the update bundle", cfg.UpdateBundle)
+	if _, ok := set[b.Config.Swupd.Bundle]; !ok {
+		return fmt.Errorf("couldn't find bundle %q specified in configuration as the update bundle", b.Config.Swupd.Bundle)
 	}
 
-	// Write INI files. These are used to communicate to the next step of mixing (build update).
-	var serverINI bytes.Buffer
-	fmt.Fprintf(&serverINI, `[Server]
-emptydir=%s/empty
-imagebase=%s/image/
-outputdir=%s/www/
-`, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir)
-	if cfg.HasServerSection {
-		fmt.Fprintf(&serverINI, `
-[Debuginfo]
-banned=%s
-lib=%s
-src=%s
-`, cfg.DebugInfoBanned, cfg.DebugInfoLib, cfg.DebugInfoSrc)
-	}
-	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "server.ini"), serverINI.Bytes(), 0644)
-	if err != nil {
-		return err
-	}
 	// TODO: If we are using INI files that are case insensitive, we need to be more restrictive
 	// in bundleset to check for that. See also readGroupsINI in swupd package.
 	var groupsINI bytes.Buffer
@@ -666,12 +632,12 @@ src=%s
 
 	// Mixer is used to create both Clear Linux or a mix of it.
 	var version string
-	if b.MixVer != "" {
-		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
-		version = b.MixVer
+	if b.Config.Builder.MixVer != "" {
+		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.Config.Builder.MixVer, b.Config.Builder.UpstreamVer)
+		version = b.Config.Builder.MixVer
 	} else {
-		fmt.Printf("Creating bundles for version %s\n", b.UpstreamVer)
-		version = b.UpstreamVer
+		fmt.Printf("Creating bundles for version %s\n", b.Config.Builder.UpstreamVer)
+		version = b.Config.Builder.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
 		if version == "" {
 			return errors.Errorf("no Mixver or Clearver set, unable to proceed")
@@ -702,7 +668,7 @@ src=%s
 		"dnf",
 		"--config=" + b.Config.Builder.DNFConf,
 		"-y",
-		"--releasever=" + b.UpstreamVer,
+		"--releasever=" + b.Config.Builder.UpstreamVer,
 	}
 
 	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))
@@ -724,7 +690,7 @@ src=%s
 		return err
 	}
 
-	updateBundle := set[cfg.UpdateBundle]
+	updateBundle := set[b.Config.Swupd.Bundle]
 	var osCore *bundle
 	for _, bundle := range set {
 		if bundle.Name == "os-core" {
@@ -743,7 +709,7 @@ src=%s
 	}
 
 	// install all bundles in the set (including os-core) to the full chroot
-	err = buildFullChroot(cfg, b, &set, packagerCmd, buildVersionDir, version)
+	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version)
 	if err != nil {
 		return err
 	}

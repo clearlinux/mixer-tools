@@ -86,7 +86,7 @@ func (m *Manifest) getBundleInfo(path string) error {
 	return nil
 }
 
-func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {
+func (m *Manifest) addFilesFromBundleInfo(c swupdData, version uint32) error {
 	chrootDir := filepath.Join(c.imageBase, fmt.Sprint(version), "full")
 	for fpath := range m.bundleInfo.Files {
 		fullPath := filepath.Join(chrootDir, fpath)

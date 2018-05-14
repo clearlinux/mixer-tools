@@ -22,16 +22,16 @@ import (
 	"strings"
 )
 
-func renameDetection(manifest *Manifest, added []*File, removed []*File, c config) {
+func renameDetection(manifest *Manifest, added []*File, removed []*File, sdata swupdData) {
 	if len(added) == 0 || len(removed) == 0 {
 		return // nothing to rename
 	}
 	added = trimRenamed(added) // Make copies of input slices, tidy up whilst we are here
 	removed = trimRenamed(removed)
-	if err := fixupStatFields(removed, manifest, &c); err != nil {
+	if err := fixupStatFields(removed, manifest, &sdata); err != nil {
 		panic(err)
 	}
-	if err := fixupStatFields(added, manifest, &c); err != nil {
+	if err := fixupStatFields(added, manifest, &sdata); err != nil {
 		panic(err)
 	}
 	// Handle pure renames first, don't need to worry about size. Should we skip zero size?
@@ -177,16 +177,16 @@ func makePairedNames(list []*File) []pairedNames {
 }
 
 // fixupstatfields adds the missing stat fields
-// construct the path to the old chroot by Joining the c.imageBase
+// construct the path to the old chroot by Joining the sdata.imageBase
 // file.Previous, bundle name, and file.Name fields
 // Note this is horrible
-func fixupStatFields(needed []*File, m *Manifest, c *config) error {
+func fixupStatFields(needed []*File, m *Manifest, sdata *swupdData) error {
 	var bundleChroot string
 	for i := range needed {
 		if needed[i].Info != nil {
 			continue
 		}
-		bundleChroot = filepath.Join(c.imageBase, fmt.Sprint(needed[i].Version), "full")
+		bundleChroot = filepath.Join(sdata.imageBase, fmt.Sprint(needed[i].Version), "full")
 		path := filepath.Join(bundleChroot, needed[i].Name)
 		fi, err := os.Lstat(path)
 		if err != nil {

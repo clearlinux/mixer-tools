@@ -109,7 +109,8 @@ MANPAGES = \
 	docs/mixer.config.1 \
 	docs/mixer.init.1 \
 	docs/mixer.repo.1 \
-	docs/mixer.versions.1
+	docs/mixer.versions.1 \
+	docs/mixin.1
 
 man: $(MANPAGES)
 

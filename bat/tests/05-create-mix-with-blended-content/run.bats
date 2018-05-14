@@ -10,10 +10,10 @@ setup() {
 @test "Create stripped down mix 10 with blended bundles" {
   mixer-init-stripped-down $CLRVER 10
   localize_builder_conf
-  
-  download-rpm "http://rpmfind.net/linux/fedora/linux/development/rawhide/Everything/x86_64/os/Packages/j/json-c-0.13.1-1.fc29.i686.rpm"
+
+  download-rpm "http://rpmfind.net/linux/fedora/linux/development/rawhide/Everything/x86_64/os/Packages/j/json-c-0.13.1-2.fc29.x86_64.rpm"
   mixer-add-rpms
-  
+
   # Put custom content in upstream bundle
   create-empty-local-bundle "os-core-update"
   add-package-to-local-bundle "bsdiff" "os-core-update"

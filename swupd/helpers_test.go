@@ -132,7 +132,7 @@ func mustExist(t *testing.T, name string) {
 	}
 }
 
-func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
+func existDelta(t *testing.T, testDir, filename string, from, to uint32) string {
 	t.Helper()
 	var fromFull *Manifest
 	var toFull *Manifest
@@ -150,8 +150,17 @@ func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
 
 	suffix := fmt.Sprintf("%d-%d-%s-%s", from, to, fromHash, toHash)
 	deltafile := filepath.Join(testDir, "www", fmt.Sprintf("%d", to), "delta", suffix)
+	return deltafile
+}
 
+func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
+	deltafile := existDelta(t, testDir, filename, from, to)
 	mustExist(t, deltafile)
+}
+
+func mustNotExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
+	deltafile := existDelta(t, testDir, filename, from, to)
+	mustNotExist(t, deltafile)
 }
 
 func mustNotExist(t *testing.T, name string) {
@@ -242,6 +251,14 @@ func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint3
 
 	if t.Failed() {
 		t.Fatalf("couldn't create all deltas due to errors above")
+	}
+}
+
+func tryCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
+	t.Helper()
+	_, err := CreateDeltas(manifest, statedir, from, to, 0)
+	if err != nil {
+		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}
 }
 

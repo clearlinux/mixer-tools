@@ -25,6 +25,25 @@ func TestCreateDeltas(t *testing.T) {
 	mustExistDelta(t, ts.Dir, "/bar", 10, 20)
 }
 
+func TestCreateDeltaTooBig(t *testing.T) {
+	ts := newTestSwupd(t, "delta-too-big")
+	defer ts.cleanup()
+	ts.Bundles = []string{"test-bundle"}
+	ts.addFile(10, "test-bundle", "/foo", strings.Repeat("foo", 100))
+	ts.createManifests(10)
+	ts.createFullfiles(10)
+
+	// new one must be large and different enough for the delta to be larger than
+	// the compressed version
+	ts.addFile(20, "test-bundle", "/foo", strings.Repeat("asdfghasdf", 10000))
+	ts.createManifests(20)
+	ts.createFullfiles(20)
+	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
+
+	tryCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
+	mustNotExistDelta(t, ts.Dir, "/foo", 10, 20)
+}
+
 // Imported from swupd-server/test/functional/no-delta.
 func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	ts := newTestSwupd(t, "no-deltas-")

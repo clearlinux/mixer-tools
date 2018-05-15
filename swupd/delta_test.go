@@ -44,6 +44,26 @@ func TestCreateDeltaTooBig(t *testing.T) {
 	mustNotExistDelta(t, ts.Dir, "/foo", 10, 20)
 }
 
+func TestCreateDeltaFULLDL(t *testing.T) {
+	ts := newTestSwupd(t, "delta-fulldl")
+	defer ts.cleanup()
+	ts.Bundles = []string{"test-bundle"}
+	ts.addFile(10, "test-bundle", "/foo", strings.Repeat("0", 300))
+	ts.createManifests(10)
+	ts.createFullfiles(10)
+
+	ts.addFile(20, "test-bundle", "/foo", `asdfklghaslcvnasfdgjalf ahvas hjkldghasdhf;
+aj'sdhfsfjdfh sdfjkhgkhsdfg jshdfljkhasldrhsgiur 12736250q4hgkfy7efhbsd x89v zx,kjhlxlfyb
+lk.n cv.srt890u n kgjh l;dsuygoihdrt jdxfgjhd 985rkfjgx c v, xnbx'aweoihdkfjsgh lkjdfhg.
+m,cvnxcpowertw54lsi8ydoprf g,mdbng.c,mvnxb,.mxhstu;lwey5o;sdfjklgx;cnvjnxbasdfh`)
+	ts.createManifests(20)
+	ts.createFullfiles(20)
+	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
+
+	tryCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
+	mustNotExistDelta(t, ts.Dir, "/foo", 10, 20)
+}
+
 // Imported from swupd-server/test/functional/no-delta.
 func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	ts := newTestSwupd(t, "no-deltas-")

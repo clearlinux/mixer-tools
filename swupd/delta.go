@@ -136,7 +136,7 @@ func createDelta(c *config, delta *Delta) error {
 			// bsdiff returns 1 that stands for "FULLDL", i.e. it decided that
 			// a delta is not worth. Give a better error message for that case.
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
-				if status == 1 {
+				if status.ExitStatus() == 1 {
 					return fmt.Errorf("bsdiff returned FULLDL, not using delta")
 				}
 			}

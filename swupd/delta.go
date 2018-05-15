@@ -96,6 +96,31 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, nu
 	return deltas, nil
 }
 
+// deltaTooLarge returns true if the delta file is larger than or equal in size
+// to the compressed fullfile. This is not a critical check so any failures in
+// the process just cause a false return.
+func deltaTooLarge(c *config, delta *Delta, newPath string) bool {
+	dInfo, err := os.Stat(delta.Path)
+	if err != nil {
+		return false
+	}
+	deltaSize := dInfo.Size()
+	fHash, err := GetHashForFile(newPath)
+	if err != nil {
+		return false
+	}
+	fCompressed := filepath.Join(c.outputDir,
+		fmt.Sprint(delta.to.Version),
+		"files",
+		fHash+".tar")
+	fcInfo, err := os.Stat(fCompressed)
+	if err != nil {
+		return false
+	}
+	fcSize := fcInfo.Size()
+	return deltaSize >= fcSize
+}
+
 func createDelta(c *config, delta *Delta) error {
 	if _, err := os.Stat(delta.Path); err == nil {
 		// Skip existing deltas. Not verifying since client is resilient about that.
@@ -117,6 +142,13 @@ func createDelta(c *config, delta *Delta) error {
 			}
 		}
 		return errors.Wrapf(err, "Failed to create delta for %s (%d) -> %s (%d)", delta.from.Name, delta.from.Version, delta.to.Name, delta.to.Version)
+	}
+
+	// Check that delta is smaller than compressed full file
+	if deltaTooLarge(c, delta, newPath) {
+		_ = os.Remove(delta.Path)
+		return fmt.Errorf("Delta file %s (%d) larger than compressed full file %s",
+			delta.to.Name, delta.to.Version, newPath)
 	}
 
 	// Check that the delta actually applies correctly.

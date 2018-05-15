@@ -46,6 +46,7 @@ install: gopath
 	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.
 	$(GOPATH)/bin/mixer-completion bash --path $(DESTDIR)/usr/share/bash-completion/completions/mixer
 	$(GOPATH)/bin/mixer-completion zsh --path $(DESTDIR)/usr/share/zsh/site-functions/_mixer
+	test -d $(DESTDIR)/usr/share/man/man1 || install -D -d -m 00755 $(DESTDIR)/usr/share/man/man1
 	install -m 00644 $(MANPAGES) $(DESTDIR)/usr/share/man/man1/
 
 check: gopath

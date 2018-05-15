@@ -18,7 +18,7 @@ setup() {
 
 @test "List the bundles in the mix" {
   run mixer bundle list
-  [[ ${#lines[@]} == 4 ]]               # Exactly 4 bundles in the mix
+  [[ ${#lines[@]} -eq 4 ]]              # Exactly 4 bundles in the mix
   [[ "$output" =~ os-core[[:space:]] ]] # To avoid just matching os-core-update
   [[ "$output" =~ os-core-update ]]
   [[ "$output" =~ kernel-native ]]
@@ -29,7 +29,7 @@ setup() {
   mixer bundle add editors
 
   run mixer bundle list
-  [[ ${#lines[@]} > 4 ]]                           # More bundles in list now
+  [[ ${#lines[@]} -gt 4 ]]                         # More bundles in list now
   [[ "$output" =~ editors[[:space:]]+\(upstream ]] # "editors" bundle is from upstream
 }
 
@@ -39,7 +39,7 @@ setup() {
   [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 0 ]] # Nothing in local-bundles
 
   run mixer bundle list local
-  [[ ${#lines[@]} == 0 ]]                                       # 'list local' returns no results
+  [[ ${#lines[@]} -eq 0 ]]                                      # 'list local' returns no results
 
   mixer bundle edit editors --suppress-editor
   [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles) = "editors" ]]  # local-bundles only has "editors"
@@ -48,7 +48,7 @@ setup() {
   [[ "$output" =~ editors[[:space:]]+\(local ]]                 # "editors" bundle is now from local
 
   run mixer bundle list local
-  [[ ${#lines[@]} == 1 ]]                                       # 'list local' returns 1 result
+  [[ ${#lines[@]} -eq 1 ]]                                      # 'list local' returns 1 result
   [[ "$output" =~ editors.*masking ]]                           # "editors" bundle is masking upstream
 }
 
@@ -56,14 +56,14 @@ setup() {
   mixer bundle edit foobar --suppress-editor --add
 
   run ls -1q $BATS_TEST_DIRNAME/local-bundles
-  [[ ${#lines[@]} == 2 ]]                      # 2 bundles in local-bundles
+  [[ ${#lines[@]} -eq 2 ]]                     # 2 bundles in local-bundles
   [[ "$output" =~ foobar ]]                    # local-bundles now contains "foobar"
 
   run mixer bundle list
   [[ "$output" =~ foobar[[:space:]]+\(local ]] # "foobar" bundle is from local
 
   run mixer bundle list local
-  [[ ${#lines[@]} == 2 ]]                      # 'list local' returns 2 results
+  [[ ${#lines[@]} -eq 2 ]]                     # 'list local' returns 2 results
   [[ "$output" =~ .*foobar.* ]]                # "foobar" bundle is in output
 }
 

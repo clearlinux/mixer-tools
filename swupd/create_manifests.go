@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 )
 
@@ -288,20 +287,6 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	lastVersion, err = readLastVerFile(filepath.Join(c.imageBase, "LAST_VER"))
 	if err != nil {
 		return nil, err
-	}
-
-	oldFullManifestPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.full")
-	oldFullManifest, err := ParseManifestFile(oldFullManifestPath)
-	if err != nil {
-		// throw away read manifest if it is invalid
-		if strings.Contains(err.Error(), "invalid manifest") {
-			fmt.Fprintf(os.Stderr, "full: %s\n", err)
-		}
-		oldFullManifest = &Manifest{}
-	}
-
-	if oldFullManifest.Header.Format > format {
-		return nil, fmt.Errorf("new format %v is lower than old format %v", format, oldFullManifest.Header.Format)
 	}
 
 	timeStamp := time.Now()

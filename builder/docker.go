@@ -15,8 +15,6 @@
 package builder
 
 import (
-	"crypto/sha512"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -49,113 +47,8 @@ func (b *Builder) GetHostAndUpstreamFormats() (string, string, error) {
 	return string(hostFormat), upstreamFormat, nil
 }
 
-const dockerfile = `FROM scratch
-ADD mixer.tar.xz /
-ENV LC_ALL="en_US.UTF-8"
-RUN clrtrust generate
-CMD ["/bin/bash"]
-`
-
-func createDockerfile(dir string) error {
-	filename := filepath.Join(dir, "Dockerfile")
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return errors.Wrap(err, "Failed to create Dockerfile")
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	_, err = f.Write([]byte(dockerfile))
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func getCheckSum(filename string) string {
-	content, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return ""
-	}
-	checksum := sha512.Sum512(content)
-	return hex.EncodeToString(checksum[:])
-}
-
-func (b *Builder) dockerImageIsStale(upstreamFile, localFile string) bool {
-	if _, err := os.Stat(localFile); err == nil {
-		checksum, err := b.DownloadFileFromUpstreamAsString(upstreamFile + "-SHA512SUMS")
-		if err == nil {
-			checksum = strings.Split(checksum, " ")[0]
-			if checksum == getCheckSum(localFile) {
-				// File exists and is not stale
-				return false
-			}
-		}
-	}
-	// File does not exist or is stale
-	return true
-}
-
-func getDockerImageName(format string) string {
-	return fmt.Sprintf("mixer-tools/mixer:%s", format)
-}
-
-func (b *Builder) buildDockerImage(format, ver string) error {
-	// Make docker root dir if it doens't exist
-	wd, _ := os.Getwd()
-	dockerRoot := filepath.Join(wd, fmt.Sprintf("docker/mixer-%s", format))
-	if err := os.MkdirAll(dockerRoot, 0777); err != nil {
-		return errors.Wrapf(err, "Failed to generate docker work dir: %s", dockerRoot)
-	}
-
-	upstreamFile := fmt.Sprintf("/releases/%s/clear/clear-%s-mixer.tar.xz", ver, ver)
-	localFile := filepath.Join(dockerRoot, "mixer.tar.xz")
-
-	// Return early if docker image is already built and is not stale
-	cmd := []string{
-		"docker",
-		"images",
-		"-q", getDockerImageName(format),
-	}
-	output, err := helpers.RunCommandOutput(cmd[0], cmd[1:]...)
-	if err != nil {
-		return errors.Wrapf(err, "Error checking for docker image %q", getDockerImageName(format))
-	}
-	stale := b.dockerImageIsStale(upstreamFile, localFile)
-	if !stale && output.String() != "" {
-		return nil
-	}
-
-	// Download the mixer base image from upstream if it's stale
-	if stale {
-		fmt.Println("Downloading image from upstream...")
-		if err := b.DownloadFileFromUpstream(upstreamFile, localFile); err != nil {
-			return errors.Wrapf(err, "Failed to download docker image base for ver %s", ver)
-		}
-	}
-
-	// Generate Dockerfile
-	if err := createDockerfile(dockerRoot); err != nil {
-		return err
-	}
-
-	// Build Docker image
-	fmt.Println("Building Docker image...")
-	cmd = []string{
-		"docker",
-		"build",
-		"-t", getDockerImageName(format),
-		"--rm",
-		filepath.Join(dockerRoot, "."),
-	}
-	if err := helpers.RunCommandSilent(cmd[0], cmd[1:]...); err != nil {
-		return errors.Wrap(err, "Failed to build Docker image")
-	}
-
-	return nil
+func (b *Builder) getDockerImageName(format string) string {
+	return fmt.Sprintf("%s:%s", b.Config.Mixer.DockerImgPath, format)
 }
 
 // reduceDockerMounts takes a list of directory paths and reduces it to a
@@ -219,14 +112,18 @@ func getDirFromConfigPath(path string) (string, error) {
 
 // addConfigFieldPaths loops through each field in a config section, verifying
 // and adding its value to the mounts slice.
-func addConfigFieldPaths(config reflect.Value, mounts *[]string) error {
-	for i := 0; i < config.NumField(); i++ {
-		path, err := getDirFromConfigPath(config.Field(i).String())
+func addConfigFieldPaths(section reflect.Value, mounts *[]string) error {
+	sectionT := reflect.TypeOf(section.Interface())
+	for i := 0; i < section.NumField(); i++ {
+		// Check if the field is tagged as mountable and has a value
+		tag, ok := sectionT.Field(i).Tag.Lookup("mount")
+		if !ok || tag != "true" || section.Field(i).String() == "" {
+			continue
+		}
+
+		path, err := getDirFromConfigPath(section.Field(i).String())
 		if err != nil {
 			return err
-		}
-		if !strings.HasPrefix(path, "/") { // filepath.Dir can return "."
-			continue
 		}
 		if err := canAccess(path); err != nil {
 			return err
@@ -243,14 +140,13 @@ func (b *Builder) getDockerMounts() ([]string, error) {
 	wd, _ := os.Getwd()
 	mounts := []string{wd}
 
-	err := addConfigFieldPaths(reflect.ValueOf(b.Config.Builder), &mounts)
-	if err != nil {
-		return nil, err
-	}
+	rc := reflect.ValueOf(b.Config)
 
-	err = addConfigFieldPaths(reflect.ValueOf(b.Config.Mixer), &mounts)
-	if err != nil {
-		return nil, err
+	for i := 0; i < rc.NumField(); i++ {
+		err := addConfigFieldPaths(rc.Field(i), &mounts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return reduceDockerMounts(mounts), nil
@@ -260,12 +156,8 @@ func (b *Builder) getDockerMounts() ([]string, error) {
 // image capable of running the desired command, build that image, and then
 // run the command in that image.
 func (b *Builder) RunCommandInContainer(cmd []string) error {
-	format, _, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
+	format, err := b.getUpstreamFormat(b.UpstreamVer)
 	if err != nil {
-		return err
-	}
-
-	if err = b.buildDockerImage(format, fmt.Sprint(latest)); err != nil {
 		return err
 	}
 
@@ -292,7 +184,7 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 		dockerCmd = append(dockerCmd, "-v", fmt.Sprintf("%s:%s", path, path))
 	}
 
-	dockerCmd = append(dockerCmd, getDockerImageName(format))
+	dockerCmd = append(dockerCmd, b.getDockerImageName(format))
 	dockerCmd = append(dockerCmd, cmd[1:]...)
 	dockerCmd = append(dockerCmd, "--native")
 

@@ -31,28 +31,31 @@ import (
 func (b *Builder) UpdateFormatVersion(version string) error {
 	b.Config.Swupd.Format = version
 
-	newver := "${1}" + b.Config.Swupd.Format
-	var re = regexp.MustCompile(`(FORMAT=)[0-9]*`)
+	if UseNewConfig {
+		var config string
+		var err error
+		if config, err = GetConfigPath(config); err != nil {
+			return err
+		}
+
+		var mc MixConfig
+		if err = mc.LoadConfig(config); err != nil {
+			return err
+		}
+
+		return mc.SetProperty(config, "Swupd.FORMAT", version)
+	}
 
 	builderData, err := ioutil.ReadFile(b.BuildConf)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read builder.conf")
 	}
 
-	builderEdit := re.ReplaceAllString(string(builderData), newver)
+	var re = regexp.MustCompile(`(FORMAT=)[0-9]+`)
+	newver := []byte("${1}" + b.Config.Swupd.Format)
+	builderData = re.ReplaceAll(builderData, newver)
 
-	var filename string
-	if UseNewConfig {
-		filename, err = GetConfigPath("")
-		if err != nil {
-			return err
-		}
-
-		return b.Config.SaveConfig(filename)
-	}
-
-	builderOut := []byte(builderEdit)
-	if err = ioutil.WriteFile(b.BuildConf, builderOut, 0644); err != nil {
+	if err = ioutil.WriteFile(b.BuildConf, builderData, 0644); err != nil {
 		return errors.Wrap(err, "Failed to write new builder.conf")
 	}
 
@@ -64,19 +67,9 @@ func (b *Builder) CopyFullGroupsINI() error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "full_groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"))
 }
 
-// CopyTrimmedGroupsINI copies the new ini made with deleted bundles removed
-func (b *Builder) CopyTrimmedGroupsINI() error {
-	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "trimmed_groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"))
-}
-
 // RevertFullGroupsINI copies back the full ini to the manifest creator accounts for deleted bundles
 func (b *Builder) RevertFullGroupsINI() error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "full_groups.ini"))
-}
-
-// RevertTrimmedGroupsINI copies back the trimmed INI so manifests are not created anymore for deleted bundles in new format
-func (b *Builder) RevertTrimmedGroupsINI() error {
-	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "trimmed_groups.ini"))
 }
 
 func (b *Builder) getLastBuildVersion() (string, error) {
@@ -132,10 +125,11 @@ func (b *Builder) stageMixForBump() error {
 	if err != nil {
 		return err
 	}
+	latest += 10
 
 	// Copy current upstreamversion to upstreamversion.bump
-	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
+	vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
 	if err := helpers.CopyFile(vBFile, vFile); err != nil {
 		return err
 	}
@@ -148,8 +142,8 @@ func (b *Builder) stageMixForBump() error {
 // file, if it exists. This returns the user to their desired upstream version
 // after having completed the upstream format boundary bump builds.
 func (b *Builder) UnstageMixFromBump() error {
-	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
+	vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
 
 	// No bump file; return early
 	if _, err := os.Stat(vBFile); os.IsNotExist(err) {
@@ -207,8 +201,8 @@ func (b *Builder) CheckBumpNeeded() (bool, error) {
 		}
 		fmt.Printf("The upstream version for this build (%s) is outside the format range of your last mix "+
 			"(format %s, upstream versions %d to %d). This build cannot be done until you complete a "+
-			"format-bump build. Please run the following two commands to complete the format bump:\nmixer "+
-			"build format-old\nmixer build format-new\nOnce these have completed, you can re-run this build.\n",
+			"upstream format build. Please run the following command to complete the format bump:\nmixer "+
+			"build upstream-format\nOnce this has completed you can re-run this build.\n",
 			b.UpstreamVer, format, first, latest)
 
 		return true, nil

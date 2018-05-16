@@ -178,11 +178,6 @@ func (m *Manifest) CheckHeaderIsValid() error {
 	if m.Header.Version == 0 {
 		return errors.New("manifest has version zero, version must be positive")
 	}
-
-	if m.Header.Version < m.Header.Previous {
-		return errors.New("version is smaller than previous")
-	}
-
 	if m.Header.FileCount == 0 {
 		return errors.New("manifest has a zero file count")
 	}

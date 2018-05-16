@@ -45,10 +45,10 @@ type MixConfig struct {
 }
 
 type builderConf struct {
-	Cert           string `required:"true" toml:"CERT"`
-	ServerStateDir string `required:"true" toml:"SERVER_STATE_DIR"`
-	VersionPath    string `required:"true" toml:"VERSIONS_PATH"`
-	DNFConf        string `required:"true" toml:"YUM_CONF"`
+	Cert           string `required:"true" mount:"true" toml:"CERT"`
+	ServerStateDir string `required:"true" mount:"true" toml:"SERVER_STATE_DIR"`
+	VersionPath    string `required:"true" mount:"true" toml:"VERSIONS_PATH"`
+	DNFConf        string `required:"true" mount:"true" toml:"YUM_CONF"`
 }
 
 type swupdConf struct {
@@ -65,9 +65,10 @@ type serverConf struct {
 }
 
 type mixerConf struct {
-	LocalBundleDir string `required:"false" toml:"LOCAL_BUNDLE_DIR"`
-	LocalRepoDir   string `required:"false" toml:"LOCAL_REPO_DIR"`
-	LocalRPMDir    string `required:"false" toml:"LOCAL_RPM_DIR"`
+	LocalBundleDir string `required:"false" mount:"true" toml:"LOCAL_BUNDLE_DIR"`
+	LocalRepoDir   string `required:"false" mount:"true" toml:"LOCAL_REPO_DIR"`
+	LocalRPMDir    string `required:"false" mount:"true" toml:"LOCAL_RPM_DIR"`
+	DockerImgPath  string `required:"false" toml:"DOCKER_IMAGE_PATH"`
 }
 
 // LoadDefaults sets sane values for the config properties
@@ -185,6 +186,7 @@ func (config *MixConfig) createLegacyConfig(localrpms bool) error {
 	// Add [Mixer] section
 	data += "\n[Mixer]\n"
 	data += "LOCAL_BUNDLE_DIR=" + filepath.Join(pwd, "local-bundles") + "\n"
+	data += "DOCKER_IMAGE_PATH=clearlinux/mixer\n"
 
 	if localrpms {
 		data += "LOCAL_RPM_DIR=" + filepath.Join(pwd, "local-rpms") + "\n"
@@ -291,6 +293,7 @@ func (config *MixConfig) legacyParse() error {
 		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
 		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
 		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
+		{`^DOCKER_IMAGE_PATH\s*=\s*`, &config.Mixer.DockerImgPath, false},
 	}
 
 	for _, h := range fields {

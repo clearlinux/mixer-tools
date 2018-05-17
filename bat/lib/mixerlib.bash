@@ -15,7 +15,11 @@ global_setup() {
 }
 
 localize_builder_conf() {
-  echo -e "LOCAL_RPM_DIR=$BATS_TEST_DIRNAME/local-rpms\nLOCAL_REPO_DIR=$BATS_TEST_DIRNAME/local-yum" >> $BATS_TEST_DIRNAME/builder.conf
+  if $(mixer $MIXARGS config set Mixer.LocalRPMDir $BATS_TEST_DIRNAME/local-rpms); then
+    mixer $MIXARGS config set  Mixer.LocalRepoDir $BATS_TEST_DIRNAME/local-yum
+  else
+    echo -e "LOCAL_RPM_DIR=$BATS_TEST_DIRNAME/local-rpms\nLOCAL_REPO_DIR=$BATS_TEST_DIRNAME/local-yum" >> $BATS_TEST_DIRNAME/builder.conf
+  fi
 }
 
 # Initializes a mix with the desired versions. Then for efficiency converts 

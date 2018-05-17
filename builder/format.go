@@ -64,19 +64,9 @@ func (b *Builder) CopyFullGroupsINI() error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "full_groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"))
 }
 
-// CopyTrimmedGroupsINI copies the new ini made with deleted bundles removed
-func (b *Builder) CopyTrimmedGroupsINI() error {
-	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "trimmed_groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"))
-}
-
 // RevertFullGroupsINI copies back the full ini to the manifest creator accounts for deleted bundles
 func (b *Builder) RevertFullGroupsINI() error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "full_groups.ini"))
-}
-
-// RevertTrimmedGroupsINI copies back the trimmed INI so manifests are not created anymore for deleted bundles in new format
-func (b *Builder) RevertTrimmedGroupsINI() error {
-	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "trimmed_groups.ini"))
 }
 
 func (b *Builder) getLastBuildVersion() (string, error) {

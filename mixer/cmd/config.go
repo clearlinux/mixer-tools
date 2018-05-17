@@ -37,18 +37,15 @@ environment variables will be expanded`,
 		if config, err = builder.GetConfigPath(config); err != nil {
 			// Print error, but don't print command usage
 			fail(err)
-			return
 		}
 
 		var mc builder.MixConfig
 		if err := mc.LoadConfig(config); err != nil {
 			fail(err)
-			return
 		}
 
 		if err := mc.Print(); err != nil {
 			fail(err)
-			return
 		}
 
 	},
@@ -64,13 +61,11 @@ variables will not be expanded and the values will not be validated`,
 		var err error
 		if config, err = builder.GetConfigPath(config); err != nil {
 			fail(err)
-			return
 		}
 
 		var mc builder.MixConfig
 		if err := mc.Convert(config); err != nil {
 			fail(err)
-			return
 		}
 
 	},

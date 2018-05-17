@@ -346,7 +346,13 @@ func (config *MixConfig) validate() error {
 			tag, ok := sectionT.Field(j).Tag.Lookup("required")
 
 			if ok && tag == "true" && sectionV.Field(j).String() == "" {
-				return errors.Errorf("Missing required field in config file: %s", sectionT.Field(j).Name)
+				name, ok := sectionT.Field(j).Tag.Lookup("toml")
+				if !ok || name == "" {
+					// Default back to variable name if no TOML tag is defined
+					name = sectionT.Field(j).Name
+				}
+
+				return errors.Errorf("Missing required field in config file: %s", name)
 			}
 		}
 	}

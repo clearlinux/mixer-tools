@@ -112,12 +112,35 @@ var buildBundlesCmd = &cobra.Command{
 	},
 }
 
+var buildUpstreamFormatCmd = &cobra.Command{
+	Use:   "upstream-format",
+	Short: "Use to create the necessary builds to cross an upstream format",
+	Long:  `Use to create the necessary builds to cross an upstream format`,
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		setWorkers(b)
+		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		if err != nil {
+			failf("Couldn't build update: %s", err)
+		}
+
+		if buildFlags.increment {
+			if err = b.UpdateMixVer(); err != nil {
+				failf("Couldn't update Mix Version")
+			}
+		}
+	},
+}
+
 // buildOldFormatCmd is used to build the final version in the current format (the +10)
 // and ready the mix state for the new (+20) version to be built by a (possibly) newer mixer
-var buildOldFormatCmd = &cobra.Command{
-	Use:   "format-old",
-	Short: "Build the last version in the current format for the format bump",
-	Long:  `Build the last version in the current format for the format bump`,
+var buildFormatNewCmd = &cobra.Command{
+	Use:   "new",
+	Short: "Build the +20 version in the new format for the format bump",
+	Long:  `Build the +20 version in the new format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
 		b, err := builder.NewFromConfig(config)
 		if err != nil {
@@ -157,11 +180,23 @@ var buildOldFormatCmd = &cobra.Command{
 			fail(err)
 		}
 
-		fmt.Println("Backing up trimmed groups.ini for future build")
-		// Copy the new trimmed groups.ini to use for the +20 build which will
-		// not have manifest created for fully deleted bundles
-		if err = b.CopyTrimmedGroupsINI(); err != nil {
+		// TODO: Inject any extra files (certs, etc) here
+		// if err := AddBundleExtrasFiles(); err != nil {...}
+
+		ver, err := strconv.Atoi(b.MixVer)
+		if err != nil {
 			fail(err)
+		}
+
+		// Build the +20 update so we don't have to switch tooling in between
+		err = b.BuildUpdate(buildFlags.prefix, ver, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		if err != nil {
+			failf("Couldn't build update: %s", err)
+		}
+
+		// Reset upstreamversion if necessary
+		if err = b.UnstageMixFromBump(); err != nil {
+			fail(errors.Wrapf(err, "Failed to reset upstreamversion after bump"))
 		}
 
 		// Copy +20 chroots to +10 so we can build last formatN build with the
@@ -204,36 +239,17 @@ var buildOldFormatCmd = &cobra.Command{
 		}
 		setWorkers(b)
 
-		// Build the update content for the +10 build
 		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
-		// Copy the trimmed groups.ini back for the +20 build to use
-		if err = b.RevertTrimmedGroupsINI(); err != nil {
-			fail(err)
-		}
-		// Update the format back to the formatN+1 version for +20 to use
-		if err = b.UpdateFormatVersion(buildFlags.format); err != nil {
-			fail(err)
-		}
-		// Set the previous format latest file to the +10 build
-		formatDir := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "format"+strconv.Itoa(prevFormat))
-		err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
-		if err != nil {
-			failf("Couldn't update the latest version")
-		}
-		// Incremement regardless of flag because +20 must be the next version
-		if err = b.UpdateMixVer(); err != nil {
-			failf("Couldn't update Mix Version")
-		}
 	},
 }
 
-var buildNewFormatCmd = &cobra.Command{
-	Use:   "format-new",
-	Short: "Build the first version in the new format for the format bump",
-	Long:  `Build the first version in the new format for the format bump`,
+var buildFormatOldCmd = &cobra.Command{
+	Use:   "old",
+	Short: "Build the +10 version in the old format for the format bump",
+	Long:  `Build the +10 version in the old format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
 		b, err := builder.NewFromConfig(config)
 		if err != nil {
@@ -244,17 +260,25 @@ var buildNewFormatCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
+		// Build the update content for the +10 build
 		err = b.BuildUpdate(buildFlags.prefix, ver, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
+		}
+
+		// Set the previous format latest file to the +10 build
+		formatDir := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "format"+buildFlags.format)
+		err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
+		if err != nil {
+			failf("Couldn't update the latest version")
 		}
 
 		// Reset upstreamversion if necessary
 		if err = b.UnstageMixFromBump(); err != nil {
 			fail(errors.Wrapf(err, "Failed to reset upstreamversion after bump"))
 		}
-
-		if buildFlags.increment {
+		// Incremement regardless of flag because +30 must be the next version
+		for i := 0; i < 2; i++ {
 			if err = b.UpdateMixVer(); err != nil {
 				failf("Couldn't update Mix Version")
 			}
@@ -408,8 +432,7 @@ var buildCmds = []*cobra.Command{
 	buildAllCmd,
 	buildImageCmd,
 	buildDeltaPacksCmd,
-	buildOldFormatCmd,
-	buildNewFormatCmd,
+	buildUpstreamFormatCmd,
 }
 
 func init() {
@@ -417,6 +440,9 @@ func init() {
 		buildCmd.AddCommand(cmd)
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
+
+	buildUpstreamFormatCmd.AddCommand(buildFormatNewCmd)
+	buildUpstreamFormatCmd.AddCommand(buildFormatOldCmd)
 
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")
@@ -439,8 +465,8 @@ func init() {
 
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)
-	setUpdateFlags(buildOldFormatCmd)
-	setUpdateFlags(buildNewFormatCmd)
+	setUpdateFlags(buildFormatNewCmd)
+	setUpdateFlags(buildFormatOldCmd)
 
 	externalDeps[buildBundlesCmd] = []string{
 		"rpm",

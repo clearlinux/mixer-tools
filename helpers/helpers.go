@@ -28,6 +28,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -364,4 +365,39 @@ func ListVisibleFiles(dirname string) ([]string, error) {
 	}
 	sort.Strings(filtered)
 	return filtered, nil
+}
+
+// DownloadFile will download a file from sourceURL joined with the passed
+// subpath. It will trim spaces from the result.
+func DownloadFile(sourceURL string, subpath string) (string, error) {
+	// Build the URL
+	end, err := url.Parse(subpath)
+	if err != nil {
+		return "", err
+	}
+	base, err := url.Parse(sourceURL)
+	if err != nil {
+		return "", err
+	}
+
+	resolved := base.ResolveReference(end).String()
+	// Fetch the version and parse it
+	resp, err := http.Get(resolved)
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		_ = resp.Body.Close()
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("got status %q when downloading: %s", resp.Status, resolved)
+	}
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(body)), nil
 }

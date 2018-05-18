@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sort"
 	"strconv"
 	"strings"
@@ -555,8 +554,18 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 	return nil
 }
 
-func compareIncludes(m1 *Manifest, m2 *Manifest) bool {
-	return reflect.DeepEqual(m1.Header.Includes, m2.Header.Includes)
+func includesChanged(m1 *Manifest, m2 *Manifest) bool {
+	if len(m1.Header.Includes) != len(m2.Header.Includes) {
+		return true
+	}
+
+	for i := 0; i < len(m1.Header.Includes); i++ {
+		if m1.Header.Includes[i].Name != m2.Header.Includes[i].Name {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *Manifest) hasUnsupportedTypeChanges() bool {

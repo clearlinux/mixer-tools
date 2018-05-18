@@ -168,7 +168,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		if err != nil {
 			return nil, err
 		}
-		changedIncludes := compareIncludes(bundle, oldM)
+		changedIncludes := includesChanged(bundle, oldM)
 		oldM.sortFilesName()
 		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM, c, ui.minVersion)
 		// if nothing changed, skip

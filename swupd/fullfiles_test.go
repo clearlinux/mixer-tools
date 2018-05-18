@@ -146,7 +146,7 @@ func mustHaveMatchingHash(t *testing.T, path string) {
 		_ = f.Close()
 	}()
 
-	tr, err := newCompressedTarReader(f)
+	tr, err := NewCompressedTarReader(f)
 	if err != nil {
 		t.Fatalf("couldn't uncompress %s to check contents hash: %s", path, err)
 	}

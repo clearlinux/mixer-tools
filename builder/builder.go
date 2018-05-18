@@ -100,7 +100,7 @@ func New() *Builder {
 // NewFromConfig creates a new Builder with the given Configuration.
 func NewFromConfig(conf string) (*Builder, error) {
 	b := New()
-	if err := b.Config.LoadDefaults(); err != nil {
+	if err := b.Config.LoadDefaults(false); err != nil {
 		return nil, err
 	}
 	if err := b.LoadBuilderConf(conf); err != nil {

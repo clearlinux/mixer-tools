@@ -68,21 +68,24 @@ type mixerConf struct {
 }
 
 // LoadDefaults sets sane values for the config properties
-func (config *MixConfig) LoadDefaults() error {
-	if !UseNewConfig {
-		return nil
-	}
-
+func (config *MixConfig) LoadDefaults(localrpms bool) error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
+	config.LoadDefaultsForPath(localrpms, pwd)
+	return nil
+}
+
+// LoadDefaultsForPath sets sane values for config properties using `path` as base directory
+func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
+
 	// [Builder]
-	config.Builder.Cert = filepath.Join(pwd, "Swupd_Root.pem")
-	config.Builder.ServerStateDir = filepath.Join(pwd, "update")
-	config.Builder.VersionPath = pwd
-	config.Builder.DNFConf = filepath.Join(pwd, ".yum-mix.conf")
+	config.Builder.Cert = filepath.Join(path, "Swupd_Root.pem")
+	config.Builder.ServerStateDir = filepath.Join(path, "update")
+	config.Builder.VersionPath = path
+	config.Builder.DNFConf = filepath.Join(path, ".yum-mix.conf")
 
 	// [Swupd]
 	config.Swupd.Bundle = "os-core-update"
@@ -96,11 +99,15 @@ func (config *MixConfig) LoadDefaults() error {
 	config.Server.DebugInfoSrc = "/usr/src/debug"
 
 	// [Mixer]
-	config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
-	config.Mixer.LocalRPMDir = ""
-	config.Mixer.LocalRepoDir = ""
+	config.Mixer.LocalBundleDir = filepath.Join(path, "local-bundles")
 
-	return nil
+	if localrpms {
+		config.Mixer.LocalRPMDir = filepath.Join(path, "local-rpms")
+		config.Mixer.LocalRepoDir = filepath.Join(path, "local-yum")
+	} else {
+		config.Mixer.LocalRPMDir = ""
+		config.Mixer.LocalRepoDir = ""
+	}
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
@@ -110,18 +117,8 @@ func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
 		return config.createLegacyConfig(localrpms)
 	}
 
-	if err := config.LoadDefaults(); err != nil {
+	if err := config.LoadDefaults(localrpms); err != nil {
 		return err
-	}
-
-	if localrpms {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-
-		config.Mixer.LocalRPMDir = filepath.Join(pwd, "local-rpms")
-		config.Mixer.LocalRepoDir = filepath.Join(pwd, "local-yum")
 	}
 
 	filename, err := GetConfigPath("")

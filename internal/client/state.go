@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"archive/tar"
@@ -13,20 +13,25 @@ import (
 	"github.com/clearlinux/mixer-tools/swupd"
 )
 
-type clientState struct {
-	dir string
+// TODO: Find a better name for this struct.
 
-	noCache     bool
+// State provides a way to query information and content from a swupd repository.
+type State struct {
+	NoCache bool // Disables cache of the metadata and files.
+	Verbose bool // Prints extra messages during the operations.
+
+	dir         string
 	baseContent string
 	isRemote    bool
 }
 
-func newClientState(stateDir, baseContent string) (*clientState, error) {
+// NewState creates a new State for the repository in baseContent, which can be either a local path
+// or an URL. Any downloaded files will be stored under stateDir.
+func NewState(stateDir, baseContent string) (*State, error) {
 	contentFilename := filepath.Join(stateDir, "content")
 	stateContent, err := ioutil.ReadFile(contentFilename)
 	if err == nil {
 		if string(stateContent) != baseContent {
-			fmt.Printf("- Resetting state in %s previously used for %q\n", stateDir, stateContent)
 			// Delete files individually in case stateDir is managed by the user.
 			var fis []os.FileInfo
 			fis, err = ioutil.ReadDir(stateDir)
@@ -55,7 +60,7 @@ func newClientState(stateDir, baseContent string) (*clientState, error) {
 		isRemote = true
 	}
 
-	cs := &clientState{
+	cs := &State{
 		dir:         stateDir,
 		baseContent: baseContent,
 		isRemote:    isRemote,
@@ -64,14 +69,18 @@ func newClientState(stateDir, baseContent string) (*clientState, error) {
 	return cs, nil
 }
 
-func (cs *clientState) OpenFile(elem ...string) (io.ReadCloser, error) {
+// OpenFile opens a file from the repository. File must be closed after use. The file is currently
+// not cached.
+func (cs *State) OpenFile(elem ...string) (io.ReadCloser, error) {
 	joined := filepath.Join(elem...)
 	if !cs.isRemote {
 		return os.Open(filepath.Join(cs.baseContent, joined))
 	}
 
 	u := cs.baseContent + "/" + joined
-	fmt.Printf("- downloading %s\n", u)
+	if cs.Verbose {
+		fmt.Printf("- downloading %s\n", u)
+	}
 	res, err := http.Get(u)
 	if err != nil {
 		return nil, err
@@ -83,14 +92,16 @@ func (cs *clientState) OpenFile(elem ...string) (io.ReadCloser, error) {
 	return res.Body, nil
 }
 
-func (cs *clientState) GetFile(elem ...string) (string, error) {
+// GetFile returns a local path to the desired file in the swupd repository, downloading it to the
+// local cache if needed. The elem... is relative to the baseContent.
+func (cs *State) GetFile(elem ...string) (string, error) {
 	joined := filepath.Join(elem...)
 	if !cs.isRemote {
 		return filepath.Join(cs.baseContent, joined), nil
 	}
 	localFile := filepath.Join(cs.dir, joined)
 	if _, err := os.Stat(localFile); err == nil {
-		if !cs.noCache {
+		if !cs.NoCache {
 			return localFile, nil
 		}
 		err = os.RemoveAll(localFile)
@@ -102,18 +113,34 @@ func (cs *clientState) GetFile(elem ...string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	err = download(cs.baseContent+"/"+joined, localFile)
+	err = cs.download(cs.baseContent+"/"+joined, localFile)
 	if err != nil {
 		return "", err
 	}
 	return localFile, nil
 }
 
-func (cs *clientState) Path(elem ...string) string {
+// Path returns the local path to a cache file representing a file in the repository.
+func (cs *State) Path(elem ...string) string {
 	return filepath.Join(cs.dir, filepath.Join(elem...))
 }
 
-func (cs *clientState) GetBundleManifest(version, name, expectedHash string) (*swupd.Manifest, error) {
+// GetMoM returns the Manifest struct for the MoM of a given version.
+func (cs *State) GetMoM(version string) (*swupd.Manifest, error) {
+	momFile, err := cs.GetFile(version, "Manifest.MoM")
+	if err != nil {
+		return nil, err
+	}
+	mom, err := swupd.ParseManifestFile(momFile)
+	if err != nil {
+		return nil, err
+	}
+	return mom, nil
+}
+
+// GetBundleManifest returns the Manifest struct for a given version of a bundle. If expectedHash is
+// not empty, it is used to verify the downloaded manifest hash.
+func (cs *State) GetBundleManifest(version, name, expectedHash string) (*swupd.Manifest, error) {
 	if name == "MoM" {
 		return nil, fmt.Errorf("invalid arguments to GetBundleManifest: MoM is not a bundle")
 	}
@@ -121,13 +148,19 @@ func (cs *clientState) GetBundleManifest(version, name, expectedHash string) (*s
 	if err != nil {
 		return nil, err
 	}
-	hash, err := swupd.GetHashForFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("couldn't calculate hash for %s: %s", filename, err)
+
+	// TODO: Calculate the hash without being root, maybe we just need a function that takes the
+	// HashInfo and use the file only for contents?
+	if expectedHash != "" {
+		hash, gerr := swupd.GetHashForFile(filename)
+		if gerr != nil {
+			return nil, fmt.Errorf("couldn't calculate hash for %s: %s", filename, gerr)
+		}
+		if hash != expectedHash {
+			return nil, fmt.Errorf("hash mismatch in %s got %s but expected %s", filename, hash, expectedHash)
+		}
 	}
-	if hash != expectedHash {
-		return nil, fmt.Errorf("hash mismatch in %s got %s but expected %s", filename, hash, expectedHash)
-	}
+
 	m, err := swupd.ParseManifestFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't parse bundle manifest file %s: %s", filename, err)
@@ -135,7 +168,8 @@ func (cs *clientState) GetBundleManifest(version, name, expectedHash string) (*s
 	return m, nil
 }
 
-func (cs *clientState) GetFullfile(version, hash string) error {
+// GetFullfile downloads a the fullfile with hash from the given version.
+func (cs *State) GetFullfile(version, hash string) error {
 	tarredFilename, err := cs.GetFile(version, "files", hash+".tar")
 	if err != nil {
 		return err
@@ -167,7 +201,7 @@ func (cs *clientState) GetFullfile(version, hash string) error {
 
 	hdr, err = tr.Next()
 	if err == nil {
-		fmt.Printf("! ignoring unexpected extra content in %s: %s\n", tarredFilename, hdr.Name)
+		fmt.Fprintf(os.Stderr, "! ignoring unexpected extra content in %s: %s\n", tarredFilename, hdr.Name)
 	}
 
 	return nil
@@ -184,9 +218,10 @@ func newTarXzReader(r io.Reader) (*swupd.CompressedTarReader, error) {
 	return result, nil
 }
 
-func (cs *clientState) GetZeroPack(version, name string) error {
+// GetZeroPack downloads the zero pack for a bundle in a specific version.
+func (cs *State) GetZeroPack(version, name string) error {
 	cachedName := cs.Path(fmt.Sprintf("pack-%s-from-0-to-%s.tar", name, version))
-	if !cs.noCache {
+	if !cs.NoCache {
 		if _, err := os.Stat(cachedName); err == nil {
 			return nil
 		}
@@ -231,7 +266,16 @@ func (cs *clientState) GetZeroPack(version, name string) error {
 	return ioutil.WriteFile(cachedName, nil, 0600)
 }
 
-func download(u, path string) (err error) {
+func (cs *State) download(u, path string) error {
+	if cs.Verbose {
+		fmt.Printf("- downloading %s\n", u)
+	}
+	return Download(u, path)
+}
+
+// Download a file and save it to path. The file is written first to a temporary file, and only in
+// case of success renamed to path.
+func Download(u, path string) (err error) {
 	tempPath := path + ".downloading"
 	f, err := os.OpenFile(tempPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -242,7 +286,6 @@ func download(u, path string) (err error) {
 			_ = os.Remove(tempPath)
 		}
 	}()
-	fmt.Printf("- downloading %s\n", u)
 	res, err := http.Get(u)
 	if err != nil {
 		_ = f.Close()
@@ -268,7 +311,7 @@ func download(u, path string) (err error) {
 	return os.Rename(tempPath, path)
 }
 
-func (cs *clientState) extractFullfile(hdr *tar.Header, r io.Reader) error {
+func (cs *State) extractFullfile(hdr *tar.Header, r io.Reader) error {
 	basename := filepath.Base(hdr.Name)
 	filename := cs.Path("staged", basename)
 
@@ -282,14 +325,14 @@ func (cs *clientState) extractFullfile(hdr *tar.Header, r io.Reader) error {
 	if err == nil {
 		hash, herr := swupd.GetHashForFile(filename)
 		if herr == nil && hash == basename {
-			if !cs.noCache {
+			if !cs.NoCache {
 				// No work needed!
 				return nil
 			}
 		} else if herr != nil {
-			fmt.Printf("! couldn't calculate hash for existing file %s, removing to extract it again\n", filename)
+			fmt.Fprintf(os.Stderr, "! couldn't calculate hash for existing file %s, removing to extract it again\n", filename)
 		} else {
-			fmt.Printf("! existing file %s has invalid hash %s, removing to extract it again\n", filename, hash)
+			fmt.Fprintf(os.Stderr, "! existing file %s has invalid hash %s, removing to extract it again\n", filename, hash)
 		}
 		err = os.Remove(filename)
 		if err != nil {

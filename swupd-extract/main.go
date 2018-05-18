@@ -22,6 +22,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/clearlinux/mixer-tools/internal/client"
 	"github.com/clearlinux/mixer-tools/swupd"
 )
 
@@ -164,11 +165,12 @@ func main() {
 `, baseContent, version, !noCache, cert, stateDir, outputDir)
 
 	fmt.Printf("» Verifying state directory\n")
-	state, err := newClientState(stateDir, baseContent)
+	state, err := client.NewState(stateDir, baseContent)
 	if err != nil {
 		log.Fatalf("ERROR: %s", err)
 	}
-	state.noCache = noCache
+	state.NoCache = noCache
+	state.Verbose = true
 
 	if mayDownloadClearLinuxCert {
 		if _, err = os.Stat(cert); err != nil {
@@ -176,7 +178,7 @@ func main() {
 				log.Fatalf("ERROR: couldn't open certificate file: %s", err)
 			}
 			tempCert := cert + ".temp"
-			err = download(clearLinuxCertificateURL, tempCert)
+			err = client.Download(clearLinuxCertificateURL, tempCert)
 			if err != nil {
 				log.Fatalf("ERROR: couldn't download Clear Linux certificate: %s", err)
 			}
@@ -274,7 +276,7 @@ func main() {
 	}
 }
 
-func resolveBundles(state *clientState, mom *swupd.Manifest, requested []string) (map[string]*swupd.Manifest, error) {
+func resolveBundles(state *client.State, mom *swupd.Manifest, requested []string) (map[string]*swupd.Manifest, error) {
 	var includes []string
 
 	// Ignore requested duplicates.
@@ -334,7 +336,7 @@ func resolveBundles(state *clientState, mom *swupd.Manifest, requested []string)
 	return bundles, nil
 }
 
-func copyAllFiles(state *clientState, outputDir string, allFiles []*swupd.File, noOverwrite bool) error {
+func copyAllFiles(state *client.State, outputDir string, allFiles []*swupd.File, noOverwrite bool) error {
 	err := os.MkdirAll(outputDir, 0755)
 	if err != nil {
 		return err

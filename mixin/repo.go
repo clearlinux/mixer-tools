@@ -97,7 +97,7 @@ func repoPrep() error {
 func init() {
 	for _, cmd := range repoCmds {
 		repoCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&config, "config", "c", "/usr/share/mix/builder.conf", "Builder config to use")
+		cmd.Flags().StringVarP(&configFile, "config", "c", "/usr/share/mix/builder.conf", "Builder config to use")
 	}
 
 	RootCmd.AddCommand(repoCmd)
@@ -108,7 +108,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -130,7 +130,7 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -152,7 +152,7 @@ func runListRepos(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -173,7 +173,7 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -205,7 +205,7 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	b, err := builder.NewFromConfig(config)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}

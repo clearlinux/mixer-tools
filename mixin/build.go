@@ -130,7 +130,8 @@ func buildMix(prepNeeded bool) error {
 	}
 
 	if prepNeeded {
-		rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
+		var rpms []string
+		rpms, err = helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
 		if err != nil {
 			_ = os.Remove(mixFlagFile)
 			return err

@@ -30,7 +30,15 @@ import (
 )
 
 func getCurrentVersion() (int, error) {
-	c, err := ioutil.ReadFile("/usr/lib/os-release")
+	// if upstreamversion exists, use that
+	c, err := ioutil.ReadFile(filepath.Join(mixWS, "upstreamversion"))
+	if err == nil {
+		return strconv.Atoi(strings.TrimSpace(string(c)))
+	}
+
+	// if upstreamversion does not exist, this is the first time
+	// the workspace has been set up; read from /usr/lib/os-release
+	c, err = ioutil.ReadFile("/usr/lib/os-release")
 	if err != nil {
 		return -1, err
 	}

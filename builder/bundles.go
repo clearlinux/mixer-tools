@@ -625,7 +625,7 @@ func (b *Builder) buildBundles(set bundleSet) error {
 	// TODO: Do not touch config code that is in flux at the moment, reparsing it here to grab
 	// information that previously Mixer didn't care about. Move that to the configuration part
 	// of Mixer.
-	cfg, err := readBuildBundlesConfig(b.BuildConf)
+	cfg, err := readBuildBundlesConfig(b.Config.GetConfigFileName())
 	if err != nil {
 		return err
 	}

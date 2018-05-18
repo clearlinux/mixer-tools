@@ -39,6 +39,9 @@ type MixConfig struct {
 	Swupd   swupdConf
 	Server  serverConf
 	Mixer   mixerConf
+
+	/* hidden properties */
+	filename string
 }
 
 type builderConf struct {
@@ -108,6 +111,8 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 		config.Mixer.LocalRPMDir = ""
 		config.Mixer.LocalRepoDir = ""
 	}
+
+	config.filename = filepath.Join(path, "builder.conf")
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
@@ -121,21 +126,21 @@ func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
 		return err
 	}
 
-	filename, err := GetConfigPath("")
+	err := config.initConfigPath("")
 	if err != nil {
 		return err
 	}
 
-	return config.SaveConfig(filename)
+	return config.SaveConfig()
 }
 
 // SaveConfig saves the properties in MixConfig to a TOML config file
-func (config *MixConfig) SaveConfig(filename string) error {
+func (config *MixConfig) SaveConfig() error {
 	if !UseNewConfig {
 		return errors.Errorf("SaveConfig can only be used with --new-config flag")
 	}
 
-	w, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	w, err := os.OpenFile(config.filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return err
 	}
@@ -191,7 +196,7 @@ func (config *MixConfig) createLegacyConfig(localrpms bool) error {
 
 // SetProperty parse a property in the format "Section.Property", finds and sets it within the
 // config structure and saves the config file.
-func (config *MixConfig) SetProperty(filename string, propertyStr string, value string) error {
+func (config *MixConfig) SetProperty(propertyStr string, value string) error {
 	if !UseNewConfig {
 		return errors.Errorf("SetProperty requires --new-config flag")
 	}
@@ -214,7 +219,7 @@ func (config *MixConfig) SetProperty(filename string, propertyStr string, value 
 
 		if ok && tag == property {
 			sectionV.Field(i).SetString(value)
-			return config.SaveConfig(filename)
+			return config.SaveConfig()
 		}
 	}
 
@@ -224,7 +229,10 @@ func (config *MixConfig) SetProperty(filename string, propertyStr string, value 
 // LoadConfig loads a configuration file from a provided path or from local directory
 // is none is provided
 func (config *MixConfig) LoadConfig(filename string) error {
-	if err := config.Parse(filename); err != nil {
+	if err := config.initConfigPath(filename); err != nil {
+		return err
+	}
+	if err := config.Parse(); err != nil {
 		return err
 	}
 	if err := config.expandEnv(); err != nil {
@@ -235,13 +243,13 @@ func (config *MixConfig) LoadConfig(filename string) error {
 }
 
 // Parse reads the values from a config file without performing validation or env expansion
-func (config *MixConfig) Parse(filename string) error {
+func (config *MixConfig) Parse() error {
 	if !UseNewConfig {
-		if err := config.legacyParse(filename); err != nil {
+		if err := config.legacyParse(); err != nil {
 			return err
 		}
 	} else {
-		if _, err := toml.DecodeFile(filename, &config); err != nil {
+		if _, err := toml.DecodeFile(config.filename, &config); err != nil {
 			return err
 		}
 	}
@@ -249,12 +257,12 @@ func (config *MixConfig) Parse(filename string) error {
 	return nil
 }
 
-func (config *MixConfig) legacyParse(filename string) error {
+func (config *MixConfig) legacyParse() error {
 	if UseNewConfig {
 		return errors.Errorf("legacyParse is not compatible with --new-config flag")
 	}
 
-	lines, err := helpers.ReadFileAndSplit(filename)
+	lines, err := helpers.ReadFileAndSplit(config.filename)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read buildconf")
 	}
@@ -314,6 +322,11 @@ func (config *MixConfig) expandEnv() error {
 	for i := 0; i < rv.NumField(); i++ {
 		sectionV := rv.Field(i)
 
+		/* ignore unexported fields */
+		if !sectionV.CanSet() {
+			continue
+		}
+
 		for j := 0; j < sectionV.NumField(); j++ {
 			val := sectionV.Field(j).String()
 			matches := re.FindAllStringSubmatch(val, -1)
@@ -336,8 +349,13 @@ func (config *MixConfig) validate() error {
 	rv := reflect.ValueOf(config).Elem()
 
 	for i := 0; i < rv.NumField(); i++ {
-		sectionT := reflect.TypeOf(rv.Field(i).Interface())
 		sectionV := rv.Field(i)
+		/* ignore unexported fields */
+		if !sectionV.CanSet() {
+			continue
+		}
+
+		sectionT := reflect.TypeOf(rv.Field(i).Interface())
 
 		for j := 0; j < sectionT.NumField(); j++ {
 			tag, ok := sectionT.Field(j).Tag.Lookup("required")
@@ -359,20 +377,24 @@ func (config *MixConfig) validate() error {
 
 // Convert parses an old config file and converts it to TOML format
 func (config *MixConfig) Convert(filename string) error {
-	// Force UseNewConfig to false
-	UseNewConfig = false
-	if err := config.Parse(filename); err != nil {
+	if err := config.initConfigPath(filename); err != nil {
 		return err
 	}
 
-	if err := helpers.CopyFile(filename+".bkp", filename); err != nil {
+	// Force UseNewConfig to false
+	UseNewConfig = false
+	if err := config.Parse(); err != nil {
+		return err
+	}
+
+	if err := helpers.CopyFile(config.filename+".bkp", config.filename); err != nil {
 		return err
 	}
 
 	// Force UseNewConfig to true
 	UseNewConfig = true
 
-	return config.SaveConfig(filename)
+	return config.SaveConfig()
 }
 
 // Print print variables and values of a MixConfig struct
@@ -389,16 +411,24 @@ func (config *MixConfig) Print() error {
 	return nil
 }
 
-// GetConfigPath returns the default config path if the provided path is empty
-func GetConfigPath(path string) (string, error) {
+func (config *MixConfig) initConfigPath(path string) error {
 	if path != "" {
-		return path, nil
+		config.filename = path
+		return nil
 	}
 
 	pwd, err := os.Getwd()
 	if err != nil {
-		return "", err
+		return err
 	}
 
-	return filepath.Join(pwd, "builder.conf"), nil
+	config.filename = filepath.Join(pwd, "builder.conf")
+
+	return nil
+}
+
+// GetConfigFileName returns the file name of current config
+func (config *MixConfig) GetConfigFileName() string {
+	/* This variable cannot be public or else it will be added to the config file */
+	return config.filename
 }

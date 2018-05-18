@@ -32,12 +32,6 @@ var configValidateCmd = &cobra.Command{
 	Long: `Parse a builder config file and display its properties. Properties containing
 environment variables will be expanded`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var err error
-		if configFile, err = config.GetConfigPath(configFile); err != nil {
-			// Print error, but don't print command usage
-			fail(err)
-		}
-
 		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
@@ -57,11 +51,6 @@ var configConvertCmd = &cobra.Command{
 a backup file of the old config and will replace it with the converted one. Environment
 variables will not be expanded and the values will not be validated`,
 	Run: func(cmd *cobra.Command, args []string) {
-		var err error
-		if configFile, err = config.GetConfigPath(configFile); err != nil {
-			fail(err)
-		}
-
 		var mc config.MixConfig
 		if err := mc.Convert(configFile); err != nil {
 			fail(err)
@@ -81,18 +70,12 @@ var configSetCmd = &cobra.Command{
 		if !config.UseNewConfig {
 			fail(errors.New("config set requires `--new-config` flag`"))
 		}
-
-		var err error
-		if configFile, err = config.GetConfigPath(configFile); err != nil {
-			fail(err)
-		}
-
 		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)
 		}
 
-		if err := mc.SetProperty(configFile, args[0], args[1]); err != nil {
+		if err := mc.SetProperty(args[0], args[1]); err != nil {
 			fail(err)
 		}
 

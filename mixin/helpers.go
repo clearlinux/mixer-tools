@@ -110,7 +110,7 @@ func setUpMixDir(upstreamVer, mixVer int) error {
 	c.Swupd.Bundle = "os-core"
 	c.Swupd.ContentURL = "file:///usr/share/mix/update/www"
 	c.Swupd.VersionURL = "file:///usr/share/mix/update/www"
-	if err = c.SaveConfig(filepath.Join(mixWS, "builder.conf")); err != nil {
+	if err = c.SaveConfig(); err != nil {
 		return err
 	}
 	err = ioutil.WriteFile(filepath.Join(mixWS, "mixversion"),

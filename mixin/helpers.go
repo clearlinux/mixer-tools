@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
 
@@ -103,9 +104,13 @@ func setUpMixDir(upstreamVer, mixVer int) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(mixWS, "builder.conf"),
-		[]byte(builderConf), 0644)
-	if err != nil {
+	config.UseNewConfig = true
+	var c config.MixConfig
+	c.LoadDefaultsForPath(true, "/usr/share/mix")
+	c.Swupd.Bundle = "os-core"
+	c.Swupd.ContentURL = "file:///usr/share/mix/update/www"
+	c.Swupd.VersionURL = "file:///usr/share/mix/update/www"
+	if err = c.SaveConfig(filepath.Join(mixWS, "builder.conf")); err != nil {
 		return err
 	}
 	err = ioutil.WriteFile(filepath.Join(mixWS, "mixversion"),
@@ -146,10 +151,10 @@ func parseHeaderNoopInstall(pkg, installOut string) (string, error) {
 	return "", errors.New("unable to find repo for package")
 }
 
-func getPackageRepo(pkg string, ver int, config string) (string, error) {
+func getPackageRepo(pkg string, ver int, configFile string) (string, error) {
 	packagerCmd := []string{
 		"dnf",
-		"--config=" + config,
+		"--config=" + configFile,
 		fmt.Sprintf("--releasever=%d", ver),
 		"install",
 		"--assumeno",

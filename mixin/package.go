@@ -63,7 +63,7 @@ var packageAddFlags packageAddCmdFlags
 func init() {
 	for _, cmd := range packageCmds {
 		packageCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&config, "config", "c", "/usr/share/mix/builder.conf", "Builder config to use")
+		cmd.Flags().StringVarP(&configFile, "config", "c", "/usr/share/mix/builder.conf", "Builder config to use")
 	}
 
 	addPackageCmd.Flags().BoolVar(&packageAddFlags.build, "build", false, "Build mix update after adding package to bundle")

@@ -55,7 +55,6 @@ type Builder struct {
 	Config config.MixConfig
 
 	BuildScript string
-	BuildConf   string
 
 	MixVer            string
 	MixVerFile        string
@@ -103,7 +102,7 @@ func NewFromConfig(conf string) (*Builder, error) {
 	if err := b.Config.LoadDefaults(false); err != nil {
 		return nil, err
 	}
-	if err := b.LoadBuilderConf(conf); err != nil {
+	if err := b.Config.LoadConfig(conf); err != nil {
 		return nil, err
 	}
 	if err := b.ReadVersions(); err != nil {
@@ -272,19 +271,6 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	}
 
 	return nil
-}
-
-// LoadBuilderConf will read the builder configuration from the command line if
-// it was provided, otherwise it will fall back to reading the configuration from
-// the local builder.conf file.
-func (b *Builder) LoadBuilderConf(builderconf string) error {
-	var err error
-	b.BuildConf, err = config.GetConfigPath(builderconf)
-	if err != nil {
-		return err
-	}
-
-	return b.Config.LoadConfig(b.BuildConf)
 }
 
 // ReadVersions will initialise the mix versions (mix and clearlinux) from

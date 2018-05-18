@@ -117,7 +117,8 @@ var initCmd = &cobra.Command{
 				fail(err)
 			}
 		}
-		if err := b.LoadBuilderConf(configFile); err != nil {
+
+		if err := b.Config.LoadConfig(configFile); err != nil {
 			fail(err)
 		}
 		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixver), initFlags.allLocal, initFlags.allUpstream, initFlags.upstreamURL, initFlags.git)

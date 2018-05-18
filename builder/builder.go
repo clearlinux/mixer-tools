@@ -2003,18 +2003,18 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 	sort.Strings(orderedBundles)
 
 	for _, name := range orderedBundles {
-		b := bundlesToPack[name]
-		packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
+		bp := bundlesToPack[name]
+		packPath := filepath.Join(outputDir, fmt.Sprint(bp.ToVersion), swupd.GetPackFilename(bp.Name, bp.FromVersion))
 		_, err = os.Lstat(packPath)
 		if err == nil {
-			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", bp.Name, bp.FromVersion, bp.ToVersion)
 			continue
 		}
 		if !os.IsNotExist(err) {
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
-		fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
-		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
+		fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", bp.Name, bp.FromVersion, bp.ToVersion)
+		info, err := swupd.CreatePack(bp.Name, bp.FromVersion, bp.ToVersion, outputDir, bundleDir, numWorkers)
 		if err != nil {
 			return err
 		}

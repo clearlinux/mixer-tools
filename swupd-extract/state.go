@@ -148,7 +148,7 @@ func (cs *clientState) GetFullfile(version, hash string) error {
 		_ = tarred.Close()
 	}()
 
-	tr, err := newCompressedTarReader(tarred)
+	tr, err := swupd.NewCompressedTarReader(tarred)
 	if err != nil {
 		return err
 	}
@@ -173,6 +173,17 @@ func (cs *clientState) GetFullfile(version, hash string) error {
 	return nil
 }
 
+func newTarXzReader(r io.Reader) (*swupd.CompressedTarReader, error) {
+	result := &swupd.CompressedTarReader{}
+	xr, err := swupd.NewExternalReader(r, "unxz")
+	if err != nil {
+		return nil, fmt.Errorf("couldn't decompress using xz: %s", err)
+	}
+	result.CompressionCloser = xr
+	result.Reader = tar.NewReader(xr)
+	return result, nil
+}
+
 func (cs *clientState) GetZeroPack(version, name string) error {
 	cachedName := cs.Path(fmt.Sprintf("pack-%s-from-0-to-%s.tar", name, version))
 	if !cs.noCache {
@@ -189,6 +200,7 @@ func (cs *clientState) GetZeroPack(version, name string) error {
 		_ = pack.Close()
 	}()
 
+	// Compression time is known ahead of time, so avoid the need of Seeker interface.
 	tr, err := newTarXzReader(pack)
 	if err != nil {
 		return err

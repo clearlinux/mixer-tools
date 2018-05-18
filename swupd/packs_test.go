@@ -441,7 +441,7 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 		_ = pack.Close()
 	}()
 
-	tr, err := newCompressedTarReader(pack)
+	tr, err := NewCompressedTarReader(pack)
 	if err != nil {
 		t.Fatalf("error uncompressing pack: %s", err)
 	}
@@ -659,7 +659,7 @@ func checkFileInPack(t *testing.T, packname, name string) {
 	defer func() {
 		_ = pack.Close()
 	}()
-	tr, err := newCompressedTarReader(pack)
+	tr, err := NewCompressedTarReader(pack)
 	if err != nil {
 		t.Fatalf("error uncompressing pack: %s", err)
 	}

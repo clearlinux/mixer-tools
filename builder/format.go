@@ -31,28 +31,31 @@ import (
 func (b *Builder) UpdateFormatVersion(version string) error {
 	b.Config.Swupd.Format = version
 
-	newver := "${1}" + b.Config.Swupd.Format
-	var re = regexp.MustCompile(`(FORMAT=)[0-9]*`)
+	if UseNewConfig {
+		var config string
+		var err error
+		if config, err = GetConfigPath(config); err != nil {
+			return err
+		}
+
+		var mc MixConfig
+		if err = mc.LoadConfig(config); err != nil {
+			return err
+		}
+
+		return mc.SetProperty(config, "Swupd.FORMAT", version)
+	}
 
 	builderData, err := ioutil.ReadFile(b.BuildConf)
 	if err != nil {
 		return errors.Wrap(err, "Failed to read builder.conf")
 	}
 
-	builderEdit := re.ReplaceAllString(string(builderData), newver)
+	var re = regexp.MustCompile(`(FORMAT=)[0-9]+`)
+	newver := []byte("${1}" + b.Config.Swupd.Format)
+	builderData = re.ReplaceAll(builderData, newver)
 
-	var filename string
-	if UseNewConfig {
-		filename, err = GetConfigPath("")
-		if err != nil {
-			return err
-		}
-
-		return b.Config.SaveConfig(filename)
-	}
-
-	builderOut := []byte(builderEdit)
-	if err = ioutil.WriteFile(b.BuildConf, builderOut, 0644); err != nil {
+	if err = ioutil.WriteFile(b.BuildConf, builderData, 0644); err != nil {
 		return errors.Wrap(err, "Failed to write new builder.conf")
 	}
 

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"log"
 	"path/filepath"
@@ -20,38 +19,24 @@ var (
 	RESET = "\x1b[0m"
 )
 
-func runDiff(cacheDir string, args []string) {
-	var (
-		noColor bool
-		strict  bool
-	)
+type diffFlags struct {
+	noColor bool
+	strict  bool
+}
 
-	flagSet := flag.NewFlagSet("diff", flag.ExitOnError)
-	flagSet.BoolVar(&noColor, "no-color", false, "use no colors")
-	flagSet.BoolVar(&strict, "strict", false, "also compare version numbers")
-	flagSet.Usage = usage
-	err := flagSet.Parse(args)
-	if err != nil {
-		log.Fatalf("ERROR: %s", err)
-	}
-
-	if len(flagSet.Args()) != 2 {
-		usage()
-		return
-	}
-
-	if noColor {
+func runDiff(cacheDir string, flags *diffFlags, urlA, urlB string) {
+	if flags.noColor {
 		RED = ""
 		GREEN = ""
 		RESET = ""
 	}
 
-	baseA, versionA := parseURL(flagSet.Arg(0))
-	baseB, versionB := parseURL(flagSet.Arg(1))
+	baseA, versionA := parseURL(urlA)
+	baseB, versionB := parseURL(urlB)
 
 	var stateA, stateB *client.State
 	stateDirA := filepath.Join(cacheDir, convertContentBaseToDirname(baseA))
-	stateA, err = client.NewState(stateDirA, baseA)
+	stateA, err := client.NewState(stateDirA, baseA)
 	if err != nil {
 		log.Fatalf("ERROR: %s", err)
 	}
@@ -122,7 +107,7 @@ func runDiff(cacheDir string, args []string) {
 				fmt.Printf("%s+%s%s %s%s\n", RED, a.Type, a.Status, a.Name, RESET)
 			} else {
 				fmt.Printf(" %s%s %s", a.Type, a.Status, a.Name)
-				if strict && a.Version != b.Version {
+				if flags.strict && a.Version != b.Version {
 					fmt.Printf(" (VERSION: %s-%d%s / %s+%d%s)", RED, a.Version, RESET, GREEN, b.Version, RESET)
 				}
 				if a.Hash != b.Hash {
@@ -140,7 +125,7 @@ func runDiff(cacheDir string, args []string) {
 	})
 	fmt.Println()
 
-	flags := func(f *swupd.File) string {
+	flagString := func(f *swupd.File) string {
 		result, err := f.GetFlagString()
 		if err != nil {
 			result = "...."
@@ -202,16 +187,16 @@ func runDiff(cacheDir string, args []string) {
 		walkFiles(mA.Files, mB.Files, func(a, b *swupd.File) {
 			switch {
 			case a == nil:
-				fmt.Printf("%s+%s %s%s\n", GREEN, flags(b), b.Name, RESET)
+				fmt.Printf("%s+%s %s%s\n", GREEN, flagString(b), b.Name, RESET)
 			case b == nil:
-				fmt.Printf("%s-%s %s%s\n", RED, flags(a), a.Name, RESET)
+				fmt.Printf("%s-%s %s%s\n", RED, flagString(a), a.Name, RESET)
 			default:
-				if flags(a) != flags(b) {
-					fmt.Printf("%s-%s %s%s\n", RED, flags(a), a.Name, RESET)
-					fmt.Printf("%s+%s %s%s\n", GREEN, flags(b), b.Name, RESET)
-				} else if a.Rename != b.Rename || a.Hash != b.Hash || (strict && a.Version != b.Version) {
-					fmt.Printf(" %s %s", flags(a), a.Name)
-					if strict && a.Version != b.Version {
+				if flagString(a) != flagString(b) {
+					fmt.Printf("%s-%s %s%s\n", RED, flagString(a), a.Name, RESET)
+					fmt.Printf("%s+%s %s%s\n", GREEN, flagString(b), b.Name, RESET)
+				} else if a.Rename != b.Rename || a.Hash != b.Hash || (flags.strict && a.Version != b.Version) {
+					fmt.Printf(" %s %s", flagString(a), a.Name)
+					if flags.strict && a.Version != b.Version {
 						fmt.Printf(" (VERSION: %s-%d%s / %s+%d%s)", RED, a.Version, RESET, GREEN, b.Version, RESET)
 					}
 					if a.Rename != b.Rename {

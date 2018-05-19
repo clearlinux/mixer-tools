@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 )
 
-func runClean(cacheDir string, args []string) {
+func runClean(cacheDir string) {
 	fis, err := ioutil.ReadDir(cacheDir)
 	if err != nil {
 		log.Fatalf("ERROR: %s", err)

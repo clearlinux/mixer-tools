@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -117,21 +116,6 @@ var buildUpstreamFormatCmd = &cobra.Command{
 	Short: "Use to create the necessary builds to cross an upstream format",
 	Long:  `Use to create the necessary builds to cross an upstream format`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
-		if err != nil {
-			fail(err)
-		}
-		setWorkers(b)
-		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
-		if err != nil {
-			failf("Couldn't build update: %s", err)
-		}
-
-		if buildFlags.increment {
-			if err = b.UpdateMixVer(); err != nil {
-				failf("Couldn't update Mix Version")
-			}
-		}
 	},
 }
 
@@ -162,7 +146,12 @@ var buildFormatNewCmd = &cobra.Command{
 
 		// Set format to format+1 so that the format file inserted into the
 		// update content is the new one
-		if err = b.UpdateFormatVersion(buildFlags.format); err != nil {
+		newFormat, err := strconv.Atoi(b.Config.Swupd.Format)
+		if err != nil {
+			fail(err)
+		}
+		newFormat++
+		if err = b.UpdateFormatVersion(strconv.Itoa(newFormat)); err != nil {
 			fail(err)
 		}
 		setWorkers(b)
@@ -189,14 +178,9 @@ var buildFormatNewCmd = &cobra.Command{
 		}
 
 		// Build the +20 update so we don't have to switch tooling in between
-		err = b.BuildUpdate(buildFlags.prefix, ver, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		err = b.BuildUpdate(buildFlags.prefix, ver, strconv.Itoa(newFormat), buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
-		}
-
-		// Reset upstreamversion if necessary
-		if err = b.UnstageMixFromBump(); err != nil {
-			fail(errors.Wrapf(err, "Failed to reset upstreamversion after bump"))
 		}
 
 		// Copy +20 chroots to +10 so we can build last formatN build with the
@@ -221,7 +205,7 @@ var buildFormatNewCmd = &cobra.Command{
 		}
 
 		// Set the format back to the previous format version before building the +10 update
-		prevFormat, err := strconv.Atoi(buildFlags.format)
+		prevFormat, err := strconv.Atoi(b.Config.Swupd.Format)
 		if err != nil {
 			fail(err)
 		}
@@ -232,16 +216,6 @@ var buildFormatNewCmd = &cobra.Command{
 		// Set mixversion to the +10 since we have used +20 up to this point
 		if err = b.DecrementMixVer(); err != nil {
 			fail(err)
-		}
-		// Re-read builder.conf after updating format/mixver
-		if err = b.ReadVersions(); err != nil {
-			fail(err)
-		}
-		setWorkers(b)
-
-		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
-		if err != nil {
-			failf("Couldn't build update: %s", err)
 		}
 	},
 }
@@ -261,24 +235,13 @@ var buildFormatOldCmd = &cobra.Command{
 			fail(err)
 		}
 		// Build the update content for the +10 build
-		err = b.BuildUpdate(buildFlags.prefix, ver, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		err = b.BuildUpdate(buildFlags.prefix, ver, b.Config.Swupd.Format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
 
-		// Set the previous format latest file to the +10 build
-		formatDir := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "format"+buildFlags.format)
-		err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
-		if err != nil {
-			failf("Couldn't update the latest version")
-		}
-
-		// Reset upstreamversion if necessary
-		if err = b.UnstageMixFromBump(); err != nil {
-			fail(errors.Wrapf(err, "Failed to reset upstreamversion after bump"))
-		}
 		// Incremement regardless of flag because +30 must be the next version
-		for i := 0; i < 2; i++ {
+		for i := 0; i <= 2; i++ {
 			if err = b.UpdateMixVer(); err != nil {
 				failf("Couldn't update Mix Version")
 			}

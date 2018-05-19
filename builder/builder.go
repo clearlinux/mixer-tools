@@ -2138,8 +2138,16 @@ func writeMetaFiles(path, format, version string) error {
 	return ioutil.WriteFile(filepath.Join(path, "mixer-src-version"), []byte(version), 0644)
 }
 
+func (b *Builder) getUpstreamFormat(version string) (string, error) {
+	format, err := b.DownloadFileFromUpstreamAsString(fmt.Sprintf("update/%s/format", version))
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to get format for version %q", version)
+	}
+	return format, nil
+}
+
 func (b *Builder) getUpstreamFormatRange(version string) (format string, first, latest uint32, err error) {
-	format, err = b.DownloadFileFromUpstreamAsString(fmt.Sprintf("update/%s/format", version))
+	format, err = b.getUpstreamFormat(version)
 	if err != nil {
 		return "", 0, 0, errors.Wrap(err, "couldn't download information about upstream")
 	}

@@ -65,6 +65,7 @@ type mixerConf struct {
 	LocalBundleDir string `required:"false" toml:"LOCAL_BUNDLE_DIR"`
 	LocalRepoDir   string `required:"false" toml:"LOCAL_REPO_DIR"`
 	LocalRPMDir    string `required:"false" toml:"LOCAL_RPM_DIR"`
+	DockerImgPath  string `required:"false" toml:"DOCKER_IMAGE_PATH"`
 }
 
 // LoadDefaults sets sane values for the config properties
@@ -99,6 +100,7 @@ func (config *MixConfig) LoadDefaults() error {
 	config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
 	config.Mixer.LocalRPMDir = ""
 	config.Mixer.LocalRepoDir = ""
+	config.Mixer.DockerImgPath = "clearlinux/mixer"
 
 	return nil
 }
@@ -183,6 +185,7 @@ func (config *MixConfig) createLegacyConfig(localrpms bool) error {
 	// Add [Mixer] section
 	data += "\n[Mixer]\n"
 	data += "LOCAL_BUNDLE_DIR=" + filepath.Join(pwd, "local-bundles") + "\n"
+	data += "DOCKER_IMAGE_PATH=clearlinux/mixer\n"
 
 	if localrpms {
 		data += "LOCAL_RPM_DIR=" + filepath.Join(pwd, "local-rpms") + "\n"
@@ -286,6 +289,7 @@ func (config *MixConfig) legacyParse(filename string) error {
 		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
 		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
 		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
+		{`^DOCKER_IMAGE_PATH\s*=\s*`, &config.Mixer.DockerImgPath, false},
 	}
 
 	for _, h := range fields {

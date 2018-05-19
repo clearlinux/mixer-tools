@@ -14,13 +14,8 @@ import (
 
 // TODO: Support reading text files.
 
-func runCat(cacheDir string, args []string) {
-	if len(args) != 2 {
-		usage()
-		os.Exit(2)
-	}
-
-	base, version := parseURL(args[0])
+func runCat(cacheDir, url, arg string) {
+	base, version := parseURL(url)
 	stateDir := filepath.Join(cacheDir, convertContentBaseToDirname(base))
 	state, err := client.NewState(stateDir, base)
 	if err != nil {
@@ -32,7 +27,6 @@ func runCat(cacheDir string, args []string) {
 		log.Fatalf("ERROR: %s", err)
 	}
 
-	arg := args[1]
 	switch {
 	case arg == "Manifest.MoM", arg == "Manifest.full":
 		path, err := state.GetFile(version, arg)

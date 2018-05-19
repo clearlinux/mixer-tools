@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"path/filepath"
 
 	"github.com/clearlinux/mixer-tools/internal/client"
@@ -12,21 +11,15 @@ import (
 
 // TODO: Consider a --unique flag that would not print consecutive versions that have the same hash.
 
-func runLog(cacheDir string, args []string) {
-	if len(args) != 2 {
-		usage()
-		os.Exit(2)
-	}
-
-	base, version := parseURL(args[0])
+func runLog(cacheDir, url, filename string) {
+	base, version := parseURL(url)
 	stateDir := filepath.Join(cacheDir, convertContentBaseToDirname(base))
 	state, err := client.NewState(stateDir, base)
 	if err != nil {
 		log.Fatalf("ERROR: %s", err)
 	}
 
-	arg := args[1]
-	if arg == "" || arg[0] != '/' {
+	if filename == "" || filename[0] != '/' {
 		// TODO: Support Manifest.* files too, but showing the diff of the files?
 		log.Fatalf("Second argument to 'log' must be an absolute path")
 	}
@@ -44,7 +37,7 @@ func runLog(cacheDir string, args []string) {
 		var found *swupd.File
 
 		visit := func(bundle, file *swupd.File) bool {
-			if file.Name == arg && file.Present() {
+			if file.Name == filename && file.Present() {
 				found = file
 				lastBundle = bundle.Name
 				return true
@@ -95,7 +88,7 @@ func runLog(cacheDir string, args []string) {
 	}
 
 	if lastBundle == "" {
-		log.Fatalf("ERROR: file %s not found in version %s", arg, version)
+		log.Fatalf("ERROR: file %s not found in version %s", filename, version)
 	}
 
 }

@@ -110,6 +110,21 @@ func addPackage(pkg string, build bool) (string, error) {
 	b.NumBundleWorkers = runtime.NumCPU()
 	b.NumFullfileWorkers = runtime.NumCPU()
 
+	rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
+	if err != nil {
+		return "", err
+	}
+
+	if len(rpms) > 0 {
+		// initialize local repo automatically
+		runInitRepo(&cobra.Command{}, []string{})
+
+		err = b.AddRPMList(rpms)
+		if err != nil {
+			return "", err
+		}
+	}
+
 	bundle, err = getPackageRepo(pkg, ver, b.Config.Builder.DNFConf)
 	if err != nil {
 		return "", err
@@ -121,16 +136,6 @@ func addPackage(pkg string, build bool) (string, error) {
 	}
 
 	err = appendToFile(filepath.Join(mixWS, "local-bundles", bundle), fmt.Sprintf("%s\n", pkg))
-	if err != nil {
-		return "", err
-	}
-
-	rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
-	if err != nil {
-		return "", err
-	}
-
-	err = b.AddRPMList(rpms)
 	if err != nil {
 		return "", err
 	}

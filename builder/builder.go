@@ -2201,7 +2201,7 @@ Latest upstream in format: %d
 // UpdateVersions will validate then update both mix and upstream versions. If upstream
 // version is 0, then the latest upstream version possible will be taken instead.
 func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
-	format, first, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
+	format, _, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
 	if err != nil {
 		return err
 	}
@@ -2210,12 +2210,8 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 		return fmt.Errorf("invalid mix version to update (%d), need to be greater than current mix version (%d)", nextMix, b.MixVerUint32)
 	}
 
-	switch {
-	case nextUpstream == 0:
+	if nextUpstream == 0 {
 		nextUpstream = latest
-
-	case nextUpstream < first, nextUpstream > latest:
-		return fmt.Errorf("invalid upstream version to update (%d) out of the format %s range: must be at least %d and at most %d", nextUpstream, format, first, latest)
 	}
 
 	// Verify the version exists by checking if its Manifest.MoM is around.
@@ -2245,29 +2241,9 @@ Updated upstream: %d (format: %s)
 	}
 	fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
 
+	if _, err := b.CheckBumpNeeded(); err != nil {
+		return err
+	}
+
 	return nil
-}
-
-// StageMixForBump prepares the mix for the two format bumps to be executed. The
-// current upstreamversion is saved in a backup ".bump" file, and replaced with
-// the latest version in the format range of the most recent build.
-func (b *Builder) StageMixForBump() error {
-	lastBuildVer, err := b.getLastBuildUpstreamVersion()
-	if err != nil {
-		return err
-	}
-	_, _, latest, err := b.getUpstreamFormatRange(lastBuildVer)
-	if err != nil {
-		return err
-	}
-
-	// Copy current upstreamversion to upstreamversion.bump
-	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
-	if err := helpers.CopyFile(vBFile, vFile); err != nil {
-		return err
-	}
-
-	// Set current upstreamversion to latest
-	return ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(latest), 10)), 0644)
 }

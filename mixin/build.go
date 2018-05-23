@@ -114,7 +114,6 @@ func buildMix(prepNeeded bool) error {
 		return err
 	}
 	mixVer := ver * 1000
-	oldMix := filepath.Join(mixWS, fmt.Sprintf("update/www/%d", mixVer-10))
 	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
 	if err != nil {
 		_ = os.Remove(mixFlagFile)
@@ -122,6 +121,9 @@ func buildMix(prepNeeded bool) error {
 	}
 	b.NumBundleWorkers = runtime.NumCPU()
 	b.NumFullfileWorkers = runtime.NumCPU()
+	b.UpstreamVer = fmt.Sprint(ver)
+	b.MixVer = fmt.Sprint(mixVer)
+	b.MixVerUint32 = uint32(mixVer)
 
 	err = os.Chdir(mixWS)
 	if err != nil {
@@ -143,11 +145,14 @@ func buildMix(prepNeeded bool) error {
 		}
 	}
 
+	var oldMix string
 	if lastVer != 0 {
-		// older version mix exists, make the mix clean (pre-merge) before building
+		oldMix = filepath.Join(mixWS, "update/www", fmt.Sprint(lastVer))
+		// older version mix exists, make the mix clean (pre-merge)
+		// before building
 		_ = os.Rename(filepath.Join(oldMix, "Manifest.MoM"),
 			filepath.Join(oldMix, "FullManifest.MoM"))
-		_ = os.Rename(filepath.Join(oldMix, fmt.Sprintf("Manifest.MoM.%d", mixVer-10)),
+		_ = os.Rename(filepath.Join(oldMix, fmt.Sprintf("Manifest.MoM.%d", lastVer)),
 			filepath.Join(oldMix, "Manifest.MoM"))
 	}
 	err = buildBundles(b)
@@ -160,9 +165,9 @@ func buildMix(prepNeeded bool) error {
 		_ = os.Remove(mixFlagFile)
 		return err
 	}
-	if lastVer != 0 {
+	if oldMix != "" {
 		_ = os.Rename(filepath.Join(oldMix, "Manifest.MoM"),
-			filepath.Join(oldMix, fmt.Sprintf("Manifest.MoM.%d", mixVer-10)))
+			filepath.Join(oldMix, fmt.Sprintf("Manifest.MoM.%d", lastVer)))
 		_ = os.Rename(filepath.Join(oldMix, "FullManifest.MoM"),
 			filepath.Join(oldMix, "Manifest.MoM"))
 	}

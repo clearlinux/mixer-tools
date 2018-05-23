@@ -112,14 +112,18 @@ func getDirFromConfigPath(path string) (string, error) {
 
 // addConfigFieldPaths loops through each field in a config section, verifying
 // and adding its value to the mounts slice.
-func addConfigFieldPaths(config reflect.Value, mounts *[]string) error {
-	for i := 0; i < config.NumField(); i++ {
-		path, err := getDirFromConfigPath(config.Field(i).String())
+func addConfigFieldPaths(section reflect.Value, mounts *[]string) error {
+	sectionT := reflect.TypeOf(section.Interface())
+	for i := 0; i < section.NumField(); i++ {
+		// Check if the field is tagged as mountable and has a value
+		tag, ok := sectionT.Field(i).Tag.Lookup("mount")
+		if !ok || tag != "true" || section.Field(i).String() == "" {
+			continue
+		}
+
+		path, err := getDirFromConfigPath(section.Field(i).String())
 		if err != nil {
 			return err
-		}
-		if !strings.HasPrefix(path, "/") { // filepath.Dir can return "."
-			continue
 		}
 		if err := canAccess(path); err != nil {
 			return err
@@ -136,14 +140,13 @@ func (b *Builder) getDockerMounts() ([]string, error) {
 	wd, _ := os.Getwd()
 	mounts := []string{wd}
 
-	err := addConfigFieldPaths(reflect.ValueOf(b.Config.Builder), &mounts)
-	if err != nil {
-		return nil, err
-	}
+	rc := reflect.ValueOf(b.Config)
 
-	err = addConfigFieldPaths(reflect.ValueOf(b.Config.Mixer), &mounts)
-	if err != nil {
-		return nil, err
+	for i := 0; i < rc.NumField(); i++ {
+		err := addConfigFieldPaths(rc.Field(i), &mounts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return reduceDockerMounts(mounts), nil

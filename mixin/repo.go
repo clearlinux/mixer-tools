@@ -178,10 +178,20 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
+	// save working directory so we can come back,
+	// this function may be called other than by commandline
+	wd, err := os.Getwd()
+	if err != nil {
+		fail(err)
+	}
+
 	err = os.Chdir(mixWS)
 	if err != nil {
 		fail(err)
 	}
+	defer func() {
+		_ = os.Chdir(wd)
+	}()
 
 	err = b.NewDNFConfIfNeeded()
 	if err != nil {

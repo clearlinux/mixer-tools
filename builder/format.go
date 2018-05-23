@@ -125,10 +125,11 @@ func (b *Builder) stageMixForBump() error {
 	if err != nil {
 		return err
 	}
+	latest += 10
 
 	// Copy current upstreamversion to upstreamversion.bump
-	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
+	vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
 	if err := helpers.CopyFile(vBFile, vFile); err != nil {
 		return err
 	}
@@ -141,8 +142,8 @@ func (b *Builder) stageMixForBump() error {
 // file, if it exists. This returns the user to their desired upstream version
 // after having completed the upstream format boundary bump builds.
 func (b *Builder) UnstageMixFromBump() error {
-	vFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile+".bump")
+	vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
 
 	// No bump file; return early
 	if _, err := os.Stat(vBFile); os.IsNotExist(err) {
@@ -200,8 +201,8 @@ func (b *Builder) CheckBumpNeeded() (bool, error) {
 		}
 		fmt.Printf("The upstream version for this build (%s) is outside the format range of your last mix "+
 			"(format %s, upstream versions %d to %d). This build cannot be done until you complete a "+
-			"format-bump build. Please run the following two commands to complete the format bump:\nmixer "+
-			"build format-old\nmixer build format-new\nOnce these have completed, you can re-run this build.\n",
+			"upstream format build. Please run the following command to complete the format bump:\nmixer "+
+			"build upstream-format\nOnce this has completed you can re-run this build.\n",
 			b.UpstreamVer, format, first, latest)
 
 		return true, nil

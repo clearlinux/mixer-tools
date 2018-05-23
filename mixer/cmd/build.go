@@ -16,10 +16,12 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -116,6 +118,61 @@ var buildUpstreamFormatCmd = &cobra.Command{
 	Short: "Use to create the necessary builds to cross an upstream format",
 	Long:  `Use to create the necessary builds to cross an upstream format`,
 	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		cmdToRun := strings.Split("mixer build format-bump new", " ")
+		if builder.UseNewConfig {
+			cmdToRun = append(cmdToRun, "--new-config")
+		}
+		if err := b.RunCommandInContainer(cmdToRun); err != nil {
+			fail(err)
+		}
+
+		// Set the upstream version to the previous format's latest version
+		b.UpstreamVerUint32 -= 10
+		vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
+		if err := ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)), 0644); err != nil {
+			fail(err)
+		}
+		cmdToRun = strings.Split("mixer build format-bump old", " ")
+		if builder.UseNewConfig {
+			cmdToRun = append(cmdToRun, "--new-config")
+		}
+		if err := b.RunCommandInContainer(cmdToRun); err != nil {
+			fail(err)
+		}
+		// Set the upstream version back to what the user originally tried to build
+		if err := b.UnstageMixFromBump(); err != nil {
+			fail(err)
+		}
+	},
+}
+
+var buildFormatBumpCmd = &cobra.Command{
+	Use:   "format-bump",
+	Short: "Used to create a downstream format bump",
+	Long:  `Used to create a downstream format bump`,
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(config)
+		if err != nil {
+			fail(err)
+		}
+		cmdToRun := strings.Split("mixer build format-bump new", " ")
+		if builder.UseNewConfig {
+			cmdToRun = append(cmdToRun, "--new-config")
+		}
+		if err := b.RunCommandInContainer(cmdToRun); err != nil {
+			fail(err)
+		}
+		cmdToRun = strings.Split("mixer build format-bump old", " ")
+		if builder.UseNewConfig {
+			cmdToRun = append(cmdToRun, "--new-config")
+		}
+		if err := b.RunCommandInContainer(cmdToRun); err != nil {
+			fail(err)
+		}
 	},
 }
 
@@ -396,6 +453,7 @@ var buildCmds = []*cobra.Command{
 	buildImageCmd,
 	buildDeltaPacksCmd,
 	buildUpstreamFormatCmd,
+	buildFormatBumpCmd,
 }
 
 func init() {
@@ -404,8 +462,8 @@ func init() {
 		cmd.Flags().StringVarP(&config, "config", "c", "", "Builder config to use")
 	}
 
-	buildUpstreamFormatCmd.AddCommand(buildFormatNewCmd)
-	buildUpstreamFormatCmd.AddCommand(buildFormatOldCmd)
+	buildFormatBumpCmd.AddCommand(buildFormatNewCmd)
+	buildFormatBumpCmd.AddCommand(buildFormatOldCmd)
 
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")

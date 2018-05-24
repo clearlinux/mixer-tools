@@ -34,6 +34,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"text/tabwriter"
 	textTemplate "text/template" // "template" conflicts with crypto/x509
 
@@ -1403,6 +1404,22 @@ func (b *Builder) NewDNFConfIfNeeded() error {
 	return nil
 }
 
+// getClosestAncestorOwner returns the owner uid/gid of the closest existing
+// ancestor of the file or dir pointed to by path. There is no fully cross-
+// platform concept of "ownership", so this method only works on *nix systems.
+func getClosestAncestorOwner(path string) (int, int, error) {
+	path = filepath.Dir(path)
+	fi, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return getClosestAncestorOwner(path)
+	} else if err != nil {
+		return 0, 0, err
+	}
+	uid := int(fi.Sys().(*syscall.Stat_t).Uid)
+	gid := int(fi.Sys().(*syscall.Stat_t).Gid)
+	return uid, gid, nil
+}
+
 // BuildBundles will attempt to construct the bundles required by generating a
 // DNF configuration file, then resolving all files for each bundle using dnf
 // resolve and no-op installs. One full chroot is created from this step with
@@ -1423,6 +1440,21 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	timer.Start("BUILD BUNDLES")
 	if err := b.NewDNFConfIfNeeded(); err != nil {
 		return err
+	}
+
+	// If ServerStateDir does not exist, create it with ownership matching its
+	// closest existing ancestor directory
+	if _, err := os.Stat(b.Config.Builder.ServerStateDir); os.IsNotExist(err) {
+		uid, gid, err := getClosestAncestorOwner(b.Config.Builder.ServerStateDir)
+		if err != nil {
+			return err
+		}
+		if err = os.MkdirAll(b.Config.Builder.ServerStateDir, 0755); err != nil {
+			return errors.Wrapf(err, "Failed to create server state dir: %q", b.Config.Builder.ServerStateDir)
+		}
+		if err = os.Chown(b.Config.Builder.ServerStateDir, uid, gid); err != nil {
+			return errors.Wrapf(err, "Failed to set ownership of dir: %q", b.Config.Builder.ServerStateDir)
+		}
 	}
 
 	// If MIXVER already exists, wipe it so it's a fresh build

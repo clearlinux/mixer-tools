@@ -42,7 +42,7 @@ import (
 )
 
 // Version of Mixer. Also used by the Makefile for releases.
-const Version = "4.5.2"
+const Version = "4.5.3"
 
 // Offline controls whether mixer attempts to automatically cache upstream
 // bundles. In offline mode, all necessary bundles must exist in local-bundles.

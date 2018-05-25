@@ -194,7 +194,7 @@ mix-bundles/`
 
 // InitMix will initialise a new swupd-client consumable "mix" with the given
 // based Clear Linux version and specified mix version.
-func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allUpstream bool, upstreamURL string, git bool) error {
+func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allUpstream bool, noDefaults bool, upstreamURL string, git bool) error {
 	// Set up local dirs
 	if err := b.initDirs(); err != nil {
 		return err
@@ -253,12 +253,12 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	}
 
 	// Initialize the Mix Bundles List
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, b.MixBundlesFile)); os.IsNotExist(err) {
-		// Add default bundles (or all)
-		defaultBundles := []string{"os-core", "os-core-update", "bootloader", "kernel-native"}
-		if err := b.AddBundles(defaultBundles, allLocal, allUpstream, false); err != nil {
-			return err
-		}
+	var bundles []string
+	if !noDefaults {
+		bundles = []string{"os-core", "os-core-update", "bootloader", "kernel-native"}
+	}
+	if err := b.AddBundles(bundles, allLocal, allUpstream, false); err != nil {
+		return err
 	}
 
 	// Get upstream bundles

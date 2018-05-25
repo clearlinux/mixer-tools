@@ -103,7 +103,7 @@ func addPackage(pkg string, build bool) (string, error) {
 		return "", err
 	}
 	err = b.InitMix(fmt.Sprintf("%d", ver), fmt.Sprintf("%d", mixVer),
-		false, false, "https://download.clearlinux.org", false)
+		false, false, true, "https://download.clearlinux.org", false)
 	if err != nil {
 		return "", err
 	}

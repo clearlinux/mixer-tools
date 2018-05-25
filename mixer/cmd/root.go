@@ -87,6 +87,7 @@ var rootCmdFlags = struct {
 type initCmdFlags struct {
 	allLocal    bool
 	allUpstream bool
+	noDefaults  bool
 	clearVer    string
 	mixver      int
 	localRPMs   bool
@@ -119,7 +120,7 @@ var initCmd = &cobra.Command{
 		if err := b.LoadBuilderConf(config); err != nil {
 			fail(err)
 		}
-		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixver), initFlags.allLocal, initFlags.allUpstream, initFlags.upstreamURL, initFlags.git)
+		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixver), initFlags.allLocal, initFlags.allUpstream, initFlags.noDefaults, initFlags.upstreamURL, initFlags.git)
 		if err != nil {
 			fail(err)
 		}
@@ -157,6 +158,7 @@ func init() {
 
 	initCmd.Flags().BoolVar(&initFlags.allLocal, "all-local", false, "Initialize mix with all local bundles automatically included")
 	initCmd.Flags().BoolVar(&initFlags.allUpstream, "all-upstream", false, "Initialize mix with all upstream bundles automatically included")
+	initCmd.Flags().BoolVar(&initFlags.noDefaults, "no-default-bundles", false, "Skip adding default bundles to the mix")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Supply the Clear version to compose the mix from")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")

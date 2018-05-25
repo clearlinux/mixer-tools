@@ -107,6 +107,10 @@ func addPackage(pkg string, build bool) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	err = b.AddBundles([]string{"os-core"}, false, false, false)
+	if err != nil {
+		return "", err
+	}
 	b.NumBundleWorkers = runtime.NumCPU()
 	b.NumFullfileWorkers = runtime.NumCPU()
 

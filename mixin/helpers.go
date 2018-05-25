@@ -113,11 +113,6 @@ func setUpMixDir(upstreamVer, mixVer int) error {
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(filepath.Join(mixWS, "mixbundles"),
-		[]byte("os-core"), 0644)
-	if err != nil {
-		return err
-	}
 	err = ioutil.WriteFile(filepath.Join(mixWS, "upstreamurl"),
 		[]byte("https://download.clearlinux.org"), 0644)
 	if err != nil {

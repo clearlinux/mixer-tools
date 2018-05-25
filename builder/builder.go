@@ -1714,7 +1714,7 @@ func (b *Builder) ListRepos() error {
 	}
 
 	for _, s := range DNFConf.Sections() {
-		name := s.Key("name").Value()
+		name := s.Name()
 		if name == "" {
 			continue
 		}

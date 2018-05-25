@@ -60,6 +60,10 @@ more details), the following options are recognized.
 
    Supply the mix version to build (default is 10)
 
+-  ``--no-default-bundles``
+
+   Skip adding default bundles to the mix
+
 -  ``--upstream-url {url}``
 
    Supply an upstream URL to use for mixing (default is

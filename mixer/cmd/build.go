@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 
@@ -118,12 +119,12 @@ var buildUpstreamFormatCmd = &cobra.Command{
 	Short: "Use to create the necessary builds to cross an upstream format",
 	Long:  `Use to create the necessary builds to cross an upstream format`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
 		cmdToRun := strings.Split("mixer build format-bump new", " ")
-		if builder.UseNewConfig {
+		if config.UseNewConfig {
 			cmdToRun = append(cmdToRun, "--new-config")
 		}
 		if err := b.RunCommandInContainer(cmdToRun); err != nil {
@@ -132,12 +133,13 @@ var buildUpstreamFormatCmd = &cobra.Command{
 
 		// Set the upstream version to the previous format's latest version
 		b.UpstreamVerUint32 -= 10
+		b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
 		vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
-		if err := ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)), 0644); err != nil {
+		if err := ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
 			fail(err)
 		}
 		cmdToRun = strings.Split("mixer build format-bump old", " ")
-		if builder.UseNewConfig {
+		if config.UseNewConfig {
 			cmdToRun = append(cmdToRun, "--new-config")
 		}
 		if err := b.RunCommandInContainer(cmdToRun); err != nil {
@@ -155,19 +157,19 @@ var buildFormatBumpCmd = &cobra.Command{
 	Short: "Used to create a downstream format bump",
 	Long:  `Used to create a downstream format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
 		cmdToRun := strings.Split("mixer build format-bump new", " ")
-		if builder.UseNewConfig {
+		if config.UseNewConfig {
 			cmdToRun = append(cmdToRun, "--new-config")
 		}
 		if err := b.RunCommandInContainer(cmdToRun); err != nil {
 			fail(err)
 		}
 		cmdToRun = strings.Split("mixer build format-bump old", " ")
-		if builder.UseNewConfig {
+		if config.UseNewConfig {
 			cmdToRun = append(cmdToRun, "--new-config")
 		}
 		if err := b.RunCommandInContainer(cmdToRun); err != nil {
@@ -183,22 +185,21 @@ var buildFormatNewCmd = &cobra.Command{
 	Short: "Build the +20 version in the new format for the format bump",
 	Long:  `Build the +20 version in the new format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
 
-		// Update the mixversion just in case the user did not pass --increment
-		// This must be the +20 to write the new format data files even though we
-		// will build a +10 from the same content
-		for i := 0; i < 2; i++ {
-			if err = b.UpdateMixVer(); err != nil {
-				failf("Couldn't update Mix Version")
-			}
-			// Must re-read the builder or UpdateMixVer() will be a noop each iteration
-			if err = b.ReadVersions(); err != nil {
-				fail(err)
-			}
+		lastVer, err := b.GetLastBuildVersion()
+		if err != nil {
+			fail(err)
+		}
+		ver, err := strconv.Atoi(lastVer)
+		if err != nil {
+			fail(err)
+		}
+		if err = b.UpdateMixVer(ver + 20); err != nil {
+			failf("Couldn't update Mix Version")
 		}
 
 		// Set format to format+1 so that the format file inserted into the
@@ -229,7 +230,7 @@ var buildFormatNewCmd = &cobra.Command{
 		// TODO: Inject any extra files (certs, etc) here
 		// if err := AddBundleExtrasFiles(); err != nil {...}
 
-		ver, err := strconv.Atoi(b.MixVer)
+		ver, err = strconv.Atoi(b.MixVer)
 		if err != nil {
 			fail(err)
 		}
@@ -271,7 +272,7 @@ var buildFormatNewCmd = &cobra.Command{
 			fail(err)
 		}
 		// Set mixversion to the +10 since we have used +20 up to this point
-		if err = b.DecrementMixVer(); err != nil {
+		if err = b.UpdateMixVer(prevVersion); err != nil {
 			fail(err)
 		}
 	},
@@ -282,7 +283,7 @@ var buildFormatOldCmd = &cobra.Command{
 	Short: "Build the +10 version in the old format for the format bump",
 	Long:  `Build the +10 version in the old format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
-		b, err := builder.NewFromConfig(config)
+		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
@@ -297,11 +298,12 @@ var buildFormatOldCmd = &cobra.Command{
 			failf("Couldn't build update: %s", err)
 		}
 
-		// Incremement regardless of flag because +30 must be the next version
-		for i := 0; i <= 2; i++ {
-			if err = b.UpdateMixVer(); err != nil {
-				failf("Couldn't update Mix Version")
-			}
+		if err = b.UpdateMixVer(ver + 20); err != nil {
+			failf("Couldn't update Mix Version")
+		}
+		// Update the update/image/LAST_VER to the +20 build, since we built the +10 out of order
+		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER"), []byte(strconv.Itoa(ver+10)), 0644); err != nil {
+			fail(err)
 		}
 	},
 }
@@ -322,7 +324,11 @@ var buildUpdateCmd = &cobra.Command{
 		}
 
 		if buildFlags.increment {
-			if err = b.UpdateMixVer(); err != nil {
+			ver, err := strconv.Atoi(b.MixVer)
+			if err != nil {
+				fail(err)
+			}
+			if err = b.UpdateMixVer(ver + 10); err != nil {
 				failf("Couldn't update Mix Version")
 			}
 		}
@@ -354,8 +360,12 @@ var buildAllCmd = &cobra.Command{
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
-		err = b.UpdateMixVer()
+
+		ver, err := strconv.Atoi(b.MixVer)
 		if err != nil {
+			fail(err)
+		}
+		if err = b.UpdateMixVer(ver + 10); err != nil {
 			failf("Couldn't update Mix Version")
 		}
 	},

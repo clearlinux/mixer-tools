@@ -24,7 +24,6 @@ import (
 	"io"
 	"io/ioutil"
 	"math"
-	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -143,7 +142,7 @@ func (b *Builder) initDirs() error {
 	return nil
 }
 
-// Get latest CLR version
+// Get latest published upstream version
 func (b *Builder) getLatestUpstreamVersion() (string, error) {
 	ver, err := b.DownloadFileFromUpstreamAsString("/latest")
 	if err != nil {
@@ -153,82 +152,48 @@ func (b *Builder) getLatestUpstreamVersion() (string, error) {
 	return ver, nil
 }
 
-func (b *Builder) getUpstreamFileReader(subpath string) (*io.ReadCloser, error) {
+// buildUpstreamURL builds the full upstream URL based on a b.UpstreamURL and a
+// supplied subpath
+func (b *Builder) buildUpstreamURL(subpath string) (string, error) {
 	// Build the URL
 	end, err := url.Parse(subpath)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	base, err := url.Parse(b.UpstreamURL)
 	if err != nil {
-		return nil, err
-	}
-	resolved := base.ResolveReference(end).String()
-
-	resp, err := http.Get(resolved)
-	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("got status %q when downloading: %s", resp.Status, resolved)
-	}
-
-	return &resp.Body, nil
-}
-
-// DownloadFileFromUpstream will download a file from the Upstream URL
-// joined with the passed subpath and write that file to the supplied filename.
-func (b *Builder) DownloadFileFromUpstream(subpath string, filename string) error {
-	fr, err := b.getUpstreamFileReader(subpath)
-	if err != nil {
-		return errors.Wrap(err, "Failed to download file from upstream")
-	}
-	defer func() {
-		_ = (*fr).Close()
-	}()
-
-	// If no filename, infer from download path
-	if filename == "" {
-		_, filename = filepath.Split(subpath)
-	}
-
-	out, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = out.Close()
-	}()
-
-	_, err = io.Copy(out, *fr)
-	if err != nil {
-		if rmErr := os.RemoveAll(filename); err != nil {
-			return errors.Wrap(err, rmErr.Error())
-		}
-		return err
-	}
-
-	return nil
+	return base.ResolveReference(end).String(), nil
 }
 
 // DownloadFileFromUpstreamAsString will download a file from the Upstream URL
-// joined with the passed subpath. It will trim spaces from the result.
+// joined with the passed subpath. It will trim leading and trailing whitespace
+// from the result.
 func (b *Builder) DownloadFileFromUpstreamAsString(subpath string) (string, error) {
-	fr, err := b.getUpstreamFileReader(subpath)
+	url, err := b.buildUpstreamURL(subpath)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to download file from upstream")
+		return "", err
 	}
-	defer func() {
-		_ = (*fr).Close()
-	}()
-
-	content, err := ioutil.ReadAll(*fr)
+	content, err := helpers.DownloadFileAsString(url)
 	if err != nil {
 		return "", err
 	}
 
 	return strings.TrimSpace(string(content)), nil
+}
+
+// DownloadFileFromUpstream will download a file from the Upstream URL
+// joined with the passed subpath and write that file to the supplied file path.
+// If the path is left empty, the file name will be inferred from the source
+// and written to PWD.
+func (b *Builder) DownloadFileFromUpstream(subpath string, filePath string) error {
+	url, err := b.buildUpstreamURL(subpath)
+	if err != nil {
+		return err
+	}
+	return helpers.DownloadFile(url, filePath)
 }
 
 const mixDirGitIgnore = `upstream-bundles/
@@ -462,7 +427,7 @@ func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 
 	tmptarfile := filepath.Join(upstreamBundlesBaseDir, ver+".tar.gz")
 	URL := "https://github.com/clearlinux/clr-bundles/archive/" + ver + ".tar.gz"
-	if err := helpers.Download(tmptarfile, URL); err != nil {
+	if err := helpers.DownloadFile(URL, tmptarfile); err != nil {
 		return errors.Wrapf(err, "Failed to download bundles for upstream version %s", ver)
 	}
 
@@ -1300,28 +1265,17 @@ func (b *Builder) ValidateBundles(bundles []string, lvl ValidationLevel) error {
 	return nil
 }
 
-// UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
-// without requiring user intervention. This makes the flow slightly more automatable.
-func (b *Builder) UpdateMixVer() error {
+// UpdateMixVer sets the mix version in the builder object and writes it out to file
+func (b *Builder) UpdateMixVer(version int) error {
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
 		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
-	mixVer, _ := strconv.Atoi(b.MixVer)
-	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
-}
 
-// DecrementMixVer automatically bumps the mixversion file down -10 to prepare for the next build
-// without requiring user intervention. This makes the flow slightly more automatable.
-func (b *Builder) DecrementMixVer() error {
-	// Deprecate '.mixversion' --> 'mixversion'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
-		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
-	}
-	mixVer, _ := strconv.Atoi(b.MixVer)
-	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer-10)), 0644)
+	b.MixVer = strconv.Itoa(version)
+	b.MixVerUint32 = uint32(version)
+	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(b.MixVer), 0644)
 }
 
 // If Base == true, template will include the [main] and [clear] sections.
@@ -2115,6 +2069,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 		if !os.IsNotExist(err) {
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
+	}
 
 	if numWorkers < 1 {
 		numWorkers = runtime.NumCPU()
@@ -2249,8 +2204,9 @@ Latest upstream in format: %d
 	return nil
 }
 
-// UpdateVersions will validate then update both mix and upstream versions. If upstream
-// version is 0, then the latest upstream version possible will be taken instead.
+// UpdateVersions will validate then update both mix and upstream versions. If
+// upstream version is 0, then the latest upstream version in the current
+// upstream format will be taken instead.
 func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 	format, _, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
 	if err != nil {
@@ -2265,18 +2221,28 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 		nextUpstream = latest
 	}
 
+	nextUpstreamStr := strconv.FormatUint(uint64(nextUpstream), 10)
+
+	nextFormat := format
+	if nextUpstream > latest {
+		nextFormat, err = b.getUpstreamFormat(nextUpstreamStr)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Verify the version exists by checking if its Manifest.MoM is around.
-	_, err = b.DownloadFileFromUpstream(fmt.Sprintf("/update/%d/Manifest.MoM", nextUpstream))
+	_, err = b.DownloadFileFromUpstreamAsString(fmt.Sprintf("/update/%d/Manifest.MoM", nextUpstream))
 	if err != nil {
 		return errors.Wrapf(err, "invalid upstream version %d", nextUpstream)
 	}
 
-	fmt.Printf(`Current mix:      %d
-Current upstream: %d (format: %s)
+	fmt.Printf(`Old mix:      %d
+Old upstream: %d (format: %s)
 
-Updated mix:      %d
-Updated upstream: %d (format: %s)
-`, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, format)
+New mix:      %d
+New upstream: %d (format: %s)
+`, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, nextFormat)
 
 	mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)
@@ -2285,12 +2251,14 @@ Updated upstream: %d (format: %s)
 	}
 	fmt.Printf("\nWrote %s.\n", b.MixVerFile)
 
-	upstreamVerContents := []byte(fmt.Sprintf("%d\n", nextUpstream))
+	upstreamVerContents := []byte(nextUpstreamStr + "\n")
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), upstreamVerContents, 0644)
 	if err != nil {
 		return errors.Wrap(err, "couldn't write updated upstream version")
 	}
 	fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
+	b.UpstreamVerUint32 = nextUpstream
+	b.UpstreamVer = nextUpstreamStr
 
 	if _, err := b.CheckBumpNeeded(); err != nil {
 		return err

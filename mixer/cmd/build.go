@@ -132,8 +132,9 @@ var buildUpstreamFormatCmd = &cobra.Command{
 
 		// Set the upstream version to the previous format's latest version
 		b.UpstreamVerUint32 -= 10
+		b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
 		vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
-		if err := ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)), 0644); err != nil {
+		if err := ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
 			fail(err)
 		}
 		cmdToRun = strings.Split("mixer build format-bump old", " ")

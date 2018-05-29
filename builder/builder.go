@@ -2230,8 +2230,9 @@ Latest upstream in format: %d
 	return nil
 }
 
-// UpdateVersions will validate then update both mix and upstream versions. If upstream
-// version is 0, then the latest upstream version possible will be taken instead.
+// UpdateVersions will validate then update both mix and upstream versions. If
+// upstream version is 0, then the latest upstream version in the current
+// upstream format will be taken instead.
 func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 	format, _, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
 	if err != nil {
@@ -2246,18 +2247,28 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 		nextUpstream = latest
 	}
 
+	nextUpstreamStr := strconv.FormatUint(uint64(nextUpstream), 10)
+
+	nextFormat := format
+	if nextUpstream > latest {
+		nextFormat, err = b.getUpstreamFormat(nextUpstreamStr)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Verify the version exists by checking if its Manifest.MoM is around.
 	_, err = b.DownloadFileFromUpstreamAsString(fmt.Sprintf("/update/%d/Manifest.MoM", nextUpstream))
 	if err != nil {
 		return errors.Wrapf(err, "invalid upstream version %d", nextUpstream)
 	}
 
-	fmt.Printf(`Current mix:      %d
-Current upstream: %d (format: %s)
+	fmt.Printf(`Old mix:      %d
+Old upstream: %d (format: %s)
 
-Updated mix:      %d
-Updated upstream: %d (format: %s)
-`, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, format)
+New mix:      %d
+New upstream: %d (format: %s)
+`, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, nextFormat)
 
 	mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)
@@ -2266,12 +2277,14 @@ Updated upstream: %d (format: %s)
 	}
 	fmt.Printf("\nWrote %s.\n", b.MixVerFile)
 
-	upstreamVerContents := []byte(fmt.Sprintf("%d\n", nextUpstream))
+	upstreamVerContents := []byte(nextUpstreamStr + "\n")
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), upstreamVerContents, 0644)
 	if err != nil {
 		return errors.Wrap(err, "couldn't write updated upstream version")
 	}
 	fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
+	b.UpstreamVerUint32 = nextUpstream
+	b.UpstreamVer = nextUpstreamStr
 
 	if _, err := b.CheckBumpNeeded(); err != nil {
 		return err

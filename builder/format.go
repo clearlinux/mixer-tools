@@ -113,6 +113,12 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 // ".bump" file, and replaced with the latest version in the format range of the
 // most recent build. This process is undone via UnstageMixFromBump.
 func (b *Builder) stageMixForBump() error {
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
+	// bump file already exists; return early
+	if _, err := os.Stat(vBFile); !os.IsNotExist(err) {
+		return nil
+	}
+
 	version, err := b.getLastBuildUpstreamVersion()
 	if err != nil {
 		return err
@@ -125,7 +131,6 @@ func (b *Builder) stageMixForBump() error {
 
 	// Copy current upstreamversion to upstreamversion.bump
 	vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
 	if err := helpers.CopyFile(vBFile, vFile); err != nil {
 		return err
 	}

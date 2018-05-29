@@ -1881,6 +1881,12 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
+	// Create all deltas first
+	err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+	if err != nil {
+		return err
+	}
+	// Create packs filling in any missing deltas
 	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
 }
 
@@ -1923,6 +1929,15 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	fmt.Printf("Found %d previous versions\n", len(previousManifests))
 
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
+	// Create all deltas for all previous versions first based on full manifests
+	for _, fromManifest := range previousManifests {
+		fmt.Println()
+		err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+		if err != nil {
+			return err
+		}
+	}
+	// Create any missing delta files and pack all deltas up
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
 		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)

@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 )
 
 const debugPacks = false
@@ -72,6 +73,40 @@ func (state PackState) String() string {
 		return "packed fullfile"
 	}
 	return "invalid"
+}
+
+// CreateAllDeltas builds all of the deltas using the full manifest from one
+// version to the next. This allows better concurrency and the pack creation
+// code can just worry about adding pre-existing files to packs.
+func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int) error {
+	fromFile := filepath.Join(outputDir, strconv.Itoa(fromVersion), "Manifest.full")
+	toFile := filepath.Join(outputDir, strconv.Itoa(toVersion), "Manifest.full")
+
+	fromManifest, err := ParseManifestFile(fromFile)
+	if err != nil {
+		return err
+	}
+	toManifest, err := ParseManifestFile(toFile)
+	if err != nil {
+		return err
+	}
+
+	if fromVersion >= toVersion {
+		return fmt.Errorf("fromManifest version (%d) must be smaller than toManifest version (%d)", fromVersion, toVersion)
+	}
+
+	var c config
+	c, err = getConfig(filepath.Join(outputDir, ".."))
+	if err != nil {
+		return err
+	}
+
+	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // WritePack writes the pack between two Manifests, or a zero pack if fromManifest is

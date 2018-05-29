@@ -89,28 +89,26 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
-		// For build commands (except format bump commands), check if building
-		// across a format; if so, inform and exit.
+		// For non-bump build commands, check if building across a format
+		// If so: inform, stage, and exit.
+		// If not: run command in container and cancel pre-run
 		if !cmdContains(cmd, "format-bump") && !cmdContains(cmd, "upstream-format") && cmdContains(cmd, "build") {
 			if bumpNeeded, err := b.CheckBumpNeeded(); err != nil {
 				return err
 			} else if bumpNeeded {
-				// Cancel native run and return
-				cmd.RunE = nil
-				cmd.Run = func(cmd *cobra.Command, args []string) {} // No-op
+				cancelRun(cmd)
 				return nil
 			}
-		}
 
-		// If Native==false, run ONLY build commands in container
-		if !builder.Native && cmdContains(cmd, "build") {
-			if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
-				fail(err)
+			// If Native==false
+			if !builder.Native {
+				if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
+					fail(err)
+				}
+				// Cancel native run and return
+				cancelRun(cmd)
+				return nil
 			}
-			// Cancel native run and return
-			cmd.RunE = nil
-			cmd.Run = func(cmd *cobra.Command, args []string) {} // No-op
-			return nil
 		}
 
 		return checkCmdDeps(cmd)
@@ -221,6 +219,11 @@ func init() {
 	externalDeps[initCmd] = []string{
 		"git",
 	}
+}
+
+func cancelRun(cmd *cobra.Command) {
+	cmd.RunE = nil
+	cmd.Run = func(cmd *cobra.Command, args []string) {} // No-op
 }
 
 // cmdContains returns true if cmd or any of its parents are named name

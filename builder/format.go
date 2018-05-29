@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 )
@@ -31,19 +32,8 @@ import (
 func (b *Builder) UpdateFormatVersion(version string) error {
 	b.Config.Swupd.Format = version
 
-	if UseNewConfig {
-		var config string
-		var err error
-		if config, err = GetConfigPath(config); err != nil {
-			return err
-		}
-
-		var mc MixConfig
-		if err = mc.LoadConfig(config); err != nil {
-			return err
-		}
-
-		return mc.SetProperty(config, "Swupd.FORMAT", version)
+	if config.UseNewConfig {
+		return b.Config.SetProperty("Swupd.FORMAT", version)
 	}
 
 	builderData, err := ioutil.ReadFile(b.BuildConf)
@@ -72,7 +62,8 @@ func (b *Builder) RevertFullGroupsINI() error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "full_groups.ini"))
 }
 
-func (b *Builder) getLastBuildVersion() (string, error) {
+// GetLastBuildVersion returns the version number of the most recent build
+func (b *Builder) GetLastBuildVersion() (string, error) {
 	var lastVer []byte
 	var err error
 
@@ -83,14 +74,12 @@ func (b *Builder) getLastBuildVersion() (string, error) {
 	} else if err != nil {
 		return "", errors.Wrap(err, "Cannot find last built version")
 	}
-	data := string(lastVer)
-	ver := strings.Split(data, "\n")
 
-	return ver[0], nil
+	return strings.TrimSpace(string(lastVer)), nil
 }
 
 func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
-	lastMix, err := b.getLastBuildVersion()
+	lastMix, err := b.GetLastBuildVersion()
 	if err != nil {
 		return "", err
 	} else if lastMix == "" {
@@ -99,17 +88,15 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 
 	var lastVer []byte
 
-	filename := filepath.Join(b.Config.Builder.ServerStateDir, "update/www", lastMix, "upstreamver")
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "www", lastMix, "upstreamver")
 	if lastVer, err = ioutil.ReadFile(filename); os.IsNotExist(err) {
 		// Likely the first build
 		return "", nil
 	} else if err != nil {
 		return "", errors.Wrap(err, "Cannot find last built version's upstream version")
 	}
-	data := string(lastVer)
-	ver := strings.Split(data, "\n")
 
-	return ver[0], nil
+	return strings.TrimSpace(string(lastVer)), nil
 }
 
 // StageMixForBump prepares the mix for the two format bumps required to pass an
@@ -117,11 +104,17 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 // ".bump" file, and replaced with the latest version in the format range of the
 // most recent build. This process is undone via UnstageMixFromBump.
 func (b *Builder) stageMixForBump() error {
-	lastBuildVer, err := b.getLastBuildUpstreamVersion()
+	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
+	// bump file already exists; return early
+	if _, err := os.Stat(vBFile); !os.IsNotExist(err) {
+		return nil
+	}
+
+	version, err := b.getLastBuildUpstreamVersion()
 	if err != nil {
 		return err
 	}
-	_, _, latest, err := b.getUpstreamFormatRange(lastBuildVer)
+	_, _, latest, err := b.getUpstreamFormatRange(version)
 	if err != nil {
 		return err
 	}
@@ -129,7 +122,6 @@ func (b *Builder) stageMixForBump() error {
 
 	// Copy current upstreamversion to upstreamversion.bump
 	vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
-	vBFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile+".bump")
 	if err := helpers.CopyFile(vBFile, vFile); err != nil {
 		return err
 	}
@@ -168,14 +160,14 @@ func (b *Builder) CheckBumpNeeded() (bool, error) {
 		return false, nil
 	}
 	// Check what format our last built version is part of
-	oldVer, err := b.DownloadFileFromUpstreamAsString(filepath.Join("/update", version, "format"))
+	oldVer, err := b.getUpstreamFormat(version)
 	if err != nil {
-		return false, errors.Wrapf(err, "Could not read format version from %s", b.UpstreamURL)
+		return false, err
 	}
 	// Check what format our to-be-built version is part of
-	newVer, err := b.DownloadFileFromUpstreamAsString(filepath.Join("/update", b.UpstreamVer, "format"))
+	newVer, err := b.getUpstreamFormat(b.UpstreamVer)
 	if err != nil {
-		return false, errors.Wrapf(err, "Could not read format version from %s", b.UpstreamURL)
+		return false, err
 	}
 
 	// Check both formats are real numbers

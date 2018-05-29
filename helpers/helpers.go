@@ -28,7 +28,6 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -241,39 +240,6 @@ func copyFileWithFlags(dest string, src string, flags int) error {
 	return nil
 }
 
-// Download will attempt to download a from URL to the given filename
-func Download(filename string, url string) (err error) {
-	infile, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = infile.Body.Close()
-	}()
-
-	if infile.StatusCode != http.StatusOK {
-		return fmt.Errorf("Get %s replied: %d (%s)", url, infile.StatusCode, http.StatusText(infile.StatusCode))
-	}
-
-	out, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = out.Close()
-	}()
-
-	_, copyerr := io.Copy(out, infile.Body)
-	if copyerr != nil {
-		if err := os.RemoveAll(filename); err != nil {
-			return errors.New(copyerr.Error() + err.Error())
-		}
-		return copyerr
-	}
-
-	return nil
-}
-
 // Git runs git with arguments and returns in case of failure.
 // IMPORTANT: the 'args' passed to this function _must_ be validated,
 // as to avoid cases where input is received from a third party source.
@@ -367,37 +333,71 @@ func ListVisibleFiles(dirname string) ([]string, error) {
 	return filtered, nil
 }
 
-// DownloadFile will download a file from sourceURL joined with the passed
-// subpath. It will trim spaces from the result.
-func DownloadFile(sourceURL string, subpath string) (string, error) {
-	// Build the URL
-	end, err := url.Parse(subpath)
+func getDownloadFileReader(url string) (*io.ReadCloser, error) {
+	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	base, err := url.Parse(sourceURL)
-	if err != nil {
-		return "", err
-	}
-
-	resolved := base.ResolveReference(end).String()
-	// Fetch the version and parse it
-	resp, err := http.Get(resolved)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("got status %q when downloading: %s", resp.Status, resolved)
+		return nil, fmt.Errorf("got status %q when downloading: %s", resp.Status, url)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
+	return &resp.Body, nil
+}
+
+// DownloadFileAsString will download a file from the passed URL and return the
+// result as a string.
+func DownloadFileAsString(url string) (string, error) {
+	fr, err := getDownloadFileReader(url)
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to download file")
+	}
+
+	defer func() {
+		_ = (*fr).Close()
+	}()
+
+	content, err := ioutil.ReadAll(*fr)
 	if err != nil {
 		return "", err
 	}
 
-	return strings.TrimSpace(string(body)), nil
+	return string(content), nil
+}
+
+// DownloadFile will download a file from the passed URL and write that file to
+// the supplied file path. If the path is left empty, the file name will be
+// inferred from the source and written to PWD.
+func DownloadFile(url string, filePath string) error {
+	fr, err := getDownloadFileReader(url)
+	if err != nil {
+		return errors.Wrap(err, "Failed to download file")
+	}
+	defer func() {
+		_ = (*fr).Close()
+	}()
+
+	// If no filePath, infer from url
+	if filePath == "" {
+		_, filePath = filepath.Split(url)
+	}
+
+	out, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = out.Close()
+	}()
+
+	_, err = io.Copy(out, *fr)
+	if err != nil {
+		if rmErr := os.RemoveAll(filePath); err != nil {
+			return errors.Wrap(err, rmErr.Error())
+		}
+		return err
+	}
+
+	return nil
 }

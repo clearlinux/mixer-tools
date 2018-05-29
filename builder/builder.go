@@ -27,9 +27,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 	textTemplate "text/template" // "template" conflicts with crypto/x509
 
@@ -1967,44 +1969,71 @@ func createDeltaPacks(from *swupd.Manifest, to *swupd.Manifest, printReport bool
 	sort.Strings(orderedBundles)
 
 	for _, name := range orderedBundles {
-		bp := bundlesToPack[name]
-		packPath := filepath.Join(outputDir, fmt.Sprint(bp.ToVersion), swupd.GetPackFilename(bp.Name, bp.FromVersion))
+		b := bundlesToPack[name]
+		packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
 		_, err = os.Lstat(packPath)
 		if err == nil {
-			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", bp.Name, bp.FromVersion, bp.ToVersion)
+			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+			// Remove so the goroutines don't try to make deltas for these
+			delete(bundlesToPack, name)
 			continue
 		}
 		if !os.IsNotExist(err) {
 			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
 		}
-		fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", bp.Name, bp.FromVersion, bp.ToVersion)
-		info, err := swupd.CreatePack(bp.Name, bp.FromVersion, bp.ToVersion, outputDir, bundleDir, numWorkers)
-		if err != nil {
-			return err
-		}
-
-		if len(info.Warnings) > 0 {
-			for _, w := range info.Warnings {
-				fmt.Printf("    WARNING: %s\n", w)
-			}
-			fmt.Println()
-		}
-		if printReport {
-			max := 0
-			for _, e := range info.Entries {
-				if len(e.File.Name) > max {
-					max = len(e.File.Name)
-				}
-			}
-			fmt.Println("    Pack report:")
-			for _, e := range info.Entries {
-				fmt.Printf("      %-*s %s (%s)\n", max, e.File.Name, e.State, e.Reason)
-			}
-			fmt.Println()
-		}
-		fmt.Printf("    Fullfiles in pack: %d\n", info.FullfileCount)
-		fmt.Printf("    Deltas in pack: %d\n", info.DeltaCount)
 	}
+
+	if numWorkers < 1 {
+		numWorkers = runtime.NumCPU()
+	}
+	bundleWorkers := numWorkers
+
+	var bundleQueue = make(chan *swupd.BundleToPack)
+	var wg sync.WaitGroup
+	wg.Add(bundleWorkers)
+
+	// Delta creation takes a lot of memory, so create a limited amount of goroutines.
+	for i := 0; i < bundleWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			for b := range bundleQueue {
+				fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+				info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
+				if err != nil {
+					// set some error
+				}
+
+				if len(info.Warnings) > 0 {
+					for _, w := range info.Warnings {
+						fmt.Printf("    WARNING: %s\n", w)
+					}
+					fmt.Println()
+				}
+				if printReport {
+					max := 0
+					for _, e := range info.Entries {
+						if len(e.File.Name) > max {
+							max = len(e.File.Name)
+						}
+					}
+					fmt.Println("    Pack report:")
+					for _, e := range info.Entries {
+						fmt.Printf("      %-*s %s (%s)\n", max, e.File.Name, e.State, e.Reason)
+					}
+					fmt.Println()
+				}
+				fmt.Printf("    Fullfiles in pack: %d\n", info.FullfileCount)
+				fmt.Printf("    Deltas in pack: %d\n", info.DeltaCount)
+			}
+		}()
+	}
+	// Send jobs to the queue for delta goroutines to pick up.
+	for _, bundle := range bundlesToPack {
+		bundleQueue <- bundle
+	}
+	// Send message that no more jobs are being sent
+	close(bundleQueue)
+	wg.Wait()
 
 	timer.Stop()
 	return nil

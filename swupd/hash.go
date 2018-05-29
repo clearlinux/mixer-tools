@@ -22,6 +22,7 @@ import (
 	"hash"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 )
 
@@ -34,16 +35,26 @@ var AllZeroHash = "0000000000000000000000000000000000000000000000000000000000000
 // Hashes is a global map of indices to hashes
 var Hashes = []*string{&AllZeroHash}
 var invHash = map[string]Hashval{AllZeroHash: 0}
+var rwMutex sync.RWMutex
 
 // internHash adds only new hashes to the Hashes slice and returns the index at
 // which they are located
 func internHash(hash string) Hashval {
+	rwMutex.RLock()
 	if key, ok := invHash[hash]; ok {
+		rwMutex.RUnlock()
+		return key
+	}
+	rwMutex.RUnlock()
+	rwMutex.Lock()
+	if key, ok := invHash[hash]; ok {
+		rwMutex.Unlock()
 		return key
 	}
 	Hashes = append(Hashes, &hash)
 	key := Hashval(len(Hashes) - 1)
 	invHash[hash] = key
+	rwMutex.Unlock()
 	return key
 }
 

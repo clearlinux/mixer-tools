@@ -1324,28 +1324,17 @@ func (b *Builder) ValidateBundles(bundles []string, lvl ValidationLevel) error {
 	return nil
 }
 
-// UpdateMixVer automatically bumps the mixversion file +10 to prepare for the next build
-// without requiring user intervention. This makes the flow slightly more automatable.
-func (b *Builder) UpdateMixVer() error {
+// UpdateMixVer sets the mix version in the builder object and writes it out to file
+func (b *Builder) UpdateMixVer(version int) error {
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
 		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
-	mixVer, _ := strconv.Atoi(b.MixVer)
-	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer+10)), 0644)
-}
 
-// DecrementMixVer automatically bumps the mixversion file down -10 to prepare for the next build
-// without requiring user intervention. This makes the flow slightly more automatable.
-func (b *Builder) DecrementMixVer() error {
-	// Deprecate '.mixversion' --> 'mixversion'
-	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
-		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
-	}
-	mixVer, _ := strconv.Atoi(b.MixVer)
-	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(strconv.Itoa(mixVer-10)), 0644)
+	b.MixVer = strconv.Itoa(version)
+	b.MixVerUint32 = uint32(version)
+	return ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(b.MixVer), 0644)
 }
 
 // If Base == true, template will include the [main] and [clear] sections.

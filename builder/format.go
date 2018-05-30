@@ -72,7 +72,8 @@ func (b *Builder) RevertFullGroupsINI() error {
 	return helpers.CopyFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), filepath.Join(b.Config.Builder.ServerStateDir, "full_groups.ini"))
 }
 
-func (b *Builder) getLastBuildVersion() (string, error) {
+// GetLastBuildVersion returns the version number of the most recent build
+func (b *Builder) GetLastBuildVersion() (string, error) {
 	var lastVer []byte
 	var err error
 
@@ -88,7 +89,7 @@ func (b *Builder) getLastBuildVersion() (string, error) {
 }
 
 func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
-	lastMix, err := b.getLastBuildVersion()
+	lastMix, err := b.GetLastBuildVersion()
 	if err != nil {
 		return "", err
 	} else if lastMix == "" {

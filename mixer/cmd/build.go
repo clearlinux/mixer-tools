@@ -189,17 +189,16 @@ var buildFormatNewCmd = &cobra.Command{
 			fail(err)
 		}
 
-		// Update the mixversion just in case the user did not pass --increment
-		// This must be the +20 to write the new format data files even though we
-		// will build a +10 from the same content
-		for i := 0; i < 2; i++ {
-			if err = b.UpdateMixVer(); err != nil {
-				failf("Couldn't update Mix Version")
-			}
-			// Must re-read the builder or UpdateMixVer() will be a noop each iteration
-			if err = b.ReadVersions(); err != nil {
-				fail(err)
-			}
+		lastVer, err := b.GetLastBuildVersion()
+		if err != nil {
+			fail(err)
+		}
+		ver, err := strconv.Atoi(lastVer)
+		if err != nil {
+			fail(err)
+		}
+		if err = b.UpdateMixVer(ver + 20); err != nil {
+			failf("Couldn't update Mix Version")
 		}
 
 		// Set format to format+1 so that the format file inserted into the
@@ -230,7 +229,7 @@ var buildFormatNewCmd = &cobra.Command{
 		// TODO: Inject any extra files (certs, etc) here
 		// if err := AddBundleExtrasFiles(); err != nil {...}
 
-		ver, err := strconv.Atoi(b.MixVer)
+		ver, err = strconv.Atoi(b.MixVer)
 		if err != nil {
 			fail(err)
 		}
@@ -272,7 +271,7 @@ var buildFormatNewCmd = &cobra.Command{
 			fail(err)
 		}
 		// Set mixversion to the +10 since we have used +20 up to this point
-		if err = b.DecrementMixVer(); err != nil {
+		if err = b.UpdateMixVer(prevVersion); err != nil {
 			fail(err)
 		}
 	},
@@ -298,11 +297,12 @@ var buildFormatOldCmd = &cobra.Command{
 			failf("Couldn't build update: %s", err)
 		}
 
-		// Incremement regardless of flag because +30 must be the next version
-		for i := 0; i <= 2; i++ {
-			if err = b.UpdateMixVer(); err != nil {
-				failf("Couldn't update Mix Version")
-			}
+		if err = b.UpdateMixVer(ver + 20); err != nil {
+			failf("Couldn't update Mix Version")
+		}
+		// Update the update/image/LAST_VER to the +20 build, since we built the +10 out of order
+		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER"), []byte(strconv.Itoa(ver+10)), 0644); err != nil {
+			fail(err)
 		}
 	},
 }
@@ -323,7 +323,11 @@ var buildUpdateCmd = &cobra.Command{
 		}
 
 		if buildFlags.increment {
-			if err = b.UpdateMixVer(); err != nil {
+			ver, err := strconv.Atoi(b.MixVer)
+			if err != nil {
+				fail(err)
+			}
+			if err = b.UpdateMixVer(ver + 10); err != nil {
 				failf("Couldn't update Mix Version")
 			}
 		}
@@ -355,8 +359,12 @@ var buildAllCmd = &cobra.Command{
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
-		err = b.UpdateMixVer()
+
+		ver, err := strconv.Atoi(b.MixVer)
 		if err != nil {
+			fail(err)
+		}
+		if err = b.UpdateMixVer(ver + 10); err != nil {
 			failf("Couldn't update Mix Version")
 		}
 	},

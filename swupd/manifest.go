@@ -882,6 +882,8 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 		newFull.Files = append(newFull.Files, idxF)
 	}
 
+	// done processing, sort by version before writing
+	idxMan.sortFilesVersionName()
 	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+indexBundle)
 	if err := idxMan.WriteManifestFile(manOutput); err != nil {
 		return nil, err

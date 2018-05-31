@@ -28,8 +28,8 @@ func filenameBlacklisted(fname string) bool {
 }
 
 // createFileRecord creates a manifest File entry from a file
-func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo) error {
-	file, err := recordFromFile(rootPath, path, fi)
+func (m *Manifest) createFileRecord(rootPath, path, removePrefix string, fi os.FileInfo) error {
+	file, err := recordFromFile(rootPath, path, removePrefix, fi)
 	if err != nil {
 		return err
 	}
@@ -47,9 +47,15 @@ func (m *Manifest) createFileRecord(rootPath string, path string, fi os.FileInfo
 
 // recordFromFile creates a struct File record from an os.FileInfo object
 // this function sets the Name, Info, Type, and Hash fields
-func recordFromFile(rootPath, path string, fi os.FileInfo) (*File, error) {
+func recordFromFile(rootPath, path, removePrefix string, fi os.FileInfo) (*File, error) {
 	var file *File
-	fname := strings.TrimPrefix(path, rootPath)
+	var fname string
+	if removePrefix != "" {
+		fname = strings.TrimPrefix(path, removePrefix)
+		rootPath = removePrefix
+	} else {
+		fname = strings.TrimPrefix(path, rootPath)
+	}
 	if fname == "" {
 		return nil, nil
 	}
@@ -85,13 +91,13 @@ func recordFromFile(rootPath, path string, fi os.FileInfo) (*File, error) {
 }
 
 // createManifestRecord wraps createFileRecord to create a Manifest record for a MoM
-func (m *Manifest) createManifestRecord(rootPath string, path string, version uint32) error {
+func (m *Manifest) createManifestRecord(rootPath, path string, version uint32) error {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return err
 	}
 
-	file, err := recordFromFile(rootPath, path, fi)
+	file, err := recordFromFile(rootPath, path, "", fi)
 	if err != nil {
 		if strings.Contains(err.Error(), "hash calculation error") {
 			return err
@@ -112,13 +118,13 @@ func (m *Manifest) createManifestRecord(rootPath string, path string, version ui
 	return nil
 }
 
-func (m *Manifest) addFilesFromChroot(rootPath string) error {
+func (m *Manifest) addFilesFromChroot(rootPath, removePrefix string) error {
 	if _, err := os.Stat(rootPath); os.IsNotExist(err) {
 		return err
 	}
 
 	err := filepath.Walk(rootPath, func(path string, fi os.FileInfo, err error) error {
-		err = m.createFileRecord(rootPath, path, fi)
+		err = m.createFileRecord(rootPath, path, removePrefix, fi)
 		if err != nil {
 			if strings.Contains(err.Error(), "hash calculation error") {
 				return err

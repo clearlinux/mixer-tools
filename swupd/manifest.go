@@ -36,8 +36,9 @@ const manifestFieldDelim = "\t"
 // TODO make this configurable (optional and configurable bundle/filepath)
 // this should be done when configuration is in a more stable state
 const (
-	indexBundle   = "os-core-update-index"
-	indexFileName = "/usr/share/clear/os-core-update-index"
+	indexBundle       = "os-core-update-index"
+	indexFileName     = "/usr/share/clear/os-core-update-index"
+	indexAllBundleDir = "/usr/share/clear/allbundles"
 )
 
 // ManifestHeader contains metadata for the manifest
@@ -807,10 +808,22 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 		},
 		Name: indexBundle,
 	}
+
+	bundleDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
 	// add files from the chroot created in constructIndex
-	err := idxMan.addFilesFromChroot(filepath.Join(c.imageBase, fmt.Sprint(ui.version), indexBundle))
+	err := idxMan.addFilesFromChroot(filepath.Join(bundleDir, indexBundle), "")
 	if err != nil {
 		return nil, err
+	}
+
+	// if the allbundles directory was created add all those bundle files
+	// to the index as well
+	metaRoot := filepath.Join(bundleDir, "full", indexAllBundleDir)
+	if _, err = os.Stat(metaRoot); err == nil {
+		err = idxMan.addFilesFromChroot(metaRoot, filepath.Join(bundleDir, "full"))
+		if err != nil {
+			return nil, err
+		}
 	}
 	// record file count
 	idxMan.Header.FileCount = uint32(len(idxMan.Files))

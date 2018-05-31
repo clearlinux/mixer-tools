@@ -36,7 +36,7 @@ func (m *Manifest) getBundleInfo(path string) error {
 	var err error
 	if _, err = os.Stat(path); os.IsNotExist(err) {
 		basePath := filepath.Dir(path)
-		err = m.addFilesFromChroot(filepath.Join(filepath.Dir(path), m.Name))
+		err = m.addFilesFromChroot(filepath.Join(filepath.Dir(path), m.Name), "")
 		if err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {
 			return err
 		}
 
-		err = m.createFileRecord(chrootDir, fpath, fi)
+		err = m.createFileRecord(chrootDir, fpath, "", fi)
 		if err != nil {
 			if strings.Contains(err.Error(), "hash calculation error") {
 				return err

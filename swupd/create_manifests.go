@@ -73,7 +73,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			// by reading the files directly from the full chroot.
 			// No bundle-info file exists for full.
 			chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
-			err = bundle.addFilesFromChroot(chroot)
+			err = bundle.addFilesFromChroot(chroot, "")
 		} else {
 			biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
 			useBundleInfo := true

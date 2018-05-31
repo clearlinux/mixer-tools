@@ -38,12 +38,16 @@ endif
 build: gopath
 	go install ${GO_PACKAGE_PREFIX}/mixer
 	go install ${GO_PACKAGE_PREFIX}/mixin
+	go install ${GO_PACKAGE_PREFIX}/swupd-extract
+	go install ${GO_PACKAGE_PREFIX}/swupd-inspector
 	go install ${GO_PACKAGE_PREFIX}/mixer-completion
 
 install: gopath
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
 	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.
+	install -m 00755 $(GOPATH)/bin/swupd-extract $(DESTDIR)/usr/bin/.
+	install -m 00755 $(GOPATH)/bin/swupd-inspector $(DESTDIR)/usr/bin/.
 	$(GOPATH)/bin/mixer-completion bash --path $(DESTDIR)/usr/share/bash-completion/completions/mixer
 	$(GOPATH)/bin/mixer-completion zsh --path $(DESTDIR)/usr/share/zsh/site-functions/_mixer
 	test -d $(DESTDIR)/usr/share/man/man1 || install -D -d -m 00755 $(DESTDIR)/usr/share/man/man1

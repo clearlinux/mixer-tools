@@ -28,7 +28,7 @@ func TestCreateFileFromPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = m.createFileRecord("", path, fi)
+	err = m.createFileRecord("", path, "", fi)
 	if err != nil {
 		t.Error(err)
 	}
@@ -44,7 +44,7 @@ func TestCreateFileFromPath(t *testing.T) {
 func TestAddFilesFromChroot(t *testing.T) {
 	rootPath := "testdata/testbundle"
 	m := Manifest{}
-	if err := m.addFilesFromChroot(rootPath); err != nil {
+	if err := m.addFilesFromChroot(rootPath, ""); err != nil {
 		t.Error(err)
 	}
 
@@ -56,7 +56,7 @@ func TestAddFilesFromChroot(t *testing.T) {
 func TestAddFilesFromChrootNotExist(t *testing.T) {
 	rootPath := "testdata/nowhere"
 	m := Manifest{}
-	if err := m.addFilesFromChroot(rootPath); err == nil {
+	if err := m.addFilesFromChroot(rootPath, ""); err == nil {
 		t.Errorf("addFilesFromChroot did not fail on missing root")
 	}
 }

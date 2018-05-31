@@ -2,6 +2,7 @@ package swupd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,8 @@ type Delta struct {
 	to    *File
 }
 
+var bsdiffLog *log.Logger
+
 // CreateDeltasForManifest creates all delta files between the previous and current version of the
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
@@ -58,6 +61,15 @@ func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWork
 }
 
 func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int) ([]Delta, error) {
+	logFile, err := os.OpenFile(filepath.Join(c.stateDir, "bsdiff_errors.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot create log file for delta creation")
+	}
+	defer func() {
+		_ = logFile.Close()
+	}()
+	bsdiffLog = log.New(logFile, "DELTA: ", log.Lshortfile)
+
 	deltas, err := findDeltas(c, oldManifest, newManifest)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create deltas list %s", newManifest.Name)
@@ -141,20 +153,29 @@ func createDelta(c *config, delta *Delta) error {
 				}
 			}
 		}
-		return errors.Wrapf(err, "Failed to create delta for %s (%d) -> %s (%d)", delta.from.Name, delta.from.Version, delta.to.Name, delta.to.Version)
+		errStr := fmt.Sprintf("Failed to create delta for %s (%d) -> %s (%d)", delta.from.Name, delta.from.Version, delta.to.Name, delta.to.Version)
+		bsdiffLog.SetPrefix("BSDIFF: ")
+		bsdiffLog.Println(errStr)
+		return errors.Wrap(err, errStr)
 	}
 
 	// Check that delta is smaller than compressed full file
 	if deltaTooLarge(c, delta, newPath) {
 		_ = os.Remove(delta.Path)
-		return fmt.Errorf("Delta file %s (%d) larger than compressed full file %s",
-			delta.to.Name, delta.to.Version, newPath)
+
+		errStr := fmt.Sprintf("Delta file %s (%d) larger than compressed full file %s", delta.to.Name, delta.to.Version, newPath)
+		bsdiffLog.SetPrefix("LARGER-DELTA: ")
+		bsdiffLog.Println(errStr)
+		return errors.New(errStr)
 	}
 
 	// Check that the delta actually applies correctly.
 	testPath := delta.Path + ".testnewfile"
 	if err := helpers.RunCommandSilent("bspatch", oldPath, testPath, delta.Path); err != nil {
-		return errors.Wrapf(err, "Failed to apply delta %s", delta.Path)
+		errStr := fmt.Sprintf("Failed to apply delta %s", delta.Path)
+		bsdiffLog.SetPrefix("BSPATCH: ")
+		bsdiffLog.Println(errStr)
+		return errors.Wrapf(err, errStr)
 	}
 	defer func() {
 		_ = os.Remove(testPath)

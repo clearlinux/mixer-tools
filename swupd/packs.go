@@ -79,6 +79,10 @@ func (state PackState) String() string {
 // version to the next. This allows better concurrency and the pack creation
 // code can just worry about adding pre-existing files to packs.
 func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int) error {
+	// Don't try to make deltas for zero packs
+	if fromVersion == 0 {
+		return nil
+	}
 	fromFile := filepath.Join(outputDir, strconv.Itoa(fromVersion), "Manifest.full")
 	toFile := filepath.Join(outputDir, strconv.Itoa(toVersion), "Manifest.full")
 

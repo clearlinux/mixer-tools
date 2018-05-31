@@ -32,11 +32,11 @@ type Delta struct {
 	to    *File
 }
 
-// CreateDeltas creates all delta files between the previous and current version of the
+// CreateDeltasForManifest creates all delta files between the previous and current version of the
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
 // list. If number of workers is zero or less, 1 worker is used.
-func CreateDeltas(manifest, statedir string, from, to uint32, numWorkers int) ([]Delta, error) {
+func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int) ([]Delta, error) {
 	var c config
 
 	c, err := getConfig(statedir)

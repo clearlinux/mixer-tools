@@ -238,7 +238,7 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 
 func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
 	t.Helper()
-	deltas, err := CreateDeltas(manifest, statedir, from, to, 0)
+	deltas, err := CreateDeltasForManifest(manifest, statedir, from, to, 0)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}
@@ -256,7 +256,7 @@ func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint3
 
 func tryCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
 	t.Helper()
-	_, err := CreateDeltas(manifest, statedir, from, to, 0)
+	_, err := CreateDeltasForManifest(manifest, statedir, from, to, 0)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}

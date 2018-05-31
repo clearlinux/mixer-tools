@@ -513,7 +513,12 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 
 func mustCreatePack(t *testing.T, name string, fromVersion, toVersion uint32, outputDir, chrootDir string) *PackInfo {
 	t.Helper()
-	info, err := CreatePack(name, fromVersion, toVersion, outputDir, chrootDir, 0)
+	err := CreateAllDeltas(outputDir, int(fromVersion), int(toVersion), 0)
+	if err != nil {
+		t.Fatalf("error creating pack for bundle %s: %s", name, err)
+	}
+	var info *PackInfo
+	info, err = CreatePack(name, fromVersion, toVersion, outputDir, chrootDir, 0)
 	if err != nil {
 		t.Fatalf("error creating pack for bundle %s: %s", name, err)
 	}

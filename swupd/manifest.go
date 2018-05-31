@@ -739,13 +739,18 @@ func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
 		return err
 	}
 
+	trackingFile := filepath.Join("/usr/share/clear/bundles", indexBundle)
+	if err := createAndWrite(filepath.Join(imageVerPath, indexBundle, trackingFile), []byte{}); err != nil {
+		return err
+	}
+
 	// write to full chroot
 	fullFileName := filepath.Join(imageVerPath, "full", indexFileName)
 	if err := createAndWrite(fullFileName, output); err != nil {
 		return err
 	}
 
-	return nil
+	return createAndWrite(filepath.Join(imageVerPath, "full", trackingFile), []byte{})
 }
 
 // writeIndexManifest creates a file that is an index of all files -> bundle mappings in

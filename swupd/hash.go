@@ -40,12 +40,18 @@ var rwMutex sync.RWMutex
 // internHash adds only new hashes to the Hashes slice and returns the index at
 // which they are located
 func internHash(hash string) Hashval {
+	// Many reader locks can be acquired at the same time
 	rwMutex.RLock()
 	if key, ok := invHash[hash]; ok {
 		rwMutex.RUnlock()
 		return key
 	}
 	rwMutex.RUnlock()
+	// We need to grab a full lock now and check that it still does not exist
+	// because by the time we grab a lock and append, another thread could have
+	// already added the same hash since many files can overlap. The lock says
+	// no more reader locks can be acquired, and waits until all are released
+	// before taking the lock continuing forward with the check and appending.
 	rwMutex.Lock()
 	if key, ok := invHash[hash]; ok {
 		rwMutex.Unlock()

@@ -149,7 +149,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			return nil, err
 		}
 
-		deltas, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers)
+		deltas, err = findDeltas(&c, fromManifest, toManifest)
 		if err != nil {
 			return nil, err
 		}

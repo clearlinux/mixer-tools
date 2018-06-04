@@ -115,47 +115,60 @@ var buildBundlesCmd = &cobra.Command{
 }
 
 var buildUpstreamFormatCmd = &cobra.Command{
-	Use:   "upstream-format",
-	Short: "Use to create the necessary builds to cross an upstream format",
-	Long:  `Use to create the necessary builds to cross an upstream format`,
+	Use:    "upstream-format",
+	Short:  "Use to create the necessary builds to cross an upstream format",
+	Long:   `Use to create the necessary builds to cross an upstream format`,
+	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
 		}
-		cmdToRun := strings.Split("mixer build format-bump new", " ")
-		if config.UseNewConfig {
-			cmdToRun = append(cmdToRun, "--new-config")
-		}
-		if err := b.RunCommandInContainer(cmdToRun); err != nil {
-			fail(err)
-		}
 
-		// Set the upstream version to the previous format's latest version
-		b.UpstreamVerUint32 -= 10
-		b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
-		vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
-		if err := ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
-			fail(err)
-		}
-		cmdToRun = strings.Split("mixer build format-bump old", " ")
-		if config.UseNewConfig {
-			cmdToRun = append(cmdToRun, "--new-config")
-		}
-		if err := b.RunCommandInContainer(cmdToRun); err != nil {
-			fail(err)
-		}
-		// Set the upstream version back to what the user originally tried to build
-		if err := b.UnstageMixFromBump(); err != nil {
-			fail(err)
+		// Don't print any more warnings about being behind formats when we loop
+		silent := true
+		bumpNeeded := true
+
+		for bumpNeeded {
+			cmdToRun := strings.Split("mixer build format-bump new", " ")
+			if config.UseNewConfig {
+				cmdToRun = append(cmdToRun, "--new-config")
+			}
+			if err = b.RunCommandInContainer(cmdToRun); err != nil {
+				fail(err)
+			}
+
+			// Set the upstream version to the previous format's latest version
+			b.UpstreamVerUint32 -= 10
+			b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
+			vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
+			if err = ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
+				fail(err)
+			}
+			cmdToRun = strings.Split("mixer build format-bump old", " ")
+			if config.UseNewConfig {
+				cmdToRun = append(cmdToRun, "--new-config")
+			}
+			if err = b.RunCommandInContainer(cmdToRun); err != nil {
+				fail(err)
+			}
+			// Set the upstream version back to what the user originally tried to build
+			if err = b.UnstageMixFromBump(); err != nil {
+				fail(err)
+			}
+			bumpNeeded, err = b.CheckBumpNeeded(silent)
+			if err != nil {
+				fail(err)
+			}
 		}
 	},
 }
 
 var buildFormatBumpCmd = &cobra.Command{
-	Use:   "format-bump",
-	Short: "Used to create a downstream format bump",
-	Long:  `Used to create a downstream format bump`,
+	Use:    "format-bump",
+	Short:  "Used to create a downstream format bump",
+	Long:   `Used to create a downstream format bump`,
+	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
@@ -226,9 +239,6 @@ var buildFormatNewCmd = &cobra.Command{
 		if err = buildBundles(b, buildFlags.noSigning); err != nil {
 			fail(err)
 		}
-
-		// TODO: Inject any extra files (certs, etc) here
-		// if err := AddBundleExtrasFiles(); err != nil {...}
 
 		ver, err = strconv.Atoi(b.MixVer)
 		if err != nil {
@@ -478,6 +488,7 @@ func init() {
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numBundleWorkers, "bundle-workers", 0, "Number of parallel workers when building bundles, 0 means number of CPUs")
+
 	RootCmd.AddCommand(buildCmd)
 
 	buildBundlesCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")

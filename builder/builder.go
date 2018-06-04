@@ -2260,7 +2260,7 @@ New upstream: %d (format: %s)
 	b.UpstreamVerUint32 = nextUpstream
 	b.UpstreamVer = nextUpstreamStr
 
-	if _, err := b.CheckBumpNeeded(); err != nil {
+	if _, err := b.CheckBumpNeeded(false); err != nil {
 		return err
 	}
 

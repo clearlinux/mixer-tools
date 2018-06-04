@@ -94,7 +94,7 @@ var RootCmd = &cobra.Command{
 		// If so: inform, stage, and exit.
 		// If not: run command in container and cancel pre-run
 		if !cmdContains(cmd, "format-bump") && !cmdContains(cmd, "upstream-format") && cmdContains(cmd, "build") {
-			if bumpNeeded, err := b.CheckBumpNeeded(); err != nil {
+			if bumpNeeded, err := b.CheckBumpNeeded(false); err != nil {
 				return err
 			} else if bumpNeeded {
 				cancelRun(cmd)

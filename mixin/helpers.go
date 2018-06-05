@@ -104,7 +104,6 @@ func setUpMixDir(upstreamVer, mixVer int) error {
 	if err != nil {
 		return err
 	}
-	config.UseNewConfig = true
 	var c config.MixConfig
 	c.LoadDefaultsForPath(true, "/usr/share/mix")
 	c.Swupd.Bundle = "os-core"

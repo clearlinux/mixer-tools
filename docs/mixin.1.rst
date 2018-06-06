@@ -42,7 +42,7 @@ SUBCOMMANDS
 
     Print help text for any ``mixin`` subcommand.
 
-``package add <package-name> [--build]``
+``package add <package-name> [--build] [--bundle <name>]``
 
     Add RPM packages from remote or local repositories for use by mixer-swupd
     integration. This command performs a check to see if the added package
@@ -51,6 +51,9 @@ SUBCOMMANDS
 
     Adding the optional `--build` flag will run ``mixin build`` after adding the
     package.
+
+    Adding the option `--bundle <name>` flag will add the package to `name`
+    instead of the repo name.
 
 ``repo``
 

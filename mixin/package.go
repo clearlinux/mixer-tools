@@ -55,7 +55,8 @@ var packageCmds = []*cobra.Command{
 }
 
 type packageAddCmdFlags struct {
-	build bool
+	bundle string
+	build  bool
 }
 
 var packageAddFlags packageAddCmdFlags
@@ -66,20 +67,21 @@ func init() {
 		cmd.Flags().StringVarP(&configFile, "config", "c", "/usr/share/mix/builder.conf", "Builder config to use")
 	}
 
+	addPackageCmd.Flags().StringVar(&packageAddFlags.bundle, "bundle", "", "Add package to bundle name")
 	addPackageCmd.Flags().BoolVar(&packageAddFlags.build, "build", false, "Build mix update after adding package to bundle")
 
 	RootCmd.AddCommand(packageCmd)
 }
 
 func runAddPackage(cmd *cobra.Command, args []string) {
-	bundle, err := addPackage(args[0], packageAddFlags.build)
+	bundle, err := addPackage(args[0], packageAddFlags.build, packageAddFlags.bundle)
 	if err != nil {
 		fail(err)
 	}
 	fmt.Printf("Added %s package to %s bundle.\n", args[0], bundle)
 }
 
-func addPackage(pkg string, build bool) (string, error) {
+func addPackage(pkg string, build bool, bundleName string) (string, error) {
 	var err error
 	var bundle string
 
@@ -132,6 +134,12 @@ func addPackage(pkg string, build bool) (string, error) {
 	bundle, err = getPackageRepo(pkg, ver, b.Config.Builder.DNFConf)
 	if err != nil {
 		return "", err
+	}
+
+	// if the bundleName argument is non-empty use this instead of
+	// automatically naming the bundle after the repo from whence it came
+	if bundleName != "" {
+		bundle = bundleName
 	}
 
 	err = b.EditBundles([]string{bundle}, true, true, false)

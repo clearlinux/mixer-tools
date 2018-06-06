@@ -61,7 +61,7 @@ Print help text for any \fBmixin\fP subcommand.
 .UNINDENT
 .UNINDENT
 .sp
-\fBpackage add <package\-name> [\-\-build]\fP
+\fBpackage add <package\-name> [\-\-build] [\-\-bundle <name>]\fP
 .INDENT 0.0
 .INDENT 3.5
 Add RPM packages from remote or local repositories for use by mixer\-swupd
@@ -71,6 +71,9 @@ a custom bundle named after the repo from which the package originated.
 .sp
 Adding the optional \fI\-\-build\fP flag will run \fBmixin build\fP after adding the
 package.
+.sp
+Adding the option \fI\-\-bundle <name>\fP flag will add the package to \fIname\fP
+instead of the repo name.
 .UNINDENT
 .UNINDENT
 .sp

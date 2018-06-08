@@ -2015,19 +2015,53 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		cur = m.Header.Previous
 	}
 
-	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
 	fmt.Printf("Found %d previous versions\n", len(previousManifests))
 
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	// Create all deltas for all previous versions first based on full manifests
-	for _, fromManifest := range previousManifests {
-		fmt.Println()
-		err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
-		if err != nil {
-			return err
-		}
+	var versionQueue = make(chan *swupd.Manifest)
+	var wg sync.WaitGroup
+	var deltaErrors []error
+	versionWorkers := 1
+
+	// If we have at least 2x the number of CPUs as versions, give each version
+	// its own thread to build deltas in.
+	if runtime.NumCPU() >= 2*len(previousManifests) {
+		b.NumDeltaWorkers = int(math.Ceil(float64(runtime.NumCPU()) / float64(len(previousManifests))))
+		versionWorkers = len(previousManifests)
 	}
-	// Create any missing delta files and pack all deltas up
+	wg.Add(versionWorkers)
+	fmt.Printf("Using %d version threads and %d delta threads in each\n", versionWorkers, b.NumDeltaWorkers)
+
+	// If possible, run a thread for each version back so we don't get locked up
+	// at the end of a version doing some large/slow delta pack in serial. This way
+	// the large file(s) at the end of each version will run in parallel.
+	for i := 0; i < versionWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			for fromManifest := range versionQueue {
+				err := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+				if err != nil {
+					deltaErrors = append(deltaErrors, err)
+				}
+			}
+		}()
+	}
+
+	// Send jobs to the queue for version goroutines to pick up.
+	for i := range previousManifests {
+		versionQueue <- previousManifests[i]
+	}
+
+	// Send message that no more jobs are being sent
+	close(versionQueue)
+	wg.Wait()
+
+	for i := 0; i < len(deltaErrors); i++ {
+		fmt.Fprintf(os.Stderr, "%s\n", deltaErrors[i])
+	}
+
+	// Simply pack all deltas up since they are now created
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
 		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)

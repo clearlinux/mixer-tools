@@ -76,7 +76,7 @@ var RootCmd = &cobra.Command{
 		}
 
 		// If running natively, check for format missmatch and warn
-		if builder.Native {
+		if builder.Native && b.UpstreamURL != "" {
 			hostFormat, upstreamFormat, err := b.GetHostAndUpstreamFormats()
 			if err != nil {
 				fail(err)
@@ -88,6 +88,8 @@ var RootCmd = &cobra.Command{
 				fmt.Println("Warning: The host format and mix upstream format do not match.",
 					"Mixer may be incompatible with this format; running natively may fail.")
 			}
+		} else {
+			fmt.Printf("Warning: Using Format=%s from builder.conf for this build.\n", b.Config.Swupd.Format)
 		}
 
 		// For non-bump build commands, check if building across a format

@@ -172,6 +172,9 @@ func (b *Builder) buildUpstreamURL(subpath string) (string, error) {
 // joined with the passed subpath. It will trim leading and trailing whitespace
 // from the result.
 func (b *Builder) DownloadFileFromUpstreamAsString(subpath string) (string, error) {
+	if b.UpstreamURL == "" {
+		return b.Config.Swupd.Format, nil
+	}
 	url, err := b.buildUpstreamURL(subpath)
 	if err != nil {
 		return "", err

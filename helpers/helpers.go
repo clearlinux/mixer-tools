@@ -298,7 +298,7 @@ func RunCommandTimeout(timeout int, cmdname string, args ...string) error {
 	err := cmd.Run()
 
 	if ctx.Err() == context.DeadlineExceeded {
-		errors.Errorf("Command: %s timed out\n", cmdname)
+		return errors.Errorf("Command: %s timed out\n", cmdname)
 	}
 
 	return err

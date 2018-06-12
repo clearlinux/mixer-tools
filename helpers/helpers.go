@@ -18,6 +18,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -282,6 +283,27 @@ func RunCommandSilent(cmdname string, args ...string) error {
 	return err
 }
 
+// RunCommandTimeout runs the given command with timeout + args and does not print command output
+func RunCommandTimeout(timeout int, cmdname string, args ...string) error {
+	ctx := context.Background()
+	// 0 means infinite timeout, ONLY set timeouts when value is > 0
+	if timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(context.Background(), time.Duration(timeout)*time.Second)
+		defer cancel()
+	}
+	cmd := exec.CommandContext(ctx, cmdname, args...)
+	cmd.Stdout = nil
+	cmd.Stderr = nil
+	err := cmd.Run()
+
+	if ctx.Err() == context.DeadlineExceeded {
+		errors.Errorf("Command: %s timed out\n", cmdname)
+	}
+
+	return err
+}
+
 // RunCommandOutput executes the command with arguments and stores its output in
 // memory. If the command succeeds returns that output, if it fails, return err that
 // contains both the out and err streams from the execution.
@@ -292,6 +314,7 @@ func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
+
 	if err != nil {
 		var buf bytes.Buffer
 		fmt.Fprintf(&buf, "failed to execute %s", strings.Join(cmd.Args, " "))

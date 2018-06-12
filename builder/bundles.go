@@ -787,9 +787,7 @@ src=%s
 // there are no file collisions in the build.
 func createOsPackagesFile(buildVersionDir string) error {
 	fullChroot := filepath.Join(buildVersionDir, "full")
-	packages, err := helpers.RunCommandOutput(
-		"rpm", "--root="+fullChroot, "-qa", "--queryformat", "%{NAME}\t%{SOURCERPM}\n",
-	)
+	packages, err := helpers.RunCommandOutput("rpm", "--root="+fullChroot, "-qa", "--queryformat", "%{NAME}\t%{SOURCERPM}\n")
 	if err != nil {
 		return err
 	}

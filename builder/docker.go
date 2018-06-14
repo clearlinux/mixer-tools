@@ -143,6 +143,11 @@ func (b *Builder) getDockerMounts() ([]string, error) {
 	rc := reflect.ValueOf(b.Config)
 
 	for i := 0; i < rc.NumField(); i++ {
+		/* ignore unexported fields */
+		if !rc.Field(i).CanSet() {
+			continue
+		}
+
 		err := addConfigFieldPaths(rc.Field(i), &mounts)
 		if err != nil {
 			return nil, err

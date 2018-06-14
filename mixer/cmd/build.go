@@ -191,8 +191,6 @@ var buildFormatBumpCmd = &cobra.Command{
 	},
 }
 
-// buildOldFormatCmd is used to build the final version in the current format (the +10)
-// and ready the mix state for the new (+20) version to be built by a (possibly) newer mixer
 var buildFormatNewCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Build the +20 version in the new format for the format bump",

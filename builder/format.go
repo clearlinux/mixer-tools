@@ -69,10 +69,7 @@ func (b *Builder) GetLastBuildVersion() (string, error) {
 
 	filename := filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER")
 	if lastVer, err = ioutil.ReadFile(filename); os.IsNotExist(err) {
-		// Likely the first build
-		return "", nil
-	} else if err != nil {
-		return "", errors.Wrap(err, "Cannot find last built version")
+		return "", err
 	}
 
 	return strings.TrimSpace(string(lastVer)), nil
@@ -82,18 +79,13 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 	lastMix, err := b.GetLastBuildVersion()
 	if err != nil {
 		return "", err
-	} else if lastMix == "" {
-		return "", nil
 	}
 
 	var lastVer []byte
 
 	filename := filepath.Join(b.Config.Builder.ServerStateDir, "www", lastMix, "upstreamver")
-	if lastVer, err = ioutil.ReadFile(filename); os.IsNotExist(err) {
-		// Likely the first build
-		return "", nil
-	} else if err != nil {
-		return "", errors.Wrap(err, "Cannot find last built version's upstream version")
+	if lastVer, err = ioutil.ReadFile(filename); err != nil {
+		return "", err
 	}
 
 	return strings.TrimSpace(string(lastVer)), nil
@@ -155,10 +147,12 @@ func (b *Builder) UnstageMixFromBump() error {
 func (b *Builder) CheckBumpNeeded(silent bool) (bool, error) {
 	version, err := b.getLastBuildUpstreamVersion()
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, err
-	} else if version == "" {
-		return false, nil
 	}
+
 	// Check what format our last built version is part of
 	oldVer, err := b.getUpstreamFormat(version)
 	if err != nil {

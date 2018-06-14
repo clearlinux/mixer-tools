@@ -33,7 +33,7 @@ func (b *Builder) UpdateFormatVersion(version string) error {
 	b.Config.Swupd.Format = version
 
 	if config.UseNewConfig {
-		return b.Config.SetProperty("Swupd.FORMAT", version)
+		return b.Config.SaveConfig()
 	}
 
 	builderData, err := ioutil.ReadFile(b.BuildConf)

@@ -18,9 +18,12 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
+	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -104,6 +107,20 @@ func mergeMoMs(mixWS string, mixVer, lastVer int) error {
 	return upstreamMoM.WriteManifestFile("Manifest.MoM")
 }
 
+func incrementMixVerIfNeeded(mixVer int, mixFlagFile string) int {
+	out, err := ioutil.ReadFile(mixFlagFile)
+	if err != nil {
+		return mixVer
+	}
+
+	ver, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return mixVer
+	}
+
+	return ver + 10
+}
+
 func buildMix(prepNeeded bool) error {
 	var err error
 	lastVer := getLastVersion()
@@ -113,7 +130,7 @@ func buildMix(prepNeeded bool) error {
 		_ = os.Remove(mixFlagFile)
 		return err
 	}
-	mixVer := ver * 1000
+	mixVer := incrementMixVerIfNeeded(ver*1000, mixFlagFile)
 	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
 	if err != nil {
 		_ = os.Remove(mixFlagFile)
@@ -232,7 +249,7 @@ func buildMix(prepNeeded bool) error {
 	}
 
 	// write a file that says this mix is ready to be consumed
-	_, err = os.OpenFile(mixFlagFile, os.O_RDONLY|os.O_CREATE, 0666)
+	err = ioutil.WriteFile(mixFlagFile, []byte(fmt.Sprint(mixVer)), 0666)
 	if err != nil {
 		return err
 	}

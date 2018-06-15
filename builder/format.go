@@ -36,7 +36,7 @@ func (b *Builder) UpdateFormatVersion(version string) error {
 		return b.Config.SaveConfig()
 	}
 
-	builderData, err := ioutil.ReadFile(b.BuildConf)
+	builderData, err := ioutil.ReadFile(b.Config.GetConfigFileName())
 	if err != nil {
 		return errors.Wrap(err, "Failed to read builder.conf")
 	}
@@ -45,7 +45,7 @@ func (b *Builder) UpdateFormatVersion(version string) error {
 	newver := []byte("${1}" + b.Config.Swupd.Format)
 	builderData = re.ReplaceAll(builderData, newver)
 
-	if err = ioutil.WriteFile(b.BuildConf, builderData, 0644); err != nil {
+	if err = ioutil.WriteFile(b.Config.GetConfigFileName(), builderData, 0644); err != nil {
 		return errors.Wrap(err, "Failed to write new builder.conf")
 	}
 

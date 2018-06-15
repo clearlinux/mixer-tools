@@ -60,9 +60,6 @@ var Offline = false
 type Builder struct {
 	Config config.MixConfig
 
-	BuildScript string
-	BuildConf   string
-
 	MixVer            string
 	MixVerFile        string
 	MixBundlesFile    string
@@ -91,7 +88,6 @@ var upstreamPackages = make(map[string]bool)
 // default values.
 func New() *Builder {
 	return &Builder{
-		BuildScript:       "bundle-chroot-builder.py",
 		UpstreamURLFile:   "upstreamurl",
 		UpstreamVerFile:   "upstreamversion",
 		MixBundlesFile:    "mixbundles",

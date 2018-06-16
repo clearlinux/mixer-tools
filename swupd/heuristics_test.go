@@ -63,13 +63,8 @@ func TestSetStateFromPathname(t *testing.T) {
 		file     File
 		expected ModifierFlag
 	}{
-		{File{Name: "/acct/a"}, ModifierState},
-		{File{Name: "/cache/a"}, ModifierState},
-		{File{Name: "/data/a"}, ModifierState},
 		{File{Name: "/lost+found/a"}, ModifierState},
-		{File{Name: "/mnt/asec/a"}, ModifierState},
 		{File{Name: "/a"}, ModifierUnset},
-		{File{Name: "/acct"}, ModifierState},
 		{File{Name: "/other"}, ModifierUnset},
 		{File{Name: "/usr/src/foo"}, ModifierState},
 	}
@@ -93,9 +88,6 @@ func TestSetBootFromPathname(t *testing.T) {
 		{File{Name: "/boot/EFI"}, ModifierBoot},
 		{File{Name: "/usr/lib/modules/module"}, ModifierBoot},
 		{File{Name: "/usr/lib/kernel/file"}, ModifierBoot},
-		{File{Name: "/usr/lib/gummiboot/foo"}, ModifierBoot},
-		{File{Name: "/usr/bin/gummiboot/bar"}, ModifierBoot},
-		{File{Name: "/usr/gummiboot/bar"}, ModifierUnset},
 		{File{Name: "/usr/kernel/bar"}, ModifierUnset},
 	}
 
@@ -119,7 +111,6 @@ func TestSetModifierFromPathname(t *testing.T) {
 		{File{Name: "/usr/src/debug"}, ModifierUnset},
 		{File{Name: "/dev/foo"}, ModifierState},
 		{File{Name: "/usr/src/file"}, ModifierState},
-		{File{Name: "/acct/file"}, ModifierState},
 		{File{Name: "/boot/EFI"}, ModifierBoot},
 		{File{Name: "/randomfile"}, ModifierUnset},
 	}
@@ -141,7 +132,6 @@ func TestApplyHeuristics(t *testing.T) {
 		"/usr/src/debug": ModifierUnset,
 		"/dev/foo":       ModifierState,
 		"/usr/src/file":  ModifierState,
-		"/acct/file":     ModifierState,
 		"/boot/EFI":      ModifierBoot,
 		"/randomfile":    ModifierUnset,
 	}

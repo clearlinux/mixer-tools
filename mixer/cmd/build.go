@@ -156,6 +156,8 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			if err = b.UnstageMixFromBump(); err != nil {
 				fail(err)
 			}
+			b.UpstreamVerUint32 += 10
+			b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
 			bumpNeeded, err = b.CheckBumpNeeded(silent)
 			if err != nil {
 				fail(err)

@@ -58,34 +58,12 @@ func (f *File) setStateFromPathname() {
 
 	// TODO: make this list configurable
 	// these are paths that are not shipped directories
-	extraStatePaths := []string{
+	stateDirs := []string{
 		"/usr/src/",
-	}
-
-	// TODO: make this list configurable
-	// these are commonly added directories for user customization
-	// ideally this never triggers if package builds are clean
-	otherStatePaths := []string{
-		"/acct",
-		"/cache",
-		"/data",
 		"/lost+found",
-		"/mnt/asec",
-		"/mnt/obb",
-		"/mnt/shell/emulated",
-		"/mnt/swupd",
-		"/oem",
-		"/system/rt/audio",
-		"/system/rt/gfx",
-		"/system/rt/media",
-		"/system/rt/wifi",
-		"/system/etc/firmware/virtual",
 	}
 
-	// these are treated the same, they are only kept apart for bookkeeping
-	finalStatePaths := append(otherStatePaths, extraStatePaths...)
-
-	for _, path := range finalStatePaths {
+	for _, path := range stateDirs {
 		if strings.HasPrefix(f.Name, path) {
 			f.Modifier = ModifierState
 			return
@@ -99,8 +77,6 @@ func (f *File) setBootFromPathname() {
 		"/boot/",
 		"/usr/lib/modules/",
 		"/usr/lib/kernel/",
-		"/usr/lib/gummiboot",
-		"/usr/bin/gummiboot",
 	}
 
 	for _, path := range bootPaths {

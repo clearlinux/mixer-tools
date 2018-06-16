@@ -285,6 +285,10 @@ var buildFormatNewCmd = &cobra.Command{
 		if err = b.UpdateMixVer(prevVersion); err != nil {
 			fail(err)
 		}
+		// Since we build +10 out of order, restore LAST_VER to the previous version
+		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER"), []byte(strconv.Itoa(ver-20)), 0644); err != nil {
+			fail(err)
+		}
 	},
 }
 

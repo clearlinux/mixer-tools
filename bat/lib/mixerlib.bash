@@ -36,12 +36,28 @@ mixer-versions-update() {
   mixer $MIXARGS versions update --mix-version $1
 }
 
+mixer-upstream-update() {
+  mixer $MIXARGS versions update --upstream-version $1
+}
+
 mixer-build-bundles() {
   sudo -E mixer $MIXARGS build bundles --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-build-update() {
   sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf
+}
+
+mixer-build-all() {
+  sudo -E mixer $MIXARGS build all --config $BATS_TEST_DIRNAME/builder.conf
+}
+
+mixer-build-format-bump-new() {
+  sudo -E mixer $MIXARGS build format-bump new --native
+}
+
+mixer-build-format-bump-old() {
+  sudo -E mixer $MIXARGS build format-bump old --native
 }
 
 mixer-add-rpms() {
@@ -74,6 +90,14 @@ download-rpm() {
   pushd $BATS_TEST_DIRNAME/local-rpms
   curl -LO $1
   popd
+}
+
+get-last-format-boundary() {
+  latest=$(curl https://download.clearlinux.org/latest)
+  format=$(curl https://download.clearlinux.org/update/$latest/format)
+  first=$(curl https://download.clearlinux.org/update/version/format$format/first)
+
+  echo $(($first-10))
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

@@ -319,6 +319,15 @@ var buildFormatOldCmd = &cobra.Command{
 		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER"), []byte(strconv.Itoa(ver+10)), 0644); err != nil {
 			fail(err)
 		}
+		// Restore the new format in builder.conf
+		newFormat, err := strconv.Atoi(b.Config.Swupd.Format)
+		if err != nil {
+			fail(err)
+		}
+		newFormat++
+		if err = b.UpdateFormatVersion(strconv.Itoa(newFormat)); err != nil {
+			fail(err)
+		}
 	},
 }
 

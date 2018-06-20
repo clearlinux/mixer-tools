@@ -84,6 +84,18 @@ type Builder struct {
 	UpstreamVerUint32 uint32
 }
 
+// UpdateParameters contains the configuration parameters for building an update
+type UpdateParameters struct {
+	// Minimum version used to generate delta packs
+	MinVersion int
+	// Format version used in this update
+	Format string
+	// Update latest format version and image version files to current mix
+	Publish bool
+	// Skip signing Manifest.MoM
+	SkipSigning bool
+}
+
 var localPackages = make(map[string]bool)
 var upstreamPackages = make(map[string]bool)
 
@@ -1469,22 +1481,15 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 }
 
 // BuildUpdate will produce an update consumable by the swupd client
-func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, skipSigning bool, publish bool, keepChroots bool) error {
+func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	var err error
 
-	if minVersion < 0 || minVersion > math.MaxUint32 {
-		return errors.Errorf("minVersion %d is out of range", minVersion)
+	if params.MinVersion < 0 || params.MinVersion > math.MaxUint32 {
+		return errors.Errorf("minVersion %d is out of range", params.MinVersion)
 	}
 
-	if format != "" {
-		b.Config.Swupd.Format = format
-	}
-	// TODO: move this to parsing configuration / parameter time.
-	// TODO: should this be uint64?
-	var formatUint uint32
-	formatUint, err = parseUint32(b.Config.Swupd.Format)
-	if err != nil {
-		return errors.Errorf("invalid format")
+	if params.Format != "" {
+		b.Config.Swupd.Format = params.Format
 	}
 
 	// Ensure the format dir exists.
@@ -1497,7 +1502,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 
-	err = b.buildUpdateContent(timer, b.MixVerUint32, uint32(minVersion), formatUint, skipSigning)
+	err = b.buildUpdateContent(params, timer)
 	if err != nil {
 		return err
 	}
@@ -1520,7 +1525,7 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 
 	// Publish. Update the latest version both in the format (used by update itself) and in LAST_VER
 	// (used to create newer manifests).
-	if !publish {
+	if !params.Publish {
 		return nil
 	}
 
@@ -1538,15 +1543,25 @@ func (b *Builder) BuildUpdate(prefixflag string, minVersion int, format string, 
 	return nil
 }
 
-func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVersion uint32, format uint32, skipSigning bool) error {
+func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) error {
 	var err error
+
+	// TODO: move this to parsing configuration / parameter time.
+	// TODO: should this be uint64?
+	var format uint32
+	format, err = parseUint32(b.Config.Swupd.Format)
+	if err != nil {
+		return errors.Errorf("invalid format")
+	}
+
+	minVersion := uint32(params.MinVersion)
 
 	err = writeMetaFiles(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer), b.Config.Swupd.Format, Version)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write update metadata files")
 	}
 	timer.Start("CREATE MANIFESTS")
-	mom, err := swupd.CreateManifests(mixVersion, minVersion, uint(format), b.Config.Builder.ServerStateDir)
+	mom, err := swupd.CreateManifests(b.MixVerUint32, minVersion, uint(format), b.Config.Builder.ServerStateDir)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create update metadata")
 	}
@@ -1555,7 +1570,7 @@ func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVer
 		fmt.Printf("- %-20s %d\n", f.Name, f.Version)
 	}
 
-	if !skipSigning {
+	if !params.SkipSigning {
 		fmt.Println("Signing manifest.")
 		err = b.SignManifestMoM()
 		if err != nil {
@@ -1564,10 +1579,10 @@ func (b *Builder) buildUpdateContent(timer *stopWatch, mixVersion uint32, minVer
 	}
 
 	outputDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
-	thisVersionDir := filepath.Join(outputDir, fmt.Sprint(mixVersion))
+	thisVersionDir := filepath.Join(outputDir, fmt.Sprint(b.MixVerUint32))
 	fmt.Println("Compressing Manifest.MoM")
 	momF := filepath.Join(thisVersionDir, "Manifest.MoM")
-	if skipSigning {
+	if params.SkipSigning {
 		err = createCompressedArchive(momF+".tar", momF)
 	} else {
 		err = createCompressedArchive(momF+".tar", momF, momF+".sig")

@@ -36,9 +36,7 @@ type buildCmdFlags struct {
 	increment  bool
 	minVersion int
 	noSigning  bool
-	prefix     string
 	noPublish  bool
-	keepChroot bool
 	template   string
 
 	numFullfileWorkers int
@@ -485,9 +483,15 @@ func setUpdateFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&buildFlags.increment, "increment", false, "Automatically increment the mixversion post build")
 	cmd.Flags().IntVar(&buildFlags.minVersion, "min-version", 0, "Supply minversion to build update with")
 	cmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate and do not sign the Manifest.MoM")
-	cmd.Flags().StringVar(&buildFlags.prefix, "prefix", "", "Supply prefix for where the swupd binaries live")
 	cmd.Flags().BoolVar(&buildFlags.noPublish, "no-publish", false, "Do not update the latest version after update")
-	cmd.Flags().BoolVar(&buildFlags.keepChroot, "keep-chroots", false, "Keep individual chroots created and not just consolidated 'full'")
+	var unusedStringFlag string
+	cmd.Flags().StringVar(&unusedStringFlag, "prefix", "", "Supply prefix for where the swupd binaries live")
+	_ = cmd.Flags().MarkHidden("prefix")
+	_ = cmd.Flags().MarkDeprecated("prefix", "This flag is ignored by the update builder")
+	var unusedBoolFlag bool
+	cmd.Flags().BoolVar(&unusedBoolFlag, "keep-chroots", false, "Keep individual chroots created and not just consolidated 'full'")
+	_ = cmd.Flags().MarkHidden("keep-chroots")
+	_ = cmd.Flags().MarkDeprecated("keep-chroots", "This flag is ignored by the update builder")
 }
 
 var buildCmds = []*cobra.Command{

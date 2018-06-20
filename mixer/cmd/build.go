@@ -32,12 +32,14 @@ import (
 )
 
 type buildCmdFlags struct {
-	format     string
-	increment  bool
-	minVersion int
-	noSigning  bool
-	noPublish  bool
-	template   string
+	format        string
+	increment     bool
+	minVersion    int
+	noSigning     bool
+	noPublish     bool
+	template      string
+	skipFullfiles bool
+	skipPacks     bool
 
 	numFullfileWorkers int
 	numDeltaWorkers    int
@@ -245,10 +247,12 @@ var buildFormatNewCmd = &cobra.Command{
 
 		// Build the +20 update so we don't have to switch tooling in between
 		params := builder.UpdateParameters{
-			MinVersion:  ver,
-			Format:      strconv.Itoa(newFormat),
-			Publish:     !buildFlags.noPublish,
-			SkipSigning: buildFlags.noSigning,
+			MinVersion:    ver,
+			Format:        strconv.Itoa(newFormat),
+			Publish:       !buildFlags.noPublish,
+			SkipSigning:   buildFlags.noSigning,
+			SkipFullfiles: buildFlags.skipFullfiles,
+			SkipPacks:     buildFlags.skipPacks,
 		}
 		err = b.BuildUpdate(params)
 		if err != nil {
@@ -308,10 +312,12 @@ var buildFormatOldCmd = &cobra.Command{
 		}
 		// Build the update content for the +10 build
 		params := builder.UpdateParameters{
-			MinVersion:  ver,
-			Format:      b.Config.Swupd.Format,
-			Publish:     !buildFlags.noPublish,
-			SkipSigning: buildFlags.noSigning,
+			MinVersion:    ver,
+			Format:        b.Config.Swupd.Format,
+			Publish:       !buildFlags.noPublish,
+			SkipSigning:   buildFlags.noSigning,
+			SkipFullfiles: buildFlags.skipFullfiles,
+			SkipPacks:     buildFlags.skipPacks,
 		}
 		err = b.BuildUpdate(params)
 		if err != nil {
@@ -339,10 +345,12 @@ var buildUpdateCmd = &cobra.Command{
 		}
 		setWorkers(b)
 		params := builder.UpdateParameters{
-			MinVersion:  buildFlags.minVersion,
-			Format:      buildFlags.format,
-			Publish:     !buildFlags.noPublish,
-			SkipSigning: buildFlags.noSigning,
+			MinVersion:    buildFlags.minVersion,
+			Format:        buildFlags.format,
+			Publish:       !buildFlags.noPublish,
+			SkipSigning:   buildFlags.noSigning,
+			SkipFullfiles: buildFlags.skipFullfiles,
+			SkipPacks:     buildFlags.skipPacks,
 		}
 		err = b.BuildUpdate(params)
 		if err != nil {
@@ -383,10 +391,12 @@ var buildAllCmd = &cobra.Command{
 			failf("Couldn't build bundles: %s", err)
 		}
 		params := builder.UpdateParameters{
-			MinVersion:  buildFlags.minVersion,
-			Format:      buildFlags.format,
-			Publish:     !buildFlags.noPublish,
-			SkipSigning: buildFlags.noSigning,
+			MinVersion:    buildFlags.minVersion,
+			Format:        buildFlags.format,
+			Publish:       !buildFlags.noPublish,
+			SkipSigning:   buildFlags.noSigning,
+			SkipFullfiles: buildFlags.skipFullfiles,
+			SkipPacks:     buildFlags.skipPacks,
 		}
 		err = b.BuildUpdate(params)
 		if err != nil {
@@ -484,6 +494,9 @@ func setUpdateFlags(cmd *cobra.Command) {
 	cmd.Flags().IntVar(&buildFlags.minVersion, "min-version", 0, "Supply minversion to build update with")
 	cmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate and do not sign the Manifest.MoM")
 	cmd.Flags().BoolVar(&buildFlags.noPublish, "no-publish", false, "Do not update the latest version after update")
+	cmd.Flags().BoolVar(&buildFlags.skipFullfiles, "skip-fullfiles", false, "Do not generate fullfiles")
+	cmd.Flags().BoolVar(&buildFlags.skipPacks, "skip-packs", false, "Do not generate zero packs")
+
 	var unusedStringFlag string
 	cmd.Flags().StringVar(&unusedStringFlag, "prefix", "", "Supply prefix for where the swupd binaries live")
 	_ = cmd.Flags().MarkHidden("prefix")

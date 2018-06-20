@@ -94,6 +94,10 @@ type UpdateParameters struct {
 	Publish bool
 	// Skip signing Manifest.MoM
 	SkipSigning bool
+	// Skip fullfiles generation
+	SkipFullfiles bool
+	// Skip zero packs generation
+	SkipPacks bool
 }
 
 var localPackages = make(map[string]bool)
@@ -1611,62 +1615,70 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	// TODO: Create manifest tars for Manifest.MoM and the mom.UpdatedBundles.
 	timer.Stop()
 
-	timer.Start("CREATE FULLFILES")
-	fmt.Printf("Using %d workers\n", b.NumFullfileWorkers)
-	fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
-	fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full")
-	info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
-	if err != nil {
-		return err
-	}
-	// Print summary of fullfile generation.
-	{
-		total := info.Skipped + info.NotCompressed
-		fmt.Printf("- Already created: %d\n", info.Skipped)
-		fmt.Printf("- Not compressed:  %d\n", info.NotCompressed)
-		fmt.Printf("- Compressed\n")
-		for k, v := range info.CompressedCounts {
-			total += v
-			fmt.Printf("  - %-20s %d\n", k, v)
-		}
-		fmt.Printf("Total fullfiles: %d\n", total)
-	}
-	timer.Stop()
-
-	timer.Start("CREATE ZERO PACKS")
-	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
-	for _, bundle := range mom.Files {
-		// TODO: Evaluate if it's worth using goroutines.
-		name := bundle.Name
-		version := bundle.Version
-		packPath := filepath.Join(outputDir, fmt.Sprint(version), swupd.GetPackFilename(name, 0))
-		_, err = os.Lstat(packPath)
-		if err == nil {
-			fmt.Printf("Zero pack already exists for %s to version %d\n", name, version)
-			continue
-		}
-		if !os.IsNotExist(err) {
-			return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
-		}
-
-		fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
-
-		var info *swupd.PackInfo
-		info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir, 0)
+	if !params.SkipFullfiles {
+		timer.Start("CREATE FULLFILES")
+		fmt.Printf("Using %d workers\n", b.NumFullfileWorkers)
+		fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
+		fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full")
+		info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
 		if err != nil {
-			return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
+			return err
 		}
-		if len(info.Warnings) > 0 {
-			fmt.Println("Warnings during pack:")
-			for _, w := range info.Warnings {
-				fmt.Printf("  %s\n", w)
+		// Print summary of fullfile generation.
+		{
+			total := info.Skipped + info.NotCompressed
+			fmt.Printf("- Already created: %d\n", info.Skipped)
+			fmt.Printf("- Not compressed:  %d\n", info.NotCompressed)
+			fmt.Printf("- Compressed\n")
+			for k, v := range info.CompressedCounts {
+				total += v
+				fmt.Printf("  - %-20s %d\n", k, v)
 			}
-			fmt.Println()
+			fmt.Printf("Total fullfiles: %d\n", total)
 		}
-		fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
-		fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
+		timer.Stop()
+	} else {
+		fmt.Println("\n=> CREATE FULLFILES - skipped")
 	}
-	timer.Stop()
+
+	if !params.SkipPacks {
+		timer.Start("CREATE ZERO PACKS")
+		bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
+		for _, bundle := range mom.Files {
+			// TODO: Evaluate if it's worth using goroutines.
+			name := bundle.Name
+			version := bundle.Version
+			packPath := filepath.Join(outputDir, fmt.Sprint(version), swupd.GetPackFilename(name, 0))
+			_, err = os.Lstat(packPath)
+			if err == nil {
+				fmt.Printf("Zero pack already exists for %s to version %d\n", name, version)
+				continue
+			}
+			if !os.IsNotExist(err) {
+				return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+			}
+
+			fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
+
+			var info *swupd.PackInfo
+			info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir, 0)
+			if err != nil {
+				return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
+			}
+			if len(info.Warnings) > 0 {
+				fmt.Println("Warnings during pack:")
+				for _, w := range info.Warnings {
+					fmt.Printf("  %s\n", w)
+				}
+				fmt.Println()
+			}
+			fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
+			fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
+		}
+		timer.Stop()
+	} else {
+		fmt.Println("\n=> CREATE ZERO PACKS - skipped")
+	}
 
 	return nil
 }

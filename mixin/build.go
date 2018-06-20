@@ -178,7 +178,7 @@ func buildMix(prepNeeded bool) error {
 		_ = os.Remove(mixFlagFile)
 		return err
 	}
-	err = b.BuildUpdate("", 0, "", false, true, false)
+	err = b.BuildUpdate(builder.UpdateParameters{Publish: true})
 	if err != nil {
 		_ = os.Remove(mixFlagFile)
 		return err

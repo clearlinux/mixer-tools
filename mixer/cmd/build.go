@@ -246,7 +246,13 @@ var buildFormatNewCmd = &cobra.Command{
 		}
 
 		// Build the +20 update so we don't have to switch tooling in between
-		err = b.BuildUpdate(buildFlags.prefix, ver, strconv.Itoa(newFormat), buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		params := builder.UpdateParameters{
+			MinVersion:  ver,
+			Format:      strconv.Itoa(newFormat),
+			Publish:     !buildFlags.noPublish,
+			SkipSigning: buildFlags.noSigning,
+		}
+		err = b.BuildUpdate(params)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
@@ -307,7 +313,13 @@ var buildFormatOldCmd = &cobra.Command{
 			fail(err)
 		}
 		// Build the update content for the +10 build
-		err = b.BuildUpdate(buildFlags.prefix, ver, b.Config.Swupd.Format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		params := builder.UpdateParameters{
+			MinVersion:  ver,
+			Format:      b.Config.Swupd.Format,
+			Publish:     !buildFlags.noPublish,
+			SkipSigning: buildFlags.noSigning,
+		}
+		err = b.BuildUpdate(params)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
@@ -341,7 +353,13 @@ var buildUpdateCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		params := builder.UpdateParameters{
+			MinVersion:  buildFlags.minVersion,
+			Format:      buildFlags.format,
+			Publish:     !buildFlags.noPublish,
+			SkipSigning: buildFlags.noSigning,
+		}
+		err = b.BuildUpdate(params)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
@@ -379,7 +397,13 @@ var buildAllCmd = &cobra.Command{
 		if err != nil {
 			failf("Couldn't build bundles: %s", err)
 		}
-		err = b.BuildUpdate(buildFlags.prefix, buildFlags.minVersion, buildFlags.format, buildFlags.noSigning, !buildFlags.noPublish, buildFlags.keepChroot)
+		params := builder.UpdateParameters{
+			MinVersion:  buildFlags.minVersion,
+			Format:      buildFlags.format,
+			Publish:     !buildFlags.noPublish,
+			SkipSigning: buildFlags.noSigning,
+		}
+		err = b.BuildUpdate(params)
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}

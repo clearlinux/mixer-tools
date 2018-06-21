@@ -1838,6 +1838,13 @@ func (b *Builder) AddRPMList(rpms []string) error {
 		if _, err := os.Stat(repoPath); err == nil {
 			continue
 		}
+		// Remove source RPMs because they should not be added to mixes
+		if strings.HasSuffix(rpm, ".src.rpm") {
+			fmt.Printf("Removing %s because source RPMs are not supported in mixes.\n", rpm)
+			if err := os.RemoveAll(filepath.Join(b.Config.Mixer.LocalRPMDir, rpm)); err != nil {
+				return errors.Wrapf(err, "Failed to remove %s, your mix will not generate properly with source RPMs included.", rpm)
+			}
+		}
 		fmt.Printf("Hardlinking %s to repodir\n", rpm)
 		if err := os.Link(localPath, repoPath); err != nil {
 			// Fallback to copying the file if hardlink fails.

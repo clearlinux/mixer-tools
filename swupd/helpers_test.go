@@ -504,7 +504,7 @@ func (fs *testFileSystem) addDir(version uint32, bundle, dir string) {
 
 func (fs *testFileSystem) addExtraFile(version uint32, bundle, file, content string) {
 	fs.t.Helper()
-	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-extra-files")
+	path := filepath.Join(fs.Dir, bundle+"-extra-files")
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {
 		fs.t.Fatal(err)

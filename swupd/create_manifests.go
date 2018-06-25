@@ -84,7 +84,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 				useBundleInfo = false
 			}
 
-			err = bundle.getBundleInfo(biPath)
+			err = bundle.getBundleInfo(c, biPath)
 			if err != nil {
 				return nil, err
 			}

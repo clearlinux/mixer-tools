@@ -32,7 +32,7 @@ type bundleInfo struct {
 	Files          map[string]bool
 }
 
-func (m *Manifest) getBundleInfo(path string) error {
+func (m *Manifest) getBundleInfo(c config, path string) error {
 	var err error
 	if _, err = os.Stat(path); os.IsNotExist(err) {
 		basePath := filepath.Dir(path)
@@ -65,7 +65,7 @@ func (m *Manifest) getBundleInfo(path string) error {
 		return err
 	}
 
-	extraFilesPath := filepath.Join(filepath.Dir(path), m.Name+"-extra-files")
+	extraFilesPath := filepath.Join(c.stateDir, m.Name+"-extra-files")
 	if _, err = os.Stat(extraFilesPath); err == nil {
 		extraFilesBytes, err := ioutil.ReadFile(extraFilesPath)
 		if err != nil {

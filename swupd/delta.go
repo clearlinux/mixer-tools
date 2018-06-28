@@ -155,11 +155,11 @@ func createDelta(c *config, delta *Delta) error {
 			// a delta is not worth. Give a better error message for that case.
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
 				if status.ExitStatus() == 1 {
-					return fmt.Errorf("bsdiff returned FULLDL, not using delta")
+					return fmt.Errorf("bsdiff returned FULLDL, not using delta %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
 				}
 			}
 		}
-		errStr := fmt.Sprintf("Failed to create delta for %s (%d) -> %s (%d)", delta.from.Name, delta.from.Version, delta.to.Name, delta.to.Version)
+		errStr := fmt.Sprintf("Failed to create delta for %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
 		bsdiffLog.SetPrefix("BSDIFF: ")
 		bsdiffLog.Println(errStr)
 		return errors.Wrap(err, errStr)
@@ -169,7 +169,7 @@ func createDelta(c *config, delta *Delta) error {
 	if deltaTooLarge(c, delta, newPath) {
 		_ = os.Remove(delta.Path)
 
-		errStr := fmt.Sprintf("Delta file %s (%d) larger than compressed full file %s", delta.to.Name, delta.to.Version, newPath)
+		errStr := fmt.Sprintf("Delta file larger than compressed full file %s (%d-%s) -> %s", delta.to.Name, delta.to.Version, delta.to.Hash, newPath)
 		bsdiffLog.SetPrefix("LARGER-DELTA: ")
 		bsdiffLog.Println(errStr)
 		return errors.New(errStr)

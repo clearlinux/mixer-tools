@@ -1616,7 +1616,8 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		fmt.Printf("Using %d workers\n", b.NumFullfileWorkers)
 		fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
 		fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full")
-		info, err := swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
+		var info *swupd.FullfilesInfo
+		info, err = swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
 		if err != nil {
 			return err
 		}
@@ -2073,7 +2074,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		go func() {
 			defer wg.Done()
 			for fromManifest := range versionQueue {
-				err := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+				err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
 				if err != nil {
 					deltaErrors = append(deltaErrors, err)
 				}

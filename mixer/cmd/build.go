@@ -332,7 +332,7 @@ var buildFormatOldCmd = &cobra.Command{
 			failf("Couldn't update Mix Version")
 		}
 		// Update the update/image/LAST_VER to the +20 build, since we built the +10 out of order
-		if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER"), []byte(strconv.Itoa(ver+10)), 0644); err != nil {
+		if err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image/LAST_VER"), []byte(strconv.Itoa(ver+10)), 0644); err != nil {
 			fail(err)
 		}
 		// Restore the new format in builder.conf

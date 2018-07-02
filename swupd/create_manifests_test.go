@@ -119,32 +119,6 @@ func TestCreateManifestDebuginfo(t *testing.T) {
 	fileNotInManifest(t, m, "/usr/src/debug/bar")
 }
 
-func TestCreateManifestFormatNoDecrement(t *testing.T) {
-	ts := newTestSwupd(t, "format-no-decrement-")
-	defer ts.cleanup()
-
-	ts.Bundles = []string{"os-core"}
-
-	ts.addFile(10, "os-core", "/foo", "foo")
-	ts.addFile(10, "os-core", "/bar", "bar")
-	ts.Format = 3
-	ts.createManifests(10)
-
-	ts.copyChroots(10, 20)
-
-	// Using a decremented format results in failure.
-	_, err := CreateManifests(20, 0, ts.Format-1, ts.Dir)
-	if err == nil {
-		t.Fatal("unexpected success calling create manifests with decremented format")
-	}
-
-	ts.addFile(20, "os-core", "/bar", "bar")
-	_, err = CreateManifests(20, 0, ts.Format, ts.Dir)
-	if err != nil {
-		t.Fatalf("create manifests with same format as before failed: %s", err)
-	}
-}
-
 func TestCreateManifestFormat(t *testing.T) {
 	ts := newTestSwupd(t, "format-basic")
 	defer ts.cleanup()

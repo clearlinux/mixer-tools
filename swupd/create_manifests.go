@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 )
 
@@ -53,66 +54,97 @@ func getOldManifest(path string) (*Manifest, error) {
 
 func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	var err error
+	var wg sync.WaitGroup
+	workers := len(ui.bundles)
+	wg.Add(workers)
+	bundleChan := make(chan string)
+	errorChan := make(chan error)
 	tmpManifests := []*Manifest{}
-	totalBundles := len(ui.bundles)
-	for i, bundleName := range ui.bundles {
-		fmt.Printf("[%d/%d] %s\n", i+1, totalBundles, bundleName)
-		bundle := &Manifest{
-			Header: ManifestHeader{
-				Format:    ui.format,
-				Version:   ui.version,
-				Previous:  ui.lastVersion,
-				TimeStamp: ui.timeStamp,
-			},
-			Name: bundleName,
-		}
+	fmt.Println("Generating initial manifests...")
+	bundleWorker := func() {
+		defer wg.Done()
+		for bundleName := range bundleChan {
+			fmt.Printf("  %s\n", bundleName)
+			bundle := &Manifest{
+				Header: ManifestHeader{
+					Format:    ui.format,
+					Version:   ui.version,
+					Previous:  ui.lastVersion,
+					TimeStamp: ui.timeStamp,
+				},
+				Name: bundleName,
+			}
 
-		if bundleName == "full" {
-			// full manifest needs to be processed differently
-			// by reading the files directly from the full chroot.
-			// No bundle-info file exists for full.
-			chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
-			err = bundle.addFilesFromChroot(chroot, "")
-		} else {
-			biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
-			useBundleInfo := true
-			if _, err = os.Stat(biPath); os.IsNotExist(err) {
-				err = syncToFull(ui.version, bundle.Name, c.imageBase)
-				if err != nil {
-					return nil, err
+			if bundleName == "full" {
+				// full manifest needs to be processed differently
+				// by reading the files directly from the full chroot.
+				// No bundle-info file exists for full.
+				chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
+				err = bundle.addFilesFromChroot(chroot, "")
+			} else {
+				biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
+				useBundleInfo := true
+				if _, err = os.Stat(biPath); os.IsNotExist(err) {
+					err = syncToFull(ui.version, bundle.Name, c.imageBase)
+					if err != nil {
+						errorChan <- err
+						return
+					}
+					useBundleInfo = false
 				}
-				useBundleInfo = false
-			}
 
-			err = bundle.getBundleInfo(c, biPath)
+				err = bundle.getBundleInfo(c, biPath)
+				if err != nil {
+					errorChan <- err
+					return
+				}
+
+				if useBundleInfo {
+					err = bundle.addFilesFromBundleInfo(c, ui.version)
+				}
+			}
 			if err != nil {
-				return nil, err
+				errorChan <- err
+				return
 			}
 
-			if useBundleInfo {
-				err = bundle.addFilesFromBundleInfo(c, ui.version)
+			// detect type changes
+			// fail out here if a type change is detected since this is not yet supported in client
+			if bundle.hasUnsupportedTypeChanges() {
+				errorChan <- errors.New("type changes not yet supported")
+				return
 			}
-		}
-		if err != nil {
-			return nil, err
-		}
 
-		// detect type changes
-		// fail out here if a type change is detected since this is not yet supported in client
-		if bundle.hasUnsupportedTypeChanges() {
-			return nil, errors.New("type changes not yet supported")
-		}
+			// remove banned debuginfo if configured to do so
+			if c.debuginfo.banned {
+				bundle.removeDebuginfo(c.debuginfo)
+			}
 
-		// remove banned debuginfo if configured to do so
-		if c.debuginfo.banned {
-			bundle.removeDebuginfo(c.debuginfo)
+			bundle.sortFilesName()
+			tmpManifests = append(tmpManifests, bundle)
 		}
-
-		bundle.sortFilesName()
-		tmpManifests = append(tmpManifests, bundle)
 	}
 
-	return tmpManifests, nil
+	for i := 0; i < workers; i++ {
+		go bundleWorker()
+	}
+
+	for _, bn := range ui.bundles {
+		select {
+		case bundleChan <- bn:
+		case err = <-errorChan:
+			// break as soon as we see a failure
+			break
+		}
+	}
+	close(bundleChan)
+	wg.Wait()
+
+	if err == nil && len(errorChan) > 0 {
+		err = <-errorChan
+	}
+
+	return tmpManifests, err
 }
 
 func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
@@ -125,6 +157,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	}
 
 	// read includes for subtraction processing
+	fmt.Println("Reading bundle includes...")
 	for _, bundle := range tmpManifests {
 		if bundle.Name == "full" {
 			newFull = bundle
@@ -140,6 +173,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 
 	// Perform manifest subtraction. Important this is done after all includes
 	// have been read so nested subtraction works.
+	fmt.Println("Performing manifest file subtraction...")
 	for _, bundle := range tmpManifests {
 		bundle.subtractManifests(bundle)
 	}
@@ -152,6 +186,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	}
 
 	// final loop detects changes, applies heuristics to files, and sorts the file lists
+	fmt.Println("Detecting manifest changes...")
 	newManifests := []*Manifest{}
 	for _, bundle := range tmpManifests {
 		// Check for changed includes, changed or added or deleted files
@@ -332,6 +367,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		},
 	}
 
+	fmt.Println("Writing manifest files...")
 	newFull, err := newMoM.writeBundleManifests(newManifests, verOutput)
 	if err != nil {
 		return nil, err

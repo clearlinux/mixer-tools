@@ -887,6 +887,31 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	return idxMan, nil
 }
 
+func fileContentInManifest(f *File, m *Manifest) bool {
+	if m == nil {
+		return false
+	}
+	for i := range m.Files {
+		if f.Name != m.Files[i].Name {
+			continue
+		}
+		if f.Hash != m.Files[i].Hash {
+			continue
+		}
+		if f.Type != m.Files[i].Type {
+			continue
+		}
+		if f.Status != m.Files[i].Status {
+			continue
+		}
+		if f.Modifier != m.Files[i].Modifier {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
 // this is a hack to allow users to update using swupd-client v3.15.3 which performs a
 // check on contentsize with a maximum a couple of orders off the intended maximum.
 // Remove this code (and the caller) when a format bump has occurred in Clear.

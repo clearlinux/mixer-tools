@@ -238,7 +238,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		entry := &info.Entries[i]
 		entry.File = f
 
-		if f.Version <= fromVersion {
+		if f.Version <= fromVersion || fileContentInManifest(f, fromManifest) {
 			entry.Reason = "already in from manifest"
 			continue
 		}

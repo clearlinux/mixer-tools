@@ -59,12 +59,12 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	wg.Add(workers)
 	bundleChan := make(chan string)
 	errorChan := make(chan error, workers)
+	mux := &sync.Mutex{}
 	tmpManifests := []*Manifest{}
 	fmt.Println("Generating initial manifests...")
 	bundleWorker := func() {
 		defer wg.Done()
 		for bundleName := range bundleChan {
-			fmt.Printf("  %s\n", bundleName)
 			bundle := &Manifest{
 				Header: ManifestHeader{
 					Format:    ui.format,
@@ -76,12 +76,17 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			}
 
 			if bundleName == "full" {
-				// full manifest needs to be processed differently
-				// by reading the files directly from the full chroot.
-				// No bundle-info file exists for full.
-				chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
-				err = bundle.addFilesFromChroot(chroot, "")
+				// full manifest needs to be processed differently by reading
+				// the files directly from the full chroot. No bundle-info
+				// file exists for full.
+				// handle it after all other bundles have been processed in
+				// case the rsync fallback to the full chroot is used
+				mux.Lock()
+				tmpManifests = append(tmpManifests, bundle)
+				mux.Unlock()
+				continue
 			} else {
+				fmt.Printf("  %s\n", bundleName)
 				biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
 				useBundleInfo := true
 				if _, err = os.Stat(biPath); os.IsNotExist(err) {
@@ -96,7 +101,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 				err = bundle.getBundleInfo(c, biPath)
 				if err != nil {
 					errorChan <- err
-					return
+					break
 				}
 
 				if useBundleInfo {
@@ -105,14 +110,14 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			}
 			if err != nil {
 				errorChan <- err
-				return
+				break
 			}
 
 			// detect type changes
 			// fail out here if a type change is detected since this is not yet supported in client
 			if bundle.hasUnsupportedTypeChanges() {
 				errorChan <- errors.New("type changes not yet supported")
-				return
+				break
 			}
 
 			// remove banned debuginfo if configured to do so
@@ -121,7 +126,9 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			}
 
 			bundle.sortFilesName()
+			mux.Lock()
 			tmpManifests = append(tmpManifests, bundle)
+			mux.Unlock()
 		}
 	}
 
@@ -144,6 +151,29 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		err = <-errorChan
 	}
 
+	chanLen := len(errorChan)
+	for i := 0; i < chanLen; i++ {
+		<-errorChan
+	}
+
+	// Now handle the full manifest last, we know the full chroot is populated
+	// with any rsync fallbacks that needed to happen.
+	for _, bundle := range tmpManifests {
+		if bundle.Name == "full" {
+			chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
+			err = bundle.addFilesFromChroot(chroot, "")
+			if err != nil {
+				return nil, err
+			}
+
+			// remove banned debuginfo if configured to do so
+			if c.debuginfo.banned {
+				bundle.removeDebuginfo(c.debuginfo)
+			}
+
+			bundle.sortFilesName()
+		}
+	}
 	return tmpManifests, err
 }
 

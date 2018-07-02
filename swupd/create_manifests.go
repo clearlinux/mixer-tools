@@ -125,6 +125,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	}
 
 	// read includes for subtraction processing
+	fmt.Println("Reading bundle includes...")
 	for _, bundle := range tmpManifests {
 		if bundle.Name == "full" {
 			newFull = bundle
@@ -140,6 +141,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 
 	// Perform manifest subtraction. Important this is done after all includes
 	// have been read so nested subtraction works.
+	fmt.Println("Performing manifest file subtraction...")
 	for _, bundle := range tmpManifests {
 		bundle.subtractManifests(bundle)
 	}
@@ -152,6 +154,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	}
 
 	// final loop detects changes, applies heuristics to files, and sorts the file lists
+	fmt.Println("Detecting manifest changes...")
 	newManifests := []*Manifest{}
 	for _, bundle := range tmpManifests {
 		// Check for changed includes, changed or added or deleted files
@@ -332,6 +335,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		},
 	}
 
+	fmt.Println("Writing manifest files...")
 	newFull, err := newMoM.writeBundleManifests(newManifests, verOutput)
 	if err != nil {
 		return nil, err

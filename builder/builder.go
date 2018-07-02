@@ -1590,14 +1590,53 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	if err != nil {
 		return err
 	}
+
+	var wg sync.WaitGroup
+	// TODO: handle "too many open files" when mom.UpdatedBundles gets too
+	// large. May have to limit the number of workers here.
+	workers := len(mom.UpdatedBundles)
+	wg.Add(workers)
+	bundleChan := make(chan *swupd.Manifest)
+	errorChan := make(chan error, workers)
 	fmt.Println("Compressing bundle manifests")
-	for _, bundle := range mom.UpdatedBundles {
-		fmt.Printf("  %s\n", bundle.Name)
-		f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
-		err = createCompressedArchive(f+".tar", f)
-		if err != nil {
-			return err
+	compWorker := func() {
+		defer wg.Done()
+		for bundle := range bundleChan {
+			fmt.Printf("  %s\n", bundle.Name)
+			f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
+			err = createCompressedArchive(f+".tar", f)
+			if err != nil {
+				errorChan <- err
+				break
+			}
 		}
+	}
+
+	for i := 0; i < workers; i++ {
+		go compWorker()
+	}
+
+	for _, bundle := range mom.UpdatedBundles {
+		select {
+		case bundleChan <- bundle:
+		case err = <-errorChan:
+			// break as soon as we see a failure
+			break
+		}
+	}
+	close(bundleChan)
+	wg.Wait()
+	if err == nil && len(errorChan) > 0 {
+		err = <-errorChan
+	}
+
+	chanLen := len(errorChan)
+	for i := 0; i < chanLen; i++ {
+		<-errorChan
+	}
+
+	if err != nil {
+		return err
 	}
 
 	// Now tar the full manifest, since it doesn't show up in the MoM

@@ -75,8 +75,17 @@ var RootCmd = &cobra.Command{
 			fail(err)
 		}
 
+		networkCheck := true
+		noNetworkCmds := []string{"list", "edit", "validate", "convert", "set", "repo", "add-rpms"}
+		// Don't reach out over network for these commands, it's not needed
+		for _, ignoreCmd := range noNetworkCmds {
+			if cmdContains(cmd, ignoreCmd) {
+				networkCheck = false
+			}
+		}
+
 		// If running natively, check for format missmatch and warn
-		if builder.Native && b.UpstreamURL != "" {
+		if networkCheck && builder.Native && b.UpstreamURL != "" {
 			hostFormat, upstreamFormat, err := b.GetHostAndUpstreamFormats()
 			if err != nil {
 				fail(err)
@@ -88,7 +97,7 @@ var RootCmd = &cobra.Command{
 				fmt.Println("Warning: The host format and mix upstream format do not match.",
 					"Mixer may be incompatible with this format; running natively may fail.")
 			}
-		} else {
+		} else if networkCheck {
 			fmt.Printf("Warning: Using Format=%s from builder.conf for this build.\n", b.Config.Swupd.Format)
 		}
 

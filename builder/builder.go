@@ -2074,9 +2074,9 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		go func() {
 			defer wg.Done()
 			for fromManifest := range versionQueue {
-				err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
-				if err != nil {
-					deltaErrors = append(deltaErrors, err)
+				deltaErr := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+				if deltaErr != nil {
+					deltaErrors = append(deltaErrors, deltaErr)
 				}
 			}
 		}()

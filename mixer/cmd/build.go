@@ -163,6 +163,8 @@ var buildUpstreamFormatCmd = &cobra.Command{
 				fail(err)
 			}
 		}
+		fmt.Println(`NOTE: upstream bundle definitions may have changed,
+please review any upstream bundles included in your mix.`)
 	},
 }
 
@@ -232,8 +234,6 @@ var buildFormatNewCmd = &cobra.Command{
 		if err = b.CopyFullGroupsINI(); err != nil {
 			fail(err)
 		}
-		// Fill this in w/Update bundle definitions
-		// if err := UpdateBudlesForFormatBump(); err != nil {...}
 
 		// Build the +20 (first build in new format) bundles
 		if err = buildBundles(b, buildFlags.noSigning); err != nil {

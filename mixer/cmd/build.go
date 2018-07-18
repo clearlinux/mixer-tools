@@ -513,11 +513,11 @@ func setUpdateFlags(cmd *cobra.Command) {
 	var unusedStringFlag string
 	cmd.Flags().StringVar(&unusedStringFlag, "prefix", "", "Supply prefix for where the swupd binaries live")
 	_ = cmd.Flags().MarkHidden("prefix")
-	_ = cmd.Flags().MarkDeprecated("prefix", "This flag is ignored by the update builder")
+	_ = cmd.Flags().MarkDeprecated("prefix", "this flag is ignored by the update builder")
 	var unusedBoolFlag bool
 	cmd.Flags().BoolVar(&unusedBoolFlag, "keep-chroots", false, "Keep individual chroots created and not just consolidated 'full'")
 	_ = cmd.Flags().MarkHidden("keep-chroots")
-	_ = cmd.Flags().MarkDeprecated("keep-chroots", "This flag is ignored by the update builder")
+	_ = cmd.Flags().MarkDeprecated("keep-chroots", "this flag is ignored by the update builder")
 }
 
 var buildCmds = []*cobra.Command{

@@ -19,37 +19,18 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 
-	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 )
 
 // UpdateFormatVersion updates the builder.conf file with a new format version
 func (b *Builder) UpdateFormatVersion(version string) error {
-	b.Config.Swupd.Format = version
+	b.State.Mix.Format = version
 
-	if config.UseNewConfig {
-		return b.Config.SaveConfig()
-	}
-
-	builderData, err := ioutil.ReadFile(b.Config.GetConfigFileName())
-	if err != nil {
-		return errors.Wrap(err, "Failed to read builder.conf")
-	}
-
-	var re = regexp.MustCompile(`(FORMAT=)[0-9]+`)
-	newver := []byte("${1}" + b.Config.Swupd.Format)
-	builderData = re.ReplaceAll(builderData, newver)
-
-	if err = ioutil.WriteFile(b.Config.GetConfigFileName(), builderData, 0644); err != nil {
-		return errors.Wrap(err, "Failed to write new builder.conf")
-	}
-
-	return nil
+	return b.State.Save()
 }
 
 // CopyFullGroupsINI copies the initial ini file which has ALL bundle definitions

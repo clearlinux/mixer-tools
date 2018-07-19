@@ -32,7 +32,7 @@ type buildBundlesConfig struct {
 	UpdateBundle string
 	ContentURL   string
 	VersionURL   string
-	// Format is already in b.Config.Swupd.Format.
+	// Format is already in b.State.Mix.Format.
 }
 
 // TODO: Move this to the more general configuration handling.
@@ -494,7 +494,7 @@ func genUpdateBundleSpecialFiles(chrootDir string, cfg *buildBundlesConfig, b *B
 		}
 	}
 
-	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.Config.Swupd.Format), 0644)
+	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.State.Mix.Format), 0644)
 }
 
 func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle) error {

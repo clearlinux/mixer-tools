@@ -42,6 +42,11 @@ type MixConfig struct {
 
 	/* hidden properties */
 	filename string
+
+	// Format moved into mixer.state file. This variable is set
+	// if the value is still present in the parsed config to
+	// print a warning for the user.
+	hasFormatField bool
 }
 
 type builderConf struct {
@@ -54,7 +59,6 @@ type builderConf struct {
 type swupdConf struct {
 	Bundle     string `required:"false" toml:"BUNDLE"`
 	ContentURL string `required:"false" toml:"CONTENTURL"`
-	Format     string `required:"true" toml:"FORMAT"`
 	VersionURL string `required:"false" toml:"VERSIONURL"`
 }
 
@@ -94,7 +98,6 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 	// [Swupd]
 	config.Swupd.Bundle = "os-core-update"
 	config.Swupd.ContentURL = "<URL where the content will be hosted>"
-	config.Swupd.Format = "1"
 	config.Swupd.VersionURL = "<URL where the version of the mix will be hosted>"
 
 	// [Server]
@@ -114,6 +117,8 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 	}
 
 	config.filename = filepath.Join(path, "builder.conf")
+
+	config.hasFormatField = false
 }
 
 // CreateDefaultConfig creates a default builder.conf using the active
@@ -269,6 +274,8 @@ func (config *MixConfig) legacyParse() error {
 		return errors.Wrap(err, "Failed to read buildconf")
 	}
 
+	var format string
+
 	// Map the builder values to the regex here to make it easier to assign
 	fields := []struct {
 		re       string
@@ -283,7 +290,7 @@ func (config *MixConfig) legacyParse() error {
 		// [Swupd]
 		{`^BUNDLE\s*=\s*`, &config.Swupd.Bundle, false},
 		{`^CONTENTURL\s*=\s*`, &config.Swupd.ContentURL, false},
-		{`^FORMAT\s*=\s*`, &config.Swupd.Format, true},
+		{`^FORMAT\s*=\s*`, &format, true},
 		{`^VERSIONURL\s*=\s*`, &config.Swupd.VersionURL, false},
 		// [Server]
 		{`^debuginfo_banned\s*=\s*`, &config.Server.DebugInfoBanned, false},
@@ -304,6 +311,8 @@ func (config *MixConfig) legacyParse() error {
 			}
 		}
 	}
+
+	config.hasFormatField = format != ""
 
 	if config.Mixer.LocalBundleDir == "" {
 		pwd, err := os.Getwd()
@@ -373,6 +382,10 @@ func (config *MixConfig) validate() error {
 				return errors.Errorf("Missing required field in config file: %s", name)
 			}
 		}
+	}
+
+	if config.hasFormatField {
+		fmt.Println("WARNING: Format value in builder.conf ignored. Using the value in mixer.state file")
 	}
 
 	return nil

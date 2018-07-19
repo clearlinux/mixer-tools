@@ -15,6 +15,7 @@
 package config
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -33,6 +34,9 @@ import (
 // This is an experimental feature.
 var UseNewConfig = false
 
+// CurrentConfigVersion holds the current version of the config file
+const CurrentConfigVersion = "1.0"
+
 // MixConfig represents the config parameters found in the builder config file.
 type MixConfig struct {
 	Builder builderConf
@@ -42,6 +46,7 @@ type MixConfig struct {
 
 	/* hidden properties */
 	filename string
+	version  string
 
 	// Format moved into mixer.state file. This variable is set
 	// if the value is still present in the parsed config to
@@ -116,6 +121,7 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 		config.Mixer.LocalRepoDir = ""
 	}
 
+	config.version = CurrentConfigVersion
 	config.filename = filepath.Join(path, "builder.conf")
 
 	config.hasFormatField = false
@@ -146,6 +152,15 @@ func (config *MixConfig) SaveConfig() error {
 		return errors.Errorf("SaveConfig can only be used with --new-config flag")
 	}
 
+	var buffer bytes.Buffer
+	buffer.Write([]byte("#VERSION " + config.version + "\n\n"))
+
+	enc := toml.NewEncoder(&buffer)
+
+	if err := enc.Encode(config); err != nil {
+		return err
+	}
+
 	w, err := os.OpenFile(config.filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		return err
@@ -154,8 +169,9 @@ func (config *MixConfig) SaveConfig() error {
 		_ = w.Close()
 	}()
 
-	enc := toml.NewEncoder(w)
-	return enc.Encode(config)
+	_, err = buffer.WriteTo(w)
+
+	return err
 }
 
 func (config *MixConfig) createLegacyConfig(localrpms bool) error {
@@ -249,14 +265,47 @@ func (config *MixConfig) LoadConfig(filename string) error {
 	return config.validate()
 }
 
+func (config *MixConfig) parseVersion(reader *bufio.Reader) (bool, error) {
+	verBytes, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	r := regexp.MustCompile("^#VERSION ([0-9]+.[0-9])+\n")
+	match := r.FindStringSubmatch(string(verBytes))
+
+	if len(match) != 2 {
+		return false, nil
+	}
+
+	config.version = match[1]
+
+	return true, nil
+}
+
 // Parse reads the values from a config file without performing validation or env expansion
 func (config *MixConfig) Parse() error {
+	f, err := os.Open(config.filename)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	// Read config version
+	reader := bufio.NewReader(f)
+	_, err = config.parseVersion(reader)
+	if err != nil {
+		return err
+	}
+
 	if !UseNewConfig {
 		if err := config.legacyParse(); err != nil {
 			return err
 		}
 	} else {
-		if _, err := toml.DecodeFile(config.filename, &config); err != nil {
+		if _, err := toml.DecodeReader(reader, &config); err != nil {
 			return err
 		}
 	}

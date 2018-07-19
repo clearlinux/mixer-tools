@@ -216,7 +216,7 @@ func init() {
 	_ = RootCmd.Flags().MarkDeprecated("new-swupd", "new functionality is now the standard behavior, this flag is obsolete and no longer used")
 
 	// TODO: Remove this once we drop the old config format
-	RootCmd.PersistentFlags().BoolVar(&config.UseNewConfig, "new-config", false, "EXPERIMENTAL: use the new TOML config format")
+	RootCmd.PersistentFlags().BoolVar(&config.UseNewConfig, "new-config", true, "Set this property to false to use the old INI config format. Ignored for all commands but 'init'")
 
 	RootCmd.PersistentFlags().BoolVar(&builder.Native, "native", true, "Run mixer command on native host instead of in a container")
 	RootCmd.PersistentFlags().BoolVar(&builder.Offline, "offline", false, "Skip caching upstream-bundles; work entirely with local-bundles")

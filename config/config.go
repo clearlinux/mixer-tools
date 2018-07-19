@@ -32,7 +32,7 @@ import (
 
 // UseNewConfig controls whether to use the new TOML config format.
 // This is an experimental feature.
-var UseNewConfig = false
+var UseNewConfig = true
 
 // CurrentConfigVersion holds the current version of the config file
 const CurrentConfigVersion = "1.0"
@@ -302,16 +302,13 @@ func (config *MixConfig) Parse() error {
 
 	if found {
 		// Version only exists in New Config, so parse builder.conf as TOML
-		UseNewConfig = true
 		if _, err := toml.DecodeReader(reader, &config); err != nil {
 			return err
 		}
 	} else {
 		// Assume missing version and try to parse as TOML
-		UseNewConfig = true
 		if _, err := toml.DecodeFile(config.filename, &config); err != nil {
 			// Try parsing as INI
-			UseNewConfig = false
 			if err := config.legacyParse(); err != nil {
 				return err
 			}
@@ -322,9 +319,7 @@ func (config *MixConfig) Parse() error {
 }
 
 func (config *MixConfig) legacyParse() error {
-	if UseNewConfig {
-		return errors.Errorf("legacyParse is not compatible with --new-config flag")
-	}
+	UseNewConfig = false
 
 	lines, err := helpers.ReadFileAndSplit(config.filename)
 	if err != nil {

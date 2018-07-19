@@ -1,0 +1,117 @@
+// Copyright 2018 Intel Corporation
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package config
+
+import (
+	"bufio"
+	"bytes"
+	"errors"
+	"os"
+	"regexp"
+
+	"github.com/BurntSushi/toml"
+)
+
+type mixSection struct {
+	Format string `toml:"FORMAT"`
+}
+
+// MixState holds the current state of the mix
+type MixState struct {
+	Mix mixSection
+
+	/* hidden properties */
+	filename string
+	version  string
+}
+
+// CurrentStateVersion is the current revision for the state file structure
+var CurrentStateVersion = "1.0"
+
+// LoadDefaults initialize the state object with sane values
+func (state *MixState) LoadDefaults() {
+	state.Mix.Format = "1"
+
+	state.filename = "mixer.state"
+	state.version = CurrentStateVersion
+}
+
+// Save creates or overwrites the mixer.state file
+func (state *MixState) Save() error {
+	var buffer bytes.Buffer
+	buffer.Write([]byte("#VERSION " + state.version + "\n\n"))
+
+	enc := toml.NewEncoder(&buffer)
+
+	if err := enc.Encode(state); err != nil {
+		return err
+	}
+
+	w, err := os.OpenFile(state.filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = w.Close()
+	}()
+
+	_, err = buffer.WriteTo(w)
+
+	return err
+}
+
+// Load the mixer.state file
+func (state *MixState) Load() error {
+	state.LoadDefaults()
+
+	f, err := os.Open(state.filename)
+	if err != nil {
+		// If state does not exists, create a default state
+		return state.Save()
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	// Read config version
+	reader := bufio.NewReader(f)
+	found, err := state.parseVersion(reader)
+	if err != nil {
+		return err
+	} else if !found {
+		return errors.New("Unable to read mixer state version")
+	}
+
+	_, err = toml.DecodeReader(reader, &state)
+	return err
+}
+
+func (state *MixState) parseVersion(reader *bufio.Reader) (bool, error) {
+	verBytes, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	r := regexp.MustCompile("^#VERSION ([0-9]+.[0-9])+\n")
+	match := r.FindStringSubmatch(string(verBytes))
+
+	if len(match) != 2 {
+		return false, nil
+	}
+
+	state.version = match[1]
+
+	return true, nil
+}

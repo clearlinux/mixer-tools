@@ -42,7 +42,7 @@ setup() {
   awk '$1 == "previous:" { exit $2 != 10}' update/www/30/Manifest.MoM
 
   #check if builder.conf has the +20 format
-  test $(sed -n 's/[ ]*FORMAT[ ="]*\([0-9]\+\)[ "]*/\1/p' builder.conf) -eq 2
+  test $(sed -n 's/[ ]*FORMAT[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq 2
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

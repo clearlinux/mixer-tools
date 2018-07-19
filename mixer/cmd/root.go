@@ -98,7 +98,7 @@ var RootCmd = &cobra.Command{
 					"Mixer may be incompatible with this format; running natively may fail.")
 			}
 		} else if networkCheck {
-			fmt.Printf("Warning: Using Format=%s from builder.conf for this build.\n", b.Config.Swupd.Format)
+			fmt.Printf("Warning: Using Format=%s from mixer.state for this build.\n", b.State.Mix.Format)
 		}
 
 		// For non-bump build commands, check if building across a format
@@ -182,6 +182,12 @@ var initCmd = &cobra.Command{
 		if err := b.Config.LoadConfig(configFile); err != nil {
 			fail(err)
 		}
+
+		b.State.LoadDefaults()
+		if err := b.State.Save(); err != nil {
+			fail(err)
+		}
+
 		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixver), initFlags.allLocal, initFlags.allUpstream, initFlags.noDefaults, initFlags.upstreamURL, initFlags.git)
 		if err != nil {
 			fail(err)

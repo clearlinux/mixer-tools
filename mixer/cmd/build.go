@@ -217,7 +217,7 @@ var buildFormatNewCmd = &cobra.Command{
 
 		// Set format to format+1 so that the format file inserted into the
 		// update content is the new one
-		newFormat, err := strconv.Atoi(b.Config.Swupd.Format)
+		newFormat, err := strconv.Atoi(b.State.Mix.Format)
 		if err != nil {
 			fail(err)
 		}
@@ -281,7 +281,7 @@ var buildFormatNewCmd = &cobra.Command{
 		}
 
 		// Set the format back to the previous format version before building the +10 update
-		prevFormat, err := strconv.Atoi(b.Config.Swupd.Format)
+		prevFormat, err := strconv.Atoi(b.State.Mix.Format)
 		if err != nil {
 			fail(err)
 		}
@@ -317,7 +317,7 @@ var buildFormatOldCmd = &cobra.Command{
 		// Build the update content for the +10 build
 		params := builder.UpdateParameters{
 			MinVersion:    ver,
-			Format:        b.Config.Swupd.Format,
+			Format:        b.State.Mix.Format,
 			Publish:       !buildFlags.noPublish,
 			SkipSigning:   buildFlags.noSigning,
 			SkipFullfiles: buildFlags.skipFullfiles,
@@ -336,7 +336,7 @@ var buildFormatOldCmd = &cobra.Command{
 			fail(err)
 		}
 		// Restore the new format in builder.conf
-		newFormat, err := strconv.Atoi(b.Config.Swupd.Format)
+		newFormat, err := strconv.Atoi(b.State.Mix.Format)
 		if err != nil {
 			fail(err)
 		}

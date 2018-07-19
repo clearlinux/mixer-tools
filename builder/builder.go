@@ -59,6 +59,7 @@ var Offline = false
 // operation, and is used to encapsulate life time data.
 type Builder struct {
 	Config config.MixConfig
+	State  config.MixState
 
 	MixVer            string
 	MixVerFile        string
@@ -119,6 +120,9 @@ func New() *Builder {
 func NewFromConfig(conf string) (*Builder, error) {
 	b := New()
 	if err := b.Config.LoadDefaults(false); err != nil {
+		return nil, err
+	}
+	if err := b.State.Load(); err != nil {
 		return nil, err
 	}
 	if err := b.Config.LoadConfig(conf); err != nil {
@@ -185,7 +189,7 @@ func (b *Builder) buildUpstreamURL(subpath string) (string, error) {
 // from the result.
 func (b *Builder) DownloadFileFromUpstreamAsString(subpath string) (string, error) {
 	if b.UpstreamURL == "" {
-		return b.Config.Swupd.Format, nil
+		return b.State.Mix.Format, nil
 	}
 	url, err := b.buildUpstreamURL(subpath)
 	if err != nil {
@@ -1489,11 +1493,11 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	}
 
 	if params.Format != "" {
-		b.Config.Swupd.Format = params.Format
+		b.State.Mix.Format = params.Format
 	}
 
 	// Ensure the format dir exists.
-	formatDir := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "format"+b.Config.Swupd.Format)
+	formatDir := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "format"+b.State.Mix.Format)
 	err = os.MkdirAll(formatDir, 0777)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't create the format directory")
@@ -1549,14 +1553,14 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	// TODO: move this to parsing configuration / parameter time.
 	// TODO: should this be uint64?
 	var format uint32
-	format, err = parseUint32(b.Config.Swupd.Format)
+	format, err = parseUint32(b.State.Mix.Format)
 	if err != nil {
 		return errors.Errorf("invalid format")
 	}
 
 	minVersion := uint32(params.MinVersion)
 
-	err = writeMetaFiles(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer), b.Config.Swupd.Format, Version)
+	err = writeMetaFiles(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer), b.State.Mix.Format, Version)
 	if err != nil {
 		return errors.Wrapf(err, "failed to write update metadata files")
 	}
@@ -1724,7 +1728,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 func (b *Builder) BuildImage(format string, template string) error {
 	// If the user did not pass in a format, default to builder.conf
 	if format == "" {
-		format = b.Config.Swupd.Format
+		format = b.State.Mix.Format
 	}
 
 	// If the user did not pass in a template, default to release-image-config.json

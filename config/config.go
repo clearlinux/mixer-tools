@@ -295,18 +295,26 @@ func (config *MixConfig) Parse() error {
 
 	// Read config version
 	reader := bufio.NewReader(f)
-	_, err = config.parseVersion(reader)
+	found, err := config.parseVersion(reader)
 	if err != nil {
 		return err
 	}
 
-	if !UseNewConfig {
-		if err := config.legacyParse(); err != nil {
+	if found {
+		// Version only exists in New Config, so parse builder.conf as TOML
+		UseNewConfig = true
+		if _, err := toml.DecodeReader(reader, &config); err != nil {
 			return err
 		}
 	} else {
-		if _, err := toml.DecodeReader(reader, &config); err != nil {
-			return err
+		// Assume missing version and try to parse as TOML
+		UseNewConfig = true
+		if _, err := toml.DecodeFile(config.filename, &config); err != nil {
+			// Try parsing as INI
+			UseNewConfig = false
+			if err := config.legacyParse(); err != nil {
+				return err
+			}
 		}
 	}
 

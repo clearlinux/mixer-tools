@@ -15,8 +15,8 @@ global_setup() {
 }
 
 localize_builder_conf() {
-  if $(mixer $MIXARGS config set Mixer.LOCAL_RPM_DIR $BATS_TEST_DIRNAME/local-rpms --new-config); then
-    mixer $MIXARGS config set  Mixer.LOCAL_REPO_DIR $BATS_TEST_DIRNAME/local-yum --new-config
+  if $(mixer $MIXARGS config set Mixer.LOCAL_RPM_DIR $BATS_TEST_DIRNAME/local-rpms); then
+    mixer $MIXARGS config set  Mixer.LOCAL_REPO_DIR $BATS_TEST_DIRNAME/local-yum
   else
     echo -e "LOCAL_RPM_DIR=$BATS_TEST_DIRNAME/local-rpms\nLOCAL_REPO_DIR=$BATS_TEST_DIRNAME/local-yum" >> $BATS_TEST_DIRNAME/builder.conf
   fi

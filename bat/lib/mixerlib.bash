@@ -15,8 +15,8 @@ global_setup() {
 }
 
 localize_builder_conf() {
-  if $(mixer $MIXARGS config set Mixer.LOCAL_RPM_DIR $BATS_TEST_DIRNAME/local-rpms); then
-    mixer $MIXARGS config set  Mixer.LOCAL_REPO_DIR $BATS_TEST_DIRNAME/local-yum
+  if $(mixer $MIXARGS config set Mixer.LOCAL_RPM_DIR $BATS_TEST_DIRNAME/local-rpms --native=true); then
+    mixer $MIXARGS config set  Mixer.LOCAL_REPO_DIR $BATS_TEST_DIRNAME/local-yum --native=true
   else
     echo -e "LOCAL_RPM_DIR=$BATS_TEST_DIRNAME/local-rpms\nLOCAL_REPO_DIR=$BATS_TEST_DIRNAME/local-yum" >> $BATS_TEST_DIRNAME/builder.conf
   fi
@@ -26,43 +26,43 @@ localize_builder_conf() {
 # builder.conf to use os-core for the "update bundle", strips os-core to just
 # the filesystem, and adds only os-core to the mix
 mixer-init-stripped-down() {
-  mixer $MIXARGS init --clear-version $1 --mix-version $2 --no-default-bundles
+  mixer $MIXARGS init --clear-version $1 --mix-version $2 --no-default-bundles --native=true
   sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
   echo "filesystem" > $LOCAL_BUNDLE_DIR/os-core
-  mixer $MIXARGS bundle add os-core
+  mixer $MIXARGS bundle add os-core --native=true
 }
 
 mixer-versions-update() {
-  mixer $MIXARGS versions update --mix-version $1
+  mixer $MIXARGS versions update --mix-version $1 --native=true
 }
 
 mixer-upstream-update() {
-  mixer $MIXARGS versions update --upstream-version $1
+  mixer $MIXARGS versions update --upstream-version $1 --native=true
 }
 
 mixer-build-bundles() {
-  sudo -E mixer $MIXARGS build bundles --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS build bundles --config $BATS_TEST_DIRNAME/builder.conf --native=true
 }
 
 mixer-build-update() {
-  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --native=true
 }
 
 mixer-build-all() {
-  sudo -E mixer $MIXARGS build all --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS build all --config $BATS_TEST_DIRNAME/builder.conf --native=true
 }
 
 mixer-build-format-bump-new() {
-  sudo -E mixer $MIXARGS build format-bump new --native
+  sudo -E mixer $MIXARGS build format-bump new --native=true
 }
 
 mixer-build-format-bump-old() {
-  sudo -E mixer $MIXARGS build format-bump old --native
+  sudo -E mixer $MIXARGS build format-bump old --native=true
 }
 
 mixer-add-rpms() {
   mkdir -p $BATS_TEST_DIRNAME/local-yum $BATS_TEST_DIRNAME/local-rpms
-  sudo -E mixer $MIXARGS add-rpms --config $BATS_TEST_DIRNAME/builder.conf
+  sudo -E mixer $MIXARGS add-rpms --config $BATS_TEST_DIRNAME/builder.conf --native=true
 }
 
 create-empty-local-bundle() {
@@ -78,11 +78,11 @@ remove-package-from-local-bundle() {
 }
 
 mixer-bundle-add() {
-  mixer $MIXARGS bundle add $1
+  mixer $MIXARGS bundle add $1 --native=true
 }
 
 mixer-bundle-remove() {
-  mixer $MIXARGS bundle remove $1
+  mixer $MIXARGS bundle remove $1 --native=true
 }
 
 download-rpm() {

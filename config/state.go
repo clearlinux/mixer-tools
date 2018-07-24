@@ -18,6 +18,8 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"regexp"
 
@@ -35,17 +37,59 @@ type MixState struct {
 	/* hidden properties */
 	filename string
 	version  string
+
+	/* Inform the user where the source of mix format*/
+	formatSource string
 }
 
 // CurrentStateVersion is the current revision for the state file structure
 var CurrentStateVersion = "1.0"
 
+// DefaultFormatPath is the default path for the format file specified by swupd
+const DefaultFormatPath = "/usr/share/defaults/swupd/format"
+
 // LoadDefaults initialize the state object with sane values
 func (state *MixState) LoadDefaults() {
-	state.Mix.Format = "1"
+	state.loadDefaultFormat()
 
 	state.filename = "mixer.state"
 	state.version = CurrentStateVersion
+}
+
+func (state *MixState) loadDefaultFormat() {
+	/* Get format from legacy config file */
+	format, err := state.getFormatFromConfig()
+	if err == nil && format != "" {
+		state.Mix.Format = format
+		state.formatSource = "builder.conf"
+		return
+	}
+
+	/* Get format from system */
+	formatBytes, err := ioutil.ReadFile(DefaultFormatPath)
+	if err == nil {
+		state.Mix.Format = string(formatBytes)
+		state.formatSource = DefaultFormatPath
+		return
+	}
+
+	state.Mix.Format = "1"
+	state.formatSource = "Mixer internal value"
+}
+
+func (state *MixState) getFormatFromConfig() (string, error) {
+	confBytes, err := ioutil.ReadFile("builder.conf")
+	if err != nil {
+		return "", err
+	}
+
+	r := regexp.MustCompile(`FORMAT[\s"=]*([0-9]+)[\s"]*\n`)
+	match := r.FindStringSubmatch(string(confBytes))
+	if len(match) == 2 {
+		return match[1], nil
+	}
+
+	return "", nil
 }
 
 // Save creates or overwrites the mixer.state file
@@ -79,6 +123,7 @@ func (state *MixState) Load() error {
 	f, err := os.Open(state.filename)
 	if err != nil {
 		// If state does not exists, create a default state
+		fmt.Println("WARNING: Using FORMAT value from " + state.formatSource)
 		return state.Save()
 	}
 	defer func() {

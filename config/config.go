@@ -449,8 +449,6 @@ func (config *MixConfig) Convert(filename string) error {
 		return err
 	}
 
-	// Force UseNewConfig to false
-	UseNewConfig = false
 	if err := config.Parse(); err != nil {
 		return err
 	}
@@ -459,8 +457,11 @@ func (config *MixConfig) Convert(filename string) error {
 		return err
 	}
 
-	// Force UseNewConfig to true
+	// Make sure the converted config is in the New Format
 	UseNewConfig = true
+
+	// Set config to the current format
+	config.version = CurrentConfigVersion
 
 	return config.SaveConfig()
 }

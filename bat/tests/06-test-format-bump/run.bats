@@ -17,6 +17,9 @@ setup() {
   #Create initial version in the old format
   mixer-build-all > $LOGDIR/build_all.log
 
+  #Save initial format
+  format=$(sed -n 's/[ ]*FORMAT[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state)
+
   #Update to new upstream in the new format
   mixer-upstream-update $(($upstreamver + 10)) > $LOGDIR/upstream_update.log
 
@@ -42,7 +45,7 @@ setup() {
   awk '$1 == "previous:" { exit $2 != 10}' update/www/30/Manifest.MoM
 
   #check if builder.conf has the +20 format
-  test $(sed -n 's/[ ]*FORMAT[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq 2
+  test $(sed -n 's/[ ]*FORMAT[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq $(($format + 1))
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

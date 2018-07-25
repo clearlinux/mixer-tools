@@ -51,6 +51,13 @@ var configConvertCmd = &cobra.Command{
 a backup file of the old config and will replace it with the converted one. Environment
 variables will not be expanded and the values will not be validated`,
 	Run: func(cmd *cobra.Command, args []string) {
+		/* If no state file exists, it must be created first to ensure the FORMAT value
+		is transferred from old configs before conversion */
+		var ms config.MixState
+		if err := ms.Load(); err != nil {
+			fail(err)
+		}
+
 		var mc config.MixConfig
 		if err := mc.Convert(configFile); err != nil {
 			fail(err)

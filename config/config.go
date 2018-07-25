@@ -449,8 +449,20 @@ func (config *MixConfig) Convert(filename string) error {
 		return err
 	}
 
+	if err := config.LoadDefaults(false); err != nil {
+		return err
+	}
+
+	// Reset version for files without versioning
+	config.version = "0.0"
+
 	if err := config.Parse(); err != nil {
 		return err
+	}
+
+	// Config is already in the current format
+	if config.version == CurrentConfigVersion {
+		return nil
 	}
 
 	if err := helpers.CopyFile(config.filename+".bkp", config.filename); err != nil {

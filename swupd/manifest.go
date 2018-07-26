@@ -373,7 +373,7 @@ func (m *Manifest) sortFilesVersionName() {
 //
 // An important note is that deletes must persist over minversions but not over
 // format bumps.
-func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersion uint32) (int, int, int) {
+func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) (int, int, int) {
 	// set previous version to oldManifest version
 	m.Header.Previous = oldManifest.Header.Version
 
@@ -426,7 +426,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 			// in the new manifest, it was deleted or is an old deleted/ghosted
 			// file
 			if !of.Present() {
-				if of.Status == StatusDeleted {
+				if of.Status == StatusDeleted && m.Header.Format == oldManifest.Header.Format {
 					// copy over old deleted files
 					// append as-is
 					if of.Version < minVersion {
@@ -867,7 +867,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	}
 	oldM.sortFilesName()
 	// linkPeersAndChange will update file versions correctly
-	_, _, _ = idxMan.linkPeersAndChange(oldM, *c, ui.minVersion)
+	_, _, _ = idxMan.linkPeersAndChange(oldM, ui.minVersion)
 	// now add any new files to the full manifest
 	for _, idxF := range idxMan.Files {
 		i := sort.Search(len(newFull.Files), func(i int) bool {

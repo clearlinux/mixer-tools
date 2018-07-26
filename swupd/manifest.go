@@ -366,10 +366,13 @@ func (m *Manifest) sortFilesVersionName() {
 }
 
 // linkPeersAndChange
-// At this point Manifest m should only have the files that were present
-// in the chroot for that manifest. Link delta peers with the oldManifest
-// if the file in the oldManifest is not deleted or ghosted.
-// Expects m and oldManifest files lists to be sorted by name only
+// At this point Manifest m should only have the files that were present in the
+// chroot for that manifest. Link delta peers with the oldManifest if the file
+// in the oldManifest is not deleted or ghosted. Expects m and oldManifest
+// files lists to be sorted by name only.
+//
+// An important note is that deletes must persist over minversions but not over
+// format bumps.
 func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersion uint32) (int, int, int) {
 	// set previous version to oldManifest version
 	m.Header.Previous = oldManifest.Header.Version
@@ -423,9 +426,13 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, c config, minVersio
 			// in the new manifest, it was deleted or is an old deleted/ghosted
 			// file
 			if !of.Present() {
-				if of.Status == StatusDeleted && of.Version >= minVersion {
+				if of.Status == StatusDeleted {
 					// copy over old deleted files
 					// append as-is
+					if of.Version < minVersion {
+						// set delete to minVersion
+						of.Version = minVersion
+					}
 					m.Files = append(m.Files, of)
 				}
 				ox++

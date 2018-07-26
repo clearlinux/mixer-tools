@@ -388,6 +388,30 @@ func TestCreateManifestsMVDeletes(t *testing.T) {
 	fileDeletedInManifest(t, ts.parseManifest(30, "full"), 30, "/foo")
 }
 
+func TestCreateManifestsFormatDeletes(t *testing.T) {
+	ts := newTestSwupd(t, "formatDeletes")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"test-bundle"}
+	ts.addFile(10, "test-bundle", "/foo", "foo")
+	ts.createManifests(10)
+	ts.checkContains("www/10/Manifest.test-bundle", "10\t/foo\n")
+	ts.checkContains("www/10/Manifest.full", "10\t/foo\n")
+
+	// update and remove /foo
+	ts.createManifests(20)
+	fileDeletedInManifest(t, ts.parseManifest(20, "test-bundle"), 20, "/foo")
+	fileDeletedInManifest(t, ts.parseManifest(20, "full"), 20, "/foo")
+
+	// now create a minversion and format bump
+	ts.Format = 2
+	ts.MinVersion = 30
+	ts.createManifests(30)
+
+	fileNotInManifest(t, ts.parseManifest(30, "test-bundle"), "/foo")
+	fileNotInManifest(t, ts.parseManifest(30, "full"), "/foo")
+}
+
 func TestCreateManifestsPersistDeletes(t *testing.T) {
 	ts := newTestSwupd(t, "persistDeletes")
 	defer ts.cleanup()

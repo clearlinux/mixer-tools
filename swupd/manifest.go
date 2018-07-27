@@ -61,7 +61,7 @@ type Manifest struct {
 	Header       ManifestHeader
 	Files        []*File
 	DeletedFiles []*File
-	bundleInfo   bundleInfo
+	BundleInfo   BundleInfo
 }
 
 // MoM is a manifest that holds references to bundle manifests.

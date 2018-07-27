@@ -386,7 +386,7 @@ func (fs *testFileSystem) write(subpath, content string) {
 }
 
 func (fs *testFileSystem) initBundleInfo(version uint32, bundle string, includes []string) {
-	bi := bundleInfo{
+	bi := BundleInfo{
 		Name:           bundle,
 		DirectIncludes: includes,
 		DirectPackages: make(map[string]bool),
@@ -434,7 +434,7 @@ func (fs *testFileSystem) addToBundleInfo(version uint32, bundle, file string) {
 		fs.t.Fatal(err)
 	}
 
-	var bi bundleInfo
+	var bi BundleInfo
 	err = json.Unmarshal(biBytes, &bi)
 	if err != nil {
 		fs.t.Fatal(err)
@@ -460,7 +460,7 @@ func (fs *testFileSystem) addIncludesToBundleInfo(version uint32, bundle string,
 		fs.t.Fatal(err)
 	}
 
-	var bi bundleInfo
+	var bi BundleInfo
 	err = json.Unmarshal(biBytes, &bi)
 	if err != nil {
 		fs.t.Fatal(err)

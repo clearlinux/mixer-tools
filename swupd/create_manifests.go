@@ -98,7 +98,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 					useBundleInfo = false
 				}
 
-				err = bundle.getBundleInfo(c, biPath)
+				err = bundle.GetBundleInfo(c.stateDir, biPath)
 				if err != nil {
 					errorChan <- err
 					break

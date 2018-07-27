@@ -23,7 +23,8 @@ import (
 	"strings"
 )
 
-type bundleInfo struct {
+// BundleInfo describes the JSON object to be read from the *-info files
+type BundleInfo struct {
 	Name           string
 	Filename       string
 	DirectIncludes []string
@@ -41,9 +42,9 @@ func (m *Manifest) getBundleInfo(c config, path string) error {
 			return err
 		}
 
-		m.bundleInfo.Files = make(map[string]bool)
+		m.BundleInfo.Files = make(map[string]bool)
 		for _, f := range m.Files {
-			m.bundleInfo.Files[f.Name] = true
+			m.BundleInfo.Files[f.Name] = true
 		}
 
 		var includes []string
@@ -51,7 +52,7 @@ func (m *Manifest) getBundleInfo(c config, path string) error {
 		if err != nil {
 			return err
 		}
-		m.bundleInfo.DirectIncludes = includes
+		m.BundleInfo.DirectIncludes = includes
 		return nil
 	}
 
@@ -60,7 +61,7 @@ func (m *Manifest) getBundleInfo(c config, path string) error {
 		return err
 	}
 
-	err = json.Unmarshal(biBytes, &m.bundleInfo)
+	err = json.Unmarshal(biBytes, &m.BundleInfo)
 	if err != nil {
 		return err
 	}
@@ -79,7 +80,7 @@ func (m *Manifest) getBundleInfo(c config, path string) error {
 			if !strings.HasPrefix(f, "/") {
 				return fmt.Errorf("invalid extra file %s in %s, must start with '/'", f, extraFilesPath)
 			}
-			m.bundleInfo.Files[f] = true
+			m.BundleInfo.Files[f] = true
 		}
 	}
 
@@ -88,7 +89,7 @@ func (m *Manifest) getBundleInfo(c config, path string) error {
 
 func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {
 	chrootDir := filepath.Join(c.imageBase, fmt.Sprint(version), "full")
-	for fpath := range m.bundleInfo.Files {
+	for fpath := range m.BundleInfo.Files {
 		fullPath := filepath.Join(chrootDir, fpath)
 		fi, err := os.Lstat(fullPath)
 		if err != nil {
@@ -126,7 +127,7 @@ func (m *Manifest) readIncludesFromBundleInfo(bundles []*Manifest) error {
 		}
 	}
 
-	for _, bn := range m.bundleInfo.DirectIncludes {
+	for _, bn := range m.BundleInfo.DirectIncludes {
 		// just add this one blindly since it is processed later
 		if bn == IndexBundle {
 			includes = append(includes, &Manifest{Name: IndexBundle})

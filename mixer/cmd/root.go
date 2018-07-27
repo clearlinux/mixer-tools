@@ -154,6 +154,7 @@ type initCmdFlags struct {
 	localRPMs   bool
 	upstreamURL string
 	git         bool
+	format      string
 }
 
 var initFlags initCmdFlags
@@ -184,6 +185,9 @@ var initCmd = &cobra.Command{
 		}
 
 		b.State.LoadDefaults()
+		if initFlags.format != "" {
+			b.State.Mix.Format = initFlags.format
+		}
 		if err := b.State.Save(); err != nil {
 			fail(err)
 		}
@@ -235,6 +239,7 @@ func init() {
 	initCmd.Flags().StringVar(&configFile, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")
+	initCmd.Flags().StringVar(&initFlags.format, "format", "", "Supply the format version for the mix")
 
 	externalDeps[initCmd] = []string{
 		"git",

@@ -174,6 +174,12 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 		return errors.Wrap(err, "Unable to get docker image name for format "+format)
 	}
 
+	fmt.Println("Updating docker image")
+
+	if err = helpers.RunCommand("docker", "pull", imageName); err != nil {
+		fmt.Printf("WARNING: Unable to pull docker image for format %s. Trying with cached image\n", format)
+	}
+
 	fmt.Printf("Running command in container: %q\n", strings.Join(cmd, " "))
 
 	wd, _ := os.Getwd()

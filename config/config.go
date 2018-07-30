@@ -112,6 +112,7 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 
 	// [Mixer]
 	config.Mixer.LocalBundleDir = filepath.Join(path, "local-bundles")
+	config.Mixer.DockerImgPath = "clearlinux/mixer"
 
 	if localrpms {
 		config.Mixer.LocalRPMDir = filepath.Join(path, "local-rpms")

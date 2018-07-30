@@ -47,8 +47,11 @@ func (b *Builder) GetHostAndUpstreamFormats() (string, string, error) {
 	return string(hostFormat), upstreamFormat, nil
 }
 
-func (b *Builder) getDockerImageName(format string) string {
-	return fmt.Sprintf("%s:%s", b.Config.Mixer.DockerImgPath, format)
+func (b *Builder) getDockerImageName(format string) (string, error) {
+	if b.Config.Mixer.DockerImgPath == "" {
+		return "", errors.New("Docker Image Path is not set in the config file")
+	}
+	return fmt.Sprintf("%s:%s", b.Config.Mixer.DockerImgPath, format), nil
 }
 
 // reduceDockerMounts takes a list of directory paths and reduces it to a
@@ -166,6 +169,11 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 		return err
 	}
 
+	imageName, err := b.getDockerImageName(format)
+	if err != nil {
+		return errors.Wrap(err, "Unable to get docker image name for format "+format)
+	}
+
 	fmt.Printf("Running command in container: %q\n", strings.Join(cmd, " "))
 
 	wd, _ := os.Getwd()
@@ -189,7 +197,7 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 		dockerCmd = append(dockerCmd, "-v", fmt.Sprintf("%s:%s", path, path))
 	}
 
-	dockerCmd = append(dockerCmd, b.getDockerImageName(format))
+	dockerCmd = append(dockerCmd, imageName)
 	dockerCmd = append(dockerCmd, cmd[1:]...)
 	dockerCmd = append(dockerCmd, "--native")
 

@@ -569,7 +569,6 @@ func init() {
 		"dnf",
 	}
 	externalDeps[buildUpdateCmd] = []string{
-		"hardlink",
 		"openssl",
 		"xz",
 	}

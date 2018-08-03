@@ -40,7 +40,6 @@ func init() {
 
 	externalDeps[addRPMCmd] = []string{
 		"createrepo_c",
-		"hardlink",
 	}
 }
 

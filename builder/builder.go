@@ -1397,7 +1397,7 @@ func getClosestAncestorOwner(path string) (int, int, error) {
 // DNF configuration file, then resolving all files for each bundle using dnf
 // resolve and no-op installs. One full chroot is created from this step with
 // the file contents of all bundles.
-func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool) error {
+func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag, clean bool) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
@@ -1430,9 +1430,8 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 	}
 
-	// If MIXVER already exists, wipe it so it's a fresh build
-	if _, err := os.Stat(b.Config.Builder.ServerStateDir + "/image/" + b.MixVer); err == nil {
-		fmt.Printf("Wiping away previous version %s...\n", b.MixVer)
+	if _, err := os.Stat(b.Config.Builder.ServerStateDir + "/image/" + b.MixVer); err == nil && clean {
+		fmt.Printf("* Wiping away previous version %s...\n", b.MixVer)
 		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/www/" + b.MixVer)
 		if err != nil {
 			return err

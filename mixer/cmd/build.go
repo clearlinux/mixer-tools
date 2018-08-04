@@ -35,6 +35,7 @@ type buildCmdFlags struct {
 	format        string
 	increment     bool
 	minVersion    int
+	clean         bool
 	noSigning     bool
 	noPublish     bool
 	template      string
@@ -73,7 +74,7 @@ var buildCmd = &cobra.Command{
 	Short: "Build various pieces of OS content",
 }
 
-func buildBundles(builder *builder.Builder, signflag bool) error {
+func buildBundles(builder *builder.Builder, signflag, cleanFlag bool) error {
 	// Create the signing and validation key/cert
 	if _, err := os.Stat(builder.Config.Builder.Cert); os.IsNotExist(err) {
 		fmt.Println("Generating certificate for signature validation...")
@@ -83,12 +84,12 @@ func buildBundles(builder *builder.Builder, signflag bool) error {
 		}
 		template := helpers.CreateCertTemplate()
 
-		err = builder.BuildBundles(template, privkey, signflag)
+		err = builder.BuildBundles(template, privkey, signflag, cleanFlag)
 		if err != nil {
 			return errors.Wrap(err, "Error building bundles")
 		}
 	} else {
-		err := builder.BuildBundles(nil, nil, true)
+		err := builder.BuildBundles(nil, nil, true, cleanFlag)
 		if err != nil {
 			return errors.Wrap(err, "Error building bundles")
 		}
@@ -107,7 +108,7 @@ var buildBundlesCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-		err = buildBundles(b, buildFlags.noSigning)
+		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean)
 		if err != nil {
 			fail(err)
 		}
@@ -236,7 +237,7 @@ var buildFormatNewCmd = &cobra.Command{
 		// if err := UpdateBudlesForFormatBump(); err != nil {...}
 
 		// Build the +20 (first build in new format) bundles
-		if err = buildBundles(b, buildFlags.noSigning); err != nil {
+		if err = buildBundles(b, buildFlags.noSigning, buildFlags.clean); err != nil {
 			fail(err)
 		}
 
@@ -399,7 +400,7 @@ var buildAllCmd = &cobra.Command{
 				failf("Couldn't add the RPMs: %s", err)
 			}
 		}
-		err = buildBundles(b, buildFlags.noSigning)
+		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean)
 		if err != nil {
 			failf("Couldn't build bundles: %s", err)
 		}
@@ -545,6 +546,7 @@ func init() {
 
 	RootCmd.AddCommand(buildCmd)
 
+	buildBundlesCmd.Flags().BoolVar(&buildFlags.clean, "clean", false, "Wipe the /image and /www dirs if they exist")
 	buildBundlesCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
 	unusedBoolFlag := false
 	buildBundlesCmd.Flags().BoolVar(&unusedBoolFlag, "new-chroots", false, "")

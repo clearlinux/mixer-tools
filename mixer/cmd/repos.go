@@ -15,7 +15,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/clearlinux/mixer-tools/builder"
@@ -33,6 +32,7 @@ var addRepoCmd = &cobra.Command{
 	Use:   "add <name> <url>",
 	Short: "Add repo <name> at <url>",
 	Long:  `Add the repo at <url> as a repo from which to pull RPMs for building bundles`,
+	Args:  cobra.ExactArgs(2),
 	Run:   runAddRepo,
 }
 
@@ -40,6 +40,7 @@ var removeRepoCmd = &cobra.Command{
 	Use:   "remove <name>",
 	Short: "Removes repo <name> from the DNF conf used by mixer",
 	Long:  `Remove the repo named <name> from the configured DNF conf used by mixer`,
+	Args:  cobra.ExactArgs(1),
 	Run:   runRemoveRepo,
 }
 
@@ -61,6 +62,7 @@ var setURLRepoCmd = &cobra.Command{
 	Use:   "set-url <name> <url>",
 	Short: "Sets the URL for repo <name> to <url>",
 	Long:  `Sets the URL, for repo <name> to <url>. If <name> does not exist the repo will be added to the configuration.`,
+	Args:  cobra.ExactArgs(2),
 	Run:   runSetURLRepo,
 }
 
@@ -82,9 +84,6 @@ func init() {
 }
 
 func runAddRepo(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
-		fail(errors.New("add requires exactly two arguments: <repo-name> <repo-url>"))
-	}
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -98,9 +97,6 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 }
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {
-	if len(args) != 1 {
-		fail(errors.New("remove requires exactly one argument: <name>"))
-	}
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -138,10 +134,6 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 }
 
 func runSetURLRepo(cmd *cobra.Command, args []string) {
-	if len(args) != 2 {
-		fail(errors.New("set-url requires exactly two arguments: <name> <url>"))
-	}
-
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)

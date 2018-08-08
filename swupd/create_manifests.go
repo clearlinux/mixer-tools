@@ -258,7 +258,7 @@ func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest) {
 	for _, f := range appendFrom.Files {
 		if f.findFileNameInSlice(appendTo.Files) == nil {
-			if f.Name == indexBundle {
+			if f.Name == IndexBundle {
 				// this is generated new each time
 				continue
 			}

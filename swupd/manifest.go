@@ -33,10 +33,13 @@ import (
 
 const manifestFieldDelim = "\t"
 
+// IndexBundle defines the name of the bundle that contains index information
+// about the current update
+const IndexBundle = "os-core-update-index"
+
 // TODO make this configurable (optional and configurable bundle/filepath)
 // this should be done when configuration is in a more stable state
 const (
-	indexBundle       = "os-core-update-index"
 	indexFileName     = "/usr/share/clear/os-core-update-index"
 	indexAllBundleDir = "/usr/share/clear/allbundles"
 )
@@ -737,13 +740,13 @@ func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
 
 	imageVerPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
 	// write to bundle chroot
-	outputFileName := filepath.Join(imageVerPath, indexBundle, indexFileName)
+	outputFileName := filepath.Join(imageVerPath, IndexBundle, indexFileName)
 	if err := createAndWrite(outputFileName, output); err != nil {
 		return err
 	}
 
-	trackingFile := filepath.Join("/usr/share/clear/bundles", indexBundle)
-	if err := createAndWrite(filepath.Join(imageVerPath, indexBundle, trackingFile), []byte{}); err != nil {
+	trackingFile := filepath.Join("/usr/share/clear/bundles", IndexBundle)
+	if err := createAndWrite(filepath.Join(imageVerPath, IndexBundle, trackingFile), []byte{}); err != nil {
 		return err
 	}
 
@@ -808,12 +811,12 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 			TimeStamp: ui.timeStamp,
 			Includes:  []*Manifest{newOsCore},
 		},
-		Name: indexBundle,
+		Name: IndexBundle,
 	}
 
 	bundleDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
 	// add files from the chroot created in constructIndex
-	err := idxMan.addFilesFromChroot(filepath.Join(bundleDir, indexBundle), "")
+	err := idxMan.addFilesFromChroot(filepath.Join(bundleDir, IndexBundle), "")
 	if err != nil {
 		return nil, err
 	}
@@ -840,7 +843,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 		}
 
 		includesPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "noship", b.Name+"-includes")
-		if fileContains(includesPath, indexBundle) {
+		if fileContains(includesPath, IndexBundle) {
 			b.Header.Includes = append(b.Header.Includes, idxMan)
 			b.subtractManifests(idxMan)
 		}
@@ -886,7 +889,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 
 	// done processing, sort by version before writing
 	idxMan.sortFilesVersionName()
-	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+indexBundle)
+	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+IndexBundle)
 	if err := idxMan.WriteManifestFile(manOutput); err != nil {
 		return nil, err
 	}

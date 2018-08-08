@@ -128,8 +128,8 @@ func (m *Manifest) readIncludesFromBundleInfo(bundles []*Manifest) error {
 
 	for _, bn := range m.bundleInfo.DirectIncludes {
 		// just add this one blindly since it is processed later
-		if bn == indexBundle {
-			includes = append(includes, &Manifest{Name: indexBundle})
+		if bn == IndexBundle {
+			includes = append(includes, &Manifest{Name: IndexBundle})
 			continue
 		}
 

@@ -1839,6 +1839,33 @@ func (b *Builder) SetURLRepo(name, url string) error {
 	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
 }
 
+// SetExcludesRepo sets the ecludes for the repo <name> to [pkgs...]
+func (b *Builder) SetExcludesRepo(reponame, pkgs string) error {
+	if err := b.NewDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	s, err := DNFConf.GetSection(reponame)
+	if err != nil {
+		return err
+	}
+
+	k, err := s.GetKey("excludepkgs")
+	if err != nil {
+		if k, err = DNFConf.Section(reponame).NewKey("excludepkgs", pkgs); err != nil {
+			return err
+		}
+	}
+
+	k.SetValue(pkgs)
+	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
+}
+
 // RemoveRepo removes a configured repo <name> if it exists in the DNF configuration.
 // This will fail if a DNF conf has not yet been generated.
 func (b *Builder) RemoveRepo(name string) error {

@@ -2093,7 +2093,9 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	}
 
 	fmt.Printf("Found %d previous versions\n", len(previousManifests))
-
+	if len(previousManifests) == 0 {
+		return nil
+	}
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	// Create all deltas for all previous versions first based on full manifests
 	var versionQueue = make(chan *swupd.Manifest)

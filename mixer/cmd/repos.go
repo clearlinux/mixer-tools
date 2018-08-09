@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
 
@@ -66,12 +67,21 @@ var setURLRepoCmd = &cobra.Command{
 	Run:   runSetURLRepo,
 }
 
+var setExcludesRepoCmd = &cobra.Command{
+	Use:   "exclude <repo> <pkg> [<pkg>...]",
+	Short: "Exclude packages from a specified repo",
+	Long:  `Exclude packages from a specified repo. These packages will be ignored during build bundles. Globbing is supported.`,
+	Args:  cobra.MinimumNArgs(2),
+	Run:   runExcludesRepo,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
 	removeRepoCmd,
 	listReposCmd,
 	initRepoCmd,
 	setURLRepoCmd,
+	setExcludesRepoCmd,
 }
 
 func init() {
@@ -81,6 +91,19 @@ func init() {
 	}
 
 	RootCmd.AddCommand(repoCmd)
+}
+
+func runExcludesRepo(cmd *cobra.Command, args []string) {
+	b, err := builder.NewFromConfig(configFile)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.SetExcludesRepo(args[0], strings.Join(args[1:], " "))
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Excluded packages from repo %s:\n%s\n", args[0], strings.Join(args[1:], "\n"))
 }
 
 func runAddRepo(cmd *cobra.Command, args []string) {

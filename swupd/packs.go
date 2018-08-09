@@ -171,7 +171,13 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		Entries: make([]PackEntry, len(toManifest.Files)),
 	}
 
-	xw, err := NewExternalWriter(w, "xz")
+	// Only use zstd for delta packs, zero packs need XZ still
+	var xw *ExternalWriter
+	if fromManifest == nil {
+		xw, err = NewExternalWriter(w, "xz")
+	} else {
+		xw, err = NewExternalWriter(w, "zstd")
+	}
 	if err != nil {
 		return nil, err
 	}

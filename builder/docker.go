@@ -160,24 +160,58 @@ func (b *Builder) getDockerMounts() ([]string, error) {
 	return reduceDockerMounts(mounts), nil
 }
 
+func (b *Builder) prepareContainer() (string, error) {
+	format, err := b.getUpstreamFormat(b.UpstreamVer)
+	if err != nil {
+		return "", err
+	}
+	imageName, err := b.getDockerImageName(format)
+	if err != nil {
+		return "", errors.Wrap(err, "Unable to get docker image name for format "+format)
+	}
+	fmt.Println("Updating docker image")
+	if err = helpers.RunCommand("docker", "pull", imageName); err != nil {
+		fmt.Printf("WARNING: Unable to pull docker image for format %s. Trying with cached image\n", format)
+	}
+
+	return imageName, nil
+
+}
+
+func (b *Builder) prepareContainerOffline() (string, error) {
+	imageName, err := b.getDockerImageName(b.State.Mix.Format)
+	if err != nil {
+		var hostFormat []byte
+		if hostFormat, err = ioutil.ReadFile("/usr/share/defaults/swupd/format"); err != nil {
+			return "", err
+		}
+		imageName, err = b.getDockerImageName(string(hostFormat))
+		if err != nil {
+			return "", errors.Wrapf(err, "Unable to get docker image name for format %s", string(hostFormat))
+		}
+	}
+
+	// We know the right image name and format now so only need to run this once
+	if err := helpers.RunCommandSilent("docker", "image", "inspect", imageName); err != nil {
+		return "", errors.Errorf("Failed to find usable docker image, cannot run offline: %s", err)
+	}
+
+	return imageName, nil
+}
+
 // RunCommandInContainer will pull the content necessary to build a docker
 // image capable of running the desired command, build that image, and then
 // run the command in that image.
 func (b *Builder) RunCommandInContainer(cmd []string) error {
-	format, err := b.getUpstreamFormat(b.UpstreamVer)
+	var imageName string
+	var err error
+	if Offline {
+		imageName, err = b.prepareContainerOffline()
+	} else {
+		imageName, err = b.prepareContainer()
+	}
 	if err != nil {
 		return err
-	}
-
-	imageName, err := b.getDockerImageName(format)
-	if err != nil {
-		return errors.Wrap(err, "Unable to get docker image name for format "+format)
-	}
-
-	fmt.Println("Updating docker image")
-
-	if err = helpers.RunCommand("docker", "pull", imageName); err != nil {
-		fmt.Printf("WARNING: Unable to pull docker image for format %s. Trying with cached image\n", format)
 	}
 
 	fmt.Printf("Running command in container: %q\n", strings.Join(cmd, " "))

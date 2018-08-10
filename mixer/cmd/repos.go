@@ -70,9 +70,12 @@ var setURLRepoCmd = &cobra.Command{
 var setExcludesRepoCmd = &cobra.Command{
 	Use:   "exclude <repo> <pkg> [<pkg>...]",
 	Short: "Exclude packages from a specified repo",
-	Long:  `Exclude packages from a specified repo. These packages will be ignored during build bundles. Globbing is supported.`,
-	Args:  cobra.MinimumNArgs(2),
-	Run:   runExcludesRepo,
+	Long: `Exclude packages from a specified repo. These packages will be ignored
+during build bundles, which allows the user to explicitly select which packages
+to use when building bundles by excluding the unwanted ones. Globbing is
+supported.`,
+	Args: cobra.MinimumNArgs(2),
+	Run:  runExcludesRepo,
 }
 
 var repoCmds = []*cobra.Command{

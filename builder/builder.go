@@ -45,7 +45,7 @@ import (
 )
 
 // Version of Mixer. Also used by the Makefile for releases.
-const Version = "5.0.2"
+const Version = "5.1.0"
 
 // Native controls whether mixer runs the command on the native machine or in a
 // container.

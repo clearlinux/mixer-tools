@@ -9,6 +9,7 @@ include Makefile.bats
 
 .NOTPARALLEL:
 
+VERSION=5.1.0
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 
 .PHONY: gopath
@@ -36,7 +37,7 @@ endif
 
 
 build: gopath
-	go install ${GO_PACKAGE_PREFIX}/mixer
+	go install -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
 	go install ${GO_PACKAGE_PREFIX}/mixin
 	go install ${GO_PACKAGE_PREFIX}/swupd-extract
 	go install ${GO_PACKAGE_PREFIX}/swupd-inspector
@@ -99,12 +100,7 @@ release:
 		echo "Release needs to be used from a git repository"; \
 		exit 1; \
 	fi
-	@VERSION=$$(grep -e 'const Version' builder/builder.go | cut -d '"' -f 2) ; \
-	if [ -z "$$VERSION" ]; then \
-		echo "Couldn't extract version number from the source code"; \
-		exit 1; \
-	fi; \
-	git archive --format=tar.gz --verbose -o mixer-tools-$$VERSION.tar.gz HEAD --prefix=mixer-tools-$$VERSION/
+	git archive --format=tar.gz --verbose -o mixer-tools-${VERSION}.tar.gz HEAD --prefix=mixer-tools-${VERSION}/
 
 MANPAGES = \
 	docs/mixer.1 \

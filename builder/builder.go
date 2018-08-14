@@ -44,8 +44,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Version of Mixer. Also used by the Makefile for releases.
-const Version = "5.1.0"
+// Version of Mixer. This is provided by ldflags in Makefile during compilation
+var Version = ""
 
 // Native controls whether mixer runs the command on the native machine or in a
 // container.

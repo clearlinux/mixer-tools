@@ -230,16 +230,18 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[s
 
 	fileWorker := func() {
 		for bundle := range bundleCh {
+			var e error
 			fmt.Printf("processing %s\n", bundle.Name)
 			// Resolve files for this bundle, passing it the map of repos to packages
-			err = resolveFilesForBundle(bundle, bundleRepoPkgs[bundle.Name], packagerCmd)
-			if err != nil {
+			e = resolveFilesForBundle(bundle, bundleRepoPkgs[bundle.Name], packagerCmd)
+			if e != nil {
 				// break on the first error we get
 				// causes wg.Done to be called and the worker to exit
 				// the break is important so we don't overflow the errorCh
-				errorCh <- err
+				errorCh <- e
 				break
 			}
+
 		}
 		wg.Done()
 	}
@@ -337,6 +339,9 @@ func parseNoopInstall(installOut string) map[string][]string {
 	return repoPkgs
 }
 
+// We need this mutex so we don't write concurrently to bundleRepoPkgs
+var pkgMutex sync.RWMutex
+
 func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) map[string]map[string][]string {
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
@@ -375,6 +380,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 
 			// TODO: parseNoopInstall may fail, so consider a way to stop the processing
 			// once we find that failure. See how errorCh works in fullfiles.go.
+			pkgMutex.Lock()
 			bundleRepoPkgs[bundle.Name] = parseNoopInstall(outBuf.String())
 
 			for _, pkgs := range bundleRepoPkgs[bundle.Name] {
@@ -383,6 +389,8 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 					bundle.AllPackages[pkg] = true
 				}
 			}
+			// This has to encompass the for loop because it accesses bundleRepoPkgs
+			pkgMutex.Unlock()
 
 			fmt.Printf("... done with %s\n", bundle.Name)
 		}

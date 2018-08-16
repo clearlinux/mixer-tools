@@ -192,7 +192,10 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 	addFileAndPath(bundle.Files, filesToAdd...)
 }
 
-func resolveFilesForBundle(bundle *bundle, repoPkgs map[string][]string, packagerCmd []string) error {
+// repoPkgMap is a map of repo names to the packages they provide
+type repoPkgMap map[string][]string
+
+func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []string) error {
 	bundle.Files = make(map[string]bool)
 
 	for repo, pkgs := range repoPkgs {
@@ -216,7 +219,7 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs map[string][]string, package
 	return nil
 }
 
-func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[string][]string, packagerCmd []string) error {
+func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packagerCmd []string) error {
 	var err error
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving files using %d workers\n", numWorkers)
@@ -232,12 +235,17 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[s
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
 			// Resolve files for this bundle, passing it the map of repos to packages
-			err = resolveFilesForBundle(bundle, bundleRepoPkgs[bundle.Name], packagerCmd)
-			if err != nil {
+			r, ok := bundleRepoPkgs.Load(bundle.Name)
+			if !ok {
+				errorCh <- fmt.Errorf("couldn't find %s bundle", bundle.Name)
+				break
+			}
+			e := resolveFilesForBundle(bundle, r.(repoPkgMap), packagerCmd)
+			if e != nil {
 				// break on the first error we get
 				// causes wg.Done to be called and the worker to exit
 				// the break is important so we don't overflow the errorCh
-				errorCh <- err
+				errorCh <- e
 				break
 			}
 		}
@@ -304,8 +312,8 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs map[string]map[s
 // Transaction Summary
 // =============================================================================
 // <more metadata>
-func parseNoopInstall(installOut string) map[string][]string {
-	repoPkgs := make(map[string][]string)
+func parseNoopInstall(installOut string) repoPkgMap {
+	repoPkgs := make(repoPkgMap)
 
 	// Split out the section between the install list and the transaction Summary.
 	parts := strings.Split(installOut, "Installing:\n")
@@ -337,17 +345,17 @@ func parseNoopInstall(installOut string) map[string][]string {
 	return repoPkgs
 }
 
-func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) map[string]map[string][]string {
+func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) *sync.Map {
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
 	wg.Add(numWorkers)
 	bundleCh := make(chan *bundle)
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
-	bundleRepoPkgs := make(map[string]map[string][]string)
+	var bundleRepoPkgs sync.Map
 	// Prepopulate the top-level map so that its size is not changed by the
 	// worker goroutines.
 	for bundle := range set {
-		bundleRepoPkgs[bundle] = make(map[string][]string)
+		bundleRepoPkgs.Store(bundle, make(repoPkgMap))
 	}
 
 	packageWorker := func() {
@@ -375,14 +383,16 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 
 			// TODO: parseNoopInstall may fail, so consider a way to stop the processing
 			// once we find that failure. See how errorCh works in fullfiles.go.
-			bundleRepoPkgs[bundle.Name] = parseNoopInstall(outBuf.String())
+			bundleRepoPkgs.Store(bundle.Name, parseNoopInstall(outBuf.String()))
 
-			for _, pkgs := range bundleRepoPkgs[bundle.Name] {
-				// Add packages to bundle's AllPackages
-				for _, pkg := range pkgs {
-					bundle.AllPackages[pkg] = true
+			bundleRepoPkgs.Range(func(key, val interface{}) bool {
+				for _, r := range val.(repoPkgMap) {
+					for _, p := range r {
+						bundle.AllPackages[p] = true
+					}
 				}
-			}
+				return true
+			})
 
 			fmt.Printf("... done with %s\n", bundle.Name)
 		}
@@ -400,7 +410,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 	close(bundleCh)
 	wg.Wait()
 
-	return bundleRepoPkgs
+	return &bundleRepoPkgs
 }
 
 func installFilesystem(packagerCmd []string, chrootDir string) error {

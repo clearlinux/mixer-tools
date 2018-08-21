@@ -188,6 +188,7 @@ func (b *Builder) RunCommandInContainer(cmd []string) error {
 	dockerCmd := []string{
 		"docker",
 		"run",
+		"--runtime=runc",
 		"-i",
 		"--network=host",
 		"--rm",

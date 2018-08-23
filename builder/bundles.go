@@ -352,26 +352,17 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 	bundleCh := make(chan *bundle)
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
 	var bundleRepoPkgs sync.Map
-	// Prepopulate the top-level map so that its size is not changed by the
-	// worker goroutines.
-	for bundle := range set {
-		bundleRepoPkgs.Store(bundle, make(repoPkgMap))
-	}
 
 	packageWorker := func() {
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
-			packageNames := make(map[string]bool)
-			for k := range bundle.AllPackages {
-				packageNames[k] = true
-			}
 			queryString := merge(
 				packagerCmd,
 				"--installroot="+emptyDir,
 				"--assumeno",
 				"install",
 			)
-			for p := range packageNames {
+			for p := range bundle.AllPackages {
 				queryString = append(queryString, p)
 			}
 			// ignore error from the --assumeno install. It is an error every time because

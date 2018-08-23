@@ -383,16 +383,15 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 
 			// TODO: parseNoopInstall may fail, so consider a way to stop the processing
 			// once we find that failure. See how errorCh works in fullfiles.go.
-			bundleRepoPkgs.Store(bundle.Name, parseNoopInstall(outBuf.String()))
-
-			bundleRepoPkgs.Range(func(key, val interface{}) bool {
-				for _, r := range val.(repoPkgMap) {
-					for _, p := range r {
-						bundle.AllPackages[p] = true
-					}
+			rpm := parseNoopInstall(outBuf.String())
+			for _, pkgs := range rpm {
+				// Add packages to bundle's AllPackages
+				for _, pkg := range pkgs {
+					bundle.AllPackages[pkg] = true
 				}
-				return true
-			})
+			}
+
+			bundleRepoPkgs.Store(bundle.Name, rpm)
 
 			fmt.Printf("... done with %s\n", bundle.Name)
 		}

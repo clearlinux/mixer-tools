@@ -163,6 +163,6 @@ func getPackageRepo(pkg string, ver int, configFile string) (string, error) {
 	// ignore error here because passing --assumeno to dnf install always
 	// results in an error due to the aborted install. Instead rely on the
 	// error to come from parseHeaderNoopInstall
-	outBuf, _ := helpers.RunCommandOutput(packagerCmd[0], packagerCmd[1:]...)
+	outBuf, _ := helpers.RunCommandOutputEnv(packagerCmd[0], packagerCmd[1:], []string{"LC_ALL=en_US.UTF-8"})
 	return parseHeaderNoopInstall(pkg, outBuf.String())
 }

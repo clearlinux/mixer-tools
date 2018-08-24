@@ -278,6 +278,13 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 		return errors.Wrapf(err, "Couldn't parse upstream version")
 	}
 
+	// When running in offline mode, there is no upstream to get the default bundles from,
+	// so the mix must be created without the default bundles.
+	if Offline && !noDefaults {
+		fmt.Println("Running in offline mode. Forcing --no-default-bundles")
+		noDefaults = true
+	}
+
 	// Initialize the Mix Bundles List
 	var bundles []string
 	if !noDefaults {

@@ -65,9 +65,14 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
-		// Init needs to be handled differently because there is no config yet
-		if cmdContains(cmd, "init") {
-			return checkCmdDeps(cmd)
+		// Commands that don't require the config to be pre-parsed must be
+		// handled differently because there might be no config yet or they
+		// will parse it on their own
+		noParseConfigCmds := []string{"init", "config"}
+		for _, ignoreCmd := range noParseConfigCmds {
+			if cmdContains(cmd, ignoreCmd) {
+				return checkCmdDeps(cmd)
+			}
 		}
 
 		b, err := builder.NewFromConfig(configFile)

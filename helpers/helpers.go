@@ -308,11 +308,19 @@ func RunCommandTimeout(timeout int, cmdname string, args ...string) error {
 // memory. If the command succeeds returns that output, if it fails, return err that
 // contains both the out and err streams from the execution.
 func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
+	return RunCommandOutputEnv(cmdname, args, []string{})
+}
+
+// RunCommandOutputEnv executes the command with arguments and environment and stores
+// its output in memory. If the command succeeds returns that output, if it fails,
+// return err that contains both the out and err streams from the execution.
+func RunCommandOutputEnv(cmdname string, args []string, envs []string) (*bytes.Buffer, error) {
 	cmd := exec.Command(cmdname, args...)
 	var outBuf bytes.Buffer
 	var errBuf bytes.Buffer
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
+	cmd.Env = append(os.Environ(), envs...)
 	err := cmd.Run()
 
 	if err != nil {

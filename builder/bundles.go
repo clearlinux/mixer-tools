@@ -203,7 +203,7 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 		for _, p := range pkgs {
 			queryString = append(queryString, p)
 		}
-		outBuf, err := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
+		outBuf, err := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err != nil {
 			return err
 		}
@@ -370,7 +370,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// status. This exit status is 1, which is the same as any other dnf install
 			// error. Fortunately if this is a different error than we expect, it should
 			// fail in the actual install to the full chroot.
-			outBuf, _ := helpers.RunCommandOutput(queryString[0], queryString[1:]...)
+			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 
 			// TODO: parseNoopInstall may fail, so consider a way to stop the processing
 			// once we find that failure. See how errorCh works in fullfiles.go.
@@ -409,7 +409,8 @@ func installFilesystem(packagerCmd []string, chrootDir string) error {
 		"install",
 		"filesystem",
 	)
-	return helpers.RunCommandSilent(installArgs[0], installArgs[1:]...)
+	_, err := helpers.RunCommandOutputEnv(installArgs[0], installArgs[1:], []string{"LC_ALL=en_US.UTF-8"})
+	return err
 }
 
 func createClearDir(chrootDir, version string) error {
@@ -508,7 +509,7 @@ func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *b
 		for p := range bundle.AllPackages {
 			args = append(args, p)
 		}
-		err = helpers.RunCommandSilent(args[0], args[1:]...)
+		_, err = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err != nil {
 			return err
 		}
@@ -536,7 +537,8 @@ func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *b
 
 func clearDNFCache(packagerCmd []string) error {
 	args := merge(packagerCmd, "clean", "all")
-	return helpers.RunCommandSilent(args[0], args[1:]...)
+	_, err := helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+	return err
 }
 
 func rmDNFStatePaths(fullDir string) {
@@ -809,6 +811,7 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
+	cmd.Env = append(os.Environ(), "LC_ALL=en_US.UTF-8")
 	err := cmd.Run()
 	if err != nil {
 		msg := fmt.Sprintf("couldn't list packages: %s\nCOMMAND LINE: %s", err, args)

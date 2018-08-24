@@ -9,7 +9,7 @@ include Makefile.bats
 
 .NOTPARALLEL:
 
-VERSION=5.1.2
+VERSION=5.1.3
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 
 .PHONY: gopath

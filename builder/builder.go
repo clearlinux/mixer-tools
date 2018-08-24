@@ -162,7 +162,7 @@ func (b *Builder) initDirs() error {
 func (b *Builder) getLatestUpstreamVersion() (string, error) {
 	ver, err := b.DownloadFileFromUpstreamAsString("/latest")
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to retrieve latest published upstream version")
+		return "", errors.Wrap(err, "Failed to retrieve latest published upstream version. Missing proxy configuration? ")
 	}
 
 	return ver, nil
@@ -240,7 +240,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	if upstreamVer == "latest" {
 		ver, err := b.getLatestUpstreamVersion()
 		if err != nil {
-			return errors.Wrap(err, "Failed to retrieve latest published upstream version")
+			return err
 		}
 		upstreamVer = ver
 	}

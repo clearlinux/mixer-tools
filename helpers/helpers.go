@@ -377,7 +377,7 @@ func getDownloadFileReader(url string) (*io.ReadCloser, error) {
 func DownloadFileAsString(url string) (string, error) {
 	fr, err := getDownloadFileReader(url)
 	if err != nil {
-		return "", errors.Wrap(err, "Failed to download file")
+		return "", err
 	}
 
 	defer func() {

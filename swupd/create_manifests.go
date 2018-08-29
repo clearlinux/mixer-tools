@@ -53,7 +53,6 @@ func getOldManifest(path string) (*Manifest, error) {
 }
 
 func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
-	var err error
 	var wg sync.WaitGroup
 	workers := len(ui.bundles)
 	wg.Add(workers)
@@ -64,6 +63,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	fmt.Println("Generating initial manifests...")
 	bundleWorker := func() {
 		defer wg.Done()
+		var err error
 		for bundleName := range bundleChan {
 			bundle := &Manifest{
 				Header: ManifestHeader{
@@ -101,7 +101,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 				err = bundle.GetBundleInfo(c.stateDir, biPath)
 				if err != nil {
 					errorChan <- err
-					break
+					return
 				}
 
 				if useBundleInfo {
@@ -110,14 +110,14 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 			}
 			if err != nil {
 				errorChan <- err
-				break
+				return
 			}
 
 			// detect type changes
 			// fail out here if a type change is detected since this is not yet supported in client
 			if bundle.hasUnsupportedTypeChanges() {
 				errorChan <- errors.New("type changes not yet supported")
-				break
+				return
 			}
 
 			// remove banned debuginfo if configured to do so
@@ -136,24 +136,29 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		go bundleWorker()
 	}
 
+	var err error
 	for _, bn := range ui.bundles {
 		select {
 		case bundleChan <- bn:
 		case err = <-errorChan:
-			// break as soon as we see a failure
-			break
+			// Closing the channel here prevents workers from start processing
+			// a new Bundle while mixer is exiting.
+			close(bundleChan)
+
+			// If there is an error, there is no need to wait for the workers
+			// to finish since mixer will exit with that error, so we skip
+			// wg.Wait() here and return right away. Exiting mixer will clean
+			// any running worker.
+			return nil, err
 		}
 	}
+
 	close(bundleChan)
 	wg.Wait()
 
 	if err == nil && len(errorChan) > 0 {
 		err = <-errorChan
-	}
-
-	chanLen := len(errorChan)
-	for i := 0; i < chanLen; i++ {
-		<-errorChan
+		return nil, err
 	}
 
 	// Now handle the full manifest last, we know the full chroot is populated

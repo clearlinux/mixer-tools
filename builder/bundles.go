@@ -379,7 +379,7 @@ func initRPMDB(chrootDir string) error {
 	)
 }
 
-func buildOsCore(packagerCmd []string, chrootDir, version string) error {
+func buildOsCore(packagerCmd []string, chrootDir string, mixinfo mixInfo) error {
 	err := initRPMDB(chrootDir)
 	if err != nil {
 		return err
@@ -389,11 +389,11 @@ func buildOsCore(packagerCmd []string, chrootDir, version string) error {
 		return err
 	}
 
-	if err := createClearDir(chrootDir, version); err != nil {
+	if err := createClearDir(chrootDir, mixinfo.VersionID); err != nil {
 		return err
 	}
 
-	if err := fixOSRelease(filepath.Join(chrootDir, "usr/lib/os-release"), version); err != nil {
+	if err := fixOSRelease(filepath.Join(chrootDir, "usr/lib/os-release"), mixinfo); err != nil {
 		return errors.Wrap(err, "couldn't fix os-release file")
 	}
 
@@ -500,7 +500,7 @@ func rmDNFStatePaths(fullDir string) {
 	}
 }
 
-func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
+func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir string, mixinfo mixInfo) error {
 	fmt.Println("Cleaning DNF cache before full install")
 	if err := clearDNFCache(packagerCmd); err != nil {
 		return err
@@ -515,7 +515,7 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 		// special handling for os-core
 		if bundle.Name == "os-core" {
 			fmt.Println("... building special os-core content")
-			if err := buildOsCore(packagerCmd, fullDir, version); err != nil {
+			if err := buildOsCore(packagerCmd, fullDir, mixinfo); err != nil {
 				return err
 			}
 		}
@@ -552,6 +552,16 @@ func writeBundleInfo(bundle *bundle, path string) error {
 	}
 
 	return ioutil.WriteFile(path, b, 0644)
+}
+
+type mixInfo struct {
+	OSName      string
+	VersionID   string
+	BuildID     string
+	UpstreamURL string
+	ID          string
+	OSVersion   string
+	PrettyName  string
 }
 
 func (b *Builder) buildBundles(set bundleSet) error {
@@ -617,20 +627,20 @@ src=%s
 	}
 
 	// Mixer is used to create both Clear Linux or a mix of it.
-	var version string
+	var versionID string
 	if b.MixVer != "" {
 		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
-		version = b.MixVer
+		versionID = b.MixVer
 	} else {
 		fmt.Printf("Creating bundles for version %s\n", b.UpstreamVer)
-		version = b.UpstreamVer
+		versionID = b.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
-		if version == "" {
+		if versionID == "" {
 			return errors.Errorf("no Mixver or Clearver set, unable to proceed")
 		}
 	}
 
-	buildVersionDir := filepath.Join(bundleDir, version)
+	buildVersionDir := filepath.Join(bundleDir, versionID)
 	fmt.Printf("Preparing new %s\n", buildVersionDir)
 	fmt.Printf("  and dnf config: %s\n", b.Config.Builder.DNFConf)
 
@@ -694,8 +704,17 @@ src=%s
 		}
 	}
 
+	var mixinfo mixInfo
+	mixinfo.OSName = "Clear Linux Mix" // TODO: Read user defined value when #424 is implemented.
+	mixinfo.VersionID = versionID
+	mixinfo.BuildID = b.UpstreamVer
+	mixinfo.UpstreamURL = b.UpstreamURL
+	mixinfo.ID = strings.Replace(strings.ToLower(mixinfo.OSName), " ", "_", -1)
+	mixinfo.OSVersion = mixinfo.VersionID + " (" + mixinfo.BuildID + ")"
+	mixinfo.PrettyName = mixinfo.OSName + " " + mixinfo.OSVersion
+
 	// install all bundles in the set (including os-core) to the full chroot
-	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version)
+	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, mixinfo)
 	if err != nil {
 		return err
 	}
@@ -838,7 +857,7 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	return w.Flush()
 }
 
-func fixOSRelease(filename, version string) error {
+func fixOSRelease(filename string, mixinfo mixInfo) error {
 	f, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -847,21 +866,30 @@ func fixOSRelease(filename, version string) error {
 		_ = f.Close()
 	}()
 
-	// TODO: If this is a mix, NAME and ID should probably change too. Create a section in
-	// configuration that will be used as reference to fill this.
-	// TODO: If this is a mix, add extra field for keeping track of the Clear Linux version
-	// used. Maybe also put the UPSTREAM URL, so we are ready to support mixes of mixes.
-	//
-	// See also: https://github.com/clearlinux/mixer-tools/issues/113
-
+	// Adding mix related info to the os-release file.
 	var newBuf bytes.Buffer
+	fmt.Fprintln(&newBuf, "NAME="+"\""+mixinfo.OSName+"\"")
+	fmt.Fprintln(&newBuf, "VERSION_ID="+mixinfo.VersionID)
+	fmt.Fprintln(&newBuf, "BUILD_ID="+mixinfo.BuildID)
+	fmt.Fprintln(&newBuf, "MIX_UPSTREAM_URL="+"\""+mixinfo.UpstreamURL+"\"")
+	fmt.Fprintln(&newBuf, "ID="+mixinfo.ID)
+	fmt.Fprintln(&newBuf, "VERSION="+"\""+mixinfo.OSVersion+"\"")
+	fmt.Fprintln(&newBuf, "PRETTY_NAME="+"\""+mixinfo.PrettyName+"\"")
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		text := scanner.Text()
-		if strings.HasPrefix(text, "VERSION_ID=") {
-			text = "VERSION_ID=" + version
+		if strings.HasPrefix(text, "NAME=") ||
+			strings.HasPrefix(text, "VERSION_ID=") ||
+			strings.HasPrefix(text, "BUILD_ID=") ||
+			strings.HasPrefix(text, "MIX_UPSTREAM_URL=") ||
+			strings.HasPrefix(text, "ID=") ||
+			strings.HasPrefix(text, "VERSION=") ||
+			strings.HasPrefix(text, "PRETTY_NAME=") {
+			// Skipping the fields that are already written to the buffer
+		} else {
+			fmt.Fprintln(&newBuf, text)
 		}
-		fmt.Fprintln(&newBuf, text)
 	}
 
 	err = scanner.Err()

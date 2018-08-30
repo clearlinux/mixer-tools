@@ -40,8 +40,7 @@ func (m *Manifest) createFileRecord(rootPath, path, removePrefix string, fi os.F
 		return nil
 	}
 
-	m.Files = append(m.Files, file)
-	m.Header.ContentSize += uint64(fi.Size())
+	m.AppendFile(file)
 
 	return nil
 }

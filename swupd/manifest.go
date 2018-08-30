@@ -543,7 +543,7 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 			newPath := filepath.Join(c.imageBase, fmt.Sprint(nf.Version), "full", nf.Name)
 			fi, err := os.Stat(newPath)
 			if err != nil {
-				return errors.Wrapf(err, "error accessing %s to decide whether it can have a delta or not")
+				return errors.Wrapf(err, "error accessing %s to decide whether it can have a delta or not", newPath)
 			}
 			if fi.Size() < minimumSizeToMakeDeltaInBytes {
 				continue

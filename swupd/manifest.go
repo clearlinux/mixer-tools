@@ -865,3 +865,11 @@ func fileContentInManifest(f *File, m *Manifest) bool {
 	}
 	return false
 }
+
+// AppendFile appends a file to the manifest and updates the ContentSize
+func (m *Manifest) AppendFile(file *File) {
+	m.Files = append(m.Files, file)
+	if file.Info != nil {
+		m.Header.ContentSize += uint64(file.Info.Size())
+	}
+}

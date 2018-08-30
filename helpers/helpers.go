@@ -61,9 +61,9 @@ func CreateCertTemplate() *x509.Certificate {
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(1, 0, 0),
 		BasicConstraintsValid: true,
-		IsCA:        false, // This could be true since we are self signed, but set false for correctness
-		KeyUsage:    x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature | x509.KeyUsageCRLSign,
-		ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
+		IsCA:                  false, // This could be true since we are self signed, but set false for correctness
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature | x509.KeyUsageCRLSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageCodeSigning},
 	}
 
 	return &template

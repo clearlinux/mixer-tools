@@ -76,6 +76,27 @@ func TestCreateManifestsBasic(t *testing.T) {
 	checkManifestContains(t, ts.Dir, "20", "test-bundle", expSubs...)
 	checkManifestNotContains(t, ts.Dir, "20", "test-bundle", "10\t/foo")
 	checkManifestNotContains(t, ts.Dir, "20", "MoM", "20\tManifest.full")
+
+	expSubs = []string{
+		"MANIFEST\t1",
+		"version:\t20",
+		"previous:\t10",
+		"filecount:\t1",
+		"20\t/usr/lib/os-release",
+	}
+	checkManifestContains(t, ts.Dir, "20", "os-core.I.10", expSubs...)
+	checkManifestFileCount(ts, "20", "os-core.I.10", 1, 0)
+
+	expSubs = []string{
+		"MANIFEST\t1",
+		"version:\t20",
+		"previous:\t10",
+		"filecount:\t1",
+		"includes:\tos-core",
+		"20\t/foo",
+	}
+	checkManifestContains(t, ts.Dir, "20", "test-bundle.I.10", expSubs...)
+	checkManifestFileCount(ts, "20", "test-bundle.I.10", 1, 0)
 }
 
 func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
@@ -92,6 +113,16 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 	ts.createManifests(20)
 
 	fileInManifest(t, ts.parseManifest(20, "full"), 10, "/foo")
+
+	expSubs := []string{
+		"MANIFEST\t1",
+		"version:\t20",
+		"previous:\t10",
+		"filecount:\t1",
+		"20\t/foo",
+	}
+	checkManifestContains(t, ts.Dir, "20", "test-bundle2.I.10", expSubs...)
+	checkManifestFileCount(ts, "20", "test-bundle2.I.10", 1, 1)
 }
 
 func TestCreateManifestIllegalChar(t *testing.T) {
@@ -168,6 +199,19 @@ func TestCreateManifestGhosted(t *testing.T) {
 	if f3.Status != StatusGhosted {
 		t.Errorf("%s present in 20 full but expected to be ghosted", f3.Name)
 	}
+
+	manifestFile := filepath.Join(ts.Dir, "www/30/Manifest.test-bundle.I.20")
+	m30I, err := ParseManifestFile(manifestFile)
+	if err != nil {
+		t.Errorf("Couldn't parse Iterative manifest with ghost file: %s", err)
+	}
+	fileNotInManifest(t, m30I, "/usr/lib/kernel/bar")
+	f3I := fileInManifest(t, m30I, 30, "/usr/lib/kernel/baz")
+	if f3I.Status != StatusGhosted {
+		t.Errorf("%s present in 20 full but expected to be ghosted", f3.Name)
+	}
+	checkManifestFileCount(ts, "30", "test-bundle.I.20", 1, 0)
+
 }
 
 func TestCreateManifestIncludesDeduplicate(t *testing.T) {
@@ -240,6 +284,7 @@ func TestCreateManifestsMoM(t *testing.T) {
 		"10\ttest-bundle4",
 	}
 	checkManifestContains(t, ts.Dir, "10", "MoM", subs...)
+	checkManifestFileCount(ts, "10", "MoM", 6, 0)
 
 	ts.addFile(20, "test-bundle1", "/foo", "foo")
 	ts.addFile(20, "test-bundle2", "/bar", "bar")
@@ -249,11 +294,17 @@ func TestCreateManifestsMoM(t *testing.T) {
 	// no update to test-bundle4
 	subs = []string{
 		"20\ttest-bundle1",
+		"20\ttest-bundle1.I.10",
 		"20\ttest-bundle2",
+		"20\ttest-bundle2.I.10",
 		"20\ttest-bundle3",
+		"20\ttest-bundle3.I.10",
 		"10\ttest-bundle4",
+		"20\tos-core-update-index",
+		"20\tos-core-update-index.I.10",
 	}
 	checkManifestContains(t, ts.Dir, "20", "MoM", subs...)
+	checkManifestFileCount(ts, "20", "MoM", 11, 0)
 
 	ts.addFile(30, "test-bundle1", "/foo", "foo20")
 	ts.addFile(30, "test-bundle2", "/bar", "bar20")
@@ -263,11 +314,17 @@ func TestCreateManifestsMoM(t *testing.T) {
 	// again no update to test-bundle4
 	subs = []string{
 		"30\ttest-bundle1",
+		"30\ttest-bundle1.I.20",
 		"30\ttest-bundle2",
+		"30\ttest-bundle2.I.20",
 		"30\ttest-bundle3",
+		"30\ttest-bundle3.I.20",
 		"10\ttest-bundle4",
+		"30\tos-core-update-index",
+		"30\tos-core-update-index.I.20",
 	}
 	checkManifestContains(t, ts.Dir, "30", "MoM", subs...)
+	checkManifestFileCount(ts, "30", "MoM", 11, 0)
 
 	ts.addFile(40, "test-bundle1", "/foo", "foo30")
 	ts.addFile(40, "test-bundle2", "/bar", "bar20")
@@ -276,11 +333,38 @@ func TestCreateManifestsMoM(t *testing.T) {
 	// update only to test-bundle1, test-bundle3 has another deleted file now too
 	subs = []string{
 		"40\ttest-bundle1",
-		"40\ttest-bundle3",
+		"40\ttest-bundle1.I.30",
 		"30\ttest-bundle2",
+		"30\ttest-bundle2.I.20",
+		"40\ttest-bundle3",
+		"40\ttest-bundle3.I.30",
 		"10\ttest-bundle4",
+		"40\tos-core-update-index",
+		"40\tos-core-update-index.I.30",
 	}
 	checkManifestContains(t, ts.Dir, "40", "MoM", subs...)
+	checkManifestFileCount(ts, "40", "MoM", 11, 0)
+
+	ts.addFile(50, "test-bundle1", "/foo", "foo30")
+	ts.addFile(50, "test-bundle2", "/bar", "bar50")
+	ts.addFile(50, "test-bundle4", "/bar4", "bar50")
+	ts.createManifests(50)
+
+	// update only to test-bundle2 and test-bundle4
+	subs = []string{
+		"40\ttest-bundle1",
+		"40\ttest-bundle1.I.30",
+		"50\ttest-bundle2",
+		"50\ttest-bundle2.I.30",
+		"40\ttest-bundle3",
+		"40\ttest-bundle3.I.30",
+		"50\ttest-bundle4",
+		"50\ttest-bundle4.I.10",
+		"50\tos-core-update-index",
+		"50\tos-core-update-index.I.40",
+	}
+	checkManifestContains(t, ts.Dir, "50", "MoM", subs...)
+	checkManifestFileCount(ts, "50", "MoM", 12, 0)
 }
 
 func TestCreateManifestMaximizeFull(t *testing.T) {
@@ -311,8 +395,29 @@ func TestCreateManifestResurrect(t *testing.T) {
 	ts.addFile(20, "test-bundle", "/foo1", "foo1")
 	ts.createManifests(20)
 
+	expSubs := []string{
+		"MANIFEST\t1",
+		"version:\t20",
+		"previous:\t10",
+		"filecount:\t1",
+		AllZeroHash + "\t20\t/foo",
+	}
+	checkManifestContains(t, ts.Dir, "20", "test-bundle.I.10", expSubs...)
+	checkManifestFileCount(ts, "20", "test-bundle.I.10", 1, 1)
+
 	ts.addFile(30, "test-bundle", "/foo", "foo1")
 	ts.createManifests(30)
+
+	expSubs = []string{
+		"MANIFEST\t1",
+		"version:\t30",
+		"previous:\t20",
+		"filecount:\t2",
+		"30\t/foo",
+		AllZeroHash + "\t30\t/foo1",
+	}
+	checkManifestContains(t, ts.Dir, "30", "test-bundle.I.20", expSubs...)
+	checkManifestFileCount(ts, "30", "test-bundle.I.20", 2, 1)
 
 	checkManifestContains(t, ts.Dir, "30", "test-bundle", AllZeroHash+"\t30\t/foo1\n")
 	fileInManifest(t, ts.parseManifest(30, "test-bundle"), 30, "/foo")

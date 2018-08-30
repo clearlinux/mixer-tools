@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 )
@@ -52,12 +53,18 @@ func getOldManifest(path string) (*Manifest, error) {
 	return ParseManifestFile(path)
 }
 
-func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
+func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 	var wg sync.WaitGroup
-	workers := len(ui.bundles)
-	wg.Add(workers)
+	if numWorkers <= 0 {
+		numWorkers = runtime.NumCPU()
+	}
+	if numWorkers > len(ui.bundles) {
+		numWorkers = len(ui.bundles)
+	}
+	wg.Add(numWorkers)
+
 	bundleChan := make(chan string)
-	errorChan := make(chan error, workers)
+	errorChan := make(chan error, numWorkers)
 	mux := &sync.Mutex{}
 	tmpManifests := []*Manifest{}
 	fmt.Println("Generating initial manifests...")
@@ -132,7 +139,7 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 		}
 	}
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < numWorkers; i++ {
 		go bundleWorker()
 	}
 
@@ -182,11 +189,11 @@ func initBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
 	return tmpManifests, err
 }
 
-func processBundles(ui UpdateInfo, c config) ([]*Manifest, error) {
+func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 	var newFull *Manifest
 	var err error
 	// initialize bundles with with all files and their info
-	tmpManifests, err := initBundles(ui, c)
+	tmpManifests, err := initBundles(ui, c, numWorkers)
 	if err != nil {
 		return nil, err
 	}
@@ -327,7 +334,7 @@ func aggregateManifests(newManifests []*Manifest, newMoM *Manifest, version uint
 }
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
-func CreateManifests(version uint32, minVersion uint32, format uint, statedir string) (*MoM, error) {
+func CreateManifests(version uint32, minVersion uint32, format uint, statedir string, numWorkers int) (*MoM, error) {
 	var err error
 	var c config
 
@@ -378,7 +385,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		timeStamp:   timeStamp,
 	}
 	var newManifests []*Manifest
-	if newManifests, err = processBundles(ui, c); err != nil {
+	if newManifests, err = processBundles(ui, c, numWorkers); err != nil {
 		return nil, err
 	}
 

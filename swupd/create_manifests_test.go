@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"testing"
 )
 
@@ -27,7 +28,7 @@ func TestInitBuildEnv(t *testing.T) {
 }
 
 func TestCreateManifestsBadMinVersion(t *testing.T) {
-	if _, err := CreateManifests(10, 20, 1, "testdir"); err == nil {
+	if _, err := CreateManifests(10, 20, 1, "testdir", runtime.NumCPU()); err == nil {
 		t.Error("No error raised with invalid minVersion (20) for version 10")
 	}
 }

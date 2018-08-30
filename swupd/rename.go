@@ -92,7 +92,6 @@ func linkRenamePair(renameTo, renameFrom *File) {
 	renameFrom.DeltaPeer = renameTo
 	renameTo.Rename = RenameSet
 	renameFrom.Rename = RenameSet
-	renameFrom.Type = TypeUnset
 }
 
 // trimRenamed returns an slice which has had files with DeltaPeers purged

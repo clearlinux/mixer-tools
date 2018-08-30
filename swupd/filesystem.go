@@ -91,7 +91,7 @@ func recordFromFile(rootPath, path, removePrefix string, fi os.FileInfo) (*File,
 }
 
 // createManifestRecord wraps createFileRecord to create a Manifest record for a MoM
-func (m *Manifest) createManifestRecord(rootPath, path string, version uint32) error {
+func (m *Manifest) createManifestRecord(rootPath, path string, version uint32, manifestType TypeFlag) error {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return err
@@ -112,7 +112,7 @@ func (m *Manifest) createManifestRecord(rootPath, path string, version uint32) e
 
 	// Only the bundle name should be part of the name in the manifest
 	file.Name = strings.Replace(file.Name, "/Manifest.", "", -1)
-	file.Type = TypeManifest
+	file.Type = manifestType
 	file.Version = version
 	m.Files = append(m.Files, file)
 	return nil

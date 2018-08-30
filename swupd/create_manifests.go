@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -270,22 +271,62 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 
 func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest, bundles []string) {
 	for _, f := range appendFrom.Files {
-		if f.findFileNameInSlice(appendTo.Files) != nil {
-			continue
-		}
-
 		if f.Name == IndexBundle {
 			// this is generated new each time
 			continue
 		}
 
+		bundleName := f.Name
+		if f.Type == TypeIManifest {
+			if f.findIManifestInSlice(appendTo.Files) != nil {
+				continue
+			}
+			bundleName = strings.Split(bundleName, ".I.")[0]
+		} else {
+			if f.findFileNameInSlice(appendTo.Files) != nil {
+				continue
+			}
+		}
+
 		for _, bundle := range bundles {
-			if f.Name == bundle {
+			if bundleName == bundle {
 				appendTo.Files = append(appendTo.Files, f)
 				break
 			}
 		}
 	}
+}
+
+// writeIterativeManifests writes Iterative Manifests for all bundles in
+// newManifests and add them to the MoM.
+// Iterative Manifests are manifests with all file changes added in versions
+// greater than fromVersion.
+func (MoM *Manifest) writeIterativeManifests(newManifests []*Manifest, out string) ([]*Manifest, error) {
+	var err error
+	var iManifests []*Manifest
+	// write manifests then add them to the MoM
+	for _, bMan := range newManifests {
+		// Don't write I manifest for full and new bundles
+		if bMan.Name == "full" || bMan.Header.Previous == 0 {
+			continue
+		}
+
+		iMan := bMan.createIterativeManifest(bMan.Header.Previous)
+
+		manPath := filepath.Join(out, fmt.Sprintf("Manifest.%s", iMan.Name))
+		if err = iMan.WriteManifestFile(manPath); err != nil {
+			return nil, err
+		}
+
+		// add bundle to Manifest.MoM
+		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version, TypeIManifest); err != nil {
+			return nil, err
+		}
+
+		iManifests = append(iManifests, iMan)
+	}
+
+	return iManifests, nil
 }
 
 // writeBundleManifests writes all bundle manifests in newManifests,
@@ -315,7 +356,7 @@ func (MoM *Manifest) writeBundleManifests(newManifests []*Manifest, out string) 
 		}
 
 		// add bundle to Manifest.MoM
-		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version); err != nil {
+		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version, TypeManifest); err != nil {
 			return nil, err
 		}
 	}
@@ -429,9 +470,6 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		return nil, err
 	}
 
-	// copy over unchanged manifests
-	addUnchangedManifests(&newMoM, oldMoM, groups)
-
 	// allManifests must include newManifests plus all old ones in the MoM.
 	allManifests, err := aggregateManifests(newManifests, &newMoM, version, c)
 	if err != nil {
@@ -447,7 +485,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	// itself as an index manifest may not have been created for this version.
 	osIdxDir := filepath.Join(c.outputDir, fmt.Sprint(osIdx.Header.Version))
 	osIdxPath := filepath.Join(osIdxDir, "Manifest."+osIdx.Name)
-	if err = newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version); err != nil {
+	if err = newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version, TypeManifest); err != nil {
 		return nil, err
 	}
 
@@ -456,6 +494,19 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	if osIdx.Header.Version == newMoM.Header.Version {
 		newManifests = append(newManifests, osIdx)
 	}
+
+	// Create Iterative manifests if there isn't a format bump or minVersion
+	if format == oldFormat {
+		var iManifests []*Manifest
+		iManifests, err = newMoM.writeIterativeManifests(newManifests, verOutput)
+		if err != nil {
+			return nil, err
+		}
+		newManifests = append(newManifests, iManifests...)
+	}
+
+	// copy over unchanged manifests
+	addUnchangedManifests(&newMoM, oldMoM, groups)
 
 	// handle full manifest
 	newFull.sortFilesVersionName()

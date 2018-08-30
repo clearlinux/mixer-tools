@@ -1571,7 +1571,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		return errors.Wrapf(err, "failed to write update metadata files")
 	}
 	timer.Start("CREATE MANIFESTS")
-	mom, err := swupd.CreateManifests(b.MixVerUint32, minVersion, uint(format), b.Config.Builder.ServerStateDir)
+	mom, err := swupd.CreateManifests(b.MixVerUint32, minVersion, uint(format), b.Config.Builder.ServerStateDir, b.NumBundleWorkers)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create update metadata")
 	}

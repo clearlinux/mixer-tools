@@ -85,6 +85,7 @@ lint: gopath
 	--enable=unused \
 	--enable=vetshadow \
 	--enable=errcheck \
+	--exclude=golang/src \
 	./...
 
 clean:

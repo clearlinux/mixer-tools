@@ -317,7 +317,7 @@ var buildFormatOldCmd = &cobra.Command{
 		}
 		// Build the update content for the +10 build
 		params := builder.UpdateParameters{
-			MinVersion:    ver,
+			MinVersion:    buildFlags.minVersion,
 			Format:        b.State.Mix.Format,
 			Publish:       !buildFlags.noPublish,
 			SkipSigning:   buildFlags.noSigning,

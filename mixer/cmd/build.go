@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
-	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 
@@ -132,9 +131,6 @@ var buildUpstreamFormatCmd = &cobra.Command{
 
 		for bumpNeeded {
 			cmdToRun := strings.Split("mixer build format-bump new", " ")
-			if config.UseNewConfig {
-				cmdToRun = append(cmdToRun, "--new-config")
-			}
 			if err = b.RunCommandInContainer(cmdToRun); err != nil {
 				fail(err)
 			}
@@ -147,9 +143,6 @@ var buildUpstreamFormatCmd = &cobra.Command{
 				fail(err)
 			}
 			cmdToRun = strings.Split("mixer build format-bump old", " ")
-			if config.UseNewConfig {
-				cmdToRun = append(cmdToRun, "--new-config")
-			}
 			if err = b.RunCommandInContainer(cmdToRun); err != nil {
 				fail(err)
 			}
@@ -178,16 +171,10 @@ var buildFormatBumpCmd = &cobra.Command{
 			fail(err)
 		}
 		cmdToRun := strings.Split("mixer build format-bump new", " ")
-		if config.UseNewConfig {
-			cmdToRun = append(cmdToRun, "--new-config")
-		}
 		if err := b.RunCommandInContainer(cmdToRun); err != nil {
 			fail(err)
 		}
 		cmdToRun = strings.Split("mixer build format-bump old", " ")
-		if config.UseNewConfig {
-			cmdToRun = append(cmdToRun, "--new-config")
-		}
 		if err := b.RunCommandInContainer(cmdToRun); err != nil {
 			fail(err)
 		}

@@ -93,9 +93,6 @@ func (config *MixConfig) convertCurrent() error {
 		return err
 	}
 
-	// Make sure the converted config is in the New Format
-	UseNewConfig = true
-
 	// Set config to the current format
 	config.version = CurrentConfigVersion
 
@@ -120,9 +117,6 @@ func (config *MixConfig) convertLegacy() error {
 			return err
 		}
 	}
-
-	// Make sure the converted config is in the New Format
-	UseNewConfig = true
 
 	// Set config to the current format
 	config.version = CurrentConfigVersion

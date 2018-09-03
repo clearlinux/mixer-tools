@@ -17,7 +17,6 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -25,13 +24,8 @@ import (
 	"strings"
 
 	"github.com/BurntSushi/toml"
-	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/pkg/errors"
 )
-
-// UseNewConfig controls whether to use the new TOML config format.
-// This is an experimental feature.
-var UseNewConfig = true
 
 // MixConfig represents the config parameters found in the builder config file.
 type MixConfig struct {
@@ -127,10 +121,6 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 // CreateDefaultConfig creates a default builder.conf using the active
 // directory as base path for the variables values.
 func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
-	if !UseNewConfig {
-		return config.createLegacyConfig(localrpms)
-	}
-
 	if err := config.LoadDefaults(localrpms); err != nil {
 		return err
 	}
@@ -145,10 +135,6 @@ func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
 
 // SaveConfig saves the properties in MixConfig to a TOML config file
 func (config *MixConfig) SaveConfig() error {
-	if !UseNewConfig {
-		return errors.Errorf("SaveConfig can only be used with --new-config flag")
-	}
-
 	var buffer bytes.Buffer
 	buffer.Write([]byte("#VERSION " + config.version + "\n\n"))
 
@@ -171,56 +157,9 @@ func (config *MixConfig) SaveConfig() error {
 	return err
 }
 
-func (config *MixConfig) createLegacyConfig(localrpms bool) error {
-	if UseNewConfig {
-		return errors.Errorf("createLegacyConfig is not compatible with --new-config flag")
-	}
-
-	pwd, err := os.Getwd()
-	if err != nil {
-		return err
-	}
-
-	builderconf := filepath.Join(pwd, "builder.conf")
-
-	err = helpers.CopyFileNoOverwrite(builderconf, "/usr/share/defaults/bundle-chroot-builder/builder.conf")
-	if os.IsExist(err) {
-		// builder.conf already exists. Skip creation.
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	fmt.Println("Creating new builder.conf configuration file...")
-
-	raw, err := ioutil.ReadFile(builderconf)
-	if err != nil {
-		return err
-	}
-
-	// Patch all default path prefixes to PWD
-	data := strings.Replace(string(raw), "/home/clr/mix", pwd, -1)
-
-	// Add [Mixer] section
-	data += "\n[Mixer]\n"
-	data += "LOCAL_BUNDLE_DIR=" + filepath.Join(pwd, "local-bundles") + "\n"
-	data += "DOCKER_IMAGE_PATH=clearlinux/mixer\n"
-
-	if localrpms {
-		data += "LOCAL_RPM_DIR=" + filepath.Join(pwd, "local-rpms") + "\n"
-		data += "LOCAL_REPO_DIR=" + filepath.Join(pwd, "local-yum") + "\n"
-	}
-
-	return ioutil.WriteFile(builderconf, []byte(data), 0666)
-}
-
 // SetProperty parse a property in the format "Section.Property", finds and sets it within the
 // config structure and saves the config file.
 func (config *MixConfig) SetProperty(propertyStr string, value string) error {
-	if !UseNewConfig {
-		return errors.Errorf("SetProperty requires --new-config flag")
-	}
-
 	tokens := strings.Split(propertyStr, ".")
 	property, sections := tokens[len(tokens)-1], tokens[:len(tokens)-1]
 

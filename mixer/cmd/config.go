@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"github.com/clearlinux/mixer-tools/config"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -74,9 +73,6 @@ var configSetCmd = &cobra.Command{
 	the existence of the provided property, but will not validate the value provided.`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
-		if !config.UseNewConfig {
-			fail(errors.New("config set requires `--new-config` flag`"))
-		}
 		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
 			fail(err)

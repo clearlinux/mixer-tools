@@ -1,0 +1,6 @@
+07-config-conversion
+===================
+This test simulates conversion between config file versions. It initiates a
+mix, replaces the default config with an older version and try to perform
+the conversion. It also checks if the format value is properly transferred
+to mixer.state

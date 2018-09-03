@@ -15,7 +15,6 @@
 package config
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
@@ -33,9 +32,6 @@ import (
 // UseNewConfig controls whether to use the new TOML config format.
 // This is an experimental feature.
 var UseNewConfig = true
-
-// CurrentConfigVersion holds the current version of the config file
-const CurrentConfigVersion = "1.0"
 
 // MixConfig represents the config parameters found in the builder config file.
 type MixConfig struct {
@@ -256,7 +252,10 @@ func (config *MixConfig) LoadConfig(filename string) error {
 	if err := config.initConfigPath(filename); err != nil {
 		return err
 	}
-	if err := config.Parse(); err != nil {
+	if err := config.parseVersionAndConvert(); err != nil {
+		return err
+	}
+	if err := config.parse(); err != nil {
 		return err
 	}
 	if err := config.expandEnv(); err != nil {
@@ -266,118 +265,9 @@ func (config *MixConfig) LoadConfig(filename string) error {
 	return config.validate()
 }
 
-func (config *MixConfig) parseVersion(reader *bufio.Reader) (bool, error) {
-	verBytes, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-
-	r := regexp.MustCompile("^#VERSION ([0-9]+.[0-9])+\n")
-	match := r.FindStringSubmatch(string(verBytes))
-
-	if len(match) != 2 {
-		return false, nil
-	}
-
-	config.version = match[1]
-
-	return true, nil
-}
-
-// Parse reads the values from a config file without performing validation or env expansion
-func (config *MixConfig) Parse() error {
-	f, err := os.Open(config.filename)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	// Read config version
-	reader := bufio.NewReader(f)
-	found, err := config.parseVersion(reader)
-	if err != nil {
-		return err
-	}
-
-	if found {
-		// Version only exists in New Config, so parse builder.conf as TOML
-		if _, err := toml.DecodeReader(reader, &config); err != nil {
-			return err
-		}
-	} else {
-		// Assume missing version and try to parse as TOML
-		if _, err := toml.DecodeFile(config.filename, &config); err != nil {
-			// Try parsing as INI
-			if err := config.legacyParse(); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
-func (config *MixConfig) legacyParse() error {
-	UseNewConfig = false
-
-	lines, err := helpers.ReadFileAndSplit(config.filename)
-	if err != nil {
-		return errors.Wrap(err, "Failed to read buildconf")
-	}
-
-	var format string
-
-	// Map the builder values to the regex here to make it easier to assign
-	fields := []struct {
-		re       string
-		dest     *string
-		required bool
-	}{
-		// [Builder]
-		{`^CERT\s*=\s*`, &config.Builder.Cert, true},
-		{`^SERVER_STATE_DIR\s*=\s*`, &config.Builder.ServerStateDir, true},
-		{`^VERSIONS_PATH\s*=\s*`, &config.Builder.VersionPath, true},
-		{`^YUM_CONF\s*=\s*`, &config.Builder.DNFConf, true},
-		// [Swupd]
-		{`^BUNDLE\s*=\s*`, &config.Swupd.Bundle, false},
-		{`^CONTENTURL\s*=\s*`, &config.Swupd.ContentURL, false},
-		{`^FORMAT\s*=\s*`, &format, true},
-		{`^VERSIONURL\s*=\s*`, &config.Swupd.VersionURL, false},
-		// [Server]
-		{`^debuginfo_banned\s*=\s*`, &config.Server.DebugInfoBanned, false},
-		{`^debuginfo_lib\s*=\s*`, &config.Server.DebugInfoLib, false},
-		{`^debuginfo_src\s*=\s*`, &config.Server.DebugInfoSrc, false},
-		// [Mixer]
-		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
-		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
-		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
-		{`^DOCKER_IMAGE_PATH\s*=\s*`, &config.Mixer.DockerImgPath, false},
-	}
-
-	for _, h := range fields {
-		r := regexp.MustCompile(h.re)
-		for _, i := range lines {
-			if m := r.FindIndex([]byte(i)); m != nil {
-				*h.dest = i[m[1]:]
-			}
-		}
-	}
-
-	config.hasFormatField = format != ""
-
-	if config.Mixer.LocalBundleDir == "" {
-		pwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
-		fmt.Printf("WARNING: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.Mixer.LocalBundleDir)
-		fmt.Println("Please set this value to the location you want local bundle definition files to be stored.")
-	}
-
-	return nil
+func (config *MixConfig) parse() error {
+	_, err := toml.DecodeFile(config.filename, &config)
+	return err
 }
 
 func (config *MixConfig) expandEnv() error {
@@ -438,7 +328,7 @@ func (config *MixConfig) validate() error {
 	}
 
 	if config.hasFormatField {
-		fmt.Println("WARNING: Format value in builder.conf ignored. Using the value in mixer.state file")
+		fmt.Println("WARNING: FORMAT value was transferred to mixer.state file")
 	}
 
 	return nil
@@ -454,29 +344,7 @@ func (config *MixConfig) Convert(filename string) error {
 		return err
 	}
 
-	// Reset version for files without versioning
-	config.version = "0.0"
-
-	if err := config.Parse(); err != nil {
-		return err
-	}
-
-	// Config is already in the current format
-	if config.version == CurrentConfigVersion {
-		return nil
-	}
-
-	if err := helpers.CopyFile(config.filename+".bkp", config.filename); err != nil {
-		return err
-	}
-
-	// Make sure the converted config is in the New Format
-	UseNewConfig = true
-
-	// Set config to the current format
-	config.version = CurrentConfigVersion
-
-	return config.SaveConfig()
+	return config.parseVersionAndConvert()
 }
 
 // Print print variables and values of a MixConfig struct

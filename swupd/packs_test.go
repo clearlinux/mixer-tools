@@ -22,6 +22,7 @@ func TestFindBundlesToPack(t *testing.T) {
 		From       M
 		ToV        uint32
 		To         M
+		ToIMan     M
 		Expected   []BundleToPack
 		ShouldFail bool
 	}{
@@ -105,6 +106,19 @@ func TestFindBundlesToPack(t *testing.T) {
 
 			Expected: []BundleToPack{{"os-core", 100, 200}, {"c-basic", 0, 200}},
 		},
+
+		{
+			Name: "Don't pack Iterative manifests",
+
+			FromV: 10,
+			From:  M{"os-core": 10},
+
+			ToV:    20,
+			To:     M{"os-core": 20},
+			ToIMan: M{"os-core.I.10": 20},
+
+			Expected: []BundleToPack{{"os-core", 10, 20}},
+		},
 	}
 
 	addBundle := func(m *Manifest, name string, version uint32) {
@@ -114,6 +128,15 @@ func TestFindBundlesToPack(t *testing.T) {
 			Version: version,
 		}
 		m.Files = append(m.Files, bundle)
+	}
+
+	addIterativeManifest := func(m *Manifest, name string, version uint32) {
+		man := &File{
+			Name:    name,
+			Type:    TypeIManifest,
+			Version: version,
+		}
+		m.Files = append(m.Files, man)
 	}
 
 	sortBundles := func(bundles []BundleToPack) {
@@ -142,6 +165,9 @@ func TestFindBundlesToPack(t *testing.T) {
 		toM.Header.Version = tt.ToV
 		for name, v := range tt.To {
 			addBundle(toM, name, v)
+		}
+		for name, v := range tt.ToIMan {
+			addIterativeManifest(toM, name, v)
 		}
 
 		bundleMap, err := FindBundlesToPack(fromM, toM)
@@ -823,13 +849,13 @@ func TestFindBundlesToPackErrorPaths(t *testing.T) {
 	toMan := &Manifest{
 		Name: "testto",
 		Files: []*File{
-			{Name: "test1", Version: 20},
+			{Name: "test1", Version: 20, Type: TypeManifest},
 		},
 	}
 	fromMan := &Manifest{
 		Name: "testfrom",
 		Files: []*File{
-			{Name: "test1", Version: 30}, // invalid version greater than toMan version
+			{Name: "test1", Version: 30, Type: TypeManifest}, // invalid version greater than toMan version
 		},
 	}
 

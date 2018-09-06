@@ -485,7 +485,9 @@ func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, 
 
 	bundles := make(map[string]*BundleToPack, len(to.Files))
 	for _, b := range to.Files {
-		bundles[b.Name] = &BundleToPack{b.Name, 0, b.Version}
+		if b.Type == TypeManifest {
+			bundles[b.Name] = &BundleToPack{b.Name, 0, b.Version}
+		}
 	}
 
 	// If this is not a zero pack, we might be able to skip some bundles.

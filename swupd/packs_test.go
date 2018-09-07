@@ -284,6 +284,42 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.shells"), ts.path("www/20/pack-shells-from-0.tar"))
 }
 
+func checkDeltaManifest(ts *testSwupd, from, to int, bundle string, fileCount int) *Manifest {
+	manifest := fmt.Sprintf("www/%d/Manifest.%s.D.%d", to, bundle, from)
+	ts.checkExists(manifest)
+
+	expSubs := []string{
+		"MANIFEST\t1",
+		fmt.Sprintf("version:\t%d", from),
+		fmt.Sprintf("filecount:\t%d", fileCount),
+	}
+
+	manifestFile := filepath.Join(ts.Dir, manifest)
+	checkManifestContainsFile(ts.t, manifestFile, expSubs...)
+
+	m, err := ParseManifestFile(manifestFile)
+	if err != nil {
+		ts.t.Fatalf("couldn't parse delta manifest %s: %s", manifestFile, err)
+	}
+
+	if len(m.Files) != fileCount {
+		ts.t.Fatalf("Number of files in delta manifest %s is %d. The expected was %d",
+			manifestFile, len(m.Files), fileCount)
+	}
+
+	if len(m.DeletedFiles) != 0 {
+		ts.t.Fatalf("Delta Manifests %s have %d deleted files and Delta Manifest shouldn't have any.",
+			manifestFile, len(m.DeletedFiles))
+	}
+
+	if len(m.Header.Includes) != 0 {
+		ts.t.Fatalf("Delta Manifests %s have %d includes and Delta Manifest shouldn't have any.",
+			manifestFile, len(m.Header.Includes))
+	}
+
+	return m
+}
+
 func TestCreatePackNonConsecutiveDeltas(t *testing.T) {
 	ts := newTestSwupd(t, "create-pack-ncd")
 	defer ts.cleanup()
@@ -324,6 +360,13 @@ func TestCreatePackNonConsecutiveDeltas(t *testing.T) {
 	checkFileInPack(t, ts.path("www/20/pack-contents-from-10.tar"),
 		fmt.Sprintf("delta/10-20-%s-%s", hashC, hashC1))
 
+	// Check Delta Manifest 10->20
+	{
+		m := checkDeltaManifest(ts, 10, 20, "contents", 2)
+		fileInManifestHash(t, m, 10, "/A", hashA)
+		fileInManifestHash(t, m, 10, "/C", hashC)
+	}
+
 	info = ts.createPack("contents", 20, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 3)
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
@@ -334,12 +377,27 @@ func TestCreatePackNonConsecutiveDeltas(t *testing.T) {
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
 		fmt.Sprintf("delta/20-30-%s-%s", hashC1, hashC2))
 
+	// Check Delta Manifest 20->30
+	{
+		m := checkDeltaManifest(ts, 20, 30, "contents", 3)
+		fileInManifestHash(t, m, 20, "/A1", hashA1)
+		fileInManifestHash(t, m, 10, "/B", hashB)
+		fileInManifestHash(t, m, 20, "/C1", hashC1)
+	}
+
 	info = ts.createPack("contents", 10, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 2)
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-10.tar"),
 		fmt.Sprintf("delta/10-30-%s-%s", hashB, hashB1))
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-10.tar"),
 		fmt.Sprintf("delta/10-30-%s-%s", hashC, hashC2))
+
+	// Check Delta Manifest 10->30
+	{
+		m := checkDeltaManifest(ts, 10, 30, "contents", 2)
+		fileInManifestHash(t, m, 10, "/B", hashB)
+		fileInManifestHash(t, m, 10, "/C", hashC)
+	}
 }
 
 func TestCreatePackWithDelta(t *testing.T) {
@@ -620,15 +678,20 @@ func TestTwoDeltasForTheSameTarget(t *testing.T) {
 	info := ts.createPack("os-core", 10, 20, ts.path("image"))
 	mustHaveNoWarnings(t, info)
 	mustHaveDeltaCount(t, info, 2)
+
+	hashA := ts.mustHashFile("image/10/full/fileA")
+	hashA2 := ts.mustHashFile("image/20/full/fileA")
+	ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashA2))
+
+	hashB := ts.mustHashFile("image/10/full/fileB")
+	hashB2 := ts.mustHashFile("image/20/full/fileB")
+	ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashB, hashB2))
+
+	// Check Delta Manifest 10->20
 	{
-		hashA := ts.mustHashFile("image/10/full/fileA")
-		hashB := ts.mustHashFile("image/20/full/fileA")
-		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
-	}
-	{
-		hashA := ts.mustHashFile("image/10/full/fileB")
-		hashB := ts.mustHashFile("image/20/full/fileB")
-		ts.checkExists(fmt.Sprintf("www/20/delta/10-20-%s-%s", hashA, hashB))
+		m := checkDeltaManifest(ts, 10, 20, "os-core", 2)
+		fileInManifestHash(t, m, 10, "/fileA", hashA)
+		fileInManifestHash(t, m, 10, "/fileB", hashB)
 	}
 }
 
@@ -669,15 +732,33 @@ func TestPackRenames(t *testing.T) {
 	mustHaveDeltaCount(t, info, 1)
 	checkFileInPack(t, ts.path("www/20/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-20-%s-%s", hashIn10, hashIn20))
 
+	// Check Delta Manifest 10->20
+	{
+		m := checkDeltaManifest(ts, 10, 20, "os-core", 1)
+		fileInManifestHash(t, m, 10, "/file1", hashIn10)
+	}
+
 	// Pack from 20->30 will contain a delta due to content change (and rename).
 	info = ts.createPack("os-core", 20, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 1)
 	checkFileInPack(t, ts.path("www/30/pack-os-core-from-20.tar"), fmt.Sprintf("delta/20-30-%s-%s", hashIn20, hashIn30))
 
+	// Check Delta Manifest 20->30
+	{
+		m := checkDeltaManifest(ts, 20, 30, "os-core", 1)
+		fileInManifestHash(t, m, 20, "/file1", hashIn20)
+	}
+
 	// Pack from 10->30 will contain a delta due to content change (and rename).
 	info = ts.createPack("os-core", 10, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 1)
 	checkFileInPack(t, ts.path("www/30/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-30-%s-%s", hashIn10, hashIn30))
+
+	// Check Delta Manifest 10->30
+	{
+		m := checkDeltaManifest(ts, 10, 30, "os-core", 1)
+		fileInManifestHash(t, m, 10, "/file1", hashIn10)
+	}
 
 	// Pack from 10->40 will contain a delta due to content change (and rename).
 	info = ts.createPack("os-core", 10, 40, ts.path("image"))
@@ -685,6 +766,12 @@ func TestPackRenames(t *testing.T) {
 
 	// Note that the delta refers to the version of the file, which is still 30.
 	checkFileInPack(t, ts.path("www/40/pack-os-core-from-10.tar"), fmt.Sprintf("delta/10-30-%s-%s", hashIn10, hashIn30))
+
+	// Check Delta Manifest 10->40
+	{
+		m := checkDeltaManifest(ts, 10, 40, "os-core", 1)
+		fileInManifestHash(t, m, 10, "/file1", hashIn10)
+	}
 }
 
 func checkFileInPack(t *testing.T, packname, name string) {

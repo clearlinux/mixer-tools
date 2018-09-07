@@ -183,6 +183,13 @@ func TestFullRunDelta(t *testing.T) {
 	mustHaveFullfileCount(t, info, 0)
 	mustHaveDeltaCount(t, info, 1) // largefile.
 
+	// Check Delta Manifest 10->20
+	{
+		m := checkDeltaManifest(ts, 10, 20, "test-bundle", 1)
+		hash := ts.mustHashFile("image/10/full/largefile")
+		fileInManifestHash(t, m, 10, "/largefile", hash)
+	}
+
 	// NOTE: original test checked whether the packs had the manifests inside. This is
 	// not done by new swupd since it seems the client doesn't take advantage of them.
 }

@@ -108,7 +108,7 @@ var RootCmd = &cobra.Command{
 		// For non-bump build commands, check if building across a format
 		// If so: inform, stage, and exit.
 		// If not: run command in container and cancel pre-run
-		if !cmdContains(cmd, "format-bump") && !cmdContains(cmd, "upstream-format") && cmdContains(cmd, "build") {
+		if !cmdContains(cmd, "format-bump") && !cmdContains(cmd, "upstream-format") && cmdContains(cmd, "build") && !cmdContains(cmd, "image") {
 			// --offline=true AND --native=false, try to see if container exists
 			if builder.Offline && !builder.Native {
 				fmt.Println("Warning: Unable to determine upstream format in --offline mode, build may fail if building across format boundaries.")

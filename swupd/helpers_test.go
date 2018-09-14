@@ -189,6 +189,26 @@ func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, t
 	return mom
 }
 
+func checkManifestFileCount(ts *testSwupd, version, manifest string, files, deleted int) {
+
+	manifestFile := filepath.Join(ts.Dir, "www", version, "Manifest."+manifest)
+	m, err := ParseManifestFile(manifestFile)
+	if err != nil {
+		ts.t.Fatalf("Couldn't parse manifest %s: %s", manifestFile, err)
+	}
+	if len(m.Files) != files {
+		ts.t.Fatalf(
+			"Number of files in Manifest %s: %d is different from the expected: %d.",
+			manifestFile, len(m.Files), files)
+	}
+
+	if len(m.DeletedFiles) != deleted {
+		ts.t.Fatalf(
+			"Number of deleted files in Manifest %s: %d is different from the expected: %d.",
+			manifestFile, len(m.DeletedFiles), deleted)
+	}
+}
+
 func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...string) {
 	t.Helper()
 	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)

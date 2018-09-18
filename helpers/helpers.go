@@ -365,10 +365,7 @@ func ListVisibleFiles(dirname string) ([]string, error) {
 }
 
 func getDownloadFileReader(url string) (*io.ReadCloser, error) {
-	httpClient := http.Client{
-		Timeout: time.Duration(10 * time.Second),
-	}
-	resp, err := httpClient.Get(url)
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}

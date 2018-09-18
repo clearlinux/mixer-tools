@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -171,17 +172,16 @@ func (b *Builder) getLatestUpstreamVersion() (string, error) {
 // buildUpstreamURL builds the full upstream URL based on a b.UpstreamURL and a
 // supplied subpath
 func (b *Builder) buildUpstreamURL(subpath string) (string, error) {
-	// Build the URL
-	end, err := url.Parse(subpath)
-	if err != nil {
-		return "", err
-	}
 	base, err := url.Parse(b.UpstreamURL)
 	if err != nil {
 		return "", err
 	}
 
-	return base.ResolveReference(end).String(), nil
+	for _, token := range strings.Split(subpath, "/") {
+		base.Path = path.Join(base.Path, token)
+	}
+
+	return base.String(), nil
 }
 
 // DownloadFileFromUpstreamAsString will download a file from the Upstream URL

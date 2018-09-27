@@ -119,11 +119,13 @@ var RootCmd = &cobra.Command{
 				}
 				return nil
 			}
-			if bumpNeeded, err := b.CheckBumpNeeded(false); err != nil {
-				return err
-			} else if bumpNeeded {
-				cancelRun(cmd)
-				return nil
+			if !builder.Offline {
+				if bumpNeeded, err := b.CheckBumpNeeded(false); err != nil {
+					return err
+				} else if bumpNeeded {
+					cancelRun(cmd)
+					return nil
+				}
 			}
 
 			// If Native==false

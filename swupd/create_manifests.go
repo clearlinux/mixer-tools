@@ -267,14 +267,22 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 	return newManifests, nil
 }
 
-func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest) {
+func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest, bundles []string) {
 	for _, f := range appendFrom.Files {
-		if f.findFileNameInSlice(appendTo.Files) == nil {
-			if f.Name == IndexBundle {
-				// this is generated new each time
-				continue
+		if f.findFileNameInSlice(appendTo.Files) != nil {
+			continue
+		}
+
+		if f.Name == IndexBundle {
+			// this is generated new each time
+			continue
+		}
+
+		for _, bundle := range bundles {
+			if f.Name == bundle {
+				appendTo.Files = append(appendTo.Files, f)
+				break
 			}
-			appendTo.Files = append(appendTo.Files, f)
 		}
 	}
 }
@@ -416,7 +424,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	// copy over unchanged manifests
-	addUnchangedManifests(&newMoM, oldMoM)
+	addUnchangedManifests(&newMoM, oldMoM, groups)
 
 	// allManifests must include newManifests plus all old ones in the MoM.
 	allManifests, err := aggregateManifests(newManifests, &newMoM, version, c)

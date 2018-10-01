@@ -189,9 +189,8 @@ func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, t
 	return mom
 }
 
-func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...string) {
+func checkManifestContainsFile(t *testing.T, manFpath string, subs ...string) {
 	t.Helper()
-	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
 	b, err := ioutil.ReadFile(manFpath)
 	if err != nil {
 		t.Error(err)
@@ -200,9 +199,15 @@ func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...stri
 
 	for _, sub := range subs {
 		if !bytes.Contains(b, []byte(sub)) {
-			t.Errorf("%s/Manifest.%s did not contain expected '%s'", ver, name, sub)
+			t.Errorf("%s did not contain expected '%s'", manFpath, sub)
 		}
 	}
+}
+
+func checkManifestContains(t *testing.T, testDir, ver, name string, subs ...string) {
+	t.Helper()
+	manFpath := filepath.Join(testDir, "www", ver, "Manifest."+name)
+	checkManifestContainsFile(t, manFpath, subs...)
 }
 
 func checkManifestNotContains(t *testing.T, testDir, ver, name string, subs ...string) {
@@ -270,11 +275,28 @@ func checkFileInManifest(t *testing.T, m *Manifest, version uint32, name string)
 			if f.Version == version {
 				return
 			}
-			t.Errorf("in manifest %s version %d: file %s has version %d but expected %d", m.Name, m.Header.Version, f.Name, f.Version, version)
+			t.Errorf("in manifest %s version %d: file %s has version %d but expected %d",
+				m.Name, m.Header.Version, f.Name, f.Version, version)
 			return
 		}
 	}
 	t.Errorf("couldn't find file %s in manifest %s version %d", name, m.Name, m.Header.Version)
+}
+
+func fileInManifestHash(t *testing.T, m *Manifest, version uint32, name string, hash string) *File {
+	t.Helper()
+	for _, f := range m.Files {
+		if f.Name == name {
+			if f.Version != version {
+				t.Fatalf("in manifest %s version %d: file %s has version %d but expected %d", m.Name, m.Header.Version, f.Name, f.Version, version)
+			} else if f.Hash.String() != hash {
+				t.Fatalf("in manifest %s version %d: file %s has hash %s but expected %s", m.Name, m.Header.Version, f.Name, f.Hash.String(), hash)
+			}
+			return f
+		}
+	}
+	t.Fatalf("couldn't find file %s in manifest %s version %d", name, m.Name, m.Header.Version)
+	return nil
 }
 
 func fileInManifest(t *testing.T, m *Manifest, version uint32, name string) *File {

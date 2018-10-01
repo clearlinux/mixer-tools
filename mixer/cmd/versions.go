@@ -63,7 +63,6 @@ func init() {
 	versionsCmd.AddCommand(versionsUpdateCmd)
 	RootCmd.AddCommand(versionsCmd)
 
-	versionsUpdateCmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	versionsUpdateCmd.Flags().Uint32Var(&versionsUpdateFlags.mixVersion, "mix-version", 0, "Set a specific mix version")
 	versionsUpdateCmd.Flags().StringVar(&versionsUpdateFlags.upstreamVersion, "upstream-version", "", "Next upstream version (either version number or 'latest')")
 	versionsUpdateCmd.Flags().StringVar(&versionsUpdateFlags.upstreamVersion, "clear-version", "", "Alias to --upstream-version")

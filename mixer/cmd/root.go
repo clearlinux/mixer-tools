@@ -242,6 +242,7 @@ func init() {
 
 	RootCmd.PersistentFlags().BoolVar(&builder.Native, "native", false, "Run mixer command on native host instead of in a container")
 	RootCmd.PersistentFlags().BoolVar(&builder.Offline, "offline", false, "Skip caching upstream-bundles; work entirely with local-bundles")
+	RootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", "Supply a specific builder.conf to use for mixing")
 
 	RootCmd.AddCommand(initCmd)
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
@@ -258,7 +259,6 @@ func init() {
 	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Supply the Clear version to compose the mix from")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")
-	initCmd.Flags().StringVar(&configFile, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")
 	initCmd.Flags().StringVar(&initFlags.format, "format", "", "Supply the format version for the mix")

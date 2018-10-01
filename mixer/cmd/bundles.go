@@ -264,7 +264,6 @@ var bundlesCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range bundlesCmds {
 		bundleCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	RootCmd.AddCommand(bundleCmd)

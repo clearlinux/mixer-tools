@@ -95,7 +95,6 @@ var configCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range configCmds {
 		configCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	RootCmd.AddCommand(configCmd)

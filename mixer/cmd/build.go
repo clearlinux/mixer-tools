@@ -521,7 +521,6 @@ var buildCmds = []*cobra.Command{
 func init() {
 	for _, cmd := range buildCmds {
 		buildCmd.AddCommand(cmd)
-		cmd.Flags().StringVarP(&configFile, "config", "c", "", "Builder config to use")
 	}
 
 	buildFormatBumpCmd.AddCommand(buildFormatNewCmd)

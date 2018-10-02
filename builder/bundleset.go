@@ -216,28 +216,38 @@ func validateBundle(b *bundle) error {
 // names to be converted to one-package bundles (pundles). Returns a map of package
 // names found in the file.
 func parsePackageBundleFile(filename string) (map[string]bool, error) {
-	packages := make(map[string]bool)
 	contents, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
 
-	pundleList := strings.Split(string(contents), "\n")
-	for _, p := range pundleList {
-		if len(p) == 0 {
-			// skip empty lines
-			continue
+	return parsePackageBundle(contents), nil
+}
+
+func parsePackageBundle(contents []byte) map[string]bool {
+	packages := make(map[string]bool)
+	scanner := bufio.NewScanner(bytes.NewReader(contents))
+
+	for scanner.Scan() {
+		p := scanner.Text()
+
+		// Drop comments.
+		comment := strings.Index(p, "#")
+		if comment > -1 {
+			p = p[:comment]
 		}
 
-		if p[0] == '#' {
-			// skip comments
+		p = strings.TrimSpace(p)
+
+		// Skip empty lines.
+		if len(p) == 0 {
 			continue
 		}
 
 		packages[p] = true
 	}
 
-	return packages, nil
+	return packages
 }
 
 // newBundleFromPackage creates a new bundle from a package name p

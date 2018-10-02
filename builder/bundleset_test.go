@@ -445,3 +445,44 @@ func TestParseBundleSet(t *testing.T) {
 		}
 	}
 }
+
+func TestParseBundlePackages(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected []string
+	}{
+		{
+			"Simple",
+			"a\nb\nc\n",
+			[]string{"a", "b", "c"},
+		},
+		{
+			"Trim spaces, ignore empty lines",
+			" a \n\n\n\tb\t\nc   \n\n    \n\n",
+			[]string{"a", "b", "c"},
+		},
+		{
+			"Comments are ignored",
+			`
+# comment
+a   # end of line comment
+    # nothing but a comment
+b
+c#omment`,
+			[]string{"a", "b", "c"},
+		},
+	}
+
+	for _, tt := range tests {
+		result := parsePackageBundle([]byte(tt.input))
+		for _, p := range tt.expected {
+			if !result[p] {
+				t.Errorf("in case %q missing package %q", tt.name, p)
+			}
+		}
+		if len(result) != len(tt.expected) {
+			t.Errorf("in case %q got %d packages, but want %d\n", tt.name, len(result), len(tt.expected))
+		}
+	}
+}

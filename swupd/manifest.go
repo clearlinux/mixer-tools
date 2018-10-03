@@ -49,6 +49,7 @@ type ManifestHeader struct {
 	Format      uint
 	Version     uint32
 	Previous    uint32
+	MinVersion  uint32
 	FileCount   uint32
 	TimeStamp   time.Time
 	ContentSize uint64
@@ -99,6 +100,11 @@ func readManifestFileHeaderLine(fields []string, m *Manifest) error {
 			return fmt.Errorf("invalid manifest, %v", err)
 		}
 		m.Header.Previous = uint32(parsed)
+	case "minversion:":
+		if parsed, err = strconv.ParseUint(fields[1], 10, 32); err != nil {
+			return fmt.Errorf("invalid manifest, %v", err)
+		}
+		m.Header.MinVersion = uint32(parsed)
 	case "filecount:":
 		if parsed, err = strconv.ParseUint(fields[1], 10, 32); err != nil {
 			return fmt.Errorf("invalid manifest, %v", err)
@@ -294,7 +300,8 @@ var manifestTemplate = template.Must(template.New("manifest").Parse(`
 MANIFEST	{{.Format}}
 version:	{{.Version}}
 previous:	{{.Previous}}
-filecount:	{{.FileCount}}
+{{ if ne .MinVersion 0 }}minversion:	{{.MinVersion}}
+{{ end }}filecount:	{{.FileCount}}
 timestamp:	{{(.TimeStamp.Unix)}}
 contentsize:	{{.ContentSize -}}
 {{range .Includes}}

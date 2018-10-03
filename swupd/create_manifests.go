@@ -410,11 +410,17 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	newMoM := Manifest{
 		Name: "MoM",
 		Header: ManifestHeader{
-			Format:    format,
-			Version:   version,
-			Previous:  lastVersion,
-			TimeStamp: timeStamp,
+			Format:     format,
+			Version:    version,
+			MinVersion: minVersion,
+			Previous:   lastVersion,
+			TimeStamp:  timeStamp,
 		},
+	}
+	// if min-version wasn't explicitly set we need to carry the header forward
+	// from the old MoM
+	if newMoM.Header.MinVersion == 0 && oldMoM.Header.MinVersion > 0 {
+		newMoM.Header.MinVersion = oldMoM.Header.MinVersion
 	}
 
 	fmt.Println("Writing manifest files...")

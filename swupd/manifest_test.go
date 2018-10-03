@@ -210,10 +210,10 @@ func TestCheckInvalidManifestHeaders(t *testing.T) {
 		name   string
 		header ManifestHeader
 	}{
-		{"format not set", ManifestHeader{0, 100, 90, 553, time.Unix(1000, 0), 100000, nil}},
-		{"version zero", ManifestHeader{10, 0, 90, 553, time.Unix(1000, 0), 100000, nil}},
-		{"no files", ManifestHeader{10, 100, 90, 0, time.Unix(1000, 0), 100000, nil}},
-		{"no timestamp", ManifestHeader{10, 100, 90, 553, zeroTime, 100000, nil}},
+		{"format not set", ManifestHeader{0, 100, 90, 0, 553, time.Unix(1000, 0), 100000, nil}},
+		{"version zero", ManifestHeader{10, 0, 90, 0, 553, time.Unix(1000, 0), 100000, nil}},
+		{"no files", ManifestHeader{10, 100, 90, 0, 0, time.Unix(1000, 0), 100000, nil}},
+		{"no timestamp", ManifestHeader{10, 100, 0, 90, 553, zeroTime, 100000, nil}},
 	}
 
 	for _, tt := range tests {

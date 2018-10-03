@@ -351,6 +351,7 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 
 	ts.checkContains("www/10/Manifest.test-bundle", "10\t/foo\n")
 	ts.checkContains("www/10/Manifest.full", "10\t/foo\n")
+	ts.checkNotContains("www/10/Manifest.MoM", "minversion")
 
 	// Update minVersion, but keep same file and contents.
 	ts.MinVersion = 20
@@ -362,9 +363,22 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	ts.checkContains("www/20/Manifest.test-bundle", "20\t/foo\n")
 	ts.checkContains("www/20/Manifest.full", "20\t/foo\n")
 	ts.checkNotContains("www/20/Manifest.test-bundle", "10\t/foo\n")
+	// make sure we write the minversion to the MoM
+	ts.checkContains("www/20/Manifest.MoM", "minversion:\t20\n")
+	// make sure we aren't writing "minversion" to anything other than the MoM
+	ts.checkNotContains("www/20/Manifest.test-bundle", "minversion")
 	ts.checkNotContains("www/20/Manifest.full", "10\t/foo\n")
 	// we can even check that there are NO files left at version 10
 	ts.checkNotContains("www/20/Manifest.full", "\t10\t")
+
+	ts.addFile(30, "test-bundle", "/foo", "changed")
+	// make sure we carry the minversion forward in the MoM if MinVersion isn't set
+	ts.MinVersion = 0
+	ts.createManifests(30)
+	// make sure we write the minversion to the MoM
+	ts.checkContains("www/30/Manifest.MoM", "minversion:\t20\n")
+	// make sure we aren't writing "minversion" to anything other than the MoM
+	ts.checkNotContains("www/30/Manifest.test-bundle", "minversion")
 }
 
 func TestCreateManifestsMVDeletes(t *testing.T) {

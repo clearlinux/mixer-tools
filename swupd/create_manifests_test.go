@@ -345,6 +345,7 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	ts := newTestSwupd(t, "minVersion")
 	defer ts.cleanup()
 
+	ts.Format = 26
 	ts.Bundles = []string{"test-bundle"}
 	ts.addFile(10, "test-bundle", "/foo", "foo")
 	ts.createManifests(10)

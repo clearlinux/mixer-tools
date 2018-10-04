@@ -477,6 +477,12 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	// we can even check that there are NO files left at version 10
 	ts.checkNotContains("www/20/Manifest.full", "\t10\t")
 
+	// we shouldn't create Iteraive Manifests in a minversion
+	ts.checkNotContains("www/20/Manifest.MoM", "os-core.I.10")
+	ts.checkNotContains("www/20/Manifest.MoM", "test-bundle.I.10")
+	ts.checkNotExists("www/20/Manifest.os-core.I.10")
+	ts.checkNotExists("www/20/Manifest.test-bundle.I.10")
+
 	ts.addFile(30, "test-bundle", "/foo", "changed")
 	// make sure we carry the minversion forward in the MoM if MinVersion isn't set
 	ts.MinVersion = 0
@@ -485,6 +491,11 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	ts.checkContains("www/30/Manifest.MoM", "minversion:\t20\n")
 	// make sure we aren't writing "minversion" to anything other than the MoM
 	ts.checkNotContains("www/30/Manifest.test-bundle", "minversion")
+	// make sure we created iterative Manifests for this version
+	ts.checkContains("www/30/Manifest.MoM", "os-core.I.20")
+	ts.checkContains("www/30/Manifest.MoM", "test-bundle.I.20")
+	ts.checkExists("www/30/Manifest.os-core.I.20")
+	ts.checkExists("www/30/Manifest.test-bundle.I.20")
 }
 
 func TestCreateManifestsMVDeletes(t *testing.T) {

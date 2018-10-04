@@ -496,7 +496,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	}
 
 	// Create Iterative manifests if there isn't a format bump or minVersion
-	if format == oldFormat {
+	if format == oldFormat && minVersion != version {
 		var iManifests []*Manifest
 		iManifests, err = newMoM.writeIterativeManifests(newManifests, verOutput)
 		if err != nil {

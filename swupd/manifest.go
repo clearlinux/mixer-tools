@@ -25,7 +25,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
 	"github.com/pkg/errors"
@@ -293,33 +292,17 @@ func ParseManifest(r io.Reader) (*Manifest, error) {
 	return m, nil
 }
 
-// what a manifest file looks like
-// could replace the tabs with \t if we convert this to a normal rather than raw string.
-var manifestTemplate = template.Must(template.New("manifest").Parse(`
-{{- with .Header -}}
-MANIFEST	{{.Format}}
-version:	{{.Version}}
-previous:	{{.Previous}}
-{{ if ne .MinVersion 0 }}minversion:	{{.MinVersion}}
-{{ end }}filecount:	{{.FileCount}}
-timestamp:	{{(.TimeStamp.Unix)}}
-contentsize:	{{.ContentSize -}}
-{{range .Includes}}
-includes:	{{.Name}}
-{{- end}}
-{{- end}}
-{{ range .Files}}
-{{.GetFlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
-{{- end}}
-`))
-
 // WriteManifest writes manifest to a given io.Writer.
 func (m *Manifest) WriteManifest(w io.Writer) error {
 	err := m.CheckHeaderIsValid()
 	if err != nil {
 		return err
 	}
-	err = manifestTemplate.Execute(w, m)
+	t, err := manifestTemplateForFormat(m.Header.Format)
+	if err != nil {
+		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)
+	}
+	err = t.Execute(w, m)
 	if err != nil {
 		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)
 	}

@@ -1,6 +1,28 @@
 #!/bin/bash
 
 ###############################################################################
+# FORMAT BUMPS
+#
+# A format defines a range of OS versions that have compatible update metadata
+# and content. An update client can update a system from the oldest version in
+# the format to the latest version in the format without worrying about
+# compatibility issues in the update content for the version it is updating to.
+#
+# A format bump occurs when the update metadata or content is changed in such a
+# way that will cause client updates to break. In this case the format number
+# must be incremented so clients will not attempt to update to the new versions
+# in the new format without crossing the format boundary. Update clients update
+# only to the latest build in their format. Once that update is complete the
+# update client may then update forward again because the last version in the
+# current format has identical content to the first version in the new format,
+# including the new update client needed to understand the new format.
+#
+# Clients must be able to update to the latest version in their format using
+# the update metadata it understands. Once it is on that version it should also
+# be on the new format. To achieve this the following steps must be taken.
+###############################################################################
+
+###############################################################################
 # test setup
 ###############################################################################
 

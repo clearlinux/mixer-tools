@@ -58,8 +58,8 @@ mixer build update --native
 # content relevant to the format bump to the mash to be used. Relevant content
 # should be the only change.
 #
-# Using original mixer for this build (may have to check out pre-format-bump
-# version)
+# mixer will create manifests and update content based on the format it is
+# building for. The format is set in the mixer.state file.
 ###############################################################################
 
 # update mixer to build version 20, which in our case is the +10
@@ -90,7 +90,8 @@ mixer build update --native
 # +20
 #
 # This is the first build in the new format. The content is the same as the +10
-# but the manifests might be created differently using new mixer.
+# but the manifests might be created differently if a new manifest template is
+# defined for the new format.
 ###############################################################################
 
 # update mixer to build version 30, which in our case is the +20

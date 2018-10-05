@@ -774,6 +774,42 @@ func TestPackRenames(t *testing.T) {
 	}
 }
 
+// TestPackNoDeltas will test cases where there are no delta files are
+// created in the update
+func TestPackNoDeltas(t *testing.T) {
+	ts := newTestSwupd(t, "no-deltas")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"os-core", "bundle"}
+
+	content := strings.Repeat("CONTENT", 1000)
+
+	// Version 10.
+	ts.addFile(10, "bundle", "/file1", content+"10")
+	ts.createManifests(10)
+
+	// Version 20 adds a file
+	ts.addFile(20, "bundle", "/file1", content+"10")
+	ts.addFile(20, "bundle", "/file2", content+"20")
+	ts.createManifests(20)
+
+	// Version 30 have a delete
+	ts.addFile(30, "bundle", "/file1", content+"10")
+	ts.createManifests(30)
+
+	// Pack from 10->20 will contain a pack due to file2, but no deltas
+	info := ts.createPack("bundle", 10, 20, ts.path("image"))
+	mustHaveDeltaCount(t, info, 0)
+	ts.checkNotExists("www/20/Manifest.bundle.D.10")
+	ts.checkExists("www/20/pack-bundle-from-10.tar")
+
+	// Pack from 20->30
+	info = ts.createPack("bundle", 20, 30, ts.path("image"))
+	mustHaveDeltaCount(t, info, 0)
+	ts.checkNotExists("www/30/Manifest.bundle.D.20")
+	ts.checkNotExists("www/30/pack-bundle-from-20.tar")
+}
+
 func checkFileInPack(t *testing.T, packname, name string) {
 	t.Helper()
 	pack, err := os.Open(packname)

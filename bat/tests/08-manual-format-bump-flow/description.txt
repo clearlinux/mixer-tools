@@ -1,0 +1,4 @@
+08-manual-format-bump-flow
+=================================
+This test creates a format bump using a manual process (not auto-format-bump)
+and checks that all output is correct.

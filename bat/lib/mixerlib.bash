@@ -48,6 +48,10 @@ mixer-build-update() {
   sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --native=true
 }
 
+mixer-build-update-minversion() {
+  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --native=true --min-version $1
+}
+
 mixer-build-all() {
   sudo -E mixer $MIXARGS build all --config $BATS_TEST_DIRNAME/builder.conf --native=true
 }
@@ -66,7 +70,7 @@ mixer-add-rpms() {
 }
 
 create-empty-local-bundle() {
-  touch $LOCAL_BUNDLE_DIR/$1
+  mixer bundle edit $1 --suppress-editor
 }
 
 add-package-to-local-bundle() {

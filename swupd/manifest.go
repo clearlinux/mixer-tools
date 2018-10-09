@@ -420,12 +420,6 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 			// file
 			if !of.Present() {
 				if of.Status == StatusDeleted && m.Header.Format == oldManifest.Header.Format {
-					// copy over old deleted files
-					// append as-is
-					if of.Version < minVersion {
-						// set delete to minVersion
-						of.Version = minVersion
-					}
 					m.Files = append(m.Files, of)
 				}
 				ox++

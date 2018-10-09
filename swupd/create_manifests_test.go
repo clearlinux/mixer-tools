@@ -400,8 +400,8 @@ func TestCreateManifestsMVDeletes(t *testing.T) {
 	// now create a minversion and make sure the deletes persist
 	ts.MinVersion = 30
 	ts.createManifests(30)
-	fileDeletedInManifest(t, ts.parseManifest(30, "test-bundle"), 30, "/foo")
-	fileDeletedInManifest(t, ts.parseManifest(30, "full"), 30, "/foo")
+	fileDeletedInManifest(t, ts.parseManifest(30, "test-bundle"), 20, "/foo")
+	fileDeletedInManifest(t, ts.parseManifest(30, "full"), 20, "/foo")
 }
 
 func TestCreateManifestsFormatDeletes(t *testing.T) {

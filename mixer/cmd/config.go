@@ -75,7 +75,7 @@ var configSetCmd = &cobra.Command{
 			return err
 		}
 
-		return mc.SetProperty(args[0], args[1])
+		return config.SetProperty(&mc, args[0], args[1])
 	},
 }
 
@@ -93,7 +93,7 @@ var configGetCmd = &cobra.Command{
 			return err
 		}
 
-		if value, err := mc.GetProperty(args[0]); err != nil {
+		if value, err := config.GetProperty(&mc, args[0]); err != nil {
 			return err
 		} else {
 			fmt.Println(value)

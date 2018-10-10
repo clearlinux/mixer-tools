@@ -70,8 +70,19 @@ var configSetCmd = &cobra.Command{
 	the existence of the provided property, but will not validate the value provided.`,
 	Args: cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Look for the value in mixer.state first
+		var ms config.MixState
+		err := ms.Load()
+		if err == nil {
+			err = config.SetProperty(&ms, args[0], args[1])
+			if err == nil {
+				return nil
+			}
+		}
+
+		// Look for the value in builder.conf
 		var mc config.MixConfig
-		if err := mc.LoadConfig(configFile); err != nil {
+		if err = mc.LoadConfig(configFile); err != nil {
 			return err
 		}
 
@@ -88,18 +99,31 @@ var configGetCmd = &cobra.Command{
 	been defined in the file.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		var value string
+
+		// Look for the value in mixer.state first
+		var ms config.MixState
+		err := ms.Load()
+		if err == nil {
+			value, err = config.GetProperty(&ms, args[0])
+			if err == nil {
+				fmt.Println(value)
+				return nil
+			}
+		}
+
+		// Look for the value in builder.conf
 		var mc config.MixConfig
-		if err := mc.LoadConfig(configFile); err != nil {
+		if err = mc.LoadConfig(configFile); err != nil {
 			return err
 		}
 
-		if value, err := config.GetProperty(&mc, args[0]); err != nil {
-			return err
-		} else {
+		value, err = config.GetProperty(&mc, args[0])
+		if err == nil {
 			fmt.Println(value)
 		}
 
-		return nil
+		return err
 	},
 }
 

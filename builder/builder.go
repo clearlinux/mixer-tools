@@ -1130,7 +1130,7 @@ editLoop:
 		// Ignore return from command; parsing below is what will reveal errors
 		_ = helpers.RunCommandInput(os.Stdin, editorCmd, path)
 
-		err := validateBundleFile(path, BasicValidation)
+		err := validateBundleFile(path, BasicValidationIgnoreName)
 		if err == nil {
 			// Clean-up backup
 			if err = os.Remove(backup); err != nil {
@@ -1207,6 +1207,10 @@ func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, g
 	}
 
 	for _, bundle := range bundles {
+		if err = validateBundleFilename(bundle); err != nil {
+			fmt.Println(err)
+			continue
+		}
 		path, _ := b.getBundlePath(bundle)
 		if !b.isLocalBundle(path) {
 			localPath := filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)

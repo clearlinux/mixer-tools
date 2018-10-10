@@ -128,15 +128,17 @@ type ValidationLevel int
 // Enum of available validation levels
 const (
 	BasicValidation ValidationLevel = iota
+	BasicValidationIgnoreName
 	StrictValidation
 )
 
 func validateBundleFile(filename string, lvl ValidationLevel) error {
 	var errText string
 
-	// Basic Validation
-	if err := validateBundleFilename(filename); err != nil {
-		errText = err.Error() + "\n"
+	if lvl != BasicValidationIgnoreName {
+		if err := validateBundleFilename(filename); err != nil {
+			errText = err.Error() + "\n"
+		}
 	}
 
 	b, err := parseBundleFile(filename)
@@ -145,22 +147,17 @@ func validateBundleFile(filename string, lvl ValidationLevel) error {
 		return errors.New(errText)
 	}
 
-	if lvl == BasicValidation {
-		if errText != "" {
-			return errors.New(strings.TrimSuffix(errText, "\n"))
-		}
-		return nil
-	}
-
 	// Strict Validation
-	err = validateBundle(b)
-	if err != nil {
-		errText += err.Error() + "\n"
-	}
+	if lvl == StrictValidation {
+		err = validateBundle(b)
+		if err != nil {
+			errText += err.Error() + "\n"
+		}
 
-	name := filepath.Base(filename)
-	if name != b.Header.Title {
-		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+		name := filepath.Base(filename)
+		if name != b.Header.Title {
+			errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+		}
 	}
 
 	if errText != "" {

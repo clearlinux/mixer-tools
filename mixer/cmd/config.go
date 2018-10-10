@@ -32,16 +32,13 @@ var configValidateCmd = &cobra.Command{
 	Short: "Parse a config file and print its properties",
 	Long: `Parse a builder config file and display its properties. Properties containing
 environment variables will be expanded`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
-			fail(err)
+			return err
 		}
 
-		if err := mc.Print(); err != nil {
-			fail(err)
-		}
-
+		return mc.Print()
 	},
 }
 
@@ -51,19 +48,17 @@ var configConvertCmd = &cobra.Command{
 	Long: `Convert an old config file to the new TOML format. The command will generate
 a backup file of the old config and will replace it with the converted one. Environment
 variables will not be expanded and the values will not be validated`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		/* If no state file exists, it must be created first to ensure the FORMAT value
 		is transferred from old configs before conversion */
 		var ms config.MixState
 		if err := ms.Load(); err != nil {
-			fail(err)
+			return err
 		}
 
 		var mc config.MixConfig
-		if err := mc.Convert(configFile); err != nil {
-			fail(err)
-		}
 
+		return mc.Convert(configFile)
 	},
 }
 
@@ -74,16 +69,13 @@ var configSetCmd = &cobra.Command{
 	assign the provided value and update the config file. The command will only validate
 	the existence of the provided property, but will not validate the value provided.`,
 	Args: cobra.ExactArgs(2),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
-			fail(err)
+			return err
 		}
 
-		if err := mc.SetProperty(args[0], args[1]); err != nil {
-			fail(err)
-		}
-
+		return mc.SetProperty(args[0], args[1])
 	},
 }
 
@@ -95,17 +87,19 @@ var configGetCmd = &cobra.Command{
 	either the value set in the config file or the default value if the property has not
 	been defined in the file.`,
 	Args: cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		var mc config.MixConfig
 		if err := mc.LoadConfig(configFile); err != nil {
-			fail(err)
+			return err
 		}
 
 		if value, err := mc.GetProperty(args[0]); err != nil {
-			fail(err)
+			return err
 		} else {
 			fmt.Println(value)
 		}
+
+		return nil
 	},
 }
 

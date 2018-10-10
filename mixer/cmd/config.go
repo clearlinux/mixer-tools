@@ -15,6 +15,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/clearlinux/mixer-tools/config"
 	"github.com/spf13/cobra"
 )
@@ -85,11 +87,34 @@ var configSetCmd = &cobra.Command{
 	},
 }
 
+var configGetCmd = &cobra.Command{
+	Use:   "get <property>",
+	Short: "Get a property in the config file",
+	Long: `This command will parse the provided property in the format 'Section.Property'
+	and return its value. The value returned is the value used by mixer, which will be
+	either the value set in the config file or the default value if the property has not
+	been defined in the file.`,
+	Args: cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		var mc config.MixConfig
+		if err := mc.LoadConfig(configFile); err != nil {
+			fail(err)
+		}
+
+		if value, err := mc.GetProperty(args[0]); err != nil {
+			fail(err)
+		} else {
+			fmt.Println(value)
+		}
+	},
+}
+
 // List of all config commands
 var configCmds = []*cobra.Command{
 	configValidateCmd,
 	configConvertCmd,
 	configSetCmd,
+	configGetCmd,
 }
 
 func init() {

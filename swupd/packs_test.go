@@ -4,11 +4,14 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFindBundlesToPack(t *testing.T) {
@@ -512,6 +515,7 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 }
 
 func mustCreatePack(t *testing.T, name string, fromVersion, toVersion uint32, outputDir, chrootDir string) *PackInfo {
+	debugPacks = true
 	t.Helper()
 	err := CreateAllDeltas(outputDir, int(fromVersion), int(toVersion), 0)
 	if err != nil {
@@ -620,6 +624,8 @@ func TestPackRenames(t *testing.T) {
 
 	// Version 30 changes file1 and renames to file2.
 	ts.addFile(30, "os-core", "/file2", content+"30")
+	// add a boot file to be ghosted next version
+	ts.addFile(30, "os-core", "/boot/test", "")
 	ts.createManifests(30)
 
 	// Version 40 just adds an unrelated file.
@@ -685,4 +691,189 @@ func checkFileInPack(t *testing.T, packname, name string) {
 		}
 	}
 	t.Errorf("file %s is not in pack", name)
+}
+
+func TestPackStateString(t *testing.T) {
+	testCases := []struct {
+		p   PackState
+		exp string
+	}{
+		{NotPacked, "not packed"},
+		{PackedDelta, "packed delta"},
+		{PackedFullfile, "packed fullfile"},
+	}
+
+	for _, tc := range testCases {
+		ps := tc.p.String()
+		if ps != tc.exp {
+			t.Errorf("PackState.String() returned \"%s\"; expected \"%s\"", ps, tc.exp)
+		}
+	}
+
+	p := PackedFullfile
+	p++
+	ps := p.String()
+	if ps != "invalid" {
+		t.Errorf("PackState.String() on invalid value returned \"%s\"; expected \"invalid\"", ps)
+	}
+}
+
+func TestWritePackErrorPaths(t *testing.T) {
+	// valid writer
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatalf("could not create valid writer")
+	}
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+
+	// valid outputdir/chrootdir
+	d, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() {
+		_ = os.RemoveAll(d)
+	}()
+	// valid fromManifest
+	fm := Manifest{Name: "test"}
+	if _, err = WritePack(f, &fm, nil, d, d, 1); err == nil {
+		t.Error("WritePack did not return error with nil toManifest")
+	}
+
+	tm := Manifest{}
+	if _, err = WritePack(f, &fm, &tm, d, d, 1); err == nil {
+		t.Error("WritePack did not return error with unnamed toManifest")
+	}
+
+	tm.Name = "testto"
+	tm.Header.Version = 10
+	fm.Header.Version = 20
+	if _, err = WritePack(f, &fm, &tm, d, d, 1); err == nil {
+		t.Error("WritePack did not return error with invalid version pairs")
+	}
+
+	err = ioutil.WriteFile(filepath.Join(d, "..", "server.ini"), []byte("badcontent"), 0644)
+	if err != nil {
+		t.Fatalf("could not create test config file")
+	}
+
+	tm.Header.Version = 30
+	if _, err = WritePack(f, &fm, &tm, d, d, 1); err == nil {
+		t.Error("WritePack did not return error with no config present")
+	}
+}
+
+func TestCopyFromFullChrootErrorPaths(t *testing.T) {
+	d, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() {
+		_ = os.RemoveAll(d)
+	}()
+
+	f, err := ioutil.TempFile(d, "")
+	if err != nil {
+		t.Fatalf("could not create valid test file")
+	}
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+
+	sf := &File{Name: filepath.Base(f.Name())}
+	// assign invalid directory type
+	sf.Type = TypeDirectory
+	if _, err = copyFromFullChrootFile(nil, d, sf); err == nil {
+		t.Error("copyFromFullChrootFile did not return error with mismatched file type")
+	}
+
+	// assign invalid link type
+	sf.Type = TypeLink
+	if _, err = copyFromFullChrootFile(nil, d, sf); err == nil {
+		t.Error("copyFromFullChrootFile did not return error with mismatched file type")
+	}
+
+	subDir, err := ioutil.TempDir(d, "")
+	if err != nil {
+		t.Fatalf("could not create valid test directory")
+	}
+	// parent will be recursively removed so we don't need to RemoveAll here
+
+	df := &File{Name: filepath.Base(subDir)}
+	// assign invalid regular file type
+	df.Type = TypeFile
+	if _, err := copyFromFullChrootFile(nil, d, df); err == nil {
+		t.Error("copyFromFullChrootFile did not return error with mismatched file type")
+	}
+
+	// assign completely invalid type
+	df.Type = 10
+	if _, err := copyFromFullChrootFile(nil, d, df); err == nil {
+		t.Error("copyFromFullChrootFile did not return error with invalid file type")
+	}
+}
+
+func TestFindBundlesToPackErrorPaths(t *testing.T) {
+	if _, err := FindBundlesToPack(nil, nil); err == nil {
+		t.Error("FindBundlesToPack did not return error with nil to manifest")
+	}
+
+	toMan := &Manifest{
+		Name: "testto",
+		Files: []*File{
+			{Name: "test1", Version: 20},
+		},
+	}
+	fromMan := &Manifest{
+		Name: "testfrom",
+		Files: []*File{
+			{Name: "test1", Version: 30}, // invalid version greater than toMan version
+		},
+	}
+
+	if _, err := FindBundlesToPack(fromMan, toMan); err == nil {
+		t.Error("FindBundlesToPack did not return error with invalid bundle versions")
+	}
+}
+
+func TestCreatePackErrorPaths(t *testing.T) {
+	d, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() {
+		_ = os.RemoveAll(d)
+	}()
+
+	if _, err = CreatePack("test", 0, 10, d, d, 1); err == nil {
+		t.Error("CreatePack did not return error with failed manifest parsing")
+	}
+
+	toMan := &Manifest{
+		Header: ManifestHeader{
+			Format:    1,
+			Version:   20,
+			FileCount: 1,
+			TimeStamp: time.Now(),
+		},
+		Name: "testto",
+		Files: []*File{
+			{Name: "testfile", Type: TypeFile},
+		},
+	}
+	err = os.MkdirAll(filepath.Join(d, "20"), 0755)
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	// parent will be recursively removed, so don't need to defer a RemoveAll
+
+	if err := toMan.WriteManifestFile(filepath.Join(d, "20", "Manifest.testto")); err != nil {
+		t.Fatalf("could not write test to manifest: %s", err)
+	}
+
+	if _, err := CreatePack("testto", 10, 20, d, d, 1); err == nil {
+		t.Error("CreatePack did not return error with failed from manifest parsing")
+	}
 }

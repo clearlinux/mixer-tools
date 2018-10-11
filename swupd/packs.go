@@ -24,7 +24,7 @@ import (
 	"strconv"
 )
 
-const debugPacks = false
+var debugPacks = false
 
 // PackState describes whether and how a file was packed.
 type PackState int

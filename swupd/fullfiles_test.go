@@ -132,6 +132,82 @@ func TestCreateFullfiles(t *testing.T) {
 	}
 }
 
+func TestCreateFullfilesErrorPaths(t *testing.T) {
+	if _, err := CreateFullfiles(nil, "/tmp/bogusdir", "/tmp/bogusdir", 1); err == nil {
+		t.Error("CreateFullfiles did not return error on bogus chroot directory")
+	}
+}
+
+func TestCreateDirectoryFullfileErrorPaths(t *testing.T) {
+	if err := createDirectoryFullfile("bogusfile", "bogus", "bogus", nil); err == nil {
+		t.Error("createDirectoryFullfile did not return error on bogus file")
+	}
+
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal("couldn't create test file")
+	}
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+
+	if err := createDirectoryFullfile(f.Name(), f.Name(), "bogus", nil); err == nil {
+		t.Error("createDirectoryFullfile did not return error on regular file")
+	}
+}
+
+func TestCreateLinkFullfileErrorPaths(t *testing.T) {
+	if err := createLinkFullfile("bogusfile", "bogus", "bogus", nil); err == nil {
+		t.Error("createLinkFullfile did not return error on bogus file")
+	}
+
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal("couldn't create test file")
+	}
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+
+	if err := createLinkFullfile(f.Name(), f.Name(), "bogus", nil); err == nil {
+		t.Error("createLinkFullfile did not return error on regular file")
+	}
+}
+
+func TestCreateRegularFullfileErrorPaths(t *testing.T) {
+	debugFullfiles = true
+	if err := createRegularFullfile("bogusfile", "bogus", "bogus", nil); err == nil {
+		t.Error("createRegularFullfile did not return error on bogus file")
+	}
+
+	d, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal("couldn't create test directory")
+	}
+	defer func() {
+		_ = os.RemoveAll(d)
+	}()
+
+	if err := createRegularFullfile(d, "bogus", "bogus", nil); err == nil {
+		t.Error("createRegularFullfile did not return error on directory")
+	}
+}
+
+func TestTarRegularFullfileErrorPaths(t *testing.T) {
+	f, err := ioutil.TempFile("", "")
+	if err != nil {
+		t.Fatal("couldn't create test file")
+	}
+	defer func() {
+		_ = os.Remove(f.Name())
+	}()
+
+	var fi os.FileInfo
+	if err = tarRegularFullfile(f, "test", "test", fi); err == nil {
+		t.Error("tarRegularFullfile did not return error on invalid fileinfo")
+	}
+}
+
 func mustHaveMatchingHash(t *testing.T, path string) {
 	t.Helper()
 	expectedHash := filepath.Base(path)

@@ -26,7 +26,7 @@ import (
 )
 
 // debugFullfiles is a flag to turn on debug statements for fullfile creation.
-const debugFullfiles = false
+var debugFullfiles = false
 
 type compressFunc func(dst io.Writer, src io.Reader) error
 

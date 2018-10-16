@@ -25,7 +25,9 @@ func (sw *stopWatch) Start(name string) {
 		if len(sw.entries) > 0 {
 			fmt.Println()
 		}
-		fmt.Fprintf(sw.w, "=> %s\n", name)
+		if _, err := fmt.Fprintf(sw.w, "=> %s\n", name); err != nil {
+			fmt.Println("Warning: Unable to write to stopwatch log")
+		}
 	}
 	sw.entries = append(sw.entries, stopWatchEntry{name: name})
 	sw.t = time.Now()
@@ -56,10 +58,19 @@ func (sw *stopWatch) WriteSummary(w io.Writer) {
 		}
 	}
 	var sum time.Duration
-	fmt.Fprintf(w, "\nTIMINGS\n")
+	if _, err := fmt.Fprintf(w, "\nTIMINGS\n"); err != nil {
+		fmt.Println("Warning: Unable to write to stopwatch log")
+		return
+	}
 	for _, e := range sw.entries {
-		fmt.Fprintf(w, "  %-*s %s\n", max, e.name, e.d.Truncate(time.Millisecond))
+		if _, err := fmt.Fprintf(w, "  %-*s %s\n", max, e.name, e.d.Truncate(time.Millisecond)); err != nil {
+			fmt.Println("Warning: Unable to write to stopwatch log")
+			return
+		}
 		sum += e.d
 	}
-	fmt.Fprintf(w, "TOTAL: %s\n", sum.Truncate(time.Millisecond))
+	if _, err := fmt.Fprintf(w, "TOTAL: %s\n", sum.Truncate(time.Millisecond)); err != nil {
+		fmt.Println("Warning: Unable to write to stopwatch log")
+		return
+	}
 }

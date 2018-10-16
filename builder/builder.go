@@ -354,7 +354,7 @@ func (b *Builder) ReadVersions() error {
 	}
 	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
+		fmt.Printf("Warning: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
 		b.UpstreamURL = ""
 	} else {
 		b.UpstreamURL = strings.TrimSpace(string(ver))
@@ -1046,7 +1046,9 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := bundles[bundle]; !exists {
 				included = "(included)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, location, included)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, location, included); err != nil {
+				return err
+			}
 		}
 	case LocalList:
 		// Only print the top-level set
@@ -1064,7 +1066,9 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := upstreamBundles[bundle]; exists {
 				masking = "(masking upstream)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masking)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masking); err != nil {
+				return err
+			}
 		}
 	case UpstreamList:
 		// Only print the top-level set
@@ -1082,7 +1086,9 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := localBundles[bundle]; exists {
 				masked = "(masked by local)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masked)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masked); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -2118,7 +2124,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		var m *swupd.Manifest
 		m, err = swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(cur), "Manifest.MoM"))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not find manifest for previous version %d, skipping...\n", cur)
+			fmt.Printf("Warning: Could not find manifest for previous version %d, skipping...\n", cur)
 			continue
 		}
 		previousManifests = append(previousManifests, m)
@@ -2170,7 +2176,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	wg.Wait()
 
 	for i := 0; i < len(deltaErrors); i++ {
-		fmt.Fprintf(os.Stderr, "%s\n", deltaErrors[i])
+		_, _ = fmt.Fprintf(os.Stderr, "%s\n", deltaErrors[i])
 	}
 
 	// Simply pack all deltas up since they are now created
@@ -2234,7 +2240,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 				fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
 				info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "ERROR: Pack %q from %d to %d FAILED to be created: %s\n", b.Name, b.FromVersion, b.ToVersion, err)
+					_, _ = fmt.Fprintf(os.Stderr, "ERROR: Pack %q from %d to %d FAILED to be created: %s\n", b.Name, b.FromVersion, b.ToVersion, err)
 					// Do not exit on errors, we have logging for all other failures and deltas are optional
 					continue
 				}

@@ -13,7 +13,7 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `Create pack files using a swupd state directory
+	_, _ = fmt.Fprintf(os.Stderr, `Create pack files using a swupd state directory
 
 Usage:
   create-pack [FLAGS] STATEDIR FROM_VERSION TO_VERSION BUNDLE

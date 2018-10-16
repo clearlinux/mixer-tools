@@ -588,7 +588,7 @@ func (b *Builder) buildBundles(set bundleSet) error {
 
 	// Write INI files. These are used to communicate to the next step of mixing (build update).
 	var serverINI bytes.Buffer
-	fmt.Fprintf(&serverINI, `[Server]
+	_, err = fmt.Fprintf(&serverINI, `[Server]
 emptydir=%s/empty
 imagebase=%s/image/
 outputdir=%s/www/
@@ -600,6 +600,9 @@ src=%s
 `, b.Config.Builder.ServerStateDir, b.Config.Builder.ServerStateDir,
 		b.Config.Builder.ServerStateDir, b.Config.Server.DebugInfoBanned,
 		b.Config.Server.DebugInfoLib, b.Config.Server.DebugInfoSrc)
+	if err != nil {
+		return err
+	}
 
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "server.ini"), serverINI.Bytes(), 0644)
 	if err != nil {
@@ -609,7 +612,9 @@ src=%s
 	// in bundleset to check for that. See also readGroupsINI in swupd package.
 	var groupsINI bytes.Buffer
 	for _, bundle := range set {
-		fmt.Fprintf(&groupsINI, "[%s]\ngroup=%s\n\n", bundle.Name, bundle.Name)
+		if _, err = fmt.Fprintf(&groupsINI, "[%s]\ngroup=%s\n\n", bundle.Name, bundle.Name); err != nil {
+			return err
+		}
 	}
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini"), groupsINI.Bytes(), 0644)
 	if err != nil {
@@ -642,7 +647,9 @@ src=%s
 		// TODO: Should we embed this information in groups.ini? (Maybe rename it to bundles.ini)
 		var includes bytes.Buffer
 		for _, inc := range bundle.DirectIncludes {
-			fmt.Fprintf(&includes, "%s\n", inc)
+			if _, err = fmt.Fprintf(&includes, "%s\n", inc); err != nil {
+				return err
+			}
 		}
 		err = ioutil.WriteFile(filepath.Join(buildVersionDir, name+"-includes"), includes.Bytes(), 0644)
 		if err != nil {
@@ -833,7 +840,9 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	for _, e := range versions {
 		// TODO: change users of "versions" file to not rely on this exact formatting (version
 		// starting at column 51). E.g. this doesn't handle very well packages with large names.
-		fmt.Fprintf(w, "%-50s%s\n", e.name, e.version)
+		if _, err = fmt.Fprintf(w, "%-50s%s\n", e.name, e.version); err != nil {
+			return err
+		}
 	}
 	return w.Flush()
 }
@@ -861,7 +870,9 @@ func fixOSRelease(filename, version string) error {
 		if strings.HasPrefix(text, "VERSION_ID=") {
 			text = "VERSION_ID=" + version
 		}
-		fmt.Fprintln(&newBuf, text)
+		if _, err = fmt.Fprintln(&newBuf, text); err != nil {
+			return err
+		}
 	}
 
 	err = scanner.Err()

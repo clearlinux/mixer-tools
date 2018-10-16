@@ -41,7 +41,7 @@ import (
 
 // PrintError is a utility function to emit an error to the console
 func PrintError(e error) {
-	fmt.Fprintf(os.Stderr, "***Error: %v\n", e)
+	_, _ = fmt.Fprintf(os.Stderr, "***Error: %v\n", e)
 }
 
 // CreateCertTemplate will construct the template for needed openssl metadata
@@ -321,22 +321,30 @@ func RunCommandOutputEnv(cmdname string, args []string, envs []string) (*bytes.B
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	cmd.Env = append(os.Environ(), envs...)
-	err := cmd.Run()
+	runError := cmd.Run()
 
-	if err != nil {
+	if runError != nil {
 		var buf bytes.Buffer
-		fmt.Fprintf(&buf, "failed to execute %s", strings.Join(cmd.Args, " "))
+		if _, err := fmt.Fprintf(&buf, "failed to execute %s", strings.Join(cmd.Args, " ")); err != nil {
+			fmt.Println("Warning: Unable to write to error buffer")
+		}
 		if outBuf.Len() > 0 {
-			fmt.Fprintf(&buf, "\nSTDOUT:\n%s", outBuf.Bytes())
+			if _, err := fmt.Fprintf(&buf, "\nSTDOUT:\n%s", outBuf.Bytes()); err != nil {
+				fmt.Println("Warning: Unable to write to error buffer")
+			}
 		}
 		if errBuf.Len() > 0 {
-			fmt.Fprintf(&buf, "\nSTDERR:\n%s", errBuf.Bytes())
+			if _, err := fmt.Fprintf(&buf, "\nSTDERR:\n%s", errBuf.Bytes()); err != nil {
+				fmt.Println("Warning: Unable to write to error buffer")
+			}
 		}
 		if outBuf.Len() > 0 || errBuf.Len() > 0 {
 			// Finish without a newline to wrap well with the err.
-			fmt.Fprintf(&buf, "failed to execute")
+			if _, err := fmt.Fprintf(&buf, "failed to execute"); err != nil {
+				fmt.Println("Warning: Unable to write to error buffer")
+			}
 		}
-		return &outBuf, errors.Wrap(err, buf.String())
+		return &outBuf, errors.Wrap(runError, buf.String())
 	}
 	return &outBuf, nil
 }

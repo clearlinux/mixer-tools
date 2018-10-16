@@ -364,11 +364,11 @@ func fail(err error) {
 	if rootCmdFlags.cpuProfile != "" {
 		pprof.StopCPUProfile()
 	}
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+	_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 	os.Exit(1)
 }
 
 func failf(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, fmt.Sprintf("ERROR: %s\n", format), a...)
+	_, _ = fmt.Fprintf(os.Stderr, fmt.Sprintf("ERROR: %s\n", format), a...)
 	os.Exit(1)
 }

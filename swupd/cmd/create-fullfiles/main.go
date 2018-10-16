@@ -16,7 +16,7 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `Usage: create-fullfiles [FLAGS] STATEDIR VERSION
+	_, _ = fmt.Fprintf(os.Stderr, `Usage: create-fullfiles [FLAGS] STATEDIR VERSION
 Flags:
 `)
 	flag.PrintDefaults()

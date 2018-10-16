@@ -41,6 +41,6 @@ func Execute() {
 }
 
 func fail(err error) {
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+	_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 	os.Exit(1)
 }

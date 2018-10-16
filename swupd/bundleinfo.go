@@ -95,7 +95,7 @@ func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {
 		fullPath := filepath.Join(chrootDir, fpath)
 		fi, err := os.Lstat(fullPath)
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "Warning: Missing file, assuming %%ghost: %s\n", fpath)
+			fmt.Printf("Warning: Missing file, assuming %%ghost: %s\n", fpath)
 			continue
 		}
 		if err != nil {
@@ -107,7 +107,7 @@ func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {
 			if strings.Contains(err.Error(), "hash calculation error") {
 				return err
 			}
-			fmt.Fprintf(os.Stderr, "Warning: %s\n", err)
+			fmt.Printf("Warning: %s\n", err)
 		}
 	}
 

@@ -74,11 +74,13 @@ for i in $(grep -lir "\[STATUS\]: Deprecated" upstream-bundles/ local-bundles/);
 	b=$(basename $i)
 	rm -f update/image/20/$b-info; mkdir update/image/20/$b
 done
-# Replace the +10 version in /usr/lib/os-release with +20 version and write the
-# new format to the format file on disk.  This is so clients will already be on
-# the new format when they update to the +10 because the content is the same as
-# the +20.
+# Replace the +10 version in the version metadata files (/usr/lib/os-release
+# and /usr/share/clear/version) with +20 version and write the new format to
+# the format file on disk.  This is so clients will already be on the new
+# format when they update to the +10 because the content is the same as the
+# +20.
 sed -i 's/\(VERSION_ID=\).*/\130/' update/image/20/full/usr/lib/os-release
+echo -n 30 > update/image/20/full/usr/share/clear/version
 echo 2 > update/image/20/full/usr/share/defaults/swupd/format
 # build update based on the modified bundle information. This is *not* a
 # minversion and these manifests must be built with the mixer from the original

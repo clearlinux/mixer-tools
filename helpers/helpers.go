@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -50,8 +51,7 @@ func CreateCertTemplate() *x509.Certificate {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialnumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		fmt.Println("ERROR: Failed to generate serial number")
-		PrintError(err)
+		log.Println(errors.Wrap(err, "ERROR: Failed to generate serial number"))
 	}
 
 	template := x509.Certificate{
@@ -73,8 +73,7 @@ func CreateCertTemplate() *x509.Certificate {
 func CreateKeyPair() (*rsa.PrivateKey, error) {
 	rootKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		fmt.Println("ERROR: Failed to generate random key")
-		PrintError(err)
+		log.Println(errors.Wrap(err, "ERROR: Failed to generate random key"))
 	}
 	return rootKey, nil
 }
@@ -321,22 +320,23 @@ func RunCommandOutputEnv(cmdname string, args []string, envs []string) (*bytes.B
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	cmd.Env = append(os.Environ(), envs...)
-	err := cmd.Run()
+	runError := cmd.Run()
 
-	if err != nil {
+	if runError != nil {
 		var buf bytes.Buffer
-		fmt.Fprintf(&buf, "failed to execute %s", strings.Join(cmd.Args, " "))
+		logger := log.New(&buf, "", log.Ldate|log.Ltime)
+		logger.Printf("failed to execute %s", strings.Join(cmd.Args, " "))
 		if outBuf.Len() > 0 {
-			fmt.Fprintf(&buf, "\nSTDOUT:\n%s", outBuf.Bytes())
+			logger.Printf("\nSTDOUT:\n%s", outBuf.Bytes())
 		}
 		if errBuf.Len() > 0 {
-			fmt.Fprintf(&buf, "\nSTDERR:\n%s", errBuf.Bytes())
+			logger.Printf("\nSTDERR:\n%s", errBuf.Bytes())
 		}
 		if outBuf.Len() > 0 || errBuf.Len() > 0 {
 			// Finish without a newline to wrap well with the err.
-			fmt.Fprintf(&buf, "failed to execute")
+			logger.Printf("failed to execute")
 		}
-		return &outBuf, errors.Wrap(err, buf.String())
+		return &outBuf, errors.Wrap(runError, buf.String())
 	}
 	return &outBuf, nil
 }

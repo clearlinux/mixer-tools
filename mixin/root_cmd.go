@@ -15,7 +15,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -41,6 +41,6 @@ func Execute() {
 }
 
 func fail(err error) {
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+	log.Printf("ERROR: %s\n", err)
 	os.Exit(1)
 }

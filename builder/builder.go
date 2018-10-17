@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"math"
 	"net/url"
 	"os"
@@ -230,7 +231,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	// Deprecate '.clearurl' --> 'upstreamurl'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
 		b.UpstreamURLFile = ".clearurl"
-		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+		log.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
 	}
 	if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile), []byte(upstreamURL), 0644); err != nil {
 		return err
@@ -250,7 +251,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	// Deprecate '.clearversion' --> 'upstreamversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
 		b.UpstreamVerFile = ".clearversion"
-		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+		log.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
 	}
 	if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), []byte(upstreamVer), 0644); err != nil {
 		return err
@@ -260,7 +261,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		log.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
 	if err := ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), []byte(mixVer), 0644); err != nil {
 		return err
@@ -326,7 +327,7 @@ func (b *Builder) ReadVersions() error {
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		log.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
 	ver, err := ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile))
 	if err != nil {
@@ -338,7 +339,7 @@ func (b *Builder) ReadVersions() error {
 	// Deprecate '.clearversion' --> 'upstreamversion'
 	if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
 		b.UpstreamVerFile = ".clearversion"
-		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+		log.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
 	}
 	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile))
 	if err != nil {
@@ -350,11 +351,11 @@ func (b *Builder) ReadVersions() error {
 	// Deprecate '.clearversion' --> 'upstreamurl'
 	if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
 		b.UpstreamURLFile = ".clearurl"
-		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+		log.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
 	}
 	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "WARNING: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
+		log.Printf("Warning: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
 		b.UpstreamURL = ""
 	} else {
 		b.UpstreamURL = strings.TrimSpace(string(ver))
@@ -845,7 +846,7 @@ func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool
 				if !mix && inMix {
 					// Check if bundle is still available upstream
 					if _, err := b.getBundlePath(bundle); err != nil {
-						fmt.Printf("Warning: Invalid bundle left in mix: %q\n", bundle)
+						log.Printf("Warning: Invalid bundle left in mix: %q\n", bundle)
 					} else {
 						fmt.Printf("Mix bundle %q now points to upstream\n", bundle)
 					}
@@ -1302,7 +1303,7 @@ func (b *Builder) UpdateMixVer(version int) error {
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		log.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
 
 	b.MixVer = strconv.Itoa(version)
@@ -1379,7 +1380,7 @@ func (b *Builder) NewDNFConfIfNeeded() error {
 
 		t, err := textTemplate.New("dnfConfTemplate").Parse(dnfConfTemplate)
 		if err != nil {
-			helpers.PrintError(err)
+			log.Println(err)
 			return err
 		}
 
@@ -1718,11 +1719,11 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 				return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
 			}
 			if len(info.Warnings) > 0 {
-				fmt.Println("Warnings during pack:")
+				log.Println("Warnings during pack:")
 				for _, w := range info.Warnings {
-					fmt.Printf("  %s\n", w)
+					log.Printf("  %s\n", w)
 				}
-				fmt.Println()
+				log.Println()
 			}
 			fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
 			fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
@@ -1796,7 +1797,7 @@ func (b *Builder) AddRepo(name, url string) error {
 
 	f, err := os.OpenFile(b.Config.Builder.DNFConf, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		helpers.PrintError(err)
+		log.Println(err)
 		return err
 	}
 
@@ -1814,7 +1815,7 @@ func (b *Builder) AddRepo(name, url string) error {
 
 	t, err := textTemplate.New("dnfConfRepoTemplate").Parse(dnfConfRepoTemplate)
 	if err != nil {
-		helpers.PrintError(err)
+		log.Println(err)
 		return err
 	}
 
@@ -2124,7 +2125,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		var m *swupd.Manifest
 		m, err = swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(cur), "Manifest.MoM"))
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "could not find manifest for previous version %d, skipping...\n", cur)
+			log.Printf("Warning: Could not find manifest for previous version %d, skipping...\n", cur)
 			continue
 		}
 		previousManifests = append(previousManifests, m)
@@ -2176,7 +2177,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	wg.Wait()
 
 	for i := 0; i < len(deltaErrors); i++ {
-		fmt.Fprintf(os.Stderr, "%s\n", deltaErrors[i])
+		log.Printf("%s\n", deltaErrors[i])
 	}
 
 	// Simply pack all deltas up since they are now created
@@ -2240,16 +2241,16 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 				fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
 				info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "ERROR: Pack %q from %d to %d FAILED to be created: %s\n", b.Name, b.FromVersion, b.ToVersion, err)
+					log.Printf("ERROR: Pack %q from %d to %d FAILED to be created: %s\n", b.Name, b.FromVersion, b.ToVersion, err)
 					// Do not exit on errors, we have logging for all other failures and deltas are optional
 					continue
 				}
 
 				if len(info.Warnings) > 0 {
 					for _, w := range info.Warnings {
-						fmt.Printf("    WARNING: %s\n", w)
+						log.Printf("    Warning: %s\n", w)
 					}
-					fmt.Println()
+					log.Println()
 				}
 				if printReport {
 					max := 0

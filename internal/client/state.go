@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -201,7 +202,7 @@ func (cs *State) GetFullfile(version, hash string) error {
 
 	hdr, err = tr.Next()
 	if err == nil {
-		fmt.Fprintf(os.Stderr, "! ignoring unexpected extra content in %s: %s\n", tarredFilename, hdr.Name)
+		log.Printf("Warning: Ignoring unexpected extra content in %s: %s\n", tarredFilename, hdr.Name)
 	}
 
 	return nil
@@ -330,9 +331,9 @@ func (cs *State) extractFullfile(hdr *tar.Header, r io.Reader) error {
 				return nil
 			}
 		} else if herr != nil {
-			fmt.Fprintf(os.Stderr, "! couldn't calculate hash for existing file %s, removing to extract it again\n", filename)
+			log.Printf("Warning: Couldn't calculate hash for existing file %s, removing to extract it again\n", filename)
 		} else {
-			fmt.Fprintf(os.Stderr, "! existing file %s has invalid hash %s, removing to extract it again\n", filename, hash)
+			log.Printf("Warning: Existing file %s has invalid hash %s, removing to extract it again\n", filename, hash)
 		}
 		err = os.Remove(filename)
 		if err != nil {

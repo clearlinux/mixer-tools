@@ -5,7 +5,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -16,7 +15,7 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `Usage: create-fullfiles [FLAGS] STATEDIR VERSION
+	log.Printf(`Usage: create-fullfiles [FLAGS] STATEDIR VERSION
 Flags:
 `)
 	flag.PrintDefaults()

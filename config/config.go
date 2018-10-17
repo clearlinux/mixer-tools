@@ -17,6 +17,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -267,7 +268,7 @@ func (config *MixConfig) validate() error {
 	}
 
 	if config.hasFormatField {
-		fmt.Println("WARNING: FORMAT value was transferred to mixer.state file")
+		log.Println("Warning: FORMAT value was transferred to mixer.state file")
 	}
 
 	return nil

@@ -17,6 +17,7 @@ package builder
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -171,7 +172,7 @@ func (b *Builder) prepareContainer() (string, error) {
 	}
 	fmt.Println("Updating docker image")
 	if err = helpers.RunCommand("docker", "pull", imageName); err != nil {
-		fmt.Printf("WARNING: Unable to pull docker image for format %s. Trying with cached image\n", format)
+		log.Printf("Warning: Unable to pull docker image for format %s. Trying with cached image\n", format)
 	}
 
 	return imageName, nil

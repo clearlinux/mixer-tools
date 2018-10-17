@@ -1046,7 +1046,9 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := bundles[bundle]; !exists {
 				included = "(included)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, location, included)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\n", bundle, location, included); err != nil {
+				return err
+			}
 		}
 	case LocalList:
 		// Only print the top-level set
@@ -1064,7 +1066,9 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := upstreamBundles[bundle]; exists {
 				masking = "(masking upstream)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masking)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masking); err != nil {
+				return err
+			}
 		}
 	case UpstreamList:
 		// Only print the top-level set
@@ -1082,7 +1086,9 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 			if _, exists := localBundles[bundle]; exists {
 				masked = "(masked by local)"
 			}
-			fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masked)
+			if _, err := fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", bundle, pkg, mix, masked); err != nil {
+				return err
+			}
 		}
 	}
 

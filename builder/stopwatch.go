@@ -1,8 +1,8 @@
 package builder
 
 import (
-	"fmt"
 	"io"
+	"log"
 	"time"
 )
 
@@ -21,11 +21,12 @@ type stopWatchEntry struct {
 }
 
 func (sw *stopWatch) Start(name string) {
+	logger := log.New(sw.w, "", log.Ldate|log.Ltime)
 	if sw.w != nil {
 		if len(sw.entries) > 0 {
-			fmt.Println()
+			logger.Println(sw.w, "")
 		}
-		fmt.Fprintf(sw.w, "=> %s\n", name)
+		logger.Printf("=> %s\n", name)
 	}
 	sw.entries = append(sw.entries, stopWatchEntry{name: name})
 	sw.t = time.Now()
@@ -46,6 +47,7 @@ func (sw *stopWatch) Stop() {
 }
 
 func (sw *stopWatch) WriteSummary(w io.Writer) {
+	logger := log.New(w, "", log.Ldate|log.Ltime)
 	if len(sw.entries) == 0 {
 		return
 	}
@@ -56,10 +58,10 @@ func (sw *stopWatch) WriteSummary(w io.Writer) {
 		}
 	}
 	var sum time.Duration
-	fmt.Fprintf(w, "\nTIMINGS\n")
+	logger.Printf("\nTIMINGS\n")
 	for _, e := range sw.entries {
-		fmt.Fprintf(w, "  %-*s %s\n", max, e.name, e.d.Truncate(time.Millisecond))
+		logger.Printf("  %-*s %s\n", max, e.name, e.d.Truncate(time.Millisecond))
 		sum += e.d
 	}
-	fmt.Fprintf(w, "TOTAL: %s\n", sum.Truncate(time.Millisecond))
+	logger.Printf("TOTAL: %s\n", sum.Truncate(time.Millisecond))
 }

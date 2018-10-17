@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"runtime/pprof"
@@ -98,13 +99,13 @@ var RootCmd = &cobra.Command{
 			}
 
 			if hostFormat == "" {
-				fmt.Println("Warning: Unable to determine host format. Running natively may fail.")
+				log.Println("Warning: Unable to determine host format. Running natively may fail.")
 			} else if hostFormat != upstreamFormat {
-				fmt.Println("Warning: The host format and mix upstream format do not match.",
+				log.Println("Warning: The host format and mix upstream format do not match.",
 					"Mixer may be incompatible with this format; running natively may fail.")
 			}
 		} else if !builder.Offline {
-			fmt.Printf("Warning: Using Format=%s from mixer.state for this build.\n", b.State.Mix.Format)
+			log.Printf("Warning: Using Format=%s from mixer.state for this build.\n", b.State.Mix.Format)
 		}
 
 		// For non-bump build commands, check if building across a format
@@ -113,7 +114,7 @@ var RootCmd = &cobra.Command{
 		if !cmdContains(cmd, "format-bump") && !cmdContains(cmd, "upstream-format") && cmdContains(cmd, "build") && !cmdContains(cmd, "image") {
 			// --offline=true AND --native=false, try to see if container exists
 			if builder.Offline && !builder.Native {
-				fmt.Println("Warning: Unable to determine upstream format in --offline mode, build may fail if building across format boundaries.")
+				log.Println("Warning: Unable to determine upstream format in --offline mode, build may fail if building across format boundaries.")
 				if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
 					fail(err)
 				}
@@ -364,11 +365,11 @@ func fail(err error) {
 	if rootCmdFlags.cpuProfile != "" {
 		pprof.StopCPUProfile()
 	}
-	fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
+	log.Printf("ERROR: %s\n", err)
 	os.Exit(1)
 }
 
 func failf(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, fmt.Sprintf("ERROR: %s\n", format), a...)
+	log.Printf(fmt.Sprintf("ERROR: %s\n", format), a...)
 	os.Exit(1)
 }

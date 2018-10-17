@@ -18,8 +18,8 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"regexp"
 
@@ -123,7 +123,7 @@ func (state *MixState) Load() error {
 	f, err := os.Open(state.filename)
 	if err != nil {
 		// If state does not exists, create a default state
-		fmt.Println("WARNING: Using FORMAT value from " + state.formatSource)
+		log.Println("Warning: Using FORMAT value from " + state.formatSource)
 		return state.Save()
 	}
 	defer func() {

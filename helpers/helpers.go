@@ -40,11 +40,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// PrintError is a utility function to emit an error to the console
-func PrintError(e error) {
-	fmt.Fprintf(os.Stderr, "***Error: %v\n", e)
-}
-
 // CreateCertTemplate will construct the template for needed openssl metadata
 // instead of using an attributes.cnf file
 func CreateCertTemplate() *x509.Certificate {

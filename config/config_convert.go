@@ -18,6 +18,7 @@ import (
 	"bufio"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -201,8 +202,8 @@ func (config *MixConfig) parseLegacy() error {
 			return err
 		}
 		config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
-		fmt.Printf("WARNING: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.Mixer.LocalBundleDir)
-		fmt.Println("Please set this value to the location you want local bundle definition files to be stored.")
+		log.Printf("Warning: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.Mixer.LocalBundleDir)
+		log.Println("Please set this value to the location you want local bundle definition files to be stored.")
 	}
 
 	return nil

@@ -13,7 +13,7 @@ import (
 )
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `Create pack files using a swupd state directory
+	log.Printf(`Create pack files using a swupd state directory
 
 Usage:
   create-pack [FLAGS] STATEDIR FROM_VERSION TO_VERSION BUNDLE
@@ -130,11 +130,11 @@ func main() {
 		}
 
 		if len(info.Warnings) > 0 {
-			fmt.Println("Warnings during pack:")
+			log.Println("Warnings during pack:")
 			for _, w := range info.Warnings {
-				fmt.Printf("  %s\n", w)
+				log.Printf("  %s\n", w)
 			}
-			fmt.Println()
+			log.Println()
 		}
 		fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
 		fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)

@@ -17,6 +17,7 @@ package swupd
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -353,7 +354,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 	c, err = getConfig(statedir)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Found server.ini, but was unable to read it. "+
+		log.Printf("Warning: Found server.ini, but was unable to read it. " +
 			"Continuing with default configuration\n")
 	}
 

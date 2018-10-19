@@ -301,11 +301,10 @@ func (MoM *Manifest) writeBundleManifests(newManifests []*Manifest, out string) 
 			continue
 		}
 
-		// TODO: remove this after a format bump in Clear Linux
-		// this is a hack to set maximum contentsize to the incorrect maximum
-		// set in swupd-client v3.15.3
-		bMan.setMaxContentSizeHack()
-		// end hack
+		// this sets maximum contentsize to the incorrect maximum set in
+		// swupd-client v3.15.3 if the manifest is in the format where the
+		// bug was introduced.
+		bMan.setMaxContentSizeForFormat()
 
 		// sort by version then by filename, previously to this sort these bundles
 		// were sorted by file name only to make processing easier

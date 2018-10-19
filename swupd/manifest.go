@@ -905,16 +905,3 @@ func fileContentInManifest(f *File, m *Manifest) bool {
 	}
 	return false
 }
-
-// this is a hack to allow users to update using swupd-client v3.15.3 which performs a
-// check on contentsize with a maximum a couple of orders off the intended maximum.
-// Remove this code (and the caller) when a format bump has occurred in Clear.
-var badMax uint64 = 2000000000
-
-func (m *Manifest) setMaxContentSizeHack() {
-	if m.Header.ContentSize >= badMax {
-		m.Header.ContentSize = badMax - 1
-	}
-}
-
-// end hack

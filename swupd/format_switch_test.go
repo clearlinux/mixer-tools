@@ -68,3 +68,47 @@ func TestManifestFormats25to26(t *testing.T) {
 	checkManifestContains(t, ts.Dir, "30", "test-bundle", expSubs...)
 	checkManifestContains(t, ts.Dir, "30", "MoM", "minversion:\t20")
 }
+
+func TestFormat25BadContentSize(t *testing.T) {
+	testCases := []struct {
+		testName    string
+		format      uint
+		contentsize uint64
+		expected    uint64
+	}{
+		// broken format
+		{"format25: badMax + 1", 25, badMax + 1, badMax - 1},
+		{"format25: badMax * 2", 25, badMax * 2, badMax - 1},
+		{"format25: badMax", 25, badMax, badMax - 1},
+		{"format25: badMax / 2", 25, badMax / 2, badMax / 2},
+		// good format
+		{"format26: badMax + 1", 26, badMax + 1, badMax + 1},
+		{"format26: badMax * 2", 26, badMax * 2, badMax * 2},
+		{"format26: badMax", 26, badMax, badMax},
+		{"format26: badMax / 2", 26, badMax / 2, badMax / 2},
+		// older good format
+		{"format24: badMax + 1", 24, badMax + 1, badMax + 1},
+		{"format24: badMax * 2", 24, badMax * 2, badMax * 2},
+		{"format24: badMax", 24, badMax, badMax},
+		{"format24: badMax / 2", 24, badMax / 2, badMax / 2},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.testName, func(t *testing.T) {
+			m := &Manifest{
+				Header: ManifestHeader{
+					Format:      tc.format,
+					ContentSize: tc.contentsize,
+				},
+			}
+			m.setMaxContentSizeForFormat()
+			if m.Header.ContentSize != tc.expected {
+				t.Errorf("%d contentsize set to %d, expected %d",
+					tc.contentsize,
+					m.Header.ContentSize,
+					tc.expected,
+				)
+			}
+		})
+	}
+}

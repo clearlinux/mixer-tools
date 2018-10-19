@@ -81,3 +81,14 @@ func manifestTemplateForFormat(f uint) (*template.Template, error) {
 		return nil, fmt.Errorf("unsupported format %v", f)
 	}
 }
+
+// this is a hack to allow users to update using swupd-client v3.15.3 which performs a
+// check on contentsize with a maximum a couple of orders off the intended maximum.
+const badMax uint64 = 2000000000
+
+func (m *Manifest) setMaxContentSizeForFormat() {
+	// this bug only existed in format 25
+	if m.Header.Format == 25 && m.Header.ContentSize >= badMax {
+		m.Header.ContentSize = badMax - 1
+	}
+}

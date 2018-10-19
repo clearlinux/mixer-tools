@@ -503,7 +503,12 @@ func TestContentSizeAcrossVersionsIncludes(t *testing.T) {
 	checkSize(manifests["os-core"], osCoreSize)
 
 	// full should have increased with all new files.
-	checkSize(manifests["full"], fullSize+10+8)
+	// also need to account for the os-core-update-index-files changing in size
+	// 18 additional bytes from adding the following to test-bundle1-info
+	// foobarbaz":true,"/
+	// and 16 additional bytes from adding the following to test-bundle2-info
+	// foo2bar":true,"/
+	checkSize(manifests["full"], fullSize+10+8+18+16)
 }
 
 func mustParseAllManifests(t *testing.T, version uint32, outputDir string) map[string]*Manifest {
@@ -627,29 +632,50 @@ func TestCreateManifestsIndexContents(t *testing.T) {
 	ts.addFile(10, "test-bundle2", "/foo", "foo")
 	ts.createManifests(10)
 
-	ts.checkContains("image/10/full/usr/share/clear/os-core-update-index", "/bar\ttest-bundle1\n")
-	ts.checkContains("image/10/full/usr/share/clear/os-core-update-index", "/foo\ttest-bundle2\n")
+	ts.checkContains("image/10/full/usr/share/clear/allbundles/test-bundle1-info", "/bar")
+	ts.checkContains("image/10/full/usr/share/clear/allbundles/test-bundle2-info", "/foo")
 	fileInManifest(t, ts.parseManifest(10, "MoM"), 10, "os-core-update-index")
-	fileInManifest(t, ts.parseManifest(10, "full"), 10, "/usr/share/clear/os-core-update-index")
+	fileInManifest(t, ts.parseManifest(10, "os-core-update-index"), 10,
+		"/usr/share/clear/allbundles/test-bundle1-info")
+	fileInManifest(t, ts.parseManifest(10, "os-core-update-index"), 10,
+		"/usr/share/clear/allbundles/test-bundle2-info")
+	fileInManifest(t, ts.parseManifest(10, "full"), 10,
+		"/usr/share/clear/allbundles/test-bundle1-info")
+	fileInManifest(t, ts.parseManifest(10, "full"), 10,
+		"/usr/share/clear/allbundles/test-bundle2-info")
 
+	// move all files to test-bundle1
 	ts.addFile(20, "test-bundle1", "/foo", "foo")
 	ts.addFile(20, "test-bundle1", "/bar", "bar")
 	ts.createManifests(20)
 
-	ts.checkContains("image/20/full/usr/share/clear/os-core-update-index", "/foo\ttest-bundle1\n")
-	ts.checkNotContains("image/20/full/usr/share/clear/os-core-update-index", "/foo\ttest-bundle2\n")
+	// make sure the files switched
+	ts.checkContains("image/20/full/usr/share/clear/allbundles/test-bundle1-info", "/foo")
+	ts.checkContains("image/20/full/usr/share/clear/allbundles/test-bundle1-info", "/bar")
+	ts.checkNotContains("image/20/full/usr/share/clear/allbundles/test-bundle2-info", "/foo")
+	ts.checkNotContains("image/20/full/usr/share/clear/allbundles/test-bundle2-info", "/bar")
 	fileInManifest(t, ts.parseManifest(20, "MoM"), 20, "os-core-update-index")
-	// must exist at correct version
-	fileInManifest(t, ts.parseManifest(20, "full"), 20, "/usr/share/clear/os-core-update-index")
+	// must exist at correct versions
+	fileInManifest(t, ts.parseManifest(20, "full"), 20, "/usr/share/clear/allbundles/test-bundle1-info")
+	fileInManifest(t, ts.parseManifest(20, "full"), 20, "/usr/share/clear/allbundles/test-bundle2-info")
+	// must exist in index bundle as well
+	fileInManifest(t, ts.parseManifest(20, "os-core-update-index"), 20,
+		"/usr/share/clear/allbundles/test-bundle1-info")
+	fileInManifest(t, ts.parseManifest(20, "os-core-update-index"), 20,
+		"/usr/share/clear/allbundles/test-bundle2-info")
 	// no update to this dir
 	fileInManifest(t, ts.parseManifest(20, "os-core-update-index"), 10, "/usr/share")
 
+	ts.addFile(30, "test-bundle1", "/foo", "foo")
+	ts.addFile(30, "test-bundle1", "/bar", "bar")
 	ts.createManifests(30)
+	// no changes so the versions should be 20 in all manifest
+	fileInManifest(t, ts.parseManifest(30, "full"), 20, "/usr/share/clear/allbundles/test-bundle1-info")
+	fileInManifest(t, ts.parseManifest(30, "full"), 20, "/usr/share/clear/allbundles/test-bundle2-info")
+	fileInManifest(t, ts.parseManifest(30, "MoM"), 20, "os-core-update-index")
 	// expect only the current version to show up in the MoM
 	// this is an issue we ran into where the old index manifest was copied over
 	// as well as generated.
-	fileInManifest(t, ts.parseManifest(30, "full"), 30, "/usr/share/clear/os-core-update-index")
-	fileInManifest(t, ts.parseManifest(30, "MoM"), 30, "os-core-update-index")
 	checkManifestNotContains(t, ts.Dir, "30", "MoM", "10\tos-core-update-index")
 }
 

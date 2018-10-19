@@ -429,7 +429,11 @@ func (fs *testFileSystem) addToFullChroot(version uint32, file, content string) 
 }
 
 func (fs *testFileSystem) addToBundleInfo(version uint32, bundle, file string) {
-	bundleInfoPath := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	bundleInfoDir := filepath.Join(fs.Dir, "image", fmt.Sprint(version))
+	bundleInfoPath := filepath.Join(bundleInfoDir, bundle+"-info")
+	allbundleInfoDir := filepath.Join(bundleInfoDir, "full/usr/share/clear/allbundles")
+	allbundleInfoPath := filepath.Join(allbundleInfoDir, bundle+"-info")
+
 	biBytes, err := ioutil.ReadFile(bundleInfoPath)
 	if err != nil {
 		fs.t.Fatal(err)
@@ -448,8 +452,17 @@ func (fs *testFileSystem) addToBundleInfo(version uint32, bundle, file string) {
 		fs.t.Fatal(err)
 	}
 
-	err = ioutil.WriteFile(bundleInfoPath, b, 0644)
-	if err != nil {
+	// update regular info file
+	if err = ioutil.WriteFile(bundleInfoPath, b, 0644); err != nil {
+		fs.t.Fatal(err)
+	}
+
+	// update allbundle info file
+	if err = os.MkdirAll(allbundleInfoDir, 0755); err != nil {
+		fs.t.Fatal(err)
+	}
+
+	if err = ioutil.WriteFile(allbundleInfoPath, b, 0644); err != nil {
 		fs.t.Fatal(err)
 	}
 }

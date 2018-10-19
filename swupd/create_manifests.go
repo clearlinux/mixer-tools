@@ -443,13 +443,19 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 		return nil, err
 	}
 
-	osIdxPath := filepath.Join(verOutput, "Manifest."+osIdx.Name)
-	if err = newMoM.createManifestRecord(verOutput, osIdxPath, version); err != nil {
+	// read index manifest from the version directory specified in the manifest
+	// itself as an index manifest may not have been created for this version.
+	osIdxDir := filepath.Join(c.outputDir, fmt.Sprint(osIdx.Header.Version))
+	osIdxPath := filepath.Join(osIdxDir, "Manifest."+osIdx.Name)
+	if err = newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version); err != nil {
 		return nil, err
 	}
 
 	// track here as well so the manifest tar is made
-	newManifests = append(newManifests, osIdx)
+	// but only if we made it new for this version
+	if osIdx.Header.Version == newMoM.Header.Version {
+		newManifests = append(newManifests, osIdx)
+	}
 
 	// handle full manifest
 	newFull.sortFilesVersionName()

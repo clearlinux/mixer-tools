@@ -38,10 +38,7 @@ const IndexBundle = "os-core-update-index"
 
 // TODO make this configurable (optional and configurable bundle/filepath)
 // this should be done when configuration is in a more stable state
-const (
-	indexFileName     = "/usr/share/clear/os-core-update-index"
-	indexAllBundleDir = "/usr/share/clear/allbundles"
-)
+const indexAllBundleDir = "/usr/share/clear/allbundles"
 
 // ManifestHeader contains metadata for the manifest
 type ManifestHeader struct {
@@ -697,46 +694,17 @@ func fileContains(path string, sub string) bool {
 	return bytes.Contains(b, []byte(sub))
 }
 
-type bundleIndex struct {
-	fname string
-	bname string
-	bsize uint64
-}
-
-func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
-	// sort by filename then by bundle size
-	sort.Slice(f2b[:], func(i, j int) bool {
-		if f2b[i].fname == f2b[j].fname {
-			return f2b[i].bsize < f2b[j].bsize
-		}
-		return f2b[i].fname < f2b[j].fname
-	})
-
-	// construct content for the file
-	var output []byte
-	for _, line := range f2b {
-		strLine := fmt.Sprintf("%s\t%s\n", line.fname, line.bname)
-		output = append(output, []byte(strLine)...)
-	}
-
+// constructIndexTrackingFile writes an empty tracking file to the bundle chroot
+// and to the full chroot.
+func constructIndexTrackingFile(c *config, ui *UpdateInfo) error {
 	imageVerPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
-	// write to bundle chroot
-	outputFileName := filepath.Join(imageVerPath, IndexBundle, indexFileName)
-	if err := createAndWrite(outputFileName, output); err != nil {
-		return err
-	}
-
 	trackingFile := filepath.Join("/usr/share/clear/bundles", IndexBundle)
+	// write to bundle chroot
 	if err := createAndWrite(filepath.Join(imageVerPath, IndexBundle, trackingFile), []byte{}); err != nil {
 		return err
 	}
 
-	// write to full chroot
-	fullFileName := filepath.Join(imageVerPath, "full", indexFileName)
-	if err := createAndWrite(fullFileName, output); err != nil {
-		return err
-	}
-
+	// write to full chroot and return any errors
 	return createAndWrite(filepath.Join(imageVerPath, "full", trackingFile), []byte{})
 }
 
@@ -746,7 +714,6 @@ func constructIndex(c *config, ui *UpdateInfo, f2b []*bundleIndex) error {
 // bundle in which the file will live. This bundle is added to the "full" manifest which
 // is part of the bundles slice. A pointer to the new manifest is returned on success.
 func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manifest, error) {
-	fileToBundles := []*bundleIndex{}
 	var newFull, newOsCore *Manifest
 	for _, b := range bundles {
 		if b.Name == "full" {
@@ -759,18 +726,6 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 			// record for includes list
 			newOsCore = b
 		}
-
-		for _, f := range b.Files {
-			// only record present files that are TypeFile or TypeSymlink
-			if f.Present() && f.Type != TypeDirectory {
-				ftb := &bundleIndex{
-					f.Name,
-					b.Name,
-					b.Header.ContentSize,
-				}
-				fileToBundles = append(fileToBundles, ftb)
-			}
-		}
 	}
 
 	// no full manifest in bundles list
@@ -778,8 +733,8 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 		return nil, errors.New("no full manifest found")
 	}
 
-	// construct the index file from the bundleIndex slice
-	if err := constructIndex(c, ui, fileToBundles); err != nil {
+	// construct the tracking files in the bundle and full chroots
+	if err := constructIndexTrackingFile(c, ui); err != nil {
 		return nil, err
 	}
 
@@ -870,6 +825,14 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 
 	// done processing, sort by version before writing
 	idxMan.sortFilesVersionName()
+	// check that there is actually a change to this manifest before writing
+	if idxMan.Files[len(idxMan.Files)-1].Version < idxMan.Header.Version {
+		// return the old version of the manifest since there was no change
+		// in this version
+		return oldM, nil
+	}
+
+	// there were changes at this version, so write the manifest
 	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+IndexBundle)
 	if err := idxMan.WriteManifestFile(manOutput); err != nil {
 		return nil, err

@@ -1905,12 +1905,12 @@ func (b *Builder) RemoveRepo(name string) error {
 // This will fail if a DNF conf has not yet been generated.
 func (b *Builder) ListRepos() error {
 	if _, err := os.Stat(b.Config.Builder.DNFConf); os.IsNotExist(err) {
-		return err
+		return errors.Wrap(err, "unable to find DNF configuration, try initializing workspace")
 	}
 
 	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "unable to load DNF configration, try initializing workspace")
 	}
 
 	for _, s := range DNFConf.Sections() {

@@ -34,7 +34,10 @@ configure remote RPM repositories.
 The output of ``mixer`` is a set of manifests readable by ``swupd`` as well as
 all the OS content ``swupd`` needs to perform its update operations. The OS
 content includes all the files in an update as well as zero- and delta-packs for
-improved update performance. See ``swupd``\(1) for more details.
+improved update performance. The content that ``mixer`` produces is tied to a
+specific format so that ``swupd`` is guaranteed to understand it if the client
+is using the right version of ``swupd``. See ``swupd``\(1) and ``os-format``\(7)
+for more details.
 
 
 OPTIONS
@@ -145,6 +148,7 @@ SEE ALSO
 * ``mixer.repo``\(1)
 * ``mixer.versions``\(1)
 * ``swupd``\(1)
+* ``os-format``\(7)
 * https://github.com/clearlinux/mixer-tools
 * https://github.com/clearlinux/swupd-client
 * https://clearlinux.org/documentation/

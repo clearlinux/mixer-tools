@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -880,4 +881,20 @@ func merge(a []string, b ...string) []string {
 	result = append(result, a...)
 	result = append(result, b...)
 	return result
+}
+
+// getClosestAncestorOwner returns the owner uid/gid of the closest existing
+// ancestor of the file or dir pointed to by path. There is no fully cross-
+// platform concept of "ownership", so this method only works on *nix systems.
+func getClosestAncestorOwner(path string) (int, int, error) {
+	path = filepath.Dir(path)
+	fi, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return getClosestAncestorOwner(path)
+	} else if err != nil {
+		return 0, 0, err
+	}
+	uid := int(fi.Sys().(*syscall.Stat_t).Uid)
+	gid := int(fi.Sys().(*syscall.Stat_t).Gid)
+	return uid, gid, nil
 }

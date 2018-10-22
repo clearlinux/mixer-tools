@@ -15,7 +15,6 @@
 package swupd
 
 import (
-	"fmt"
 	"text/template"
 )
 
@@ -63,23 +62,21 @@ includes:	{{.Name}}
 
 // manifestTemplateForFormat returns the *template.Template for creating
 // manifests for the provided format f
-func manifestTemplateForFormat(f uint) (*template.Template, error) {
+func manifestTemplateForFormat(f uint) (t *template.Template) {
 	switch {
-	case f > 0 && f <= 25:
+	case f <= 25:
 		// initial format, everything 0-25 uses this format
-		return template.Must(template.New("manifest").Parse(manTemplates[25])), nil
+		t = template.Must(template.New("manifest").Parse(manTemplates[25]))
 	case f > 25:
 		// template for format 26
-		return template.Must(template.New("manifest").Parse(manTemplates[26])), nil
+		t = template.Must(template.New("manifest").Parse(manTemplates[26]))
 		// when a new format is required it must be added here and the 'case f
 		// > 25' must be modified to 'case f > 25 && f < <new_format>'. The
 		// <new_format> does not necessarily have to be 27 as format 27 may be
 		// created due to a content breaking change instead of a manifest
 		// format breaking change.
-	default:
-		// we do not support format 0 or below
-		return nil, fmt.Errorf("unsupported format %v", f)
 	}
+	return
 }
 
 // this is a hack to allow users to update using swupd-client v3.15.3 which performs a

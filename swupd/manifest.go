@@ -298,10 +298,7 @@ func (m *Manifest) WriteManifest(w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	t, err := manifestTemplateForFormat(m.Header.Format)
-	if err != nil {
-		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)
-	}
+	t := manifestTemplateForFormat(m.Header.Format)
 	err = t.Execute(w, m)
 	if err != nil {
 		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)

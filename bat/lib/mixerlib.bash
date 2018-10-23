@@ -99,9 +99,7 @@ download-rpm() {
 get-last-format-boundary() {
   latest=$(curl https://download.clearlinux.org/latest)
   format=$(curl https://download.clearlinux.org/update/$latest/format)
-  first=$(curl https://download.clearlinux.org/update/version/format$format/first)
-
-  echo $(($first-10))
+  echo $(curl https://download.clearlinux.org/update/version/format$(($format-1))/latest)
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

@@ -121,7 +121,7 @@ func (config *MixConfig) CreateDefaultConfig() error {
 		return err
 	}
 
-	err := config.initConfigPath("")
+	err := config.InitConfigPath("")
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (config *MixConfig) SetProperty(propertyStr string, value string) error {
 // LoadConfig loads a configuration file from a provided path or from local directory
 // is none is provided
 func (config *MixConfig) LoadConfig(filename string) error {
-	if err := config.initConfigPath(filename); err != nil {
+	if err := config.InitConfigPath(filename); err != nil {
 		return err
 	}
 	if err := config.parseVersionAndConvert(); err != nil {
@@ -271,7 +271,7 @@ func (config *MixConfig) validate() error {
 
 // Convert parses an old config file and converts it to TOML format
 func (config *MixConfig) Convert(filename string) error {
-	if err := config.initConfigPath(filename); err != nil {
+	if err := config.InitConfigPath(filename); err != nil {
 		return err
 	}
 
@@ -296,12 +296,14 @@ func (config *MixConfig) Print() error {
 	return nil
 }
 
-func (config *MixConfig) initConfigPath(path string) error {
-	if path != "" {
-		config.filename = path
+// InitConfigPath sets the main config name to what was passed in,
+// or defaults to the current working directory + builder.conf
+func (config *MixConfig) InitConfigPath(fullpath string) error {
+	if fullpath != "" {
+		config.filename = fullpath
 		return nil
 	}
-
+	// Create a builder.conf in the current directory if none is passed in
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err

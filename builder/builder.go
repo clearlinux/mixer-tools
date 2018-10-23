@@ -222,6 +222,11 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 		}
 	}
 
+	// Create the DNF conf early in case we want to edit before building a first mix
+	if err := b.NewDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -104,8 +104,6 @@ var RootCmd = &cobra.Command{
 				log.Println("Warning: The host format and mix upstream format do not match.",
 					"Mixer may be incompatible with this format; running natively may fail.")
 			}
-		} else if !builder.Offline {
-			log.Printf("Warning: Using Format=%s from mixer.state for this build.\n", b.State.Mix.Format)
 		}
 
 		// For non-bump build commands, check if building across a format

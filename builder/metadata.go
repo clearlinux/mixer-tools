@@ -260,9 +260,19 @@ Latest upstream in format: %d
 // upstream version is 0, then the latest upstream version in the current
 // upstream format will be taken instead.
 func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
-	format, _, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
-	if err != nil {
-		return err
+	var format string
+	var latest uint32
+	var err error
+
+	checkUpstream := (nextUpstream != b.UpstreamVerUint32)
+	if checkUpstream {
+		format, _, latest, err = b.getUpstreamFormatRange(b.UpstreamVer)
+		if err != nil {
+			return err
+		}
+	} else {
+		format = b.State.Mix.Format
+		latest = b.UpstreamVerUint32
 	}
 
 	if nextMix <= b.MixVerUint32 {
@@ -275,24 +285,27 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 
 	nextUpstreamStr := strconv.FormatUint(uint64(nextUpstream), 10)
 
-	nextFormat := format
-	if nextUpstream > latest {
-		nextFormat, err = b.getUpstreamFormat(nextUpstreamStr)
-		if err != nil {
-			return err
+	var nextFormat string
+	nextFormat = format
+	if checkUpstream {
+		if nextUpstream > latest {
+			nextFormat, err = b.getUpstreamFormat(nextUpstreamStr)
+			if err != nil {
+				return err
+			}
 		}
-	}
 
-	// Verify the version exists by checking if its Manifest.MoM is around.
-	_, err = b.DownloadFileFromUpstreamAsString(fmt.Sprintf("/update/%d/Manifest.MoM", nextUpstream))
-	if err != nil {
-		return errors.Wrapf(err, "invalid upstream version %d", nextUpstream)
+		// Verify the version exists by checking if its Manifest.MoM is around.
+		_, err = b.DownloadFileFromUpstreamAsString(fmt.Sprintf("/update/%d/Manifest.MoM", nextUpstream))
+		if err != nil {
+			return errors.Wrapf(err, "invalid upstream version %d", nextUpstream)
+		}
 	}
 
 	fmt.Printf(`Old mix:      %d
 Old upstream: %d (format: %s)
 
-New mix:      %d
+New mix:      %d\n
 New upstream: %d (format: %s)
 `, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, nextFormat)
 

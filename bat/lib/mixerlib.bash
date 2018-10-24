@@ -57,11 +57,15 @@ mixer-build-all() {
 }
 
 mixer-build-format-bump-new() {
-  sudo -E mixer $MIXARGS build format-bump new --native=true
+  sudo -E mixer $MIXARGS build format-bump new --new-format $1 --native=true
 }
 
 mixer-build-format-bump-old() {
-  sudo -E mixer $MIXARGS build format-bump old --native=true
+  sudo -E mixer $MIXARGS build format-bump old --new-format $1 --native=true
+}
+
+mixer-build-format-bump() {
+  sudo -E mixer $MIXARGS build format-bump --new-format $1 --native=true
 }
 
 mixer-add-rpms() {

@@ -15,11 +15,13 @@
 package builder
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -147,6 +149,60 @@ func (b *Builder) getUpstreamFormatRange(version string) (format string, first, 
 	}
 
 	return format, first, latest, err
+}
+
+// UpdateFormatFile update the format number in the full-chroot format file
+func (b *Builder) UpdateFormatFile(version int) error {
+	formatFile := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full/usr/share/defaults/swupd/format")
+	if _, err := os.Stat(formatFile); err == nil {
+		return err
+	}
+
+	return ioutil.WriteFile(formatFile, []byte(strconv.Itoa(version)), 0644)
+}
+
+// ModifyBundles goes through the bundle directory and performs an action when it finds
+// a Deprecated bundle
+func (b *Builder) ModifyBundles(action func(string) error) error {
+	path := b.Config.Mixer.LocalBundleDir
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		return err
+	}
+
+	var scanner *bufio.Scanner
+	for _, file := range files {
+		fmt.Println("CHECKING FILE: " + file.Name())
+		fileToScan := filepath.Join(path, file.Name())
+		f, err := os.Open(fileToScan)
+		if err != nil {
+			return err
+		}
+
+		// Scan the files and find which bundle definitions are marked deprecated
+		scanner = bufio.NewScanner(f)
+		var str string
+		re := regexp.MustCompile("#\\s\\[STATUS\\]:\\s*Deprecated.*")
+		for scanner.Scan() {
+			str = scanner.Text()
+			fmt.Println("Scanning: " + str)
+			// Don't scan past header, stop once we have no more # comments
+			if str[0] == '#' {
+				if index := re.FindStringIndex(str); index != nil {
+					fmt.Println("Found deprecated bundle: " + fileToScan)
+					// Call the callback function we need on the file we're scanning
+					if err = action(file.Name()); err != nil {
+						return err
+					}
+				}
+			} else {
+				_ = f.Close()
+				break
+			}
+		}
+		_ = f.Close()
+	}
+	return nil
 }
 
 // PrintVersions prints the current mix and upstream versions, and the

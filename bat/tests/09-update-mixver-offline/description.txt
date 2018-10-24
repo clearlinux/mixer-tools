@@ -1,0 +1,4 @@
+09-update-mixver-offline
+===================================
+This test case creates a basic mix and attempts to update the
+mixversion only, which should not reach out over the network

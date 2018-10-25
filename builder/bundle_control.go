@@ -40,8 +40,8 @@ func getUpstreamBundlesVerDir(ver string) string {
 	return fmt.Sprintf(upstreamBundlesVerDirFmt, ver)
 }
 
-func getUpstreamBundlesPath(ver string) string {
-	return filepath.Join(upstreamBundlesBaseDir, fmt.Sprintf(upstreamBundlesVerDirFmt, ver), upstreamBundlesBundleDir)
+func (b *Builder) getUpstreamBundlesPath(ver string) string {
+	return filepath.Join(b.Config.Builder.VersionPath, upstreamBundlesBaseDir, fmt.Sprintf(upstreamBundlesVerDirFmt, ver), upstreamBundlesBundleDir)
 }
 
 func (b *Builder) getLocalPackagesPath() string {
@@ -49,7 +49,7 @@ func (b *Builder) getLocalPackagesPath() string {
 }
 
 func (b *Builder) getUpstreamPackagesPath() string {
-	return filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
+	return filepath.Join(b.Config.Builder.VersionPath, upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
 }
 
 func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
@@ -62,7 +62,7 @@ func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
 		return errors.Wrap(err, "Failed to create upstream-bundles dir.")
 	}
 
-	bundleDir := getUpstreamBundlesPath(ver)
+	bundleDir := b.getUpstreamBundlesPath(ver)
 
 	// Clear out other bundle dirs if needed
 	if prune {
@@ -144,7 +144,7 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 	}
 
 	// Check upstream-bundles
-	path = filepath.Join(getUpstreamBundlesPath(b.UpstreamVer), bundle)
+	path = filepath.Join(b.getUpstreamBundlesPath(b.UpstreamVer), bundle)
 	if _, err = os.Stat(path); err == nil {
 		return path, nil
 	}
@@ -409,7 +409,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 	// Add all upstream bundles to the bundles
 	if allUpstream {
-		upstreamBundleDir := getUpstreamBundlesPath(b.UpstreamVer)
+		upstreamBundleDir := b.getUpstreamBundlesPath(b.UpstreamVer)
 		upstreamSet, err := b.getDirBundlesListAsSet(upstreamBundleDir)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to read upstream bundles dir: %s", upstreamBundleDir)
@@ -616,7 +616,7 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 	if err != nil {
 		return err
 	}
-	upstreamBundles, err := b.getDirBundlesListAsSet(getUpstreamBundlesPath(b.UpstreamVer))
+	upstreamBundles, err := b.getDirBundlesListAsSet(b.getUpstreamBundlesPath(b.UpstreamVer))
 	if err != nil {
 		if !Offline {
 			return err

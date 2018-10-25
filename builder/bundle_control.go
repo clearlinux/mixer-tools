@@ -163,7 +163,13 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 
 // isLocalBundle checks to see if a bundle filepath is a local bundle definition or package file
 func (b *Builder) isLocalBundle(path string) bool {
-	return strings.HasPrefix(path, b.Config.Mixer.LocalBundleDir) || b.isLocalPackagePath(path)
+	if strings.HasPrefix(path, b.Config.Mixer.LocalBundleDir) {
+		// the path must be longer than the localbundledir by at least
+		// 2 so a bundle name follows the localbundledir prefix after the
+		// slash (/)
+		return len(path)-len(b.Config.Mixer.LocalBundleDir) >= 2
+	}
+	return b.isLocalPackagePath(path)
 }
 
 func getBundleSetKeys(set bundleSet) []string {
@@ -184,7 +190,7 @@ func getBundleSetKeysSorted(set bundleSet) []string {
 
 // isLocalPackagePath checks if path is a local-packages definition file
 func (b *Builder) isLocalPackagePath(path string) bool {
-	return strings.HasSuffix(path, b.LocalPackagesFile)
+	return filepath.Base(path) == b.LocalPackagesFile
 }
 
 // isUpstreamPackagePath checks if path is an upstream packages definition file

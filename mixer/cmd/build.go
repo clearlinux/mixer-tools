@@ -131,34 +131,36 @@ var buildUpstreamFormatCmd = &cobra.Command{
 		bumpNeeded := true
 
 		for bumpNeeded {
-			cmdToRun := strings.Split("mixer build format-bump new", " ")
-			if err = b.RunCommandInContainer(cmdToRun); err != nil {
+			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --native", buildFlags.newFormat)
+			cmdToRun := strings.Split(cmdStr, " ")
+			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
 			}
 
 			// Set the upstream version to the previous format's latest version
-			b.UpstreamVerUint32 -= 10
 			b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
 			vFile := filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile)
 			if err = ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
 				fail(err)
 			}
-			cmdToRun = strings.Split("mixer build format-bump old", " ")
-			if err = b.RunCommandInContainer(cmdToRun); err != nil {
+			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s --native", buildFlags.newFormat)
+			cmdToRun = strings.Split(cmdStr, " ")
+			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
 			}
 			// Set the upstream version back to what the user originally tried to build
 			if err = b.UnstageMixFromBump(); err != nil {
 				fail(err)
 			}
-			b.UpstreamVerUint32 += 10
-			b.UpstreamVer = strconv.FormatUint(uint64(b.UpstreamVerUint32), 10)
 			bumpNeeded, err = b.CheckBumpNeeded(silent)
 			if err != nil {
 				fail(err)
 			}
 		}
 		newFormatVer, err := strconv.Atoi(b.MixVer)
+		if err != nil {
+			failf("Couldn't get new format version")
+		}
 		newFormatVer += 10
 		if err = b.UpdateMixVer(newFormatVer); err != nil {
 			failf("Couldn't update Mix Version")
@@ -527,6 +529,7 @@ func init() {
 	buildFormatBumpCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
 	buildFormatOldCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
 	buildFormatNewCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
+	buildUpstreamFormatCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
 
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")

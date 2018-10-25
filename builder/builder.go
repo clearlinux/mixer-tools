@@ -480,6 +480,13 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 			log.Printf("Warning: Could not find manifest for previous version %d, skipping...\n", cur)
 			continue
 		}
+		// do not create delta-packs over format bumps since clients can't update
+		// past the boundary anyways. Only check for inequality, if the format
+		// goes down that should be checked elsewhere.
+		if m.Header.Format != toManifest.Header.Format {
+			log.Println("Warning: skipping delta-pack creation over format bump")
+			continue
+		}
 		previousManifests = append(previousManifests, m)
 		cur = m.Header.Previous
 	}

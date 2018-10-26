@@ -11,7 +11,7 @@ setup() {
   mixer-init-stripped-down $CLRVER 10
   localize_builder_conf
 
-  download-rpm "https://download.clearlinux.org/releases/23890/clear/x86_64/os/Packages/json-c-0.13.1-12.x86_64.rpm"
+  download-rpm json-c
   mixer-add-rpms
 
   # Put custom content in upstream bundle

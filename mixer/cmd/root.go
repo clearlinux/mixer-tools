@@ -63,6 +63,8 @@ var RootCmd = &cobra.Command{
 				}
 				os.Exit(0)
 			}
+
+			return nil
 		}
 
 		// Commands that don't require the config to be pre-parsed must be

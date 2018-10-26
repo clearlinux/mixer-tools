@@ -14,7 +14,7 @@ setup() {
 }
 
 @test "Create version 20 with more stripped down upstream bundles" {
-  mixer-versions-update 20
+  mixer-mixversion-update 20
   
   create-empty-local-bundle "editors"
   add-package-to-local-bundle "joe" "editors"
@@ -29,7 +29,7 @@ setup() {
 }
 
 @test "Create version 30 with an upstream bundle deleted" {
-  mixer-versions-update 30
+  mixer-mixversion-update 30
   mixer-bundle-remove "editors"
   mixer-build-bundles > $LOGDIR/build_bundles_30.log
   mixer-build-update > $LOGDIR/build_update_30.log

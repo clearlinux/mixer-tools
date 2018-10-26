@@ -151,9 +151,55 @@ func (b *Builder) getUpstreamFormatRange(version string) (format string, first, 
 	return format, first, latest, err
 }
 
+// ReplaceInfoBundles wipes the <bundle>-info files and replaces them with
+// <bundle>/ directories that are empty. When the manifest creation happens it will
+// mark all files in that bundles as deleted.
+func (b *Builder) ReplaceInfoBundles(filenames []string) error {
+	for _, f := range filenames {
+		bdir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, f)
+		// This bundle is deprecated, remove the info file
+		if err := os.Remove(bdir + "-info"); err != nil {
+			return err
+		}
+		// Create the empty dir for update to mark all files as deleted
+		if err := os.MkdirAll(bdir, 0755); err != nil {
+			return errors.Wrapf(err, "Failed to create bundle directory: %s", bdir)
+		}
+	}
+	return nil
+}
+
+// RemoveBundlesGroupINI removes the bundles from groups.ini and mixbundles so they are not
+// tracked anymore and manifests do not get created for them
+func (b *Builder) RemoveBundlesGroupINI(bundles []string) error {
+	var groups []byte
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini")
+	groups, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	groupsini := string(groups)
+	for _, bundle := range bundles {
+		bundleToRemove := fmt.Sprintf(`\[%s\]\ngroup=%s`, bundle, bundle)
+		re := regexp.MustCompile(bundleToRemove)
+		groupsini = re.ReplaceAllString(groupsini, "")
+	}
+	err = ioutil.WriteFile(filename, []byte(groupsini), 0644)
+	if err != nil {
+		return err
+	}
+	// Remove bundles from: 		mix   local  git    (mixbundles list)
+	err = b.RemoveBundles(bundles, true, false, false)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ModifyBundles goes through the bundle directory and performs an action when it finds
 // a Deprecated bundle
-func (b *Builder) ModifyBundles(action func(string) error) error {
+func (b *Builder) ModifyBundles(action func([]string) error) error {
 	path := b.Config.Mixer.LocalBundleDir
 	files, err := ioutil.ReadDir(path)
 	if err != nil {
@@ -161,6 +207,8 @@ func (b *Builder) ModifyBundles(action func(string) error) error {
 	}
 
 	var scanner *bufio.Scanner
+	var filesGroup []string
+	re := regexp.MustCompile(`#\s\[STATUS\]:\s*Deprecated.*`)
 	for _, file := range files {
 		fileToScan := filepath.Join(path, file.Name())
 		f, err := os.Open(fileToScan)
@@ -171,26 +219,22 @@ func (b *Builder) ModifyBundles(action func(string) error) error {
 		// Scan the files and find which bundle definitions are marked deprecated
 		scanner = bufio.NewScanner(f)
 		var str string
-		re := regexp.MustCompile("#\\s\\[STATUS\\]:\\s*Deprecated.*")
 		for scanner.Scan() {
 			str = scanner.Text()
 			// Don't scan past header, stop once we have no more # comments
-			if str[0] == '#' {
-				if index := re.FindStringIndex(str); index != nil {
-					fmt.Println("Found deprecated bundle: " + fileToScan)
-					// Call the callback function we need on the file we're scanning
-					if err = action(file.Name()); err != nil {
-						return err
-					}
-				}
-			} else {
-				_ = f.Close()
+			if str[0] != '#' {
 				break
 			}
+			if !re.Match([]byte(str)) {
+				continue
+			}
+			fmt.Println("Found deprecated bundle: " + fileToScan)
+			filesGroup = append(filesGroup, file.Name())
 		}
 		_ = f.Close()
 	}
-	return nil
+	// Call the callback function we need on the file(s) we scanned
+	return action(filesGroup)
 }
 
 // PrintVersions prints the current mix and upstream versions, and the

@@ -158,6 +158,11 @@ var buildUpstreamFormatCmd = &cobra.Command{
 				fail(err)
 			}
 		}
+		newFormatVer, err := strconv.Atoi(b.MixVer)
+		newFormatVer += 10
+		if err = b.UpdateMixVer(newFormatVer); err != nil {
+			failf("Couldn't update Mix Version")
+		}
 	},
 }
 

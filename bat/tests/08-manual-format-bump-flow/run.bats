@@ -42,7 +42,7 @@ setup() {
   ###############################################################################
 
   # update mixer to build version 20, which in our case is the +10
-  mixer-versions-update 20
+  mixer-mixversion-update 20
   # build bundles normally. At this point the bundles to be deleted should still
   # be part of the mixbundles list and the groups.ini
   mixer-build-bundles > $LOGDIR/build_bundles20.log
@@ -81,7 +81,7 @@ setup() {
   ###############################################################################
 
   # update mixer to build version 30, which in our case is the +20
-  mixer-versions-update 30
+  mixer-mixversion-update 30
   # update mixer.state to new format
   sudo sed -i 's/\(FORMAT\).*/\1 = "2"/' mixer.state
   # Fully remove deleted bundles from groups.ini and mixbundles list. This will

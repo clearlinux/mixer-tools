@@ -30,6 +30,9 @@ mixer-init-stripped-down() {
 }
 
 mixer-versions-update() {
+  mixer $MIXARGS versions update --mix-version $1 --upstream-version $2 --native=true
+}
+mixer-mixversion-update() {
   mixer $MIXARGS versions update --mix-version $1 --native=true
 }
 
@@ -63,6 +66,10 @@ mixer-build-format-bump-old() {
 
 mixer-build-format-bump() {
   sudo -E mixer $MIXARGS build format-bump --new-format $1 --native=true
+}
+
+mixer-build-upstream-format-bump() {
+  sudo -E mixer $MIXARGS build upstream-format --new-format $1 --native=true
 }
 
 mixer-add-rpms() {

@@ -166,7 +166,6 @@ type initCmdFlags struct {
 	noDefaults  bool
 	clearVer    string
 	mixver      int
-	localRPMs   bool
 	upstreamURL string
 	git         bool
 	format      string
@@ -190,7 +189,7 @@ var initCmd = &cobra.Command{
 		b := builder.New()
 		if configFile == "" {
 			// Create default config if necessary
-			if err := b.Config.CreateDefaultConfig(initFlags.localRPMs); err != nil {
+			if err := b.Config.CreateDefaultConfig(); err != nil {
 				fail(err)
 			}
 		}
@@ -246,13 +245,17 @@ func init() {
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
 	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")
 
+	// Deprecated Init flags
+	initCmd.Flags().BoolVar(&unusedBoolFlag, "local-rpms", false, "")
+	_ = initCmd.Flags().MarkHidden("local-rpms")
+	_ = initCmd.Flags().MarkDeprecated("local-rpms", "Local rpm folders are now always created by default")
+
 	initCmd.Flags().BoolVar(&initFlags.allLocal, "all-local", false, "Initialize mix with all local bundles automatically included")
 	initCmd.Flags().BoolVar(&initFlags.allUpstream, "all-upstream", false, "Initialize mix with all upstream bundles automatically included")
 	initCmd.Flags().BoolVar(&initFlags.noDefaults, "no-default-bundles", false, "Skip adding default bundles to the mix")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Supply the Clear version to compose the mix from")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")
-	initCmd.Flags().BoolVar(&initFlags.localRPMs, "local-rpms", false, "Create and configure local RPMs directories")
 	initCmd.Flags().StringVar(&configFile, "config", "", "Supply a specific builder.conf to use for mixing")
 	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
 	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")

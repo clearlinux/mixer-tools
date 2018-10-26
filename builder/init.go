@@ -36,17 +36,13 @@ func (b *Builder) getLatestUpstreamVersion() (string, error) {
 // initDirs creates the directories mixer uses
 func (b *Builder) initDirs() error {
 	// Create folder to store local rpms if defined but doesn't already exist
-	if b.Config.Mixer.LocalRPMDir != "" {
-		if err := os.MkdirAll(b.Config.Mixer.LocalRPMDir, 0777); err != nil {
-			return errors.Wrap(err, "Failed to create local rpms directory")
-		}
+	if err := os.MkdirAll(b.Config.Mixer.LocalRPMDir, 0777); err != nil {
+		return errors.Wrap(err, "Failed to create local rpms directory")
 	}
 
 	// Create folder for local dnf repo if defined but doesn't already exist
-	if b.Config.Mixer.LocalRepoDir != "" {
-		if err := os.MkdirAll(b.Config.Mixer.LocalRepoDir, 0777); err != nil {
-			return errors.Wrap(err, "Failed to create local rpms directory")
-		}
+	if err := os.MkdirAll(b.Config.Mixer.LocalRepoDir, 0777); err != nil {
+		return errors.Wrap(err, "Failed to create local rpms directory")
 	}
 
 	// Create folder for local bundle files

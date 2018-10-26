@@ -7,10 +7,13 @@ batcheck: ${DIRS2RUNMAKECHECK}
 ${DIRS2RUNMAKECHECK}: checkdir-%:
 	$(MAKE) -C $(dir $(subst checkdir-,,$@)) check
 
-batclean: $(DIRS2RUNMAKECLEAN)
+batclean: $(DIRS2RUNMAKECLEAN) clean-dnf
 
 ${DIRS2RUNMAKECLEAN}: clean-%:
 	$(MAKE) -C $(dir $(subst clean-,,$@)) clean
+
+clean-dnf:
+	rm -rf bat/dnf
 
 .PHONY: batcheck
 .PHONY: batclean

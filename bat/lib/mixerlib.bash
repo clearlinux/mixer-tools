@@ -86,19 +86,60 @@ mixer-bundle-remove() {
   mixer $MIXARGS bundle remove $1 --native=true
 }
 
-download-rpm() {
-  mkdir -p $BATS_TEST_DIRNAME/local-rpms
-  pushd $BATS_TEST_DIRNAME/local-rpms
-  curl -LO $1
-  popd
+get-current-version() {
+  latest=$(curl https://download.clearlinux.org/latest)
+
+  echo $latest
+}
+
+get-current-format() {
+  latest=$(get-current-version)
+  format=$(curl https://download.clearlinux.org/update/$latest/format)
+
+  echo $format
 }
 
 get-last-format-boundary() {
-  latest=$(curl https://download.clearlinux.org/latest)
-  format=$(curl https://download.clearlinux.org/update/$latest/format)
+  format=$(get-current-format)
   first=$(curl https://download.clearlinux.org/update/version/format$format/first)
 
   echo $(($first-10))
+}
+
+setup-dnf() {
+  mkdir -p $BATS_TEST_DIRNAME/../../dnf
+
+  [ -f $BATS_TEST_DIRNAME/../../dnf/dnf-mix.conf ] && return
+
+  cat > $BATS_TEST_DIRNAME/../../dnf/dnf-mix.conf <<EOF
+[main]
+cachedir=$BATS_TEST_DIRNAME/../../dnf
+keepcache=0
+debuglevel=2
+logfile=$BATS_TEST_DIRNAME/../../dnf
+exactarch=1
+obsoletes=1
+gpgcheck=0
+plugins=0
+
+[clear]
+name=Clear
+failovermethod=priority
+baseurl=https://download.clearlinux.org/releases/\$releasever/clear/x86_64/os/
+enabled=1
+gpgcheck=0
+EOF
+}
+
+download-rpm() {
+  version=$(get-current-version)
+
+  setup-dnf
+
+  sudo -E dnf install --config=$BATS_TEST_DIRNAME/../../dnf/dnf-mix.conf --downloadonly --releasever $version -y $1
+
+  mkdir -p $BATS_TEST_DIRNAME/local-rpms
+  cp $BATS_TEST_DIRNAME/../../dnf/clear*/packages/$1*.rpm $BATS_TEST_DIRNAME/local-rpms
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

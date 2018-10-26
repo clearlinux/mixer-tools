@@ -33,12 +33,15 @@ import (
 
 var configFile string
 
+const containerMarker = "container"
+
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:  "mixer",
 	Long: `Mixer is a tool used to compose OS update content and images.`,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// CPU Profiling
 		if rootCmdFlags.cpuProfile != "" {
 			f, err := os.Create(rootCmdFlags.cpuProfile)
 			if err != nil {
@@ -49,8 +52,8 @@ var RootCmd = &cobra.Command{
 				failf("couldn't start profiling: %s", err)
 			}
 		}
-		// Both --version and --check should work regardless of the regular
-		// check for external programs.
+
+		// Run dependency check for --check flag
 		if cmd.Parent() == nil { // This is RootCmd.
 			if rootCmdFlags.version {
 				fmt.Printf("Mixer %s\n", builder.Version)
@@ -59,85 +62,16 @@ var RootCmd = &cobra.Command{
 			if rootCmdFlags.check {
 				ok := checkAllDeps()
 				if !ok {
-					os.Exit(1)
+					return errors.New("ERROR: Missing Dependency")
 				}
-				os.Exit(0)
 			}
 
 			return nil
 		}
 
-		// Commands that don't require the config to be pre-parsed must be
-		// handled differently because there might be no config yet or they
-		// will parse it on their own
-		noParseConfigCmds := []string{"init", "config"}
-		for _, ignoreCmd := range noParseConfigCmds {
-			if cmdContains(cmd, ignoreCmd) {
-				return checkCmdDeps(cmd)
-			}
-		}
-
-		b, err := builder.NewFromConfig(configFile)
-		if err != nil {
-			fail(err)
-		}
-
-		if !builder.Offline {
-			noNetworkCmds := []string{"list", "edit", "validate", "convert", "set", "repo", "add-rpms"}
-			// Don't reach out over network for these commands, it's not needed
-			for _, ignoreCmd := range noNetworkCmds {
-				if cmdContains(cmd, ignoreCmd) {
-					builder.Offline = true
-					break
-				}
-			}
-		}
-
-		// If running natively, check for format missmatch and warn
-		if !builder.Offline && builder.Native && b.UpstreamURL != "" {
-			hostFormat, upstreamFormat, err := b.GetHostAndUpstreamFormats()
-			if err != nil {
-				fail(err)
-			}
-
-			if hostFormat == "" {
-				log.Println("Warning: Unable to determine host format. Running natively may fail.")
-			} else if hostFormat != upstreamFormat {
-				log.Println("Warning: The host format and mix upstream format do not match.",
-					"Mixer may be incompatible with this format; running natively may fail.")
-			}
-		}
-
-		// For non-bump build commands, check if building across a format
-		// If so: inform, stage, and exit.
-		// If not: run command in container and cancel pre-run
-		if !cmdContains(cmd, "format-bump") && !cmdContains(cmd, "upstream-format") && cmdContains(cmd, "build") && !cmdContains(cmd, "image") {
-			// --offline=true AND --native=false, try to see if container exists
-			if builder.Offline && !builder.Native {
-				log.Println("Warning: Unable to determine upstream format in --offline mode, build may fail if building across format boundaries.")
-				if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
-					fail(err)
-				}
-				return nil
-			}
-			if !builder.Offline {
-				if bumpNeeded, err := b.CheckBumpNeeded(false); err != nil {
-					return err
-				} else if bumpNeeded {
-					cancelRun(cmd)
-					return nil
-				}
-			}
-
-			// If Native==false
-			if !builder.Native {
-				if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
-					fail(err)
-				}
-				// Cancel native run and return
-				cancelRun(cmd)
-				return nil
-			}
+		// Execute command in container if needed
+		if hasMarker(cmd, containerMarker) && !builder.Native {
+			return containerExecute(cmd, args)
 		}
 
 		return checkCmdDeps(cmd)
@@ -273,17 +207,6 @@ func cancelRun(cmd *cobra.Command) {
 	cmd.Run = func(cmd *cobra.Command, args []string) {} // No-op
 }
 
-// cmdContains returns true if cmd or any of its parents are named name
-func cmdContains(cmd *cobra.Command, name string) bool {
-	if cmd.Name() == name {
-		return true
-	}
-	if cmd.HasParent() {
-		return cmdContains(cmd.Parent(), name)
-	}
-	return false
-}
-
 func reconstructCommand(cmd *cobra.Command, args []string) []string {
 	command := []string{cmd.Name()}
 
@@ -361,6 +284,38 @@ func checkAllDeps() bool {
 			fmt.Printf("  %-*s ok\n", max, dep)
 		}
 	}
+	return ok
+}
+
+func containerExecute(cmd *cobra.Command, args []string) error {
+	if builder.Offline {
+		log.Println("Warning: Unable to determine upstream format in --offline mode, " +
+			"build may fail if building across format boundaries.")
+	}
+
+	b, err := builder.NewFromConfig(configFile)
+	if err != nil {
+		return err
+	}
+
+	if err := b.RunCommandInContainer(reconstructCommand(cmd, args)); err != nil {
+		return err
+	}
+
+	// Cancel native run and return
+	cancelRun(cmd)
+	return nil
+}
+
+func addMarker(cmd *cobra.Command, marker string) {
+	if cmd.Annotations == nil {
+		cmd.Annotations = make(map[string]string)
+	}
+	cmd.Annotations[marker] = ""
+}
+
+func hasMarker(cmd *cobra.Command, marker string) bool {
+	_, ok := cmd.Annotations[marker]
 	return ok
 }
 

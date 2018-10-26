@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -29,6 +30,8 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+const bumpMarker = "format-bump"
 
 type buildCmdFlags struct {
 	format        string
@@ -72,6 +75,33 @@ func setWorkers(b *builder.Builder) {
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Build various pieces of OS content",
+
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Since this function overwrites root's PersistentPreRun, call it manually
+		root := cmd
+		for root.Parent() != nil {
+			root = root.Parent()
+		}
+		if err := root.PersistentPreRunE(cmd, args); err != nil {
+			return err
+		}
+
+		b, err := builder.NewFromConfig(configFile)
+		if err != nil {
+			return err
+		}
+
+		if err := printFormatMismatch(b); err != nil {
+			return err
+		}
+
+		// Skip format bump check for format-bump commands
+		if hasMarker(cmd, bumpMarker) {
+			return nil
+		}
+
+		return checkFormatBump(b)
+	},
 }
 
 func buildBundles(builder *builder.Builder, signflag, cleanFlag bool) error {
@@ -508,23 +538,42 @@ func setUpdateFlags(cmd *cobra.Command) {
 	_ = cmd.Flags().MarkDeprecated("keep-chroots", "this flag is ignored by the update builder")
 }
 
-var buildCmds = []*cobra.Command{
+var containerCmds = []*cobra.Command{
 	buildBundlesCmd,
 	buildUpdateCmd,
 	buildAllCmd,
-	buildImageCmd,
 	buildDeltaPacksCmd,
-	buildUpstreamFormatCmd,
+}
+
+var nativeCmds = []*cobra.Command{
 	buildFormatBumpCmd,
+	buildUpstreamFormatCmd,
+	buildImageCmd,
+}
+
+var bumpCmds = []*cobra.Command{
+	buildFormatNewCmd,
+	buildFormatOldCmd,
 }
 
 func init() {
-	for _, cmd := range buildCmds {
+	for _, cmd := range containerCmds {
+		addMarker(cmd, containerMarker)
 		buildCmd.AddCommand(cmd)
 	}
 
-	buildFormatBumpCmd.AddCommand(buildFormatNewCmd)
-	buildFormatBumpCmd.AddCommand(buildFormatOldCmd)
+	for _, cmd := range nativeCmds {
+		buildCmd.AddCommand(cmd)
+	}
+
+	for _, cmd := range bumpCmds {
+		addMarker(cmd, containerMarker)
+		addMarker(cmd, bumpMarker)
+		buildFormatBumpCmd.AddCommand(cmd)
+	}
+
+	addMarker(buildUpstreamFormatCmd, bumpMarker)
+
 	buildFormatBumpCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
 	buildFormatOldCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
 	buildFormatNewCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
@@ -572,4 +621,40 @@ func init() {
 		externalDeps[buildBundlesCmd],
 		append(externalDeps[buildUpdateCmd],
 			externalDeps[buildImageCmd]...)...)
+}
+
+func printFormatMismatch(b *builder.Builder) error {
+	// Skip check if offline
+	if builder.Offline {
+		return nil
+	}
+
+	hostFormat, upstreamFormat, err := b.GetHostAndUpstreamFormats()
+	if err != nil {
+		return err
+	}
+
+	if hostFormat == "" {
+		log.Println("Warning: Unable to determine host format. Running natively may fail.")
+	} else if hostFormat != upstreamFormat {
+		log.Println("Warning: The host format and mix upstream format do not match.",
+			"Mixer may be incompatible with this format; running natively may fail.")
+	}
+
+	return nil
+}
+
+func checkFormatBump(b *builder.Builder) error {
+	// Skip check if offline
+	if builder.Offline {
+		return nil
+	}
+
+	if bumpNeeded, err := b.CheckBumpNeeded(false); err != nil {
+		return err
+	} else if bumpNeeded {
+		return errors.New("ERROR: Format bump required")
+	}
+
+	return nil
 }

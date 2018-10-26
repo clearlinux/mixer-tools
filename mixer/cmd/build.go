@@ -19,7 +19,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -109,7 +108,6 @@ var buildBundlesCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-
 		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean)
 		if err != nil {
 			fail(err)
@@ -172,12 +170,6 @@ var buildFormatBumpCmd = &cobra.Command{
 		if buildFlags.newFormat == "" {
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
-		b, err := builder.NewFromConfig(configFile)
-		if err != nil {
-			fail(err)
-		}
-		// Silence linter...
-		_ = b
 
 		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --native", buildFlags.newFormat)
 		cmdToRun := strings.Split(cmdStr, " ")
@@ -214,12 +206,15 @@ var buildFormatOldCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
-		ver, err := strconv.Atoi(lastVer)
+		originalVer, err := strconv.Atoi(lastVer)
 		if err != nil {
 			fail(err)
 		}
+
+		oldFormatVer := originalVer + 10
+		newFormatVer := originalVer + 20
 		// Update mixer to build version +20, to build the bundles with +20 inside not +10
-		if err = b.UpdateMixVer(ver + 20); err != nil {
+		if err = b.UpdateMixVer(newFormatVer); err != nil {
 			failf("Couldn't update Mix Version")
 		}
 
@@ -234,24 +229,8 @@ var buildFormatOldCmd = &cobra.Command{
 			fail(err)
 		}
 
-		// Wipes the <bundle>-info files and replaces them with
-		// <bundle>/ directories that are empty. When the manifest creation happens it will
-		// mark all files in that bundles as deleted.
-		f := func(filename string) error {
-			bdir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, filename)
-			// This bundle is deprecated, remove the info file
-			if err = os.RemoveAll(bdir + "-info"); err != nil {
-				return err
-			}
-			// Create the empty dir for update to mark all files as deleted
-			if err = os.MkdirAll(bdir, 0755); err != nil {
-				return errors.Wrapf(err, "Failed to create bundle directory: %s", bdir)
-			}
-			return nil
-		}
-		fmt.Println("Removing deprecated bundle-info files...")
 		// Remove deleted bundles and replace with empty dirs for update to mark as deleted
-		if err = b.ModifyBundles(f); err != nil {
+		if err = b.ModifyBundles(b.ReplaceInfoBundles); err != nil {
 			fail(err)
 		}
 
@@ -259,15 +238,11 @@ var buildFormatOldCmd = &cobra.Command{
 		// underlying content. The only things that might change are the manifests
 		// (potentially the pack and full-file formats as well, though this is very
 		// rare).
-		ver, err = strconv.Atoi(b.MixVer)
-		if err != nil {
-			fail(err)
-		}
-		if err = b.UpdateMixVer(ver - 10); err != nil {
+		if err = b.UpdateMixVer(oldFormatVer); err != nil {
 			failf("Couldn't update Mix Version")
 		}
-		source := filepath.Join(b.Config.Builder.ServerStateDir, "image", strconv.Itoa(ver))
-		dest := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer)
+		source := filepath.Join(b.Config.Builder.ServerStateDir, "image", strconv.Itoa(newFormatVer))
+		dest := filepath.Join(b.Config.Builder.ServerStateDir, "image", strconv.Itoa(oldFormatVer))
 		fmt.Println(" Copying +20 bundles to +10 bundles")
 		if err = helpers.RunCommandSilent("cp", "-al", source, dest); err != nil {
 			failf("Failed to copy +10 bundles to +20: %s\n", err)
@@ -289,9 +264,8 @@ var buildFormatOldCmd = &cobra.Command{
 			failf("Couldn't build update: %s", err)
 		}
 
-		zeroVer := strconv.Itoa(ver - 20)
 		// Write the +0 version to LAST_VER so that we reference in both +10 and +20 manifests as the 'previous:'
-		if err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER"), []byte(zeroVer), 0644); err != nil {
+		if err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER"), []byte(lastVer), 0644); err != nil {
 			failf("Couldn't update LAST_VER file: %s", err)
 		}
 	},
@@ -327,37 +301,7 @@ var buildFormatNewCmd = &cobra.Command{
 
 		setWorkers(b)
 
-		// Remove the bundles from groups.ini and mixbundles so they are not
-		// tracked anymore and manifests do not get created for them
-		f := func(bundle string) error {
-			var groups []byte
-			filename := filepath.Join(b.Config.Builder.ServerStateDir, "groups.ini")
-			groups, err = ioutil.ReadFile(filename)
-			if err != nil {
-				return err
-			}
-			groupsini := string(groups)
-
-			bundleToRemove := fmt.Sprintf(`\[%s\]\ngroup=%s`, bundle, bundle)
-			re := regexp.MustCompile(bundleToRemove)
-			groupsini = re.ReplaceAllString(groupsini, "")
-
-			// We are rarely removing more than a couple bundles, so it is ok
-			// to just re-write the file for each one removed
-			err = ioutil.WriteFile(filename, []byte(groupsini), 0644)
-			if err != nil {
-				return err
-			}
-			// Remove bundle from: 		mix   local  git    (mixbundles list)
-			err = b.RemoveBundles(args, true, false, false)
-			if err != nil {
-				fail(err)
-			}
-
-			return nil
-		}
-
-		if err = b.ModifyBundles(f); err != nil {
+		if err = b.ModifyBundles(b.RemoveBundlesGroupINI); err != nil {
 			fail(err)
 		}
 

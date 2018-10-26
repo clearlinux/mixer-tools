@@ -72,18 +72,18 @@ type mixerConf struct {
 }
 
 // LoadDefaults sets sane values for the config properties
-func (config *MixConfig) LoadDefaults(localrpms bool) error {
+func (config *MixConfig) LoadDefaults() error {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	config.LoadDefaultsForPath(localrpms, pwd)
+	config.LoadDefaultsForPath(pwd)
 	return nil
 }
 
 // LoadDefaultsForPath sets sane values for config properties using `path` as base directory
-func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
+func (config *MixConfig) LoadDefaultsForPath(path string) {
 
 	// [Builder]
 	config.Builder.Cert = filepath.Join(path, "Swupd_Root.pem")
@@ -105,13 +105,8 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 	config.Mixer.LocalBundleDir = filepath.Join(path, "local-bundles")
 	config.Mixer.DockerImgPath = "clearlinux/mixer"
 
-	if localrpms {
-		config.Mixer.LocalRPMDir = filepath.Join(path, "local-rpms")
-		config.Mixer.LocalRepoDir = filepath.Join(path, "local-yum")
-	} else {
-		config.Mixer.LocalRPMDir = ""
-		config.Mixer.LocalRepoDir = ""
-	}
+	config.Mixer.LocalRPMDir = filepath.Join(path, "local-rpms")
+	config.Mixer.LocalRepoDir = filepath.Join(path, "local-yum")
 
 	config.version = CurrentConfigVersion
 	config.filename = filepath.Join(path, "builder.conf")
@@ -121,8 +116,8 @@ func (config *MixConfig) LoadDefaultsForPath(localrpms bool, path string) {
 
 // CreateDefaultConfig creates a default builder.conf using the active
 // directory as base path for the variables values.
-func (config *MixConfig) CreateDefaultConfig(localrpms bool) error {
-	if err := config.LoadDefaults(localrpms); err != nil {
+func (config *MixConfig) CreateDefaultConfig() error {
+	if err := config.LoadDefaults(); err != nil {
 		return err
 	}
 
@@ -280,7 +275,7 @@ func (config *MixConfig) Convert(filename string) error {
 		return err
 	}
 
-	if err := config.LoadDefaults(false); err != nil {
+	if err := config.LoadDefaults(); err != nil {
 		return err
 	}
 

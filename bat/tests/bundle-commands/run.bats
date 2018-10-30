@@ -45,7 +45,7 @@ setup() {
   run mixer $MIXARGS bundle list local
   [[ ${#lines[@]} -eq 0 ]]                                      # 'list local' returns no results
 
-  mixer $MIXARGS bundle edit editors --suppress-editor
+  mixer $MIXARGS bundle edit editors
   [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles) = "editors" ]]  # local-bundles only has "editors"
 
   run mixer $MIXARGS bundle list
@@ -57,7 +57,7 @@ setup() {
 }
 
 @test "Create original bundle and add to mix" {
-  mixer $MIXARGS bundle edit foobar --suppress-editor --add
+  mixer $MIXARGS bundle edit foobar --add
 
   run ls -1q $BATS_TEST_DIRNAME/local-bundles
   [[ ${#lines[@]} -eq 2 ]]                     # 2 bundles in local-bundles
@@ -81,10 +81,30 @@ setup() {
 
 @test "Validate a bundle" {
   echo "package" >> $BATS_TEST_DIRNAME/local-bundles/foobar
+  mixer $MIXARGS bundle edit foo.bar
 
-  mixer $MIXARGS bundle validate foobar
+  run mixer $MIXARGS bundle validate foobar
+  [[ "$status" -eq 0 ]]                        # basic validation should pass
 
-  ! mixer $MIXARGS bundle validate foobar --strict
+  run mixer $MIXARGS bundle validate foobar --strict
+  [[ "$status" -eq 1 ]]                        # strict validation should fail
+  [[ "$output" =~ "Empty Description in bundle header" ]]
+  [[ "$output" =~ "Empty Maintainer in bundle header" ]]
+  [[ "$output" =~ "Empty Status in bundle header" ]]
+  [[ "$output" =~ "Empty Capabilities in bundle header" ]]
+
+  run mixer $MIXARGS bundle validate foo.bar
+  [[ "$status" -eq 1 ]]                        # basic validation should fail
+  [[ "$output" =~ "Invalid bundle name \"foo.bar\" derived from file" ]]
+
+  run mixer $MIXARGS bundle validate foo.bar --strict
+  [[ "$status" -eq 1 ]]                        # strict validation should fail
+  [[ "$output" =~ "Invalid bundle name \"foo.bar\" derived from file" ]]
+  [[ "$output" =~ "Invalid bundle name \"foo.bar\" in bundle header Title" ]]
+  [[ "$output" =~ "Empty Description in bundle header" ]]
+  [[ "$output" =~ "Empty Maintainer in bundle header" ]]
+  [[ "$output" =~ "Empty Status in bundle header" ]]
+  [[ "$output" =~ "Empty Capabilities in bundle header" ]]
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

@@ -82,7 +82,7 @@ mixer-add-rpms() {
 }
 
 create-empty-local-bundle() {
-  mixer bundle edit $1 --suppress-editor
+  mixer bundle edit $1
 }
 
 add-package-to-local-bundle() {

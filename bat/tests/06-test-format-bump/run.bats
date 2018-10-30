@@ -52,14 +52,11 @@ EOF
   [ "$result" -eq 0 ]
 
   #editors bundle should not exist in +20
-  if [ -f update/www/30/Manifest.editors ]; then
-    exit 1
-  fi
+  [ ! -f update/www/30/Manifest.editors ]
+
 
   #editors bundle should not exist in +20 MoM
-  if grep "editors" update/www/30/Manifest.MoM; then
-    exit 1
-  fi
+  ! grep "editors" update/www/30/Manifest.MoM
 
   #check if +10 previous version is set to +0
   awk '$1 == "previous:" { exit $2 != 10}' update/www/20/Manifest.MoM
@@ -118,14 +115,10 @@ EOF
 
 
   #editors bundle should not exist in +20
-  if [ -f update/www/30/Manifest.editors ]; then
-    exit 1
-  fi
+  [ ! -f update/www/30/Manifest.editors ]
 
   #editors bundle should not exist in +20 MoM
-  if grep "editors" update/www/30/Manifest.MoM; then
-    exit 1
-  fi
+  ! grep "editors" update/www/30/Manifest.MoM
 
   #check if +10 previous version is set to +0
   awk '$1 == "previous:" { exit $2 != 10}' update/www/20/Manifest.MoM

@@ -141,8 +141,7 @@ func validateBundleFile(filename string, lvl ValidationLevel) error {
 
 	b, err := parseBundleFile(filename)
 	if err != nil {
-		errText += err.Error()
-		return errors.New(errText)
+		errText += err.Error() + "\n"
 	}
 
 	if lvl == BasicValidation {

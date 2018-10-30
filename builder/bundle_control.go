@@ -15,12 +15,10 @@
 package builder
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -732,83 +730,6 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 	return nil
 }
 
-func getEditorCmd() (string, error) {
-	cmd := os.Getenv("VISUAL")
-	if cmd != "" {
-		return cmd, nil
-	}
-
-	cmd = os.Getenv("EDITOR")
-	if cmd != "" {
-		return cmd, nil
-	}
-
-	return exec.LookPath("nano")
-}
-
-// editBundleFile launches an editor command to edit the bundle defined by path.
-// When the edit process ends, the bundle file is parsed for validity. If a
-// parsing error is encountered, the user is asked how to proceed: retry, revert
-// and retry, or skip.
-func editBundleFile(editorCmd string, bundle string, path string) error {
-	// Make backup
-	backup := path + ".orig"
-	if err := helpers.CopyFileNoOverwrite(backup, path); err != nil && !os.IsExist(err) {
-		return errors.Wrapf(err, "Could not backup bundle %q file for editing", bundle)
-	}
-
-	reader := bufio.NewReader(os.Stdin)
-	revert := false
-
-editLoop:
-	for {
-		if revert {
-			if err := helpers.CopyFile(path, backup); err != nil {
-				return errors.Wrapf(err, "Could not restore original from backup for bundle %q", bundle)
-			}
-		}
-
-		// Ignore return from command; parsing below is what will reveal errors
-		_ = helpers.RunCommandInput(os.Stdin, editorCmd, path)
-
-		err := validateBundleFile(path, BasicValidation)
-		if err == nil {
-			// Clean-up backup
-			if err = os.Remove(backup); err != nil {
-				return errors.Wrapf(err, "Error cleaning up backup for bundle %q", bundle)
-			}
-			break editLoop
-		}
-
-		fmt.Printf("Error parsing bundle %q: %s\n", bundle, err)
-		for {
-			// Ask the user if they want to retry, revert, or skip
-			fmt.Print("Would you like to edit as-is, revert and edit, or skip [Edit/Revert/Skip]?: ")
-			text, err := reader.ReadString('\n')
-			if err != nil {
-				return errors.Wrapf(err, "Error reading input")
-			}
-			text = strings.ToLower(text)
-			text = strings.TrimSpace(text)
-			switch text {
-			case "e", "edit":
-				revert = false
-				continue editLoop
-			case "r", "revert":
-				revert = true
-				continue editLoop
-			case "s", "skip":
-				fmt.Printf("Skipping bundle %q despite errors. Backup retained as %q\n", bundle, bundle+".orig")
-				break editLoop
-			default:
-				fmt.Printf("Invalid input: %q", text)
-			}
-		}
-	}
-
-	return nil
-}
-
 const bundleTemplateFormat = `# [TITLE]: %s
 # [DESCRIPTION]: 
 # [STATUS]: 
@@ -831,20 +752,12 @@ func createBundleFile(bundle string, path string) error {
 }
 
 // EditBundles copies a list of bundles from upstream-bundles to local-bundles
-// (if they are not already there) or creates a blank template if they are new,
-// and launches an editor to edit them. Passing true for 'suppressEditor' will
-// suppress the launching of the editor (and just do the copy or create, if
-// needed), and 'add' will also add the bundles to the mix.
-func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, git bool) error {
+// (if they are not already there) or creates a blank template if they are new.
+// 'add' will also add the bundles to the mix.
+func (b *Builder) EditBundles(bundles []string, add bool, git bool) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
-	}
-
-	editorCmd, err := getEditorCmd()
-	if err != nil {
-		fmt.Println("Cannot find a valid editor (see usage for configuration). Copying to local-bundles only.")
-		suppressEditor = true
 	}
 
 	for _, bundle := range bundles {
@@ -853,31 +766,21 @@ func (b *Builder) EditBundles(bundles []string, suppressEditor bool, add bool, g
 			localPath := filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)
 
 			if path == "" {
-				// Bunlde not found upstream, so create new
-				if err = createBundleFile(bundle, localPath); err != nil {
+				// Bundle not found upstream, so create new
+				if err := createBundleFile(bundle, localPath); err != nil {
 					return errors.Wrapf(err, "Failed to write bundle template for bundle %q", bundle)
 				}
 			} else {
 				// Bundle found upstream, so copy over
-				if err = helpers.CopyFile(localPath, path); err != nil {
+				if err := helpers.CopyFile(localPath, path); err != nil {
 					return err
 				}
 			}
-
-			path = localPath
-		}
-
-		if suppressEditor {
-			continue
-		}
-
-		if err = editBundleFile(editorCmd, bundle, path); err != nil {
-			return err
 		}
 	}
 
 	if add {
-		if err = b.AddBundles(bundles, false, false, false); err != nil {
+		if err := b.AddBundles(bundles, false, false, false); err != nil {
 			return err
 		}
 	}

@@ -60,24 +60,10 @@ SUBCOMMANDS
 
 ``edit``
 
-    Edits local and upstream bundle definition files. This command will locate
-    the bundle (looking first in local-bundles, then in upstream-bundles), and
-    launch an editor to edit it. If the bundle is only found upstream, the
-    bundle file will first be copied to your local-bundles directory for
-    editing. If the bundle is not found anywhere, a blank template is created
-    with the correct name. When the editor closes, the bundle file is then
-    parsed for validity.
-
-    The editor is configured via environment variables. VISUAL takes precedence
-    to EDITOR. If neither are set, the tool defaults to nano. If nano is not
-    installed, the tool will skip editing, and act as if '--suppress-editor' had
-    been passed.
-
-    Passing '--suppress-editor' will suppress launching the editor, and will
-    thus only copy the bundle file to local-bundles (if it is only found
-    upstream), or create the blank template (if it was not found anywhere). This
-    can be useful if you want to add a bundle to local-bundles, but wish to edit
-    it at a later time.
+    Create new bundles or copy existing bundles. This command will locate the
+    bundle (looking first in local-bundles, then in upstream-bundles). If the bundle is only found upstream,
+    the bundle file will be copied to your local-bundles directory. If the bundle is
+    not found anywhere, a blank template will be created with the correct name.
 
     Passing '--add' will also add the bundle(s) to your mix. Please note that
     bundles are added after all bundles are edited, and thus will not be added
@@ -105,11 +91,6 @@ SUBCOMMANDS
     - ``-h, --help``
 
       Display ``bundle edit`` help information and exit.
-
-    - ``--suppress-editor``
-
-      Suppress launching editor and only copy to local-bundles or create a
-      template for the bundle.
 
 ``list [mix|local|upstream] [flags]``
 

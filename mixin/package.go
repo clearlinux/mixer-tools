@@ -142,7 +142,7 @@ func addPackage(pkg string, build bool, bundleName string) (string, error) {
 		bundle = bundleName
 	}
 
-	err = b.EditBundles([]string{bundle}, true, true, false)
+	err = b.EditBundles([]string{bundle}, true, false)
 	if err != nil {
 		return "", err
 	}

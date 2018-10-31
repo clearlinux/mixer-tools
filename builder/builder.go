@@ -17,6 +17,7 @@ package builder
 import (
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -378,6 +379,9 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	return nil
 }
 
+const imageTemplate = "release-image-config.json"
+const isterConfigDir = "/usr/share/defaults/ister"
+
 // BuildImage will now proceed to build the full image with the previously
 // validated configuration.
 func (b *Builder) BuildImage(format string, template string) error {
@@ -386,9 +390,22 @@ func (b *Builder) BuildImage(format string, template string) error {
 		format = b.State.Mix.Format
 	}
 
-	// If the user did not pass in a template, default to release-image-config.json
+	// If the user did not pass in a template, use the default template
 	if template == "" {
-		template = "release-image-config.json"
+		template = imageTemplate
+		// If the default image template is not present in the mix workspace,
+		// copy it from the default ister config directory and update the bundle list based on mix bundles
+		templateFile := filepath.Join(b.Config.Builder.VersionPath, template)
+		if _, err := os.Stat(templateFile); os.IsNotExist(err) {
+			fmt.Printf("Warning: Image template %s not found\n", templateFile)
+			configFile := filepath.Join(isterConfigDir, template)
+			fmt.Printf("Copying image template from %s\n", configFile)
+			if err = b.copyImageTemplate(configFile, templateFile); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
+		}
 	}
 
 	// swupd (client) called by itser will need a temporary directory to act as its stage dir.
@@ -407,6 +424,44 @@ func (b *Builder) BuildImage(format string, template string) error {
 	imagecmd.Stderr = os.Stderr
 
 	return imagecmd.Run()
+}
+
+// copyImageTemplate will copy the image template from the default ister config directory
+// and update the image bundle list based on mix bundles.
+// If there is an error updating the image bundle list, the default bundle list will be used.
+func (b *Builder) copyImageTemplate(configFile, templateFile string) error {
+	// Read ister template
+	configValues, err := ioutil.ReadFile(configFile)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Updating image bundle list based on %s\n", b.MixBundlesFile)
+	mixBundles, err := b.getMixBundlesListAsSet() // returns empty set with no error if mix bundles file is not present
+	if err == nil && len(mixBundles) > 0 {        // check if set is not empty
+		var bundles []string
+		for _, bundle := range mixBundles {
+			bundles = append(bundles, bundle.Name)
+		}
+		if err = updateImageBundles(&configValues, bundles); err != nil {
+			return errors.Wrap(err, "Failed to copy image template. Invalid JSON format")
+		}
+	} else {
+		fmt.Printf("Warning: Failed to read %s. Using default bundle list instead\n", b.MixBundlesFile)
+	}
+
+	return ioutil.WriteFile(templateFile, configValues, 0644)
+}
+
+// updateImageBundles will update the image bundle list based on the mix bundles.
+func updateImageBundles(configValues *[]byte, bundles []string) error {
+	var data map[string]interface{}
+	err := json.Unmarshal(*configValues, &data)
+	if err != nil {
+		return err
+	}
+	data["Bundles"] = bundles
+	*configValues, err = json.MarshalIndent(data, "", " ")
+	return err
 }
 
 // BuildDeltaPacks between two versions of the mix.

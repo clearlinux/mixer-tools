@@ -17,12 +17,16 @@ setup() {
 }
 
 @test "List the bundles in the mix" {
+  mixer bundle edit foo.bar --suppress-editor # 'bundle list' should work even if an invalid bundle is created
+
   run mixer $MIXARGS bundle list
   [[ ${#lines[@]} -eq 4 ]]              # Exactly 4 bundles in the mix
   [[ "$output" =~ os-core[[:space:]] ]] # To avoid just matching os-core-update
   [[ "$output" =~ os-core-update ]]
   [[ "$output" =~ kernel-native ]]
   [[ "$output" =~ bootloader ]]
+
+  rm -f local-bundles/foo.bar           # Delete invalid bundle (test case clean up)
 }
 
 @test "Add an upstream bundle to the mix" {

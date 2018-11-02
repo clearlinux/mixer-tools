@@ -214,9 +214,6 @@ func (b *Builder) getBundleFromName(name string) (*bundle, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = validateBundleFilename(path); err != nil {
-		return nil, err
-	}
 
 	return bundle, nil
 }
@@ -374,6 +371,9 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 		bundle, err := b.getBundleFromName(bName)
 		if err != nil {
+			return err
+		}
+		if err = validateBundleName(bName); err != nil {
 			return err
 		}
 		if b.isLocalBundle(bundle.Filename) {

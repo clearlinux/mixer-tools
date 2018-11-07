@@ -404,12 +404,14 @@ var buildAllCmd = &cobra.Command{
 			failf("Couldn't build update: %s", err)
 		}
 
-		ver, err := strconv.Atoi(b.MixVer)
-		if err != nil {
-			fail(err)
-		}
-		if err = b.UpdateMixVer(ver + 10); err != nil {
-			failf("Couldn't update Mix Version")
+		if buildFlags.increment {
+			ver, err := strconv.Atoi(b.MixVer)
+			if err != nil {
+				fail(err)
+			}
+			if err = b.UpdateMixVer(ver + 10); err != nil {
+				failf("Couldn't update Mix Version")
+			}
 		}
 	},
 }

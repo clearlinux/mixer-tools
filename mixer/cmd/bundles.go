@@ -153,24 +153,25 @@ var bundleListCmd = &cobra.Command{
 	},
 }
 
-// Bundle Edit command ('mixer bundle edit')
-type bundleEditCmdFlags struct {
-	add bool
-	git bool
+// Bundle Create command ('mixer bundle create')
+type bundleCreateCmdFlags struct {
+	copyOnly bool
+	add      bool
+	git      bool
 }
 
-var bundleEditFlags bundleEditCmdFlags
+var bundleCreateFlags bundleCreateCmdFlags
 
-var bundleEditCmd = &cobra.Command{
-	Use:   "edit <bundle> [<bundle>...]",
-	Short: "Create new bundles or copy existing bundles",
-	Long: `Create new bundles or copy existing bundles. This command will locate the
-bundle (looking first in local-bundles, then in upstream-bundles). If the bundle is only found upstream,
-the bundle file will be copied to your local-bundles directory. If the bundle is
-not found anywhere, a blank template will be created with the correct name.
+var bundleCreateCmd = &cobra.Command{
+	Use:     "create <bundle> [<bundle>...]",
+	Aliases: []string{"edit"},
+	Short:   "Create new bundles or copy existing bundles",
+	Long: `Create new bundles or copy existing bundles. This command will locate the bundle by first looking in
+local-bundles, and then in upstream-bundles. If the bundle is only found upstream, the bundle file will be copied to
+your local-bundles directory. If the bundle is not found anywhere, a blank template will be created with the correct name.
 
 Passing '--add' will also add the bundle(s) to your mix. Please note that
-bundles are added after all bundles are edited, and thus will not be added if
+bundles are added after all bundles are created, and thus will not be added if
 any errors are encountered earlier on.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -179,7 +180,7 @@ any errors are encountered earlier on.`,
 			fail(err)
 		}
 
-		err = b.EditBundles(args, bundleEditFlags.add, bundleEditFlags.git)
+		err = b.CreateBundles(args, bundleCreateFlags.add, bundleCreateFlags.git)
 		if err != nil {
 			fail(err)
 		}
@@ -202,7 +203,7 @@ checked; upstream bundles are trusted as valid. Valid bundles yield no output.
 Any invalid bundles will yield a non-zero return code.
 
 Basic validation includes checking syntax and structure, and that the bundle has
-a valid name. Commands like 'mixer bundle edit' run basic validation
+a valid name. Commands like 'mixer bundle add' run basic validation
 automatically.
 
 An optional '--strict' flag allows you to additionally check that the bundle 
@@ -245,7 +246,7 @@ var bundlesCmds = []*cobra.Command{
 	bundleAddCmd,
 	bundleRemoveCmd,
 	bundleListCmd,
-	bundleEditCmd,
+	bundleCreateCmd,
 	bundleValidateCmd,
 }
 
@@ -265,8 +266,13 @@ func init() {
 
 	bundleListCmd.Flags().BoolVar(&bundleListFlags.tree, "tree", false, "Pretty-print the list as a tree.")
 
-	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.add, "add", false, "Add the bundle(s) to your mix")
-	bundleEditCmd.Flags().BoolVar(&bundleEditFlags.git, "git", false, "Automatically apply new git commit")
+	// TODO: Remove this flag once the  new changes to `edit`  (create) command stabilizes.
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.copyOnly, "suppress-editor", false, "Suppress launching editor (only copy to local-bundles or create template)")
+	_ = bundleCreateCmd.Flags().MarkHidden("suppress-editor")
+	_ = bundleCreateCmd.Flags().MarkDeprecated("suppress-editor", "as the editor feature has been removed from mixer")
+
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.add, "add", false, "Add the bundle(s) to your mix")
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.git, "git", false, "Automatically apply new git commit")
 
 	bundleValidateCmd.Flags().BoolVar(&bundleValidateFlags.allLocal, "all-local", false, "Validate all local bundles")
 	bundleValidateCmd.Flags().BoolVar(&bundleValidateFlags.strict, "strict", false, "Strict validation (see usage)")

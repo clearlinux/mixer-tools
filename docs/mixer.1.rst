@@ -86,9 +86,8 @@ SUBCOMMANDS
 ``bundle``
 
     Perform various configuration actions on local and upstream bundles. The
-    user can add or remove bundles from their mix, edit local and upstream
-    bundles, create new bundle definitions, or validate local bundle definition
-    files. See ``mixer.bundle``\(1) for more details.
+    user can add or remove bundles from their mix, create new bundle definitions,
+    or validate local bundle definition files. See ``mixer.bundle``\(1) for more details.
 
 ``config``
 

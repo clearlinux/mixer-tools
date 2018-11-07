@@ -17,7 +17,7 @@ setup() {
 }
 
 @test "List the bundles in the mix" {
-  mixer bundle edit foo.bar --suppress-editor # 'bundle list' should work even if an invalid bundle is created
+  mixer bundle create foo.bar           # 'bundle list' should work even if an invalid bundle is created
 
   run mixer $MIXARGS bundle list
   [[ ${#lines[@]} -eq 4 ]]              # Exactly 4 bundles in the mix
@@ -37,7 +37,7 @@ setup() {
   [[ "$output" =~ editors[[:space:]]+\(upstream ]] # "editors" bundle is from upstream
 }
 
-@test "Edit upstream bundle" {
+@test "Create upstream bundle" {
   run mixer $MIXARGS bundle list
   [[ "$output" =~ editors[[:space:]]+\(upstream ]]              # "editors" bundle is from upstream
   [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 0 ]] # Nothing in local-bundles
@@ -45,7 +45,7 @@ setup() {
   run mixer $MIXARGS bundle list local
   [[ ${#lines[@]} -eq 0 ]]                                      # 'list local' returns no results
 
-  mixer $MIXARGS bundle edit editors
+  mixer $MIXARGS bundle create editors
   [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles) = "editors" ]]  # local-bundles only has "editors"
 
   run mixer $MIXARGS bundle list
@@ -57,31 +57,36 @@ setup() {
 }
 
 @test "Create original bundle and add to mix" {
-  mixer $MIXARGS bundle edit foobar --add
+  mixer $MIXARGS bundle create foobar --add
+  mixer $MIXARGS bundle edit foocar --suppress-editor --add     # `edit` command test
 
   run ls -1q $BATS_TEST_DIRNAME/local-bundles
-  [[ ${#lines[@]} -eq 2 ]]                     # 2 bundles in local-bundles
+  [[ ${#lines[@]} -eq 3 ]]                     # 3 bundles in local-bundles
   [[ "$output" =~ foobar ]]                    # local-bundles now contains "foobar"
+  [[ "$output" =~ foocar ]]                    # local-bundles now contains "foocar"
 
   run mixer $MIXARGS bundle list
   [[ "$output" =~ foobar[[:space:]]+\(local ]] # "foobar" bundle is from local
+  [[ "$output" =~ foocar[[:space:]]+\(local ]] # "foocar" bundle is from local
 
   run mixer $MIXARGS bundle list local
-  [[ ${#lines[@]} -eq 2 ]]                     # 'list local' returns 2 results
+  [[ ${#lines[@]} -eq 3 ]]                     # 'list local' returns 3 results
   [[ "$output" =~ .*foobar.* ]]                # "foobar" bundle is in output
+  [[ "$output" =~ .*foocar.* ]]                # "foocar" bundle is in output
+
 }
 
 @test "Remove bundle from mix" {
   mixer $MIXARGS bundle remove editors
 
-  [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 2 ]] # Still 2 bundles in local-bundles
+  [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 3 ]] # Still 3 bundles in local-bundles
 
   ! mixer $MIXARGS bundle list | grep -q editors                # "editors" no longer in mix
 }
 
 @test "Validate a bundle" {
   echo "package" >> $BATS_TEST_DIRNAME/local-bundles/foobar
-  mixer $MIXARGS bundle edit foo.bar
+  mixer $MIXARGS bundle create foo.bar
 
   run mixer $MIXARGS bundle validate foobar
   [[ "$status" -eq 0 ]]                        # basic validation should pass

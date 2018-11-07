@@ -58,18 +58,19 @@ SUBCOMMANDS
 
       Display ``bundle add`` help information and exit.
 
-``edit``
+``create``
 
-    Create new bundles or copy existing bundles. This command will locate the
-    bundle (looking first in local-bundles, then in upstream-bundles). If the bundle is only found upstream,
+    Create new bundles or copy existing bundles.
+    This command will locate the bundle by first looking in local-bundles,
+    and then in upstream-bundles. If the bundle is only found upstream,
     the bundle file will be copied to your local-bundles directory. If the bundle is
     not found anywhere, a blank template will be created with the correct name.
 
     Passing '--add' will also add the bundle(s) to your mix. Please note that
-    bundles are added after all bundles are edited, and thus will not be added
+    bundles are added after all bundles are created, and thus will not be added
     if any errors are encountered earlier on.
 
-    In addition to the global options ``mixer bundle edit`` takes the following
+    In addition to the global options ``mixer bundle create`` takes the following
     options.
 
     - ``--add``
@@ -90,7 +91,7 @@ SUBCOMMANDS
 
     - ``-h, --help``
 
-      Display ``bundle edit`` help information and exit.
+      Display ``bundle create`` help information and exit.
 
 ``list [mix|local|upstream] [flags]``
 
@@ -164,7 +165,7 @@ SUBCOMMANDS
     output. Any invalid bundles will yield a non-zero return code.
 
     Basic validation includes checking syntax and structure, and that the bundle
-    has a valid name. Commands like ``mixer bundle edit`` run basic validation
+    has a valid name. Commands like ``mixer bundle add`` run basic validation
     automatically.
 
     In addition to the global options ``mixer bundle remove`` takes the

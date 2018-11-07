@@ -33,7 +33,7 @@ pushd afb-test
 # init minimal mix with original format
 mixer init --no-default-bundles --format 1
 # create bundle to be deleted
-mixer bundle edit foo
+mixer bundle create foo
 # mark as deleted
 sed -i "s/\(# \[STATUS\]:\).*/\1 Deprecated/" local-bundles/foo
 # add minimal bundles including deleted bundle

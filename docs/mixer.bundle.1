@@ -79,30 +79,18 @@ Display \fBbundle add\fP help information and exit.
 \fBedit\fP
 .INDENT 0.0
 .INDENT 3.5
-Edits local and upstream bundle definition files. This command will locate
-the bundle (looking first in local\-bundles, then in upstream\-bundles), and
-launch an editor to edit it. If the bundle is only found upstream, the
-bundle file will first be copied to your local\-bundles directory for
-editing. If the bundle is not found anywhere, a blank template is created
-with the correct name. When the editor closes, the bundle file is then
-parsed for validity.
-.sp
-The editor is configured via environment variables. VISUAL takes precedence
-to EDITOR. If neither are set, the tool defaults to nano. If nano is not
-installed, the tool will skip editing, and act as if \(aq\-\-suppress\-editor\(aq had
-been passed.
-.sp
-Passing \(aq\-\-suppress\-editor\(aq will suppress launching the editor, and will
-thus only copy the bundle file to local\-bundles (if it is only found
-upstream), or create the blank template (if it was not found anywhere). This
-can be useful if you want to add a bundle to local\-bundles, but wish to edit
-it at a later time.
+Creates local and upstream bundle definition files.
+This command will locate the bundle by first looking in local\-bundles,
+and then in upstream\-bundles. If the bundle is only found upstream, the
+bundle file will be copied to your local\-bundles directory.
+If the bundle is not found anywhere, a blank template is created
+with the correct name.
 .sp
 Passing \(aq\-\-add\(aq will also add the bundle(s) to your mix. Please note that
-bundles are added after all bundles are edited, and thus will not be added
+bundles are added after all bundles are created, and thus will not be added
 if any errors are encountered earlier on.
 .sp
-In addition to the global options \fBmixer bundle edit\fP takes the following
+In addition to the global options \fBmixer bundle create\fP takes the following
 options.
 .INDENT 0.0
 .IP \(bu 2
@@ -124,7 +112,7 @@ version control.
 .IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp
-Display \fBbundle edit\fP help information and exit.
+Display \fBbundle create\fP help information and exit.
 .IP \(bu 2
 \fB\-\-suppress\-editor\fP
 .sp
@@ -217,7 +205,7 @@ checked; upstream bundles are trusted as valid. Valid bundles yield no
 output. Any invalid bundles will yield a non\-zero return code.
 .sp
 Basic validation includes checking syntax and structure, and that the bundle
-has a valid name. Commands like \fBmixer bundle edit\fP run basic validation
+has a valid name. Commands like \fBmixer bundle add\fP run basic validation
 automatically.
 .sp
 In addition to the global options \fBmixer bundle remove\fP takes the

@@ -751,15 +751,15 @@ func createBundleFile(bundle string, path string) error {
 	return err
 }
 
-// EditBundles copies a list of bundles from upstream-bundles to local-bundles
-// (if they are not already there) or creates a blank template if they are new.
+// CreateBundles copies a list of bundles from upstream-bundles to local-bundles
+// if they are not already there or creates a blank template if they are new.
 // 'add' will also add the bundles to the mix.
-func (b *Builder) EditBundles(bundles []string, add bool, git bool) error {
+func (b *Builder) CreateBundles(bundles []string, add bool, git bool) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
 	}
-
+	var err error
 	for _, bundle := range bundles {
 		path, _ := b.getBundlePath(bundle)
 		if !b.isLocalBundle(path) {
@@ -767,20 +767,21 @@ func (b *Builder) EditBundles(bundles []string, add bool, git bool) error {
 
 			if path == "" {
 				// Bundle not found upstream, so create new
-				if err := createBundleFile(bundle, localPath); err != nil {
+				if err = createBundleFile(bundle, localPath); err != nil {
 					return errors.Wrapf(err, "Failed to write bundle template for bundle %q", bundle)
 				}
 			} else {
 				// Bundle found upstream, so copy over
-				if err := helpers.CopyFile(localPath, path); err != nil {
+				if err = helpers.CopyFile(localPath, path); err != nil {
 					return err
 				}
 			}
 		}
+		fmt.Printf("Created bundle %q in %q\n", bundle, b.Config.Mixer.LocalBundleDir)
 	}
 
 	if add {
-		if err := b.AddBundles(bundles, false, false, false); err != nil {
+		if err = b.AddBundles(bundles, false, false, false); err != nil {
 			return err
 		}
 	}

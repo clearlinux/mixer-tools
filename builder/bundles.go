@@ -481,6 +481,7 @@ func clearDNFCache(packagerCmd []string) error {
 
 func rmDNFStatePaths(fullDir string) {
 	dnfStatePaths := []string{
+		"/etc/dnf",
 		"/var/lib/cache/yum",
 		"/var/cache/yum",
 		"/var/cache/dnf",

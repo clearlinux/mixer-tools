@@ -29,10 +29,10 @@ EOF
 
   #Build +10
   format=$((format+1))
-  mixer-build-format-bump-old $format > $LOGDIR/build_formatbump_new.log
+  mixer-build-format-bump-old $format > $LOGDIR/build_formatbump_old.log
 
   #Build +20
-  mixer-build-format-bump-new $format > $LOGDIR/build_formatbump_old.log
+  mixer-build-format-bump-new $format > $LOGDIR/build_formatbump_new.log
 
   #check if LAST_VER is set to +20
   test $(< update/image/LAST_VER) -eq 30
@@ -48,8 +48,10 @@ EOF
   }' update/www/20/Manifest.MoM
 
   #editors bundle should have all files marked as deleted in +10 (0's)
-  result="$(grep -E "(10|20)" update/www/20/Manifest.editors | grep -Ev "(version|previous|000000000)" | wc -l)"
-  [ "$result" -eq 0 ]
+  # NOTE* This has to be updated if the number of fields in a manifest
+  # file entry changes from 4 which it currently is at.
+  awk 'NF == 4 { if ($2 !~ /^0{64}$/) exit 1 }' update/www/20/Manifest.editors
+
 
   #editors bundle should not exist in +20
   [ ! -f update/www/30/Manifest.editors ]
@@ -94,7 +96,7 @@ EOF
 
   #Build +10
   format=$((format+1))
-  mixer-build-format-bump $format > $LOGDIR/build_formatbump_new.log
+  mixer-build-format-bump $format > $LOGDIR/build_formatbump_one_step.log
 
   #check if LAST_VER is set to +20
   test $(< update/image/LAST_VER) -eq 30
@@ -110,8 +112,10 @@ EOF
   }' update/www/20/Manifest.MoM
 
   #editors bundle should have all files marked as deleted in +10 (0's)
-  result="$(grep -E "(10|20)" update/www/20/Manifest.editors | grep -Ev "(version|previous|000000000)" | wc -l)"
-  [ "$result" -eq 0 ]
+  # NOTE* This has to be updated if the number of fields in a manifest
+  # file entry changes from 4 which it currently is at.
+  awk 'NF == 4 { if ($2 !~ /^0{64}$/) exit 1 }' update/www/20/Manifest.editors
+
 
 
   #editors bundle should not exist in +20

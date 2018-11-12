@@ -156,13 +156,11 @@ func createDelta(c *config, delta *Delta) error {
 	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
 	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
 
-	// Set timeout to 1 minute (60 seconds) for bsdiff
-	// The majority of all delta creations take significantly less than 1 minute
-	// to run, which signifies that bsdiff is working on a delta that may be very
-	// large, or very difficult to diff. In all the cases where bsdiff took
-	// multiple minutes to finish, the delta ended up not being used because it
-	// was larger than the compressed fullfile. This attempts to skip those cases.
-	if err := helpers.RunCommandTimeout(60, "bsdiff", oldPath, newPath, delta.Path); err != nil {
+	// Set timeout to 8 minutes (480 seconds) for bsdiff.
+	// The majority of all delta creations take significantly less than 8
+	// minutes; the deltas that take longer usually indicate that old/new
+	// files are large or very difficult to diff.
+	if err := helpers.RunCommandTimeout(480, "bsdiff", oldPath, newPath, delta.Path); err != nil {
 		_ = os.Remove(delta.Path)
 		if exitErr, ok := errors.Cause(err).(*exec.ExitError); ok {
 			// bsdiff returns 1 that stands for "FULLDL", i.e. it decided that

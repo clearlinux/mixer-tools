@@ -60,6 +60,15 @@ includes:	{{.Name}}
 `,
 }
 
+// Iterative manifests were introduced in format 26 and will cause issues with older formats
+func (m *Manifest) writeIterativeManifestsForFormat(newManifests []*Manifest, out string) ([]*Manifest, error) {
+	if m.Header.Format <= 25 {
+		return nil, nil
+	}
+
+	return m.writeIterativeManifests(newManifests, out)
+}
+
 // manifestTemplateForFormat returns the *template.Template for creating
 // manifests for the provided format f
 func manifestTemplateForFormat(f uint) (t *template.Template) {

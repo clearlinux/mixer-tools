@@ -1,4 +1,4 @@
-09-build-all-delta-packs
-==================
+build-all-delta-packs
+=====================
 This test case tests the 'mixer build delta-packs' command when generating
 content with 'mixer build all'.

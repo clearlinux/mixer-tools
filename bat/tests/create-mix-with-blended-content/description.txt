@@ -1,5 +1,5 @@
-05-create-mix-with-blended-content
-==================================
+create-mix-with-blended-content
+===============================
 This test creates a mix version 10 with two blended bundles: an upstream bundle
 with a unique package that does not exist upstream added, and a custom bundle 
 with a package from upstream added. All upstream bundles have been stripped down

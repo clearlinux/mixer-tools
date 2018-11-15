@@ -206,7 +206,7 @@ func buildMix(prepNeeded bool) error {
 	cert := "/usr/share/ca-certs/Swupd_Root.pem"
 
 	err = helpers.RunCommandSilent("openssl", "smime", "-verify", "-in", "Manifest.MoM.sig",
-		"-inform", "der", "-content", "Manifest.MoM", "-CAfile", cert)
+		"-inform", "der", "-content", "Manifest.MoM", "-purpose", "any", "-CAfile", cert)
 	if err != nil {
 		_ = os.Remove(mixFlagFile)
 		return err

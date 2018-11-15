@@ -1,5 +1,5 @@
-12-no-state-variables-in-full
-===================================
+no-state-variables-in-full
+==========================
 This test case creates a simple mix and checks that no state paths
 exist in the full chroot, which should be removed during the build
 bundles phase

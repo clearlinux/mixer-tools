@@ -1,5 +1,5 @@
-11-upstream-format-bump
-===================
+upstream-format-bump
+====================
 This test attempts to create a mix that crosses an upstream format boundary. It
 should stop once versions update is called and notices that a bump is needed,
 and build upstream-bump should automatically create the two required bump

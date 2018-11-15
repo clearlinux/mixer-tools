@@ -1,5 +1,5 @@
-13-no-delta-packs-over-format-bump
-==================================
+no-delta-packs-over-format-bump
+===============================
 This test creates a format bump using a manual process (not auto-format-bump)
 and attempts to create delta packs over that bump. No delta packs should be
 created.

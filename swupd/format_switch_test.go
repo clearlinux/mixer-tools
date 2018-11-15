@@ -4,6 +4,8 @@ import (
 	"testing"
 )
 
+// Format 25 should not support minversions or iterative manifests. Support for
+// these features was added in format 26.
 func TestManifestFormats25to26(t *testing.T) {
 	ts := newTestSwupd(t, "format25to26")
 	defer ts.cleanup()
@@ -51,7 +53,11 @@ func TestManifestFormats25to26(t *testing.T) {
 		"20\t/foo",
 	}
 	checkManifestContains(t, ts.Dir, "20", "test-bundle", expSubs...)
-	checkManifestNotContains(t, ts.Dir, "20", "MoM", "minversion:\t")
+
+	// Iterative manifests should not have entries in the MoM or be generated
+	checkManifestNotContains(t, ts.Dir, "20", "MoM", "minversion:\t20", "I...\t")
+	ts.checkNotExists("www/20/Manifest.test-bundle.I.10")
+	ts.checkNotExists("www/20/os-core.I.10")
 
 	// updated to format26, minversion still set to 20, so we should see
 	// minversion  header in the MoM
@@ -67,6 +73,14 @@ func TestManifestFormats25to26(t *testing.T) {
 	}
 	checkManifestContains(t, ts.Dir, "30", "test-bundle", expSubs...)
 	checkManifestContains(t, ts.Dir, "30", "MoM", "minversion:\t20")
+
+	ts.addFile(40, "test-bundle", "/foo", "more new content")
+	ts.createManifests(40)
+
+	// Updates in format 26 should support iterative manifests
+	checkManifestContains(t, ts.Dir, "40", "MoM", "\ttest-bundle.I.30", "\tos-core.I.30")
+	ts.checkExists("www/40/Manifest.test-bundle.I.30")
+	ts.checkExists("www/40/Manifest.os-core.I.30")
 }
 
 func TestFormat25BadContentSize(t *testing.T) {

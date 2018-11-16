@@ -271,7 +271,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		hasDelta[d.to.Hash] = d
 	}
 
-	if err = writeDeltaManifest(tw, outputDir, dManifest, toVersion); err != nil {
+	if err = writeDeltaManifestForFormat(tw, outputDir, dManifest, toVersion); err != nil {
 		return nil, err
 	}
 

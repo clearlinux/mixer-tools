@@ -289,7 +289,7 @@ func checkDeltaManifest(ts *testSwupd, from, to int, bundle string, fileCount in
 	ts.checkExists(manifest)
 
 	expSubs := []string{
-		"MANIFEST\t1",
+		fmt.Sprintf("MANIFEST\t%d", ts.Format),
 		fmt.Sprintf("version:\t%d", from),
 		fmt.Sprintf("filecount:\t%d", fileCount),
 	}
@@ -325,6 +325,9 @@ func TestCreatePackNonConsecutiveDeltas(t *testing.T) {
 	defer ts.cleanup()
 
 	ts.Bundles = []string{"os-core", "contents"}
+
+	// Delta manifests are not supported in formats < 26
+	ts.Format = 26
 
 	contents := strings.Repeat("large", 1000)
 	if len(contents) < minimumSizeToMakeDeltaInBytes {
@@ -666,6 +669,10 @@ func TestTwoDeltasForTheSameTarget(t *testing.T) {
 
 	// Version 10.
 	ts.Bundles = []string{"os-core"}
+
+	// Delta manifests are not supported in formats < 26
+	ts.Format = 26
+
 	ts.addFile(10, "os-core", "/fileA", content+"A")
 	ts.addFile(10, "os-core", "/fileB", content+"B")
 	ts.createManifests(10)
@@ -700,6 +707,9 @@ func TestPackRenames(t *testing.T) {
 	defer ts.cleanup()
 
 	ts.Bundles = []string{"os-core"}
+
+	// Delta manifests are not supported in formats < 26
+	ts.Format = 26
 
 	content := strings.Repeat("CONTENT", 1000)
 
@@ -781,6 +791,9 @@ func TestPackNoDeltas(t *testing.T) {
 	defer ts.cleanup()
 
 	ts.Bundles = []string{"os-core", "bundle"}
+
+	// Delta manifests are not supported in formats < 26
+	ts.Format = 26
 
 	content := strings.Repeat("CONTENT", 1000)
 

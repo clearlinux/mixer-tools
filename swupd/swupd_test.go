@@ -124,6 +124,10 @@ func TestFullRunDelta(t *testing.T) {
 
 	// Version 10.
 	ts.Bundles = []string{"os-core", "test-bundle"}
+
+	// Delta manifests are not supported in formats < 26
+	ts.Format = 26
+
 	ts.write("image/10/test-bundle/largefile", content)
 	ts.write("image/10/test-bundle/foo", "foo")
 	ts.write("image/10/test-bundle/foobarbaz", "foobarbaz")

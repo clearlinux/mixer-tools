@@ -26,7 +26,7 @@ setup() {
   [[ "$output" =~ kernel-native ]]
   [[ "$output" =~ bootloader ]]
 
-  rm -f local-bundles/foo.bar           # Delete invalid bundle (test case clean up)
+  rm -f local-bundles/foo.bar           # Delete invalid bundle from local-bundles (test case clean up)
 }
 
 @test "Add an upstream bundle to the mix" {
@@ -56,32 +56,44 @@ setup() {
   [[ "$output" =~ editors.*masking ]]                           # "editors" bundle is masking upstream
 }
 
+@test "Remove bundle from mix" {
+  mixer $MIXARGS bundle remove editors
+
+  ! mixer $MIXARGS bundle list | grep -q editors                # "editors" bundle is no longer in mix
+
+  # "editors" bundle is still in local-bundles
+  mixer $MIXARGS bundle list local | grep -q editors
+  [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 1 ]]
+  [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles) = "editors" ]]
+
+  mixer $MIXARGS bundle remove editors --local
+
+  # "editors" bundle is no more in local-bundles
+  ! mixer $MIXARGS bundle list local | grep -q editors
+  [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 0 ]]
+}
+
 @test "Create original bundle and add to mix" {
   mixer $MIXARGS bundle create foobar --add
-  mixer $MIXARGS bundle edit foocar --suppress-editor --add     # `edit` command test
+  mixer $MIXARGS bundle edit foocar --suppress-editor --add     # Create and add bundle using `edit` command
 
   run ls -1q $BATS_TEST_DIRNAME/local-bundles
-  [[ ${#lines[@]} -eq 3 ]]                     # 3 bundles in local-bundles
+  [[ ${#lines[@]} -eq 2 ]]                     # 2 bundles in local-bundles
   [[ "$output" =~ foobar ]]                    # local-bundles now contains "foobar"
   [[ "$output" =~ foocar ]]                    # local-bundles now contains "foocar"
+
+  run mixer $MIXARGS bundle list local
+  [[ ${#lines[@]} -eq 2 ]]                     # 'list local' returns 2 results
+  [[ "$output" =~ .*foobar.* ]]                # "foobar" bundle is in output
+  [[ "$output" =~ .*foocar.* ]]                # "foocar" bundle is in output
 
   run mixer $MIXARGS bundle list
   [[ "$output" =~ foobar[[:space:]]+\(local ]] # "foobar" bundle is from local
   [[ "$output" =~ foocar[[:space:]]+\(local ]] # "foocar" bundle is from local
 
-  run mixer $MIXARGS bundle list local
-  [[ ${#lines[@]} -eq 3 ]]                     # 'list local' returns 3 results
-  [[ "$output" =~ .*foobar.* ]]                # "foobar" bundle is in output
-  [[ "$output" =~ .*foocar.* ]]                # "foocar" bundle is in output
-
-}
-
-@test "Remove bundle from mix" {
-  mixer $MIXARGS bundle remove editors
-
-  [[ $(ls -1q $BATS_TEST_DIRNAME/local-bundles | wc -l) == 3 ]] # Still 3 bundles in local-bundles
-
-  ! mixer $MIXARGS bundle list | grep -q editors                # "editors" no longer in mix
+  # Delete bundle from local-bundles and mix (test case clean up)
+  mixer $MIXARGS bundle remove foocar
+  rm -f local-bundles/foocar
 }
 
 @test "Validate a bundle" {
@@ -110,6 +122,8 @@ setup() {
   [[ "$output" =~ "Empty Maintainer in bundle header" ]]
   [[ "$output" =~ "Empty Status in bundle header" ]]
   [[ "$output" =~ "Empty Capabilities in bundle header" ]]
+
+  rm -f local-bundles/foo.bar           # Delete invalid bundle from local-bundles (test case clean up)
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

@@ -31,18 +31,10 @@ install:
 check:
 	go test -cover ${GO_PACKAGE_PREFIX}/...
 
-# TODO: when Go 1.10 comes out we will have support for passing multiple packages
-# to coverprofile, so there will be no need to pass an individual package.
-# At that time we can merge this target into check and run it against all
-# packages every time.
 .PHONY: checkcoverage
 checkcoverage:
-ifeq (,${PKG})
-	$(error PKG is not set, try make PKG=swupd checkcoverage)
-else
-	go test -cover ${GO_PACKAGE_PREFIX}/${PKG} -coverprofile=coverage.out
+	go test -cover ${GO_PACKAGE_PREFIX}/... -coverprofile=coverage.out
 	go tool cover -html=coverage.out
-endif
 
 .PHONY: lint
 lint:

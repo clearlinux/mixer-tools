@@ -1,10 +1,4 @@
-# Makefile used to create packages for mixer-tools. It doesn't assume
-# that the code is inside a GOPATH, and always copy the files into a
-# new workspace to get the work done. Go tools doesn't reliably work
-# with symbolic links.
-#
-# For historical purposes, it also works in a development environment
-# when the repository is already inside a GOPATH.
+# Makefile used to create packages for mixer-tools.
 include Makefile.bats
 
 .NOTPARALLEL:
@@ -12,38 +6,18 @@ include Makefile.bats
 VERSION=5.3.0
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 
-.PHONY: gopath
-
-# Strictly speaking we should check if it the directory is inside an
-# actual GOPATH, but the directory structure matching is likely enough.
-ifeq (,$(findstring ${GO_PACKAGE_PREFIX},${CURDIR}))
-LOCAL_GOPATH := ${CURDIR}/.gopath
-export GOPATH := ${LOCAL_GOPATH}
-gopath:
-	@rm -rf ${LOCAL_GOPATH}/src
-	@mkdir -p ${LOCAL_GOPATH}/src/${GO_PACKAGE_PREFIX}
-	@cp -af * ${LOCAL_GOPATH}/src/${GO_PACKAGE_PREFIX}
-	@echo "Prepared a local GOPATH=${GOPATH}"
-else
-LOCAL_GOPATH :=
-GOPATH ?= ${HOME}/go
-gopath:
-	@echo "Code already in existing GOPATH=${GOPATH}"
-endif
-
 .PHONY: build install clean check
 
 .DEFAULT_GOAL := build
 
-
-build: gopath
+build:
 	go install -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
 	go install ${GO_PACKAGE_PREFIX}/mixin
 	go install ${GO_PACKAGE_PREFIX}/swupd-extract
 	go install ${GO_PACKAGE_PREFIX}/swupd-inspector
 	go install ${GO_PACKAGE_PREFIX}/mixer-completion
 
-install: gopath
+install:
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
 	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.
@@ -54,7 +28,7 @@ install: gopath
 	test -d $(DESTDIR)/usr/share/man/man1 || install -D -d -m 00755 $(DESTDIR)/usr/share/man/man1
 	install -m 00644 $(MANPAGES) $(DESTDIR)/usr/share/man/man1/
 
-check: gopath
+check:
 	go test -cover ${GO_PACKAGE_PREFIX}/...
 
 # TODO: when Go 1.10 comes out we will have support for passing multiple packages
@@ -62,7 +36,7 @@ check: gopath
 # At that time we can merge this target into check and run it against all
 # packages every time.
 .PHONY: checkcoverage
-checkcoverage: gopath
+checkcoverage:
 ifeq (,${PKG})
 	$(error PKG is not set, try make PKG=swupd checkcoverage)
 else
@@ -71,7 +45,7 @@ else
 endif
 
 .PHONY: lint
-lint: gopath
+lint:
 	@gometalinter.v2 --deadline=10m --tests --vendor --disable-all \
 	--enable=misspell \
 	--enable=vet \
@@ -88,11 +62,7 @@ lint: gopath
 	./...
 
 clean:
-ifeq (,${LOCAL_GOPATH})
-	go clean -i -x
-else
-	rm -rf ${LOCAL_GOPATH}
-endif
+	go clean ./...
 	rm -f mixer-tools-*.tar.gz
 
 release:

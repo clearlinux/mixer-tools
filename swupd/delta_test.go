@@ -70,6 +70,9 @@ func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	defer ts.cleanup()
 	ts.Bundles = []string{"os-core"}
 
+	// Delta manifests are not supported in formats < 26
+	ts.Format = 26
+
 	// NOTE: Currently the delta is compared to the real file, but a better
 	// approximation comparison would be with a compressed version of the real file
 	// (fullfile), since the delta itself will already be compressed, so packing won't

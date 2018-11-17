@@ -96,6 +96,20 @@ setup() {
   rm -f local-bundles/foocar
 }
 
+@test "Skip invalid bundles from mix" {
+  mixer $MIXARGS bundle create foocar foo.car foojar --add      # Create and add valid as well as invalid bundles
+
+  mixer $MIXARGS bundle list | grep -q foocar     # "foocar" bundle is in the mix
+  mixer $MIXARGS bundle list | grep -q foojar     # "foojar" bundle is in the mix
+
+  run $(mixer $MIXARGS bundle list | grep foo.car)              # "foo.car" is an invalid bundle and is not in the mix
+  [[ ${#lines[@]} -eq 0 ]]
+
+  # Delete bundle from local-bundles and mix (test case clean up)
+  mixer $MIXARGS bundle remove foocar foojar
+  rm -f local-bundles/foocar local-bundles/foojar local-bundles/foo.car
+}
+
 @test "Validate a bundle" {
   echo "package" >> $BATS_TEST_DIRNAME/local-bundles/foobar
   mixer $MIXARGS bundle create foo.bar

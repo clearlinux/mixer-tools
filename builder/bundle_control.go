@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -375,10 +376,12 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 		bundle, err := b.getBundleFromName(bName)
 		if err != nil {
-			return err
+			log.Println("Warning: " + err.Error() + "; skipping")
+			continue
 		}
 		if err = validateBundleName(bName); err != nil {
-			return err
+			log.Println("Warning: " + err.Error() + "; skipping")
+			continue
 		}
 		if b.isLocalBundle(bundle.Filename) {
 			fmt.Printf("Adding bundle %q from local bundles\n", bName)

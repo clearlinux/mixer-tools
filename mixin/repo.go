@@ -126,6 +126,11 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 }
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {
+	if args[0] == "clear" {
+		err := fmt.Errorf("The clear repo is mandatory and cannot be removed")
+		fail(err)
+	}
+
 	err := repoPrep()
 	if err != nil {
 		fail(err)

@@ -278,6 +278,8 @@ func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest, bundles []s
 
 		bundleName := f.Name
 		if f.Type == TypeIManifest {
+			// Only the most recent iterative manifest for a bundle is valid,
+			// so omit stale iterative manifests from the to MoM
 			if f.findIManifestInSlice(appendTo.Files) != nil {
 				continue
 			}

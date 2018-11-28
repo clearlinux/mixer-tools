@@ -309,7 +309,8 @@ func fileInManifestHash(t *testing.T, m *Manifest, version uint32, name string, 
 		if f.Name == name {
 			if f.Version != version {
 				t.Fatalf("in manifest %s version %d: file %s has version %d but expected %d", m.Name, m.Header.Version, f.Name, f.Version, version)
-			} else if f.Hash.String() != hash {
+			}
+			if f.Hash.String() != hash {
 				t.Fatalf("in manifest %s version %d: file %s has hash %s but expected %s", m.Name, m.Header.Version, f.Name, f.Hash.String(), hash)
 			}
 			return f

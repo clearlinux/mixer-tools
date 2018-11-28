@@ -784,7 +784,7 @@ func TestPackRenames(t *testing.T) {
 	}
 }
 
-// TestPackNoDeltas will test cases where there are no delta files are
+// TestPackNoDeltas will test cases where there are no delta files
 // created in the update
 func TestPackNoDeltas(t *testing.T) {
 	ts := newTestSwupd(t, "no-deltas")

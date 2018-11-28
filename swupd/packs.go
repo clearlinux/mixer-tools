@@ -239,10 +239,9 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			Name:   fromManifest.Name,
 		}
 		dManifest.Header.ContentSize = 0
-		// Removing Includes from Header because the include list isn't necessary
-		// by the client to find which file is going to be used to apply deltas
-		// As we won't need a format bump to add that later if we decide to use
-		// it we can leave Includes empty to save some bytes when downloading
+
+		// The Includes header field is unnecessary for delta manifests, so it is
+		// removed to reduce file size.
 		dManifest.Header.Includes = nil
 	}
 

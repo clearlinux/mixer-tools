@@ -158,8 +158,12 @@ func (config *MixConfig) Load(filename string) error {
 	if err := config.InitConfigPath(filename); err != nil {
 		return err
 	}
-	if err := config.parseVersionAndConvert(); err != nil {
+	if ok, err := ParseVersion(config); err != nil {
 		return err
+	} else if !ok {
+		if err = config.convert(); err != nil {
+			return err
+		}
 	}
 	if err := config.parse(); err != nil {
 		return err
@@ -250,7 +254,14 @@ func (config *MixConfig) Convert(filename string) error {
 		return err
 	}
 
-	return config.parseVersionAndConvert()
+	if ok, err := ParseVersion(config); err != nil {
+		return err
+	} else if ok {
+		// Already on latest version
+		return nil
+	}
+
+	return config.convert()
 }
 
 // Print print variables and values of a MixConfig struct

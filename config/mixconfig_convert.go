@@ -15,7 +15,6 @@
 package config
 
 import (
-	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -31,48 +30,7 @@ import (
 // CurrentConfigVersion holds the current version of the config file
 const CurrentConfigVersion = "1.0"
 
-func (config *MixConfig) parseVersion(reader *bufio.Reader) (bool, error) {
-	verBytes, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-
-	r := regexp.MustCompile("^#VERSION ([0-9]+.[0-9])+\n")
-	match := r.FindStringSubmatch(string(verBytes))
-
-	if len(match) != 2 {
-		return false, nil
-	}
-
-	config.version = match[1]
-
-	return true, nil
-}
-
-func (config *MixConfig) parseVersionAndConvert() error {
-	// Reset version for files without versioning
-	config.version = "0.0"
-
-	f, err := os.Open(config.filename)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-	}()
-
-	// Read config version
-	reader := bufio.NewReader(f)
-	found, err := config.parseVersion(reader)
-	if err != nil {
-		return err
-	}
-
-	//Already on latest version
-	if found && config.version == CurrentConfigVersion {
-		return nil
-	}
-
+func (config *MixConfig) convert() error {
 	fmt.Printf("Converting config to version %s\n", CurrentConfigVersion)
 
 	if err := helpers.CopyFile(config.filename+".bkp", config.filename); err != nil {
@@ -81,7 +39,7 @@ func (config *MixConfig) parseVersionAndConvert() error {
 
 	fmt.Printf("Old config saved as %s\n", config.filename+".bkp")
 
-	if !found {
+	if config.version == "0.0" {
 		return config.convertLegacy()
 	}
 

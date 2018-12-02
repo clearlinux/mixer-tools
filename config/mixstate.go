@@ -15,9 +15,8 @@
 package config
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -134,35 +133,18 @@ func (state *MixState) Load(filename string) error {
 		_ = f.Close()
 	}()
 
-	// Read config version
-	reader := bufio.NewReader(f)
-	found, err := state.parseVersion(reader)
+	var ok bool
+	ok, err = ParseVersion(state)
 	if err != nil {
 		return err
-	} else if !found {
-		return errors.New("Unable to read mixer state version")
+	} else if !ok {
+		fmt.Printf("Converting state to version %s\n", CurrentStateVersion)
+		state.version = CurrentStateVersion
+		return state.Save()
 	}
 
-	_, err = toml.DecodeReader(reader, &state)
+	_, err = toml.DecodeFile(state.filename, &state)
 	return err
-}
-
-func (state *MixState) parseVersion(reader *bufio.Reader) (bool, error) {
-	verBytes, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
-	}
-
-	r := regexp.MustCompile("^#VERSION ([0-9]+.[0-9])+\n")
-	match := r.FindStringSubmatch(string(verBytes))
-
-	if len(match) != 2 {
-		return false, nil
-	}
-
-	state.version = match[1]
-
-	return true, nil
 }
 
 // SetFilename receives a filename and sets it as the state file. It is used for

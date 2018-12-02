@@ -285,8 +285,29 @@ func (config *MixConfig) InitConfigPath(fullpath string) error {
 	return nil
 }
 
-// GetConfigFileName returns the file name of current config
-func (config *MixConfig) GetConfigFileName() string {
+// SetFilename receives a filename and sets it as the config file. It is used for
+// loading and saving the file.
+func (config *MixConfig) SetFilename(filename string) {
+	config.filename = filename
+}
+
+// GetFilename returns the file name of current config
+func (config *MixConfig) GetFilename() string {
 	/* This variable cannot be public or else it will be added to the config file */
 	return config.filename
+}
+
+//SetVersion sets the version number for the config
+func (config *MixConfig) SetVersion(version string) {
+	config.version = version
+}
+
+//GetVersion returns the current version of the config
+func (config *MixConfig) GetVersion() string {
+	return config.version
+}
+
+//GetLatestVersion returts the latest version know to mixer for this config file
+func (config *MixConfig) GetLatestVersion() string {
+	return CurrentConfigVersion
 }

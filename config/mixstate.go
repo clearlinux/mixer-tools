@@ -164,3 +164,30 @@ func (state *MixState) parseVersion(reader *bufio.Reader) (bool, error) {
 
 	return true, nil
 }
+
+// SetFilename receives a filename and sets it as the state file. It is used for
+// loading and saving the file.
+func (state *MixState) SetFilename(filename string) {
+	state.filename = filename
+}
+
+// GetFilename returns the file name of current state
+func (state *MixState) GetFilename() string {
+	/* This variable cannot be public or else it will be added to the state file */
+	return state.filename
+}
+
+//SetVersion sets the version number for the state
+func (state *MixState) SetVersion(version string) {
+	state.version = version
+}
+
+//GetVersion returns the current version of the state
+func (state *MixState) GetVersion() string {
+	return state.version
+}
+
+//GetLatestVersion returts the latest version know to mixer for this state file
+func (state *MixState) GetLatestVersion() string {
+	return CurrentStateVersion
+}

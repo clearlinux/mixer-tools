@@ -15,8 +15,11 @@
 package config
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"reflect"
+	"regexp"
 	"strings"
 )
 
@@ -24,6 +27,13 @@ import (
 type Configuration interface {
 	Save() error
 	Load(filename string) error
+
+	SetFilename(filename string)
+	GetFilename() string
+
+	SetVersion(version string)
+	GetVersion() string
+	GetLatestVersion() string
 }
 
 // SetProperty parses a property in the format "Section.Property", finds and sets it within the
@@ -69,4 +79,38 @@ func GetProperty(c Configuration, propertyStr string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("Property not found in config file: '%s'", property)
+}
+
+// ParseVersion checks the version header in the file and returns
+// true if it matches the latest known version for that configuration
+// file
+func ParseVersion(c Configuration) (bool, error) {
+	// Reset version for files without versioning
+	c.SetVersion("0.0")
+
+	f, err := os.Open(c.GetFilename())
+	if err != nil {
+		return false, err
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	// Parse version
+	reader := bufio.NewReader(f)
+	verBytes, err := reader.ReadString('\n')
+	if err != nil {
+		return false, err
+	}
+
+	r := regexp.MustCompile("^#VERSION ([0-9]+.[0-9])+\n")
+	match := r.FindStringSubmatch(string(verBytes))
+
+	if len(match) != 2 {
+		return false, nil
+	}
+
+	c.SetVersion(match[1])
+
+	return c.GetVersion() == c.GetLatestVersion(), nil
 }

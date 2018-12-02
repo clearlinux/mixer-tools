@@ -112,10 +112,10 @@ func NewFromConfig(conf string) (*Builder, error) {
 	if err := b.Config.LoadDefaults(); err != nil {
 		return nil, err
 	}
-	if err := b.State.Load(); err != nil {
+	if err := b.State.Load(""); err != nil {
 		return nil, err
 	}
-	if err := b.Config.LoadConfig(conf); err != nil {
+	if err := b.Config.Load(conf); err != nil {
 		return nil, err
 	}
 	if err := b.ReadVersions(); err != nil {

@@ -32,7 +32,7 @@ var configValidateCmd = &cobra.Command{
 environment variables will be expanded`,
 	Run: func(cmd *cobra.Command, args []string) {
 		var mc config.MixConfig
-		if err := mc.LoadConfig(configFile); err != nil {
+		if err := mc.Load(configFile); err != nil {
 			fail(err)
 		}
 
@@ -53,7 +53,7 @@ variables will not be expanded and the values will not be validated`,
 		/* If no state file exists, it must be created first to ensure the FORMAT value
 		is transferred from old configs before conversion */
 		var ms config.MixState
-		if err := ms.Load(); err != nil {
+		if err := ms.Load(""); err != nil {
 			fail(err)
 		}
 
@@ -74,11 +74,11 @@ var configSetCmd = &cobra.Command{
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		var mc config.MixConfig
-		if err := mc.LoadConfig(configFile); err != nil {
+		if err := mc.Load(configFile); err != nil {
 			fail(err)
 		}
 
-		if err := mc.SetProperty(args[0], args[1]); err != nil {
+		if err := config.SetProperty(&mc, args[0], args[1]); err != nil {
 			fail(err)
 		}
 

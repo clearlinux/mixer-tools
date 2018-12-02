@@ -117,8 +117,12 @@ func (state *MixState) Save() error {
 }
 
 // Load the mixer.state file
-func (state *MixState) Load() error {
+func (state *MixState) Load(filename string) error {
 	state.LoadDefaults()
+
+	if filename != "" {
+		state.filename = filename
+	}
 
 	f, err := os.Open(state.filename)
 	if err != nil {

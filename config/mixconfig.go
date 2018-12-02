@@ -22,7 +22,6 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"strings"
 
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
@@ -126,11 +125,11 @@ func (config *MixConfig) CreateDefaultConfig() error {
 		return err
 	}
 
-	return config.SaveConfig()
+	return config.Save()
 }
 
-// SaveConfig saves the properties in MixConfig to a TOML config file
-func (config *MixConfig) SaveConfig() error {
+// Save saves the properties in MixConfig to a TOML config file
+func (config *MixConfig) Save() error {
 	var buffer bytes.Buffer
 	buffer.Write([]byte("#VERSION " + config.version + "\n\n"))
 
@@ -153,37 +152,9 @@ func (config *MixConfig) SaveConfig() error {
 	return err
 }
 
-// SetProperty parse a property in the format "Section.Property", finds and sets it within the
-// config structure and saves the config file.
-func (config *MixConfig) SetProperty(propertyStr string, value string) error {
-	tokens := strings.Split(propertyStr, ".")
-	property, sections := tokens[len(tokens)-1], tokens[:len(tokens)-1]
-
-	sectionV := reflect.ValueOf(config).Elem()
-	for i := 0; i < len(sections); i++ {
-		sectionV = sectionV.FieldByName(sections[i])
-
-		if !sectionV.IsValid() {
-			return errors.Errorf("Unknown config sectionV: '%s'", tokens[i])
-		}
-	}
-
-	sectionT := reflect.TypeOf(sectionV.Interface())
-	for i := 0; i < sectionV.NumField(); i++ {
-		tag, ok := sectionT.Field(i).Tag.Lookup("toml")
-
-		if ok && tag == property {
-			sectionV.Field(i).SetString(value)
-			return config.SaveConfig()
-		}
-	}
-
-	return errors.Errorf("Property not found in config file: '%s'", property)
-}
-
-// LoadConfig loads a configuration file from a provided path or from local directory
+// Load loads a configuration file from a provided path or from local directory
 // is none is provided
-func (config *MixConfig) LoadConfig(filename string) error {
+func (config *MixConfig) Load(filename string) error {
 	if err := config.InitConfigPath(filename); err != nil {
 		return err
 	}

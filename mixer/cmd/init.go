@@ -43,7 +43,7 @@ var initCmd = &cobra.Command{
 			}
 		}
 
-		if err := b.Config.LoadConfig(configFile); err != nil {
+		if err := b.Config.Load(configFile); err != nil {
 			fail(err)
 		}
 

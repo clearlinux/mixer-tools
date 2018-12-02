@@ -33,11 +33,11 @@ func TestNewDNFConfOnInit(t *testing.T) {
 		t.Errorf("Failed to init default config: %s", err)
 	}
 
-	if err = b.Config.SaveConfig(); err != nil {
+	if err = b.Config.Save(); err != nil {
 		t.Errorf("Failed to create default config: %s", err)
 	}
 
-	if err = b.Config.LoadConfig(conf); err != nil {
+	if err = b.Config.Load(conf); err != nil {
 		t.Errorf("Failed to load default builder.conf: %s", err)
 	}
 	Offline = true

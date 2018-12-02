@@ -97,7 +97,7 @@ func (config *MixConfig) convertCurrent() error {
 	// Set config to the current format
 	config.version = CurrentConfigVersion
 
-	return config.SaveConfig()
+	return config.Save()
 }
 
 func (config *MixConfig) convertLegacy() error {
@@ -122,7 +122,7 @@ func (config *MixConfig) convertLegacy() error {
 	// Set config to the current format
 	config.version = CurrentConfigVersion
 
-	return config.SaveConfig()
+	return config.Save()
 }
 
 func (config *MixConfig) convertFormat() error {

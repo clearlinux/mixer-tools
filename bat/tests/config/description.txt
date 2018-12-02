@@ -1,0 +1,4 @@
+Config
+===================
+This test reproduces usage scenarios for `mixer config` subcommand.
+It tests the setter and getter on both the config and the state file.

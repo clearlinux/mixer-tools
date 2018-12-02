@@ -73,6 +73,17 @@ var configSetCmd = &cobra.Command{
 	the existence of the provided property, but will not validate the value provided.`,
 	Args: cobra.ExactArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		// Look for the value in mixer.state first
+		var ms config.MixState
+		err := ms.Load("")
+		if err == nil {
+			err = config.SetProperty(&ms, args[0], args[1])
+			if err == nil {
+				return
+			}
+		}
+
+		// Look for the value in builder.conf
 		var mc config.MixConfig
 		if err := mc.Load(configFile); err != nil {
 			fail(err)

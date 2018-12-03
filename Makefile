@@ -11,11 +11,11 @@ GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 .DEFAULT_GOAL := build
 
 build:
-	go install -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
-	go install ${GO_PACKAGE_PREFIX}/mixin
-	go install ${GO_PACKAGE_PREFIX}/swupd-extract
-	go install ${GO_PACKAGE_PREFIX}/swupd-inspector
-	go install ${GO_PACKAGE_PREFIX}/mixer-completion
+	go install -mod=vendor -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
+	go install -mod=vendor ${GO_PACKAGE_PREFIX}/mixin
+	go install -mod=vendor ${GO_PACKAGE_PREFIX}/swupd-extract
+	go install -mod=vendor ${GO_PACKAGE_PREFIX}/swupd-inspector
+	go install -mod=vendor ${GO_PACKAGE_PREFIX}/mixer-completion
 
 install:
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
@@ -29,11 +29,11 @@ install:
 	install -m 00644 $(MANPAGES) $(DESTDIR)/usr/share/man/man1/
 
 check:
-	go test -cover ${GO_PACKAGE_PREFIX}/...
+	go test -mod=vendor -cover ${GO_PACKAGE_PREFIX}/...
 
 .PHONY: checkcoverage
 checkcoverage:
-	go test -cover ${GO_PACKAGE_PREFIX}/... -coverprofile=coverage.out
+	go test -mod=vendor -cover ${GO_PACKAGE_PREFIX}/... -coverprofile=coverage.out
 	go tool cover -html=coverage.out
 
 .PHONY: lint

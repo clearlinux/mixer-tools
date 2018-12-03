@@ -240,6 +240,11 @@ func (b *Builder) ModifyBundles(action func([]string) error) error {
 // PrintVersions prints the current mix and upstream versions, and the
 // latest version of upstream.
 func (b *Builder) PrintVersions() error {
+	if Offline {
+		b.printVersionsOffline()
+		return nil
+	}
+
 	format, first, latest, err := b.getUpstreamFormatRange(b.UpstreamVer)
 	if err != nil {
 		return err
@@ -256,6 +261,16 @@ Latest upstream in format: %d
 	return nil
 }
 
+func (b *Builder) printVersionsOffline() {
+	fmt.Printf(`
+Current mix:               %d
+Current upstream:          %d (format: %s)
+
+First upstream in format: (not available in offline mode)
+Latest upstream in format: (not available in offline mode)
+`, b.MixVerUint32, b.UpstreamVerUint32, b.State.Mix.Format)
+}
+
 // UpdateVersions will validate then update both mix and upstream versions. If
 // upstream version is 0, then the latest upstream version in the current
 // upstream format will be taken instead.
@@ -264,7 +279,7 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 	var latest uint32
 	var err error
 
-	checkUpstream := (nextUpstream != b.UpstreamVerUint32)
+	checkUpstream := (nextUpstream != b.UpstreamVerUint32) && !Offline
 	if checkUpstream {
 		format, _, latest, err = b.getUpstreamFormatRange(b.UpstreamVer)
 		if err != nil {

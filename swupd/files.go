@@ -52,12 +52,14 @@ const (
 	StatusUnset StatusFlag = iota
 	StatusDeleted
 	StatusGhosted
+	StatusExperimental
 )
 
 var statusBytes = map[StatusFlag]byte{
-	StatusUnset:   '.',
-	StatusDeleted: 'd',
-	StatusGhosted: 'g',
+	StatusUnset:        '.',
+	StatusDeleted:      'd',
+	StatusGhosted:      'g',
+	StatusExperimental: 'e',
 }
 
 // ModifierFlag describes specific characteristics of a file, used later by
@@ -158,6 +160,8 @@ func statusFromFlag(flag byte) (StatusFlag, error) {
 		return StatusDeleted, nil
 	case 'g':
 		return StatusGhosted, nil
+	case 'e':
+		return StatusExperimental, nil
 	case '.':
 		return StatusUnset, nil
 	default:
@@ -171,6 +175,8 @@ func (s StatusFlag) String() string {
 		return "d"
 	case StatusGhosted:
 		return "g"
+	case StatusExperimental:
+		return "e"
 	case StatusUnset:
 		return "."
 	}

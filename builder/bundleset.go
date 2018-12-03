@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/clearlinux/mixer-tools/swupd"
 )
 
 var (
@@ -17,18 +19,10 @@ var (
 	bundleHeaderFieldRegex = regexp.MustCompile(`^# \[([A-Z]+)\]:\s*(.*)$`)
 )
 
-type bundleHeader struct {
-	Title        string
-	Description  string
-	Status       string
-	Capabilities string
-	Maintainer   string
-}
-
 type bundle struct {
 	Name     string
 	Filename string
-	Header   bundleHeader
+	Header   swupd.BundleHeader
 
 	DirectIncludes []string
 	DirectPackages map[string]bool

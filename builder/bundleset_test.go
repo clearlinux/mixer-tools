@@ -8,12 +8,14 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/clearlinux/mixer-tools/swupd"
 )
 
 func TestParseBundle(t *testing.T) {
 	tests := []struct {
 		Contents         []byte
-		ExpectedHeader   bundleHeader
+		ExpectedHeader   swupd.BundleHeader
 		ExpectedIncludes []string
 		ExpectedPackages map[string]bool
 		ShouldFail       bool
@@ -30,7 +32,7 @@ include(b)
 pkg1     # Comment
 pkg2
 `),
-			ExpectedHeader: bundleHeader{
+			ExpectedHeader: swupd.BundleHeader{
 				Title:        "fake",
 				Description:  "a description",
 				Status:       "a status",
@@ -50,7 +52,7 @@ pkg2
 include(a)
 pkg1
 `),
-			ExpectedHeader: bundleHeader{
+			ExpectedHeader: swupd.BundleHeader{
 				Title:       "fake",
 				Description: "a description",
 			},
@@ -67,7 +69,7 @@ pkg1
 include(a)
 pkg1 # [TITLE]: wrongtitle
 `),
-			ExpectedHeader: bundleHeader{
+			ExpectedHeader: swupd.BundleHeader{
 				Title:       "realtitle",
 				Description: "a description",
 			},

@@ -193,3 +193,28 @@ func TestFormat25BadContentSize(t *testing.T) {
 		})
 	}
 }
+
+// Experimental bundles added in format 27
+func TestFormats26to27ExperimentalBundles(t *testing.T) {
+	ts := newTestSwupd(t, "format26to27ExperimentalBundles")
+	defer ts.cleanup()
+
+	var header BundleHeader
+	header.Status = "Experimental"
+
+	// Format 26 should not recognize experimental bundles
+	ts.Format = 26
+	ts.Bundles = []string{"test-bundle1"}
+	ts.addFile(10, "test-bundle1", "/foo", "content")
+	ts.addHeader(10, "test-bundle1", header)
+	ts.createManifests(10)
+	checkManifestNotContains(t, ts.Dir, "10", "MoM", "Me..\t")
+
+	// Format 27 should recognize experimental bundles
+	ts.Format = 27
+	ts.Bundles = []string{"test-bundle2"}
+	ts.addFile(20, "test-bundle2", "/foo", "content")
+	ts.addHeader(20, "test-bundle2", header)
+	ts.createManifests(20)
+	checkManifestContains(t, ts.Dir, "20", "MoM", "Me..\t")
+}

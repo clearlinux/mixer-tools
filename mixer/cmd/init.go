@@ -51,6 +51,8 @@ var initCmd = &cobra.Command{
 		if initFlags.format != "" {
 			b.State.Mix.Format = initFlags.format
 		}
+		// Make current offline mode persistent
+		b.State.Mix.Offline = strconv.FormatBool(builder.Offline)
 		if err := b.State.Save(); err != nil {
 			fail(err)
 		}

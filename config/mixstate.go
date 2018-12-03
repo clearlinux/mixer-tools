@@ -26,7 +26,8 @@ import (
 )
 
 type mixSection struct {
-	Format string `toml:"FORMAT"`
+	Format  string `toml:"FORMAT"`
+	Offline string `toml:"OFFLINE"`
 }
 
 // MixState holds the current state of the mix
@@ -42,7 +43,7 @@ type MixState struct {
 }
 
 // CurrentStateVersion is the current revision for the state file structure
-var CurrentStateVersion = "1.0"
+var CurrentStateVersion = "1.1"
 
 // DefaultFormatPath is the default path for the format file specified by swupd
 const DefaultFormatPath = "/usr/share/defaults/swupd/format"
@@ -50,6 +51,8 @@ const DefaultFormatPath = "/usr/share/defaults/swupd/format"
 // LoadDefaults initialize the state object with sane values
 func (state *MixState) LoadDefaults() {
 	state.loadDefaultFormat()
+
+	state.Mix.Offline = "false"
 
 	state.filename = "mixer.state"
 	state.version = CurrentStateVersion

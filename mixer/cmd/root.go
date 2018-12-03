@@ -21,9 +21,11 @@ import (
 	"os/exec"
 	"runtime/pprof"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/config"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -31,6 +33,7 @@ import (
 )
 
 var configFile string
+var rootFlags *pflag.FlagSet
 
 const containerMarker = "container"
 
@@ -66,6 +69,19 @@ var RootCmd = &cobra.Command{
 			}
 
 			return nil
+		}
+
+		// If the user does not override offline mode, load it
+		// from the state file. This value has to be loaded early
+		// because the commands will use it before a builder is
+		// created.
+		if rootFlags != nil && !rootFlags.Changed("offline") {
+			var ms config.MixState
+			if err := ms.Load(""); err == nil {
+				if builder.Offline, err = strconv.ParseBool(ms.Mix.Offline); err != nil {
+					log.Println("Warning: Unable to parse offline value from mixer.state")
+				}
+			}
 		}
 
 		// Execute command in container if needed
@@ -124,6 +140,8 @@ func init() {
 
 	RootCmd.Flags().BoolVar(&rootCmdFlags.version, "version", false, "Print version information and quit")
 	RootCmd.Flags().BoolVar(&rootCmdFlags.check, "check", false, "Check all dependencies needed by mixer and quit")
+
+	rootFlags = RootCmd.PersistentFlags()
 }
 
 func cancelRun(cmd *cobra.Command) {

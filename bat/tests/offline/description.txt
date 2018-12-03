@@ -1,0 +1,5 @@
+Offline
+===================
+This test iterates through all mixer subcommands with the offline flag to
+validate if they are able to operate in offline. To simulate a connection-less
+environment, an invalid proxy is set, causing all network commands to fail.

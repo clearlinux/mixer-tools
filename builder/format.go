@@ -126,6 +126,11 @@ func (b *Builder) UnstageMixFromBump() error {
 // CheckBumpNeeded returns nil if it successfully deduces there is no format
 // bump boundary being crossed.
 func (b *Builder) CheckBumpNeeded(silent bool) (bool, error) {
+	// Skip bump checks in offline mode
+	if Offline {
+		return false, nil
+	}
+
 	version, err := b.getLastBuildUpstreamVersion()
 	if err != nil {
 		if os.IsNotExist(err) {

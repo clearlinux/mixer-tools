@@ -305,7 +305,7 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
 	fmt.Printf(`Old mix:      %d
 Old upstream: %d (format: %s)
 
-New mix:      %d\n
+New mix:      %d
 New upstream: %d (format: %s)
 `, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, nextFormat)
 

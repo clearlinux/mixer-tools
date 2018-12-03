@@ -61,6 +61,17 @@ includes:	{{.Name}}
 `,
 }
 
+const statusExperimental = "Experimental"
+
+func setManifestStatusForFormat(format uint, bundleStatus string, statusFlag *StatusFlag) {
+	if format > 26 {
+		// Experimental bundles are introduced in format 27 and should not be created in older formats
+		if bundleStatus == statusExperimental {
+			*statusFlag = StatusExperimental
+		}
+	}
+}
+
 // Delta manifests were introduced in format 26 and should not be created in older formats
 func writeDeltaManifestForFormat(tw *tar.Writer, outputDir string, dManifest *Manifest, toVersion uint32) error {
 	if dManifest == nil || dManifest.Header.Format <= 25 {

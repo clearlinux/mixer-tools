@@ -510,6 +510,32 @@ func (fs *testFileSystem) addToBundleInfo(version uint32, bundle, file string) {
 	}
 }
 
+func (fs *testFileSystem) addHeaderToBundleInfo(version uint32, bundle string, header BundleHeader) {
+	bundleInfoPath := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	biBytes, err := ioutil.ReadFile(bundleInfoPath)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	var bi BundleInfo
+	err = json.Unmarshal(biBytes, &bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	bi.Header = header
+
+	b, err := json.Marshal(&bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(bundleInfoPath, b, 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
 func (fs *testFileSystem) addIncludesToBundleInfo(version uint32, bundle string, includes []string) {
 	bundleInfoPath := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
 	biBytes, err := ioutil.ReadFile(bundleInfoPath)
@@ -573,6 +599,16 @@ func (fs *testFileSystem) addExtraFile(version uint32, bundle, file, content str
 	}
 
 	fs.addToFullChroot(version, file, content)
+}
+
+func (fs *testFileSystem) addHeader(version uint32, bundle string, header BundleHeader) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fs.initBundleInfo(version, bundle, []string{})
+	}
+
+	fs.addHeaderToBundleInfo(version, bundle, header)
 }
 
 func (fs *testFileSystem) addIncludes(version uint32, bundle string, includes []string) {

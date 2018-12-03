@@ -322,7 +322,7 @@ func (MoM *Manifest) writeIterativeManifests(newManifests []*Manifest, out strin
 		}
 
 		// add bundle to Manifest.MoM
-		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version, TypeIManifest); err != nil {
+		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version, TypeIManifest, bMan.BundleInfo.Header.Status); err != nil {
 			return nil, err
 		}
 
@@ -359,7 +359,7 @@ func (MoM *Manifest) writeBundleManifests(newManifests []*Manifest, out string) 
 		}
 
 		// add bundle to Manifest.MoM
-		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version, TypeManifest); err != nil {
+		if err = MoM.createManifestRecord(out, manPath, MoM.Header.Version, TypeManifest, bMan.BundleInfo.Header.Status); err != nil {
 			return nil, err
 		}
 	}
@@ -489,7 +489,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 	// itself as an index manifest may not have been created for this version.
 	osIdxDir := filepath.Join(c.outputDir, fmt.Sprint(osIdx.Header.Version))
 	osIdxPath := filepath.Join(osIdxDir, "Manifest."+osIdx.Name)
-	if err = newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version, TypeManifest); err != nil {
+	if err = newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version, TypeManifest, osIdx.BundleInfo.Header.Status); err != nil {
 		return nil, err
 	}
 

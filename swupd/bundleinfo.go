@@ -24,10 +24,20 @@ import (
 	"strings"
 )
 
+// BundleHeader describes the meta information of a bundle
+type BundleHeader struct {
+	Title        string
+	Description  string
+	Status       string
+	Capabilities string
+	Maintainer   string
+}
+
 // BundleInfo describes the JSON object to be read from the *-info files
 type BundleInfo struct {
 	Name           string
 	Filename       string
+	Header         BundleHeader
 	DirectIncludes []string
 	DirectPackages map[string]bool
 	AllPackages    map[string]bool

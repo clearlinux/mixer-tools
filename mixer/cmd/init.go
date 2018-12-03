@@ -32,6 +32,8 @@ var initCmd = &cobra.Command{
 				// Note: output matches Cobra's default pflag error syntax, as
 				// if initFlags.clearVer were an int all along.
 				return errors.Errorf("invalid argument \"%s\" for \"--clear-version\" flag: %s", initFlags.clearVer, err)
+			} else if builder.Offline {
+				return errors.Errorf("Offline mode requires clear version to be set manually. Please use --clear-version flag during init")
 			}
 		}
 

@@ -3,7 +3,7 @@ include Makefile.bats
 
 .NOTPARALLEL:
 
-VERSION=5.4.0
+VERSION=5.5.0
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 
 .PHONY: build install clean check

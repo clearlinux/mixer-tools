@@ -4,13 +4,21 @@ sudo: required
 go:
     - 1.11
 
+env:
+    - GO111MODULE=on
+
 go_import_path: github.com/clearlinux/mixer-tools
 
 services:
     - docker
 
 before_install:
+    - sudo apt-get update -qq
+    - go get -u gopkg.in/alecthomas/gometalinter.v2
+    - gometalinter.v2 --install
     - docker build -t testdock .
 
 script:
+    - make lint
+    - make check
     - docker run testdock

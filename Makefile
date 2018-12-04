@@ -1,4 +1,10 @@
-# Makefile used to create packages for mixer-tools.
+# Makefile used to create packages for mixer-tools. It doesn't assume
+# that the code is inside a GOPATH, and always copy the files into a
+# new workspace to get the work done. Go tools doesn't reliably work
+# with symbolic links.
+#
+# For historical purposes, it also works in a development environment
+# when the repository is already inside a GOPATH.
 include Makefile.bats
 
 .NOTPARALLEL:
@@ -6,18 +12,38 @@ include Makefile.bats
 VERSION=5.5.0
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 
+.PHONY: gopath
+
+# Strictly speaking we should check if it the directory is inside an
+# actual GOPATH, but the directory structure matching is likely enough.
+ifeq (,$(findstring ${GO_PACKAGE_PREFIX},${CURDIR}))
+LOCAL_GOPATH := ${CURDIR}/.gopath
+export GOPATH := ${LOCAL_GOPATH}
+gopath:
+	@rm -rf ${LOCAL_GOPATH}/src
+	@mkdir -p ${LOCAL_GOPATH}/src/${GO_PACKAGE_PREFIX}
+	@cp -af * ${LOCAL_GOPATH}/src/${GO_PACKAGE_PREFIX}
+	@echo "Prepared a local GOPATH=${GOPATH}"
+else
+LOCAL_GOPATH :=
+GOPATH ?= ${HOME}/go
+gopath:
+	@echo "Code already in existing GOPATH=${GOPATH}"
+endif
+
 .PHONY: build install clean check
 
 .DEFAULT_GOAL := build
 
-build:
+
+build: gopath
 	go install -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
 	go install ${GO_PACKAGE_PREFIX}/mixin
 	go install ${GO_PACKAGE_PREFIX}/swupd-extract
 	go install ${GO_PACKAGE_PREFIX}/swupd-inspector
 	go install ${GO_PACKAGE_PREFIX}/mixer-completion
 
-install:
+install: gopath
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
 	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.
@@ -28,7 +54,7 @@ install:
 	test -d $(DESTDIR)/usr/share/man/man1 || install -D -d -m 00755 $(DESTDIR)/usr/share/man/man1
 	install -m 00644 $(MANPAGES) $(DESTDIR)/usr/share/man/man1/
 
-check:
+check: gopath
 	go test -cover ${GO_PACKAGE_PREFIX}/...
 
 .PHONY: checkcoverage
@@ -37,7 +63,7 @@ checkcoverage:
 	go tool cover -html=coverage.out
 
 .PHONY: lint
-lint:
+lint: gopath
 	@gometalinter.v2 --deadline=10m --tests --vendor --disable-all \
 	--enable=misspell \
 	--enable=vet \
@@ -54,7 +80,11 @@ lint:
 	./...
 
 clean:
-	go clean -i -x ./...
+ifeq (,${LOCAL_GOPATH})
+	go clean -i -x
+else
+	rm -rf ${LOCAL_GOPATH}
+endif
 	rm -f mixer-tools-*.tar.gz
 
 release:

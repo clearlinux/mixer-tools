@@ -17,7 +17,7 @@ env:
 
 before_install:
     - sudo apt-get update -qq
-      sudo apt-get install zstd
+    - sudo apt-get install zstd
     - curl -L https://git.io/vp6lP | sh
     - mv ./bin/gometalinter ./bin/gometalinter.v2
 

@@ -14,8 +14,7 @@ services:
 
 before_install:
     - sudo apt-get update -qq
-    - go get -u gopkg.in/alecthomas/gometalinter.v2
-    - gometalinter.v2 --install
+    - curl -L https://git.io/vp6lP | sh
     - docker build -t testdock .
 
 script:

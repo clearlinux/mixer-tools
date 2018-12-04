@@ -12,12 +12,15 @@ go_import_path: github.com/clearlinux/mixer-tools
 services:
     - docker
 
+env:
+    - PATH=$PATH:.
+
 before_install:
     - sudo apt-get update -qq
+      sudo apt-get install zstd
     - curl -L https://git.io/vp6lP | sh
-    - docker build -t testdock .
+    - mv ./bin/gometalinter ./bin/gometalinter.v2
 
 script:
     - make lint
     - make check
-    - docker run testdock

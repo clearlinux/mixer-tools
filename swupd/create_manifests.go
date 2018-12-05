@@ -82,6 +82,7 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 					TimeStamp: ui.timeStamp,
 				},
 				Name: bundleName,
+				Type: ManifestBundle,
 			}
 
 			if bundleName == "full" {
@@ -459,6 +460,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 			Previous:   lastVersion,
 			TimeStamp:  timeStamp,
 		},
+		Type: ManifestMoM,
 	}
 	// if min-version wasn't explicitly set we need to carry the header forward
 	// from the old MoM

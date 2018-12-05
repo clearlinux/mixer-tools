@@ -237,6 +237,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		dManifest = &Manifest{
 			Header: fromManifest.Header,
 			Name:   fromManifest.Name,
+			Type:   ManifestDelta,
 		}
 		dManifest.Header.ContentSize = 0
 

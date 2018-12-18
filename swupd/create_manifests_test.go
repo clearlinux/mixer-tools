@@ -517,6 +517,61 @@ func TestCreateManifestsMinVersion(t *testing.T) {
 	ts.checkExists("www/30/Manifest.test-bundle.I.20")
 }
 
+func TestIManifestMinVersionForwarding(t *testing.T) {
+	ts := newTestSwupd(t, "iManifestMinVersionForwarding")
+	defer ts.cleanup()
+	ts.Format = 26
+
+	// Create test-bundle1 iterative manifest at v20
+	ts.Bundles = []string{"test-bundle1"}
+	ts.createManifests(10)
+	ts.addFile(20, "test-bundle1", "/bar", "bar")
+	ts.createManifests(20)
+	ts.checkExists("www/20/Manifest.test-bundle1.I.10")
+	ts.checkContains("www/20/Manifest.MoM", "test-bundle1.I.10")
+
+	// Create test-bundle2 iterative manifest at v40 with all files >= new minversion
+	ts.Bundles = append(ts.Bundles, "test-bundle2")
+	ts.addFile(30, "test-bundle1", "/bar", "bar")
+	ts.createManifests(30)
+	ts.addFile(40, "test-bundle1", "/bar", "bar")
+	ts.addFile(40, "test-bundle2", "/bar", "bar")
+	ts.createManifests(40)
+	ts.checkExists("www/40/Manifest.test-bundle2.I.30")
+	ts.checkContains("www/40/Manifest.MoM", "test-bundle2.I.30")
+	ts.checkContains("www/40/Manifest.MoM", "test-bundle1.I.10")
+
+	// Minversion != latest
+	ts.MinVersion = 30
+	ts.addFile(50, "test-bundle1", "/bar", "bar")
+	ts.addFile(50, "test-bundle2", "/bar", "bar")
+	ts.createManifests(50)
+
+	// Verify that iterative manifests affected by the minversion (test-bundle1.I.10)
+	// are replaced and iterative manifests unaffected by the minversion (test-bundle2.I.30)
+	// are forwarded into the new MoM.
+	ts.checkNotContains("www/50/Manifest.MoM", "test-bundle1.I.10")
+	ts.checkContains("www/50/Manifest.MoM", "test-bundle1.I.20")
+	ts.checkContains("www/50/Manifest.MoM", "test-bundle2.I.30")
+	ts.checkExists("www/50/Manifest.test-bundle1.I.20")
+	ts.checkNotExists("www/50/Manifest.test-bundle2.I.30")
+
+	// Minversion == latest
+	ts.MinVersion = 60
+	ts.addFile(60, "test-bundle1", "/bar", "bar")
+	ts.addFile(60, "test-bundle2", "/bar", "bar")
+	ts.createManifests(60)
+
+	// When the minversion == latest, iterative manifests should not be generated or
+	// forwarded to the new MoM.
+	ts.checkNotContains("www/60/Manifest.MoM", "test-bundle1.I.20")
+	ts.checkNotContains("www/60/Manifest.MoM", "test-bundle1.I.50")
+	ts.checkNotContains("www/60/Manifest.MoM", "test-bundle2.I.30")
+	ts.checkNotContains("www/60/Manifest.MoM", "test-bundle2.I.40")
+	ts.checkNotExists("www/60/Manifest.test-bundle1.I.50")
+	ts.checkNotExists("www/60/Manifest.test-bundle2.I.40")
+}
+
 func TestCreateManifestsMVDeletes(t *testing.T) {
 	ts := newTestSwupd(t, "minVersionDeletes")
 	defer ts.cleanup()

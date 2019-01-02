@@ -161,7 +161,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 		bumpNeeded := true
 
 		for bumpNeeded {
-			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --native", buildFlags.newFormat)
+			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s", buildFlags.newFormat)
 			cmdToRun := strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
@@ -173,7 +173,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			if err = ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
 				fail(err)
 			}
-			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s --native", buildFlags.newFormat)
+			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", buildFlags.newFormat)
 			cmdToRun = strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
@@ -208,12 +208,12 @@ var buildFormatBumpCmd = &cobra.Command{
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
 
-		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --native", buildFlags.newFormat)
+		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s", buildFlags.newFormat)
 		cmdToRun := strings.Split(cmdStr, " ")
 		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
 		}
-		cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s --native", buildFlags.newFormat)
+		cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", buildFlags.newFormat)
 		cmdToRun = strings.Split(cmdStr, " ")
 		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
@@ -538,17 +538,14 @@ func setUpdateFlags(cmd *cobra.Command) {
 	_ = cmd.Flags().MarkDeprecated("keep-chroots", "this flag is ignored by the update builder")
 }
 
-var containerCmds = []*cobra.Command{
-	buildBundlesCmd,
-	buildUpdateCmd,
+var buildCmds = []*cobra.Command{
 	buildAllCmd,
+	buildBundlesCmd,
 	buildDeltaPacksCmd,
-}
-
-var nativeCmds = []*cobra.Command{
 	buildFormatBumpCmd,
 	buildUpstreamFormatCmd,
 	buildImageCmd,
+	buildUpdateCmd,
 }
 
 var bumpCmds = []*cobra.Command{
@@ -557,17 +554,11 @@ var bumpCmds = []*cobra.Command{
 }
 
 func init() {
-	for _, cmd := range containerCmds {
-		addMarker(cmd, containerMarker)
-		buildCmd.AddCommand(cmd)
-	}
-
-	for _, cmd := range nativeCmds {
+	for _, cmd := range buildCmds {
 		buildCmd.AddCommand(cmd)
 	}
 
 	for _, cmd := range bumpCmds {
-		addMarker(cmd, containerMarker)
 		addMarker(cmd, bumpMarker)
 		buildFormatBumpCmd.AddCommand(cmd)
 	}
@@ -635,10 +626,10 @@ func printFormatMismatch(b *builder.Builder) error {
 	}
 
 	if hostFormat == "" {
-		log.Println("Warning: Unable to determine host format. Running natively may fail.")
+		log.Println("Warning: Unable to determine host format; running  may fail.")
 	} else if hostFormat != upstreamFormat {
 		log.Println("Warning: The host format and mix upstream format do not match.",
-			"Mixer may be incompatible with this format; running natively may fail.")
+			"Mixer may be incompatible with this format; running may fail.")
 	}
 
 	return nil

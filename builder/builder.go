@@ -37,10 +37,6 @@ import (
 // Version of Mixer. This is provided by ldflags in Makefile during compilation
 var Version = ""
 
-// Native controls whether mixer runs the command on the native machine or in a
-// container.
-var Native = true
-
 // Offline controls whether mixer attempts to automatically cache upstream
 // bundles. In offline mode, all necessary bundles must exist in local-bundles.
 var Offline = false

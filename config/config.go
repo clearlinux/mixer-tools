@@ -68,7 +68,6 @@ type mixerConf struct {
 	LocalBundleDir string `required:"false" mount:"true" toml:"LOCAL_BUNDLE_DIR"`
 	LocalRepoDir   string `required:"false" mount:"true" toml:"LOCAL_REPO_DIR"`
 	LocalRPMDir    string `required:"false" mount:"true" toml:"LOCAL_RPM_DIR"`
-	DockerImgPath  string `required:"false" toml:"DOCKER_IMAGE_PATH"`
 }
 
 // LoadDefaults sets sane values for the config properties
@@ -103,7 +102,6 @@ func (config *MixConfig) LoadDefaultsForPath(path string) {
 
 	// [Mixer]
 	config.Mixer.LocalBundleDir = filepath.Join(path, "local-bundles")
-	config.Mixer.DockerImgPath = "clearlinux/mixer"
 
 	config.Mixer.LocalRPMDir = filepath.Join(path, "local-rpms")
 	config.Mixer.LocalRepoDir = filepath.Join(path, "local-yum")

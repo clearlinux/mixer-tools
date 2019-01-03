@@ -29,7 +29,7 @@ import (
 )
 
 // CurrentConfigVersion holds the current version of the config file
-const CurrentConfigVersion = "1.0"
+const CurrentConfigVersion = "1.1"
 
 func (config *MixConfig) parseVersion(reader *bufio.Reader) (bool, error) {
 	verBytes, err := reader.ReadString('\n')
@@ -182,7 +182,6 @@ func (config *MixConfig) parseLegacy() error {
 		{`^LOCAL_BUNDLE_DIR\s*=\s*`, &config.Mixer.LocalBundleDir, false},
 		{`^LOCAL_REPO_DIR\s*=\s*`, &config.Mixer.LocalRepoDir, false},
 		{`^LOCAL_RPM_DIR\s*=\s*`, &config.Mixer.LocalRPMDir, false},
-		{`^DOCKER_IMAGE_PATH\s*=\s*`, &config.Mixer.DockerImgPath, false},
 	}
 
 	for _, h := range fields {

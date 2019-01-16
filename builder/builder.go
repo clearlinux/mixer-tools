@@ -364,13 +364,17 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 		}
 	}
 
-	// Publish. Update the latest version both in the format (used by update itself) and in LAST_VER
-	// (used to create newer manifests).
+	// Publish. Update the latest version file in various locations.
 	if !params.Publish {
 		return nil
 	}
 
 	fmt.Printf("Setting latest version to %s\n", b.MixVer)
+
+	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "latest_version"), []byte(b.MixVer), 0644)
+	if err != nil {
+		return errors.Wrapf(err, "couldn't update the latest_version file")
+	}
 
 	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
 	if err != nil {

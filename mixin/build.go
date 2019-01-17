@@ -33,6 +33,9 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// Default number of RPM download retries
+const retriesDefault = 3
+
 var buildCmd = &cobra.Command{
 	Use:   "build",
 	Short: "Build a mix from local or remote mix content",
@@ -68,7 +71,7 @@ func buildBundles(b *builder.Builder) error {
 	}
 	// Always wipe /image and /www because mixver will only be incremented if the last
 	// build was valid, so the user may end up using bad data if it's not cleaned.
-	return errors.Wrap(b.BuildBundles(template, privkey, false, true), "Error building bundles")
+	return errors.Wrap(b.BuildBundles(template, privkey, false, true, retriesDefault), "Error building bundles")
 }
 
 func mergeMoMs(mixWS string, mixVer, lastVer int) error {

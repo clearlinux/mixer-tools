@@ -33,17 +33,21 @@ import (
 
 const bumpMarker = "format-bump"
 
+// Sets the default number of RPM download retries
+const retriesDefault = 3
+
 type buildCmdFlags struct {
-	format        string
-	newFormat     string
-	increment     bool
-	minVersion    int
-	clean         bool
-	noSigning     bool
-	noPublish     bool
-	template      string
-	skipFullfiles bool
-	skipPacks     bool
+	format          string
+	newFormat       string
+	increment       bool
+	minVersion      int
+	clean           bool
+	noSigning       bool
+	downloadRetries int
+	noPublish       bool
+	template        string
+	skipFullfiles   bool
+	skipPacks       bool
 
 	numFullfileWorkers int
 	numDeltaWorkers    int
@@ -104,7 +108,10 @@ var buildCmd = &cobra.Command{
 	},
 }
 
-func buildBundles(builder *builder.Builder, signflag, cleanFlag bool) error {
+func buildBundles(builder *builder.Builder, signflag, cleanFlag bool, downloadRetries int) error {
+	if downloadRetries < 0 {
+		return errors.New("Please supply value >= 0 for --retries")
+	}
 	// Create the signing and validation key/cert
 	if _, err := os.Stat(builder.Config.Builder.Cert); os.IsNotExist(err) {
 		fmt.Println("Generating certificate for signature validation...")
@@ -114,12 +121,12 @@ func buildBundles(builder *builder.Builder, signflag, cleanFlag bool) error {
 		}
 		template := helpers.CreateCertTemplate()
 
-		err = builder.BuildBundles(template, privkey, signflag, cleanFlag)
+		err = builder.BuildBundles(template, privkey, signflag, cleanFlag, downloadRetries)
 		if err != nil {
 			return errors.Wrap(err, "Error building bundles")
 		}
 	} else {
-		err := builder.BuildBundles(nil, nil, true, cleanFlag)
+		err := builder.BuildBundles(nil, nil, true, cleanFlag, downloadRetries)
 		if err != nil {
 			return errors.Wrap(err, "Error building bundles")
 		}
@@ -138,7 +145,7 @@ var buildBundlesCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean)
+		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries)
 		if err != nil {
 			fail(err)
 		}
@@ -161,7 +168,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 		bumpNeeded := true
 
 		for bumpNeeded {
-			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --native", buildFlags.newFormat)
+			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s  --retries %d --native", buildFlags.newFormat, buildFlags.downloadRetries)
 			cmdToRun := strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
@@ -208,7 +215,7 @@ var buildFormatBumpCmd = &cobra.Command{
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
 
-		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --native", buildFlags.newFormat)
+		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --retries %d --native", buildFlags.newFormat, buildFlags.downloadRetries)
 		cmdToRun := strings.Split(cmdStr, " ")
 		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
@@ -262,7 +269,7 @@ var buildFormatOldCmd = &cobra.Command{
 
 		// Build bundles normally. At this point the bundles to be deleted should still
 		// be part of the mixbundles list and the groups.ini
-		if err = buildBundles(b, buildFlags.noSigning, buildFlags.clean); err != nil {
+		if err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries); err != nil {
 			fail(err)
 		}
 
@@ -415,7 +422,7 @@ var buildAllCmd = &cobra.Command{
 				failf("Couldn't add the RPMs: %s", err)
 			}
 		}
-		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean)
+		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries)
 		if err != nil {
 			failf("Couldn't build bundles: %s", err)
 		}
@@ -582,6 +589,7 @@ func init() {
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numFullfileWorkers, "fullfile-workers", 0, "Number of parallel workers when creating fullfiles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numBundleWorkers, "bundle-workers", 0, "Number of parallel workers when building bundles, 0 means number of CPUs")
+	buildCmd.PersistentFlags().IntVar(&buildFlags.downloadRetries, "retries", retriesDefault, "Number of retry attempts to download RPMs")
 
 	RootCmd.AddCommand(buildCmd)
 

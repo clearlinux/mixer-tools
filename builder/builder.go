@@ -235,7 +235,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // DNF configuration file, then resolving all files for each bundle using dnf
 // resolve and no-op installs. One full chroot is created from this step with
 // the file contents of all bundles.
-func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag, clean bool) error {
+func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag, clean bool, downloadRetries int) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
 		return err
@@ -300,7 +300,7 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	}
 
 	// TODO: Merge the rest of this function into buildBundles (or vice-versa).
-	err = b.buildBundles(set)
+	err = b.buildBundles(set, downloadRetries)
 	if err != nil {
 		return err
 	}

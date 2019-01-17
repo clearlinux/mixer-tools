@@ -436,17 +436,51 @@ func genUpdateBundleSpecialFiles(chrootDir string, b *Builder) error {
 	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.State.Mix.Format), 0644)
 }
 
-func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle) error {
+func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int) error {
+	var downloadErr error
+
+	if maxRetries < 0 {
+		return errors.Errorf("maxRetries value < 0 for RPM downloads")
+	}
+
+	args := merge(packagerCmd, "--installroot="+baseDir, "install", "--downloadonly")
+	args = append(args, rpmList...)
+
+	for attempts := 0; attempts <= maxRetries; attempts++ {
+		_, downloadErr = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+		if downloadErr == nil {
+			return downloadErr
+		}
+
+		fmt.Printf("RPM download attempt %d failed. Maximum of %d attempts.\n", attempts+1, maxRetries+1)
+		if err := clearDNFCache(packagerCmd); err != nil {
+			return err
+		}
+	}
+	return downloadErr
+}
+
+func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle, downloadRetries int) error {
 	var err error
 	baseDir := filepath.Join(buildVersionDir, "full")
-	args := merge(packagerCmd, "--installroot="+baseDir, "install")
+	rpmList := []string{}
+
 	if len(bundle.AllPackages) > 0 {
 		// There were packages directly included for this bundle so
 		// install to full chroot. This check is necessary so we don't
 		// call dnf install with no package listed.
 		for p := range bundle.AllPackages {
-			args = append(args, p)
+			rpmList = append(rpmList, p)
 		}
+
+		// Retry RPM downloads to avoid timeout failures due to slow network
+		err = downloadRpms(packagerCmd, rpmList, baseDir, downloadRetries)
+		if err != nil {
+			return err
+		}
+
+		args := merge(packagerCmd, "--installroot="+baseDir, "install")
+		args = append(args, rpmList...)
 		_, err = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err != nil {
 			return err
@@ -502,7 +536,7 @@ func rmDNFStatePaths(fullDir string) {
 	}
 }
 
-func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string) error {
+func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string, downloadRetries int) error {
 	fmt.Println("Cleaning DNF cache before full install")
 	if err := clearDNFCache(packagerCmd); err != nil {
 		return err
@@ -522,7 +556,7 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 			}
 		}
 
-		if err := installBundleToFull(packagerCmd, buildVersionDir, bundle); err != nil {
+		if err := installBundleToFull(packagerCmd, buildVersionDir, bundle, downloadRetries); err != nil {
 			return err
 		}
 
@@ -556,7 +590,7 @@ func writeBundleInfo(bundle *bundle, path string) error {
 	return ioutil.WriteFile(path, b, 0644)
 }
 
-func (b *Builder) buildBundles(set bundleSet) error {
+func (b *Builder) buildBundles(set bundleSet, downloadRetries int) error {
 	var err error
 
 	if b.Config.Builder.ServerStateDir == "" {
@@ -697,7 +731,7 @@ src=%s
 	}
 
 	// install all bundles in the set (including os-core) to the full chroot
-	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version)
+	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version, downloadRetries)
 	if err != nil {
 		return err
 	}

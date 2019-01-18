@@ -20,9 +20,10 @@ setup() {
   mixer bundle create foo.bar           # 'bundle list' should work even if an invalid bundle is created
 
   run mixer $MIXARGS bundle list
-  [[ ${#lines[@]} -eq 4 ]]              # Exactly 4 bundles in the mix
+  [[ ${#lines[@]} -eq 5 ]]              # Exactly 5 bundles in the mix
   [[ "$output" =~ os-core[[:space:]] ]] # To avoid just matching os-core-update
   [[ "$output" =~ os-core-update ]]
+  [[ "$output" =~ os-core-webproxy ]]
   [[ "$output" =~ kernel-native ]]
   [[ "$output" =~ bootloader ]]
 
@@ -33,7 +34,7 @@ setup() {
   mixer $MIXARGS bundle add editors
 
   run mixer $MIXARGS bundle list
-  [[ ${#lines[@]} -gt 4 ]]                         # More bundles in list now
+  [[ ${#lines[@]} -gt 5 ]]                         # More bundles in list now
   [[ "$output" =~ editors[[:space:]]+\(upstream ]] # "editors" bundle is from upstream
 }
 

@@ -81,7 +81,7 @@ func init() {
 	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Supply the Clear version to compose the mix from")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")
-	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://download.clearlinux.org", "Supply an upstream URL to use for mixing")
+	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://cdn.download.clearlinux.org", "Supply an upstream URL to use for mixing")
 	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")
 	initCmd.Flags().StringVar(&initFlags.format, "format", "", "Supply the format version for the mix")
 

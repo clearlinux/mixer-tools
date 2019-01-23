@@ -66,7 +66,7 @@ Flags:
 const (
 	clearLinuxLatestURL         = "https://download.clearlinux.org/latest"
 	clearLinuxBaseContent       = "https://cdn.download.clearlinux.org/update"
-	clearLinuxCertificateURL    = "https://download.clearlinux.org/current/Swupd_Root.pem"
+	clearLinuxCertificateURL    = "https://cdn.download.clearlinux.org/current/Swupd_Root.pem"
 	clearLinuxCertificateSHA256 = "ff06fc76ec5148040acb4fcb2bc8105cc72f1963b55de0daf3a4ed664c6fe72c"
 )
 

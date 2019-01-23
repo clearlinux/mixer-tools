@@ -140,7 +140,7 @@ plugins=0
 [clear]
 name=Clear
 failovermethod=priority
-baseurl=https://download.clearlinux.org/releases/\$releasever/clear/x86_64/os/
+baseurl=https://cdn.download.clearlinux.org/releases/\$releasever/clear/x86_64/os/
 enabled=1
 gpgcheck=0
 EOF

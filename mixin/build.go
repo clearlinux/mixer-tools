@@ -191,7 +191,7 @@ func buildMix(prepNeeded bool) error {
 			filepath.Join(oldMix, "Manifest.MoM"))
 	}
 
-	upstreamMoM := fmt.Sprintf("https://download.clearlinux.org/update/%d/Manifest.MoM", ver)
+	upstreamMoM := fmt.Sprintf("https://cdn.download.clearlinux.org/update/%d/Manifest.MoM", ver)
 	err = helpers.DownloadFile(upstreamMoM, "Manifest.MoM")
 	if err != nil {
 		_ = os.Remove(mixFlagFile)

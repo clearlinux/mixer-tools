@@ -118,7 +118,7 @@ func setUpMixDir(upstreamVer, mixVer int) error {
 		return err
 	}
 	err = ioutil.WriteFile(filepath.Join(mixWS, "upstreamurl"),
-		[]byte("https://download.clearlinux.org"), 0644)
+		[]byte("https://cdn.download.clearlinux.org"), 0644)
 	if err != nil {
 		return err
 	}

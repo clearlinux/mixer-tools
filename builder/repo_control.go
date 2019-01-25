@@ -69,6 +69,7 @@ failovermethod=priority
 baseurl={{.UpstreamURL}}/releases/$releasever/clear/x86_64/os/
 enabled=1
 gpgcheck=0
+timeout=45
 {{end}}{{if .Local}}
 [local]
 name=Local

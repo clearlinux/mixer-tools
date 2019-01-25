@@ -143,6 +143,7 @@ failovermethod=priority
 baseurl=https://cdn.download.clearlinux.org/releases/\$releasever/clear/x86_64/os/
 enabled=1
 gpgcheck=0
+timeout=45
 EOF
 }
 

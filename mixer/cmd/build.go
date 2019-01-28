@@ -585,6 +585,8 @@ func init() {
 
 	RootCmd.AddCommand(buildCmd)
 
+	buildAllCmd.Flags().BoolVar(&buildFlags.clean, "clean", false, "Wipe the /image and /www dirs if they exist")
+
 	buildBundlesCmd.Flags().BoolVar(&buildFlags.clean, "clean", false, "Wipe the /image and /www dirs if they exist")
 	buildBundlesCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
 

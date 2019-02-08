@@ -496,11 +496,46 @@ flag --to. The target version must be larger than the --from version.
 	RunE: runBuildDeltaPacks,
 }
 
+var buildDeltaManifestsCmd = &cobra.Command{
+	Use:   "delta-manifests",
+	Short: "Build delta manifests used to optimize update between versions",
+	Long: `Build delta manifests used to optimize update between versions
+
+When a swupd client updates content, it uses manifest files to get file
+metadata. If the current versions manifests already exists on the system
+and the delta manifest files are available on the server, the client will
+attempt to apply the delta manifests to create the new version manifests
+rather than downloading the full manifest directly. If a bundle hasn't changed
+between two versions, no delta manifest needs to be generated.
+
+To generate the delta manifests to optimize update from VER to the current mix
+version use
+
+    mixer build delta-manifests --from VER
+
+Alternatively, to generate delta manifests for a set of NUM previous versions,
+each one to the current mix version, instead of --from use
+
+    mixer build delta-manifests --previous-versions NUM
+
+To change the target version (by default the current version), use the
+flag --to. The target version must be larger than the --from version.
+
+`,
+	RunE: runBuildDeltaManifests,
+}
+
 var buildDeltaPacksFlags struct {
 	previousVersions uint32
 	from             uint32
 	to               uint32
 	report           bool
+}
+
+var buildDeltaManifestsFlags struct {
+	previousVersions uint32
+	from             uint32
+	to               uint32
 }
 
 func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
@@ -519,6 +554,29 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to, buildDeltaPacksFlags.report)
 	} else {
 		err = b.BuildDeltaPacksPreviousVersions(buildDeltaPacksFlags.previousVersions, buildDeltaPacksFlags.to, buildDeltaPacksFlags.report)
+	}
+	if err != nil {
+		fail(err)
+	}
+	return nil
+}
+
+func runBuildDeltaManifests(cmd *cobra.Command, args []string) error {
+	fromChanged := cmd.Flags().Changed("from")
+	prevChanged := cmd.Flags().Changed("previous-versions")
+	if fromChanged == prevChanged {
+		return errors.Errorf("either --from or --previous-versions must be set, but not both")
+	}
+
+	b, err := builder.NewFromConfig(configFile)
+	if err != nil {
+		fail(err)
+	}
+	setWorkers(b)
+	if fromChanged {
+		err = b.BuildDeltaManifests(buildDeltaManifestsFlags.from, buildDeltaManifestsFlags.to)
+	} else {
+		err = b.BuildDeltaManifestsPreviousVersions(buildDeltaManifestsFlags.previousVersions, buildDeltaManifestsFlags.to)
 	}
 	if err != nil {
 		fail(err)
@@ -550,6 +608,7 @@ var containerCmds = []*cobra.Command{
 	buildUpdateCmd,
 	buildAllCmd,
 	buildDeltaPacksCmd,
+	buildDeltaManifestsCmd,
 }
 
 var nativeCmds = []*cobra.Command{
@@ -610,6 +669,10 @@ func init() {
 	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.previousVersions, "previous-versions", 0, "Generate packs for multiple previous versions")
 	buildDeltaPacksCmd.Flags().Uint32Var(&buildDeltaPacksFlags.to, "to", 0, "Generate packs targeting a specific version")
 	buildDeltaPacksCmd.Flags().BoolVar(&buildDeltaPacksFlags.report, "report", false, "Report reason each file in to manifest was packed or not")
+
+	buildDeltaManifestsCmd.Flags().Uint32Var(&buildDeltaManifestsFlags.from, "from", 0, "Generate delta manifests from a specific version")
+	buildDeltaManifestsCmd.Flags().Uint32Var(&buildDeltaManifestsFlags.previousVersions, "previous-versions", 0, "Generate delta manifests for multiple previous versions")
+	buildDeltaManifestsCmd.Flags().Uint32Var(&buildDeltaManifestsFlags.to, "to", 0, "Generate delta manifests targeting a specific version")
 
 	setUpdateFlags(buildUpdateCmd)
 	setUpdateFlags(buildAllCmd)

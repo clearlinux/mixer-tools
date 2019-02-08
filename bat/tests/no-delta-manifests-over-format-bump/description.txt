@@ -1,0 +1,5 @@
+no-delta-manifests-over-format-bump
+===================================
+This test creates a format bump using a manual process (not auto-format-bump)
+and attempts to create delta manifests over that bump. No delta manifests
+should be created.

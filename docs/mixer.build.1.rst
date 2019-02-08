@@ -162,6 +162,34 @@ SUBCOMMANDS
 
       Generate packs targeting a specific `to` `version`.
 
+``delta-manifests``
+
+    Build manifest deltas to optimize ``swupd update``\s between versions. When a
+    ``swupd`` client update runs, it will first try to get a delta manifest file
+    if it exists and apply that on the bundle manifest file for the version
+    installed on their system (if it exists). This can save a large amount of
+    content being downloaded in the case of few files changing in a manifest.
+    Because the client can fall back to the full manifest file if a delta is not
+    available, delta manifests are not necessary for a functional update. In
+    addition to the global options ``mixer build delta-manifests`` takes the
+    following options.
+
+    - ``--from {version}``
+
+      Generate packs from the specified `version`.
+
+    - ``-h, --help``
+
+      Display ``build bundles`` help information and exit.
+
+    - ``--previous-versions {number}``
+
+      Generate packs for `number` of previous versions.
+
+    - ``--to {version}``
+
+      Generate packs targeting a specific `to` `version`.
+
 ``image``
 
     Build an image from the mix content. In addition to the global options

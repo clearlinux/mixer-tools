@@ -105,7 +105,106 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, nu
 		go func() {
 			defer wg.Done()
 			for delta := range deltaQueue {
-				delta.Error = createDelta(c, delta)
+				delta.Error = createFileDelta(c, delta)
+			}
+		}()
+	}
+
+	// Send jobs to the queue for delta goroutines to pick up.
+	for i := range deltas {
+		deltaQueue <- &deltas[i]
+	}
+
+	// Send message that no more jobs are being sent
+	close(deltaQueue)
+	wg.Wait()
+
+	return deltas, nil
+}
+
+// CreateManifestDeltas creates the delta manifest files for manifests in the from and to version of the
+// referenced MoMs. Returns a list of deltas containing information on errors encountered during the
+// delta generation process or an error (and no deltas list) if it can't create the deltas.
+func CreateManifestDeltas(statedir string, fromManifest, toManifest *Manifest, numWorkers int) ([]Delta, error) {
+	var c config
+	var err error
+	c, err = getConfig(statedir)
+	if err != nil {
+		return nil, err
+	}
+
+	logFile, err := os.OpenFile(filepath.Join(c.stateDir, "bsdiff_errors.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot create log file for delta creation")
+	}
+
+	defer func() {
+		_ = logFile.Close()
+	}()
+	bsdiffLog = log.New(logFile, "DELTA: ", log.Lshortfile)
+
+	toManifest.sortFilesName()
+	fromManifest.sortFilesName()
+
+	var deltas []Delta
+	i := 0
+	j := 0
+	toVersion := toManifest.Header.Version
+	for i < len(fromManifest.Files) && j < len(toManifest.Files) {
+		f1 := fromManifest.Files[i]
+		f2 := toManifest.Files[j]
+		// Only create deltas if the bundle updated in the current version
+		if f2.Version != toVersion {
+			i++
+			j++
+			continue
+		}
+		if f1.Name == f2.Name {
+			// Manifests wouldn't have the same name but not the same type
+			if f1.Type != TypeManifest {
+				i++
+				j++
+				continue
+			}
+			// Don't create deltas for manifests that aren't changed in the current version
+			if f1.Version == f2.Version {
+				i++
+				j++
+				continue
+			}
+			// Manifests aren't deleted so don't need to check status
+			deltas = append(deltas, Delta{
+				Path: filepath.Join(statedir, "www", fmt.Sprintf("%d", toManifest.Header.Version),
+					fmt.Sprintf("Manifest-%s-delta-from-%d", f1.Name, f1.Version)),
+				from: f1,
+				to:   f2,
+			})
+			i++
+			j++
+		} else if f1.Name < f2.Name {
+			i++
+		} else {
+			j++
+		}
+	}
+
+	if len(deltas) == 0 {
+		return []Delta{}, nil
+	}
+
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+	var deltaQueue = make(chan *Delta)
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	// Delta creation takes a lot of memory, so create a limited amount of goroutines.
+	for i := 0; i < numWorkers; i++ {
+		go func() {
+			defer wg.Done()
+			for delta := range deltaQueue {
+				delta.Error = createManifestDelta(&c, delta)
 			}
 		}()
 	}
@@ -147,14 +246,25 @@ func deltaTooLarge(c *config, delta *Delta, newPath string) bool {
 	return deltaSize >= fcSize
 }
 
-func createDelta(c *config, delta *Delta) error {
+func createFileDelta(c *config, delta *Delta) error {
+	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
+	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
+
+	return createDelta(c, oldPath, newPath, delta)
+}
+
+func createManifestDelta(c *config, delta *Delta) error {
+	oldPath := filepath.Join(c.stateDir, "www", fmt.Sprint(delta.from.Version), "Manifest."+delta.from.Name)
+	newPath := filepath.Join(c.stateDir, "www", fmt.Sprint(delta.to.Version), "Manifest."+delta.to.Name)
+
+	return createDelta(c, oldPath, newPath, delta)
+}
+
+func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 	if _, err := os.Stat(delta.Path); err == nil {
 		// Skip existing deltas. Not verifying since client is resilient about that.
 		return nil
 	}
-
-	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
-	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
 
 	// Set timeout to 8 minutes (480 seconds) for bsdiff.
 	// The majority of all delta creations take significantly less than 8

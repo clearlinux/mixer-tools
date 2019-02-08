@@ -60,6 +60,10 @@ mixer-build-delta-packs() {
   sudo -E mixer $MIXARGS build delta-packs --config $BATS_TEST_DIRNAME/builder.conf --native=true --previous-versions $1
 }
 
+mixer-build-delta-manifests() {
+  sudo -E mixer $MIXARGS build delta-manifests --config $BATS_TEST_DIRNAME/builder.conf --native=true --previous-versions $1
+}
+
 mixer-build-format-bump-new() {
   sudo -E mixer $MIXARGS build format-bump new --new-format $1 --native=true
 }

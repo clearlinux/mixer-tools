@@ -201,6 +201,39 @@ Generate packs targeting a specific \fIto\fP \fIversion\fP\&.
 .UNINDENT
 .UNINDENT
 .sp
+\fBdelta\-manifests\fP
+.INDENT 0.0
+.INDENT 3.5
+Build manifest deltas to optimize \fBswupd update\fPs between versions. When a
+\fBswupd\fP client update runs, it will first try to get a delta manifest file
+if it exists and apply that on the bundle manifest file for the version
+installed on their system (if it exists). This can save a large amount of
+content being downloaded in the case of few files changing in a manifest.
+Because the client can fall back to the full manifest file if a delta is not
+available, delta manifests are not necessary for a functional update. In
+addition to the global options \fBmixer build delta\-manifests\fP takes the
+following options.
+.INDENT 0.0
+.IP \(bu 2
+\fB\-\-from {version}\fP
+.sp
+Generate packs from the specified \fIversion\fP\&.
+.IP \(bu 2
+\fB\-h, \-\-help\fP
+.sp
+Display \fBbuild bundles\fP help information and exit.
+.IP \(bu 2
+\fB\-\-previous\-versions {number}\fP
+.sp
+Generate packs for \fInumber\fP of previous versions.
+.IP \(bu 2
+\fB\-\-to {version}\fP
+.sp
+Generate packs targeting a specific \fIto\fP \fIversion\fP\&.
+.UNINDENT
+.UNINDENT
+.UNINDENT
+.sp
 \fBimage\fP
 .INDENT 0.0
 .INDENT 3.5

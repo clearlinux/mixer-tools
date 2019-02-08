@@ -609,3 +609,114 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	}
 	return nil
 }
+
+// BuildDeltaManifests between two versions of the mix.
+func (b *Builder) BuildDeltaManifests(from, to uint32) error {
+	var err error
+
+	if to == 0 {
+		to = b.MixVerUint32
+	} else if to > b.MixVerUint32 {
+		return errors.Errorf("--to version must be at most the latest mix version (%d)", b.MixVerUint32)
+	}
+	if from == to {
+		fmt.Println("the --from version matches the --to version, nothing to do")
+		return nil
+	} else if from > to {
+		return errors.Errorf("the --from version must be smaller than the --to version")
+	}
+
+	outputDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
+
+	toManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(to), "Manifest.MoM"))
+	if err != nil {
+		return errors.Wrapf(err, "couldn't find manifest of target version")
+	}
+
+	fromManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(from), "Manifest.MoM"))
+	if err != nil {
+		return errors.Wrapf(err, "couldn't find manifest of from version")
+	}
+
+	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
+	fmt.Printf("Creating Manifest delta files from %d to %d\n", from, to)
+	deltas, err := swupd.CreateManifestDeltas(b.Config.Builder.ServerStateDir, fromManifest, toManifest, b.NumDeltaWorkers)
+	if err != nil {
+		log.Printf("  %s\n", err)
+	} else {
+		created := 0
+		for _, delta := range deltas {
+			if delta.Error == nil {
+				created++
+			}
+		}
+		fmt.Printf("  Created %d Manifest delta files\n", created)
+	}
+
+	return nil
+}
+
+// BuildDeltaManifestsPreviousVersions builds manifests to version from up to
+// prev versions. It walks the Manifest "previous" field to find those from versions.
+func (b *Builder) BuildDeltaManifestsPreviousVersions(prev, to uint32) error {
+	var err error
+
+	if to == 0 {
+		to = b.MixVerUint32
+	} else if to > b.MixVerUint32 {
+		return errors.Errorf("--to version must be at most the latest mix version (%d)", b.MixVerUint32)
+	}
+
+	outputDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
+	toManifest, err := swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(to), "Manifest.MoM"))
+	if err != nil {
+		return errors.Wrapf(err, "couldn't find manifest of target version")
+	}
+
+	var previousManifests []*swupd.Manifest
+	cur := toManifest.Header.Previous
+	for i := uint32(0); i < prev; i++ {
+		if cur == 0 {
+			break
+		}
+		var m *swupd.Manifest
+		m, err = swupd.ParseManifestFile(filepath.Join(outputDir, fmt.Sprint(cur), "Manifest.MoM"))
+		if err != nil {
+			log.Printf("Warning: Could not find manifest for previous version %d, skipping...\n", cur)
+			continue
+		}
+		// do not create delta-manifests over format bumps since clients can't update
+		// past the boundary anyways. Only check for inequality, if the format
+		// goes down that should be checked elsewhere.
+		if m.Header.Format != toManifest.Header.Format {
+			log.Println("Warning: skipping delta-pack creation over format bump")
+			break
+		}
+		previousManifests = append(previousManifests, m)
+		cur = m.Header.Previous
+	}
+
+	fmt.Printf("Found %d previous versions\n", len(previousManifests))
+	if len(previousManifests) == 0 {
+		return nil
+	}
+
+	for _, i := range previousManifests {
+		fmt.Printf("Creating Manifest delta files from %d to %d\n", i.Header.Version, to)
+		deltas, deltaErr := swupd.CreateManifestDeltas(b.Config.Builder.ServerStateDir, i, toManifest, b.NumDeltaWorkers)
+		if deltaErr != nil {
+			log.Printf("  %s\n", err)
+		} else {
+			created := 0
+			for _, delta := range deltas {
+				if delta.Error == nil {
+					created++
+				}
+			}
+			fmt.Printf("  Created %d Manifest delta files\n", created)
+
+		}
+	}
+
+	return nil
+}

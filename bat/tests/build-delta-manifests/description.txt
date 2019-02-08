@@ -1,0 +1,4 @@
+build-delta-manifests
+=====================
+This test case tests the 'mixer build delta-manifests command when generating
+content with 'mixer build all'.

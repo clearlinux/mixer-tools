@@ -48,6 +48,8 @@ type buildCmdFlags struct {
 	template        string
 	skipFullfiles   bool
 	skipPacks       bool
+	to              int
+	from            int
 
 	numFullfileWorkers int
 	numDeltaWorkers    int
@@ -451,6 +453,24 @@ var buildAllCmd = &cobra.Command{
 	},
 }
 
+var buildValidateCmd = &cobra.Command{
+	Use:   "validate",
+	Short: "Validate manifests correctly generated between two versions",
+	Long:  `Validate manifests correctly generated between two versions`,
+	Run: func(cmd *cobra.Command, args []string) {
+		b, err := builder.NewFromConfig(configFile)
+		if err != nil {
+			fail(err)
+		}
+		setWorkers(b)
+
+		err = b.CheckManifestCorrectness(buildFlags.from, buildFlags.to, buildFlags.downloadRetries)
+		if err != nil {
+			fail(err)
+		}
+	},
+}
+
 var buildImageCmd = &cobra.Command{
 	Use:   "image",
 	Short: "Build an image from the mix content",
@@ -607,6 +627,7 @@ var containerCmds = []*cobra.Command{
 	buildBundlesCmd,
 	buildUpdateCmd,
 	buildAllCmd,
+	buildValidateCmd,
 	buildDeltaPacksCmd,
 	buildDeltaManifestsCmd,
 }
@@ -661,6 +682,9 @@ func init() {
 	buildBundlesCmd.Flags().BoolVar(&unusedBoolFlag, "new-chroots", false, "")
 	_ = buildBundlesCmd.Flags().MarkHidden("new-chroots")
 	_ = buildBundlesCmd.Flags().MarkDeprecated("new-chroots", "new functionality is now the standard behavior, this flag is obsolete and no longer used")
+
+	buildValidateCmd.Flags().IntVar(&buildFlags.to, "to", 0, "Compare manifests targeting a specific version")
+	buildValidateCmd.Flags().IntVar(&buildFlags.from, "from", 0, "Compare manifests from a specific version")
 
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")

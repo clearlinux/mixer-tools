@@ -72,6 +72,18 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 	return strings.TrimSpace(string(lastVer)), nil
 }
 
+func (b *Builder) getLocalUpstreamVersion(version string) (string, error) {
+	var localUpstreamVer []byte
+	var err error
+
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "www", version, "upstreamver")
+	if localUpstreamVer, err = ioutil.ReadFile(filename); err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(localUpstreamVer)), nil
+}
+
 // StageMixForBump prepares the mix for the two format bumps required to pass an
 // upstream format boundary. The current upstreamversion is saved in a temporary
 // ".bump" file, and replaced with the latest version in the format range of the

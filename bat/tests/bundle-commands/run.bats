@@ -19,13 +19,12 @@ setup() {
 @test "List the bundles in the mix" {
   mixer bundle create foo.bar           # 'bundle list' should work even if an invalid bundle is created
 
-  run mixer $MIXARGS bundle list
-  [[ ${#lines[@]} -eq 5 ]]              # Exactly 5 bundles in the mix
-  [[ "$output" =~ os-core[[:space:]] ]] # To avoid just matching os-core-update
-  [[ "$output" =~ os-core-update ]]
-  [[ "$output" =~ os-core-webproxy ]]
-  [[ "$output" =~ kernel-native ]]
-  [[ "$output" =~ bootloader ]]
+  bundles=$(mixer $MIXARGS bundle list | grep -v "(included)")
+  [[ $(echo "$bundles" | wc -l) -eq 4 ]] # Exactly 4 bundles in the mix
+  [[ "$bundles" =~ os-core[[:space:]] ]] # To avoid just matching os-core-update
+  [[ "$bundles" =~ os-core-update ]]
+  [[ "$bundles" =~ kernel-native ]]
+  [[ "$bundles" =~ bootloader ]]
 
   rm -f local-bundles/foo.bar           # Delete invalid bundle from local-bundles (test case clean up)
 }
@@ -33,9 +32,9 @@ setup() {
 @test "Add an upstream bundle to the mix" {
   mixer $MIXARGS bundle add editors
 
-  run mixer $MIXARGS bundle list
-  [[ ${#lines[@]} -gt 5 ]]                         # More bundles in list now
-  [[ "$output" =~ editors[[:space:]]+\(upstream ]] # "editors" bundle is from upstream
+  bundles=$(mixer $MIXARGS bundle list | grep -v "(included)")
+  [[ $(echo "$bundles" | wc -l) -gt 4 ]]  # More bundles in list now
+  [[ "$bundles" =~ editors[[:space:]]+\(upstream ]] # "editors" bundle is from upstream
 }
 
 @test "Create upstream bundle" {

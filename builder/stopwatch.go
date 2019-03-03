@@ -21,12 +21,20 @@ type stopWatchEntry struct {
 }
 
 func (sw *stopWatch) Start(name string) {
-	logger := log.New(sw.w, "", log.Ldate|log.Ltime)
+	logger := log.New(sw.w, "", 0)
 	if sw.w != nil {
 		if len(sw.entries) > 0 {
 			logger.Println(sw.w, "")
+
+			var d time.Duration
+			for _, e := range sw.entries {
+				d += e.d
+			}
+			logger.Printf("=> %s (%s elapsed since start)\n", name,
+				d.Truncate(time.Millisecond))
+		} else {
+			logger.Printf("=> %s\n", name)
 		}
-		logger.Printf("=> %s\n", name)
 	}
 	sw.entries = append(sw.entries, stopWatchEntry{name: name})
 	sw.t = time.Now()
@@ -47,7 +55,7 @@ func (sw *stopWatch) Stop() {
 }
 
 func (sw *stopWatch) WriteSummary(w io.Writer) {
-	logger := log.New(w, "", log.Ldate|log.Ltime)
+	logger := log.New(w, "", 0)
 	if len(sw.entries) == 0 {
 		return
 	}

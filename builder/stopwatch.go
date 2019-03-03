@@ -24,7 +24,7 @@ func (sw *stopWatch) Start(name string) {
 	logger := log.New(sw.w, "", log.Ldate|log.Ltime)
 	if sw.w != nil {
 		if len(sw.entries) > 0 {
-			logger.Println(sw.w, "")
+			logger.Println()
 		}
 		logger.Printf("=> %s\n", name)
 	}

@@ -109,6 +109,9 @@ func runGet(cacheDir, url, arg string) {
 func visitAllFiles(state *client.State, mom *swupd.Manifest, visitFunc func(bundle, file *swupd.File) bool) error {
 	var stop bool
 	for _, bundleF := range mom.Files {
+		if bundleF.Type != swupd.TypeManifest {
+			continue
+		}
 		bundle, err := state.GetBundleManifest(fmt.Sprint(bundleF.Version), bundleF.Name, "")
 		if err != nil {
 			return err

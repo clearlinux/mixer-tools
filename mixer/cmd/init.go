@@ -29,9 +29,7 @@ var initCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if _, err := strconv.Atoi(initFlags.clearVer); err != nil {
 			if initFlags.clearVer != "latest" {
-				// Note: output matches Cobra's default pflag error syntax, as
-				// if initFlags.clearVer were an int all along.
-				return errors.Errorf("invalid argument \"%s\" for \"--clear-version\" flag: %s", initFlags.clearVer, err)
+				return errors.Errorf("clear-version must be either 'latest' or an integer value representing the upstream version")
 			} else if builder.Offline {
 				return errors.Errorf("Offline mode requires clear version to be set manually. Please use --clear-version flag during init")
 			}
@@ -78,7 +76,7 @@ func init() {
 	initCmd.Flags().BoolVar(&initFlags.allLocal, "all-local", false, "Initialize mix with all local bundles automatically included")
 	initCmd.Flags().BoolVar(&initFlags.allUpstream, "all-upstream", false, "Initialize mix with all upstream bundles automatically included")
 	initCmd.Flags().BoolVar(&initFlags.noDefaults, "no-default-bundles", false, "Skip adding default bundles to the mix")
-	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Supply the Clear version to compose the mix from")
+	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Upstream version used to compose the mix. It must be either an integer or 'latest'")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
 	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://cdn.download.clearlinux.org", "Supply an upstream URL to use for mixing")

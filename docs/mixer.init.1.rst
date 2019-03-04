@@ -38,7 +38,7 @@ more details), the following options are recognized.
 
 -  ``--clear-version {version}``
 
-   Supply the Clear version to compose the mix from (default is "latest")
+   Upstream version used to compose the mix. It must be either an integer or 'latest' (default "latest")
 
 -  ``--config {path}``
 

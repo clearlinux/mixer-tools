@@ -20,6 +20,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+type packageMetadata struct {
+	name    string
+	arch    string
+	version string
+	repo    string
+}
+
 var bannedPaths = [...]string{
 	"/var/lib/",
 	"/var/cache/",
@@ -250,16 +257,14 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packa
 // Transaction Summary
 // =============================================================================
 // <more metadata>
-func parseNoopInstall(installOut string) repoPkgMap {
-	repoPkgs := make(repoPkgMap)
-
+func parseNoopInstall(installOut string) []packageMetadata {
 	// Split out the section between the install list and the transaction Summary.
 	parts := strings.Split(installOut, "Installing:\n")
 	if len(parts) < 2 {
 		// If there is no such section, e.g. dnf fails because there's
-		// no matching package (so no "Installing:"), we return an empty
-		// set. Real failure will happen later when doing the actual install.
-		return repoPkgs
+		// no matching package (so no "Installing:"), return nil. Real
+		// failure will happen later when doing the actual install.
+		return nil
 	}
 	pkgList := strings.Split(parts[1], "\nTransaction Summary")[0]
 
@@ -275,10 +280,31 @@ func parseNoopInstall(installOut string) repoPkgMap {
 	// ^                         x86_64             12-10         clear   4.2 k$
 	// ^ reasonablepkgname       x86_64             deadcafedeadbeefdeadcafedeadbeef$
 	// ^                                                          clear   5.5 M$
-	var r = regexp.MustCompile(` (\S+)\s+\S+\s+\S+\s+(\S+)\s+\S+ \S+\n`)
-	matches := r.FindAllStringSubmatch(pkgList, -1)
-	for _, match := range matches {
-		repoPkgs[match[2]] = append(repoPkgs[match[2]], match[1])
+	var r = regexp.MustCompile(` (\S+)\s+(\S+)\s+(\S+)\s+(\S+)\s+(\S+) \S+\n`)
+	var pkgs = []packageMetadata{}
+
+	for _, match := range r.FindAllStringSubmatch(pkgList, -1) {
+		pkg := packageMetadata{
+			name:    match[1],
+			arch:    match[2],
+			version: match[3],
+			repo:    match[4],
+		}
+		pkgs = append(pkgs, pkg)
+	}
+
+	return pkgs
+}
+
+func repoPkgFromNoopInstall(installOut string) repoPkgMap {
+	repoPkgs := make(repoPkgMap)
+
+	// TODO: parseNoopInstall may fail, so consider a way to stop the processing
+	// once we find that failure. See how errorCh works in fullfiles.go.
+	pkgs := parseNoopInstall(installOut)
+
+	for _, p := range pkgs {
+		repoPkgs[p.repo] = append(repoPkgs[p.repo], p.name)
 	}
 	return repoPkgs
 }
@@ -310,9 +336,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 
-			// TODO: parseNoopInstall may fail, so consider a way to stop the processing
-			// once we find that failure. See how errorCh works in fullfiles.go.
-			rpm := parseNoopInstall(outBuf.String())
+			rpm := repoPkgFromNoopInstall(outBuf.String())
 			for _, pkgs := range rpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {

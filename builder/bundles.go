@@ -436,28 +436,25 @@ func genUpdateBundleSpecialFiles(chrootDir string, b *Builder) error {
 	return ioutil.WriteFile(filepath.Join(swupdDir, "format"), []byte(b.State.Mix.Format), 0644)
 }
 
-func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int) error {
+func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int) (*bytes.Buffer, error) {
 	var downloadErr error
 
 	if maxRetries < 0 {
-		return errors.Errorf("maxRetries value < 0 for RPM downloads")
+		return nil, errors.Errorf("maxRetries value < 0 for RPM downloads")
 	}
 
 	args := merge(packagerCmd, "--installroot="+baseDir, "install", "--downloadonly")
 	args = append(args, rpmList...)
 
 	for attempts := 0; attempts <= maxRetries; attempts++ {
-		_, downloadErr = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+		out, downloadErr := helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if downloadErr == nil {
-			return downloadErr
+			return out, downloadErr
 		}
 
 		fmt.Printf("RPM download attempt %d failed. Maximum of %d attempts.\n", attempts+1, maxRetries+1)
-		if err := clearDNFCache(packagerCmd); err != nil {
-			return err
-		}
 	}
-	return downloadErr
+	return nil, downloadErr
 }
 
 func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle, downloadRetries int) error {
@@ -474,7 +471,7 @@ func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *b
 		}
 
 		// Retry RPM downloads to avoid timeout failures due to slow network
-		err = downloadRpms(packagerCmd, rpmList, baseDir, downloadRetries)
+		_, err = downloadRpms(packagerCmd, rpmList, baseDir, downloadRetries)
 		if err != nil {
 			return err
 		}

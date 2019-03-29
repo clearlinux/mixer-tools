@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -380,7 +381,7 @@ func initRPMDB(chrootDir string) error {
 	)
 }
 
-func buildOsCore(packagerCmd []string, chrootDir, version string) error {
+func buildOsCore(b *Builder, packagerCmd []string, chrootDir, version string) error {
 	err := initRPMDB(chrootDir)
 	if err != nil {
 		return err
@@ -394,7 +395,7 @@ func buildOsCore(packagerCmd []string, chrootDir, version string) error {
 		return err
 	}
 
-	if err := fixOSRelease(filepath.Join(chrootDir, "usr/lib/os-release"), version); err != nil {
+	if err := fixOSRelease(b, filepath.Join(chrootDir, "usr/lib/os-release"), version); err != nil {
 		return errors.Wrap(err, "couldn't fix os-release file")
 	}
 
@@ -551,7 +552,7 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 		// special handling for os-core
 		if bundle.Name == "os-core" {
 			fmt.Println("... building special os-core content")
-			if err := buildOsCore(packagerCmd, fullDir, version); err != nil {
+			if err := buildOsCore(b, packagerCmd, fullDir, version); err != nil {
 				return err
 			}
 		}
@@ -877,7 +878,40 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	return w.Flush()
 }
 
-func fixOSRelease(filename, version string) error {
+func fixOSRelease(b *Builder, filename, version string) error {
+
+	//Replace the default os-release file if customized os-release file found
+	path := b.Config.Mixer.OSReleasePath
+	if path != "" {
+
+		// Validate file path
+		_, err := os.Stat(path)
+		if err != nil {
+			return err
+		}
+
+		fSrc, err := os.OpenFile(path, os.O_RDONLY, 0666)
+		if err != nil {
+			return err
+		}
+
+		fDst, err := os.OpenFile(filename, os.O_RDWR, 0666)
+		if err != nil {
+			return err
+		}
+
+		//Overwrite the os-release file
+		_, err = io.Copy(fDst, fSrc)
+		if err != nil {
+			return err
+		}
+
+		//Close file descriptor to make sure the copy operation is completed.
+		_ = fSrc.Close()
+		_ = fDst.Close()
+
+	}
+
 	f, err := os.Open(filename)
 	if err != nil {
 		return err
@@ -885,13 +919,6 @@ func fixOSRelease(filename, version string) error {
 	defer func() {
 		_ = f.Close()
 	}()
-
-	// TODO: If this is a mix, NAME and ID should probably change too. Create a section in
-	// configuration that will be used as reference to fill this.
-	// TODO: If this is a mix, add extra field for keeping track of the Clear Linux version
-	// used. Maybe also put the UPSTREAM URL, so we are ready to support mixes of mixes.
-	//
-	// See also: https://github.com/clearlinux/mixer-tools/issues/113
 
 	var newBuf bytes.Buffer
 	scanner := bufio.NewScanner(f)

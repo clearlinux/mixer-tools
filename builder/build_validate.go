@@ -109,6 +109,8 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int) 
 		return fmt.Errorf("From version must be less than to version")
 	}
 
+	fmt.Printf("WARNING: Local RPMs will override upstream RPMs for both the from and to versions.\n")
+
 	// Get manifest file lists and subtracted RPM pkg/file lists
 	fromInfo, err := b.mcaInfo(fromVer, downloadRetries)
 	if err != nil {

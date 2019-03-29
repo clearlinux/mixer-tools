@@ -1,0 +1,4 @@
+customize-os-release
+=================
+This test simulates os-release customization for mixer build. It initiates a
+mix, replaces the default config with modified config with customized os-release file path.

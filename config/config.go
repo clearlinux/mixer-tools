@@ -69,6 +69,7 @@ type mixerConf struct {
 	LocalRepoDir   string `required:"false" mount:"true" toml:"LOCAL_REPO_DIR"`
 	LocalRPMDir    string `required:"false" mount:"true" toml:"LOCAL_RPM_DIR"`
 	DockerImgPath  string `required:"false" toml:"DOCKER_IMAGE_PATH"`
+	OSReleasePath  string `required:"false" mount:"true" toml:"OS_RELEASE_PATH"`
 }
 
 // LoadDefaults sets sane values for the config properties

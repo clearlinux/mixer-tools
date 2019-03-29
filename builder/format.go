@@ -72,6 +72,32 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 	return strings.TrimSpace(string(lastVer)), nil
 }
 
+// getFormatForVersion returns the format for the provided local version
+func (b *Builder) getFormatForVersion(version string) (string, error) {
+	var format []byte
+	var err error
+
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "www", version, "format")
+	if format, err = ioutil.ReadFile(filename); err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(format)), nil
+}
+
+// getLatestForFormat returns the latest local version for the provided format
+func (b *Builder) getLatestForFormat(format string) (string, error) {
+	var lastVer []byte
+	var err error
+
+	filename := filepath.Join(b.Config.Builder.ServerStateDir, "www/version", "format"+format, "latest")
+	if lastVer, err = ioutil.ReadFile(filename); err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(lastVer)), nil
+}
+
 func (b *Builder) getLocalUpstreamVersion(version string) (string, error) {
 	var localUpstreamVer []byte
 	var err error

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -68,6 +69,7 @@ type mcaBundleInfo struct {
 // mcaBundlePkgInfo contains MCA package and resolved file lists for a bundle
 // before subtraction.
 type mcaBundlePkgInfo struct {
+	name     string
 	allPkgs  map[string]*pkgInfo
 	allFiles map[string]bool
 }
@@ -229,6 +231,13 @@ func (b *Builder) mcaManInfo(version int) (map[string]*swupd.Manifest, error) {
 // mcaPkgInfo downloads and queries all packages for each bundle to collect
 // file metadata that will be used to create subtracted package/file lists.
 func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, downloadRetries int) (map[string]*mcaBundlePkgInfo, error) {
+	var wg sync.WaitGroup
+	var rw sync.RWMutex
+
+	wg.Add(b.NumBundleWorkers)
+	mCh := make(chan *mcaBundlePkgInfo)
+	errorCh := make(chan error, b.NumBundleWorkers)
+
 	// Download RPMs from correct upstream version
 	upstreamVer, err := b.getLocalUpstreamVersion(strconv.Itoa(version))
 	if err != nil {
@@ -254,46 +263,85 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 	pInfo := make(map[string]*mcaBundlePkgInfo)
 
 	// Download and query file metadata from all packages in each bundle
+	bundleWorker := func() {
+		for m := range mCh {
+			var pkgList = []string{}
+			for pkg := range mInfo[m.name].BundleInfo.AllPackages {
+				pkgList = append(pkgList, pkg)
+			}
+
+			out, err := downloadRpms(packagerCmd, pkgList, buildVersionDir, downloadRetries)
+			if err != nil {
+				errorCh <- err
+				wg.Done()
+				return
+			}
+
+			// Collect metadata to resolve installed RPM file names
+			bundlePkgInfo := pkgInfoFromNoopInstall(out.String())
+			for _, p := range bundlePkgInfo {
+				// Resolve files for package when it doesn't exist in the cache
+				rw.RLock()
+				if pkgCache[p.name] == nil {
+					rw.RUnlock()
+					p.files, err = b.resolvePkgFiles(p, version)
+					if err != nil {
+						errorCh <- err
+						wg.Done()
+						return
+					}
+
+					rw.Lock()
+					// Another Goroutine may have already populated the cache. The results should
+					// be identical, so there shouldn't be a TOCTOU error.
+					if pkgCache[p.name] == nil {
+						pkgCache[p.name] = p
+					}
+					rw.Unlock()
+
+					m.allPkgs[p.name] = p
+				} else {
+					m.allPkgs[p.name] = pkgCache[p.name]
+					rw.RUnlock()
+				}
+
+				// Track all resolved package files in bundle to be used later
+				// for file subtraction.
+				for f := range m.allPkgs[p.name].files {
+					m.allFiles[f] = true
+				}
+			}
+		}
+		wg.Done()
+	}
+
+	for i := 0; i < b.NumBundleWorkers; i++ {
+		go bundleWorker()
+	}
 	for _, m := range mInfo {
 		pInfo[m.Name] = &mcaBundlePkgInfo{
+			name:     m.Name,
 			allFiles: make(map[string]bool),
 			allPkgs:  make(map[string]*pkgInfo),
 		}
 
-		var pkgList = []string{}
-		for pkg := range m.BundleInfo.AllPackages {
-			pkgList = append(pkgList, pkg)
-		}
-
-		out, err := downloadRpms(packagerCmd, pkgList, buildVersionDir, downloadRetries)
-		if err != nil {
+		select {
+		case mCh <- pInfo[m.Name]:
+		case err = <-errorCh:
 			return nil, err
 		}
-
-		// Collect metadata to resolve installed RPM file names
-		bundlePkgInfo := pkgInfoFromNoopInstall(out.String())
-
-		// Resolve file metadata for each package
-		for p := range bundlePkgInfo {
-			if pkgCache[p] == nil {
-				// Get metadata from all files within package
-				bundlePkgInfo[p].files, err = b.resolvePkgFiles(bundlePkgInfo[p], version)
-				if err != nil {
-					return nil, err
-				}
-
-				pkgCache[p] = bundlePkgInfo[p]
-			}
-			pInfo[m.Name].allPkgs[p] = pkgCache[p]
-
-			// Track all resolved package files in bundle to be used later
-			// for file subtraction.
-			for f := range pkgCache[p].files {
-				pInfo[m.Name].allFiles[f] = true
-			}
-		}
 	}
-	return pInfo, nil
+	close(mCh)
+	wg.Wait()
+
+	// An error could happen after all the workers are spawned so check again for an
+	// error after wg.Wait() completes.
+	if err == nil && len(errorCh) > 0 {
+		err = <-errorCh
+	}
+	close(errorCh)
+
+	return pInfo, err
 }
 
 // resolvePkgFiles queries a package for a list of file metadata.

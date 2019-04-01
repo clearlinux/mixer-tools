@@ -36,6 +36,7 @@ type mcaDiffResults struct {
 type mcaBundleDiff struct {
 	name          string
 	status        bundleStatus
+	minversion    bool
 	pkgFileCounts map[string]*bundlePkgStats
 
 	pkgFileDiffs diffLists
@@ -594,10 +595,12 @@ func (bundleDiff *mcaBundleDiff) diffBundles(bundle string, fromInfo, toInfo map
 	bundleDiff.pkgDiffs = diffList
 
 	// diff manifest files
-	diffList = getManFileDiffLists(fromInfo[bundle].manFiles, toInfo[bundle].manFiles)
+	isMinversion, diffList := getManFileDiffLists(fromInfo[bundle].manFiles, toInfo[bundle].manFiles)
 	bundleDiff.manFileDiffs = diffList
 
 	// When there is a file change, the bundle is modified
+	bundleDiff.minversion = isMinversion
+
 	if isBundleMod(diffList) {
 		bundleDiff.status = modified
 	}
@@ -696,16 +699,19 @@ func getPkgDiffLists(fromPkgs, toPkgs map[string]bool, bundleDiff *mcaBundleDiff
 	return diffLists{modList: modList, addList: addList, delList: delList}
 }
 
-func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File) diffLists {
+func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File) (bool, diffLists) {
 	addList := []string{}
 	delList := []string{}
 	modList := []string{}
+	minversion := false
 
 	for f := range toFiles {
 		if fromFiles[f] != nil {
 			// Match
 			if isManFileMod(fromFiles[f], toFiles[f]) {
 				modList = append(modList, f)
+			} else if minversion == false {
+				minversion = isMinversion(fromFiles[f], toFiles[f])
 			}
 		} else {
 			// Added file
@@ -719,7 +725,7 @@ func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File) diffLists {
 			delList = append(delList, f)
 		}
 	}
-	return diffLists{modList: modList, addList: addList, delList: delList}
+	return minversion, diffLists{modList: modList, addList: addList, delList: delList}
 }
 
 func isFileMod(from, to *fileInfo) bool {
@@ -740,6 +746,12 @@ func isPkgMod(key string, bundleDiff *mcaBundleDiff) bool {
 
 func isManFileMod(from, to *swupd.File) bool {
 	return (from.Hash != to.Hash)
+}
+
+func isMinversion(from, to *swupd.File) bool {
+	return ((from.Name == to.Name) &&
+		(from.Hash == to.Hash) &&
+		(from.Version != to.Version))
 }
 
 // analyzeMcaResults compares manifest file changes against package file changes.
@@ -986,11 +998,17 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 	// Print statistics for each bundle
 	for _, b := range results.bundleDiff {
 		// Skip unchanged and deleted bundles
-		if b.status == unchanged || b.status == removed {
+		if (b.status == unchanged || b.status == removed) && b.minversion == false {
 			continue
 		}
 		if _, err = fmt.Fprintf(w, "|%s\t Summary:\n", b.name); err != nil {
 			return err
+		}
+
+		if b.minversion {
+			if _, err = fmt.Fprintf(w, "|\t ** Minversion bump detected\n"); err != nil {
+				return err
+			}
 		}
 
 		// Print bundle sizes in MB and calculate bundle content size

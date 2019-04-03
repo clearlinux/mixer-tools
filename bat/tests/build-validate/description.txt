@@ -1,0 +1,4 @@
+build-validate
+================
+This test confirms that the 'build validate' command can properly identify
+manifest errors and print pacakge statistics.

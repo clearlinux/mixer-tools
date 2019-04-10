@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -881,38 +880,14 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 func fixOSRelease(b *Builder, filename, version string) error {
 
 	//Replace the default os-release file if customized os-release file found
-	path := b.Config.Mixer.OSReleasePath
-	if path != "" {
-
-		// Validate file path
-		_, err := os.Stat(path)
-		if err != nil {
-			return err
-		}
-
-		fSrc, err := os.OpenFile(path, os.O_RDONLY, 0666)
-		if err != nil {
-			return err
-		}
-
-		fDst, err := os.OpenFile(filename, os.O_RDWR, 0666)
-		if err != nil {
-			return err
-		}
-
-		//Overwrite the os-release file
-		_, err = io.Copy(fDst, fSrc)
-		if err != nil {
-			return err
-		}
-
-		//Close file descriptor to make sure the copy operation is completed.
-		_ = fSrc.Close()
-		_ = fDst.Close()
-
+	var err error
+	var f *os.File
+	if b.Config.Mixer.OSReleasePath != "" {
+		f, err = os.Open(b.Config.Mixer.OSReleasePath)
+	} else {
+		f, err = os.Open(filename)
 	}
 
-	f, err := os.Open(filename)
 	if err != nil {
 		return err
 	}

@@ -11,8 +11,7 @@ setup() {
 
   mixer init > /dev/null
 
-  #Backup orig config and use modified config which has customized os-release file
-  mv builder.conf builder-orig.conf
+  #Use modified config which has customized os-release file
   cp files/my-builder.conf builder.conf
   sed -i "s:/home/clr/mix:$PWD:g" builder.conf
 

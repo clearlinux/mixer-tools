@@ -1,0 +1,4 @@
+clean-rebuild
+================
+This test rebuilds version 20 with the --clean flag. It confirms that the current
+and previous versions are correctly maintained when performing a clean build.

@@ -604,7 +604,21 @@ func mustValidateZeroPack(t *testing.T, manifestPath, packPath string) {
 func mustCreatePack(t *testing.T, name string, fromVersion, toVersion uint32, outputDir, chrootDir string) *PackInfo {
 	debugPacks = true
 	t.Helper()
-	err := CreateAllDeltas(outputDir, int(fromVersion), int(toVersion), 0)
+
+	c, err := getConfig(filepath.Join(outputDir, ".."))
+	if err != nil {
+		t.Fatalf("couldn't get config for %s: %s", name, err)
+	}
+
+	bsdiffLog, logFile, err := CreateBsdiffLogger(c.stateDir)
+	if err != nil {
+		t.Fatalf("couldn't create logger for %s: %s", name, err)
+	}
+	defer func() {
+		_ = logFile.Close()
+	}()
+
+	err = CreateAllDeltas(outputDir, int(fromVersion), int(toVersion), 0, bsdiffLog)
 	if err != nil {
 		t.Fatalf("error creating pack for bundle %s: %s", name, err)
 	}

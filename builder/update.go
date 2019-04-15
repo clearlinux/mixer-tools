@@ -118,7 +118,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		for bundle := range bundleChan {
 			fmt.Printf("  %s\n", bundle.Name)
 			f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
-			err = createCompressedArchive(f+".tar", f)
+			err := createCompressedArchive(f+".tar", f)
 			if err != nil {
 				errorChan <- err
 				break

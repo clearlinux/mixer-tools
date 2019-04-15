@@ -501,10 +501,18 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
 	// Create all deltas first
-	err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+	bsdiffLog, logFile, err := swupd.CreateBsdiffLogger(b.Config.Builder.ServerStateDir)
 	if err != nil {
 		return err
 	}
+	defer func() {
+		_ = logFile.Close()
+	}()
+	err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog)
+	if err != nil {
+		return err
+	}
+
 	// Create packs filling in any missing deltas
 	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
 }
@@ -571,6 +579,14 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	wg.Add(versionWorkers)
 	fmt.Printf("Using %d version threads and %d delta threads in each\n", versionWorkers, b.NumDeltaWorkers)
 
+	bsdiffLog, logFile, err := swupd.CreateBsdiffLogger(b.Config.Builder.ServerStateDir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		_ = logFile.Close()
+	}()
+
 	// If possible, run a thread for each version back so we don't get locked up
 	// at the end of a version doing some large/slow delta pack in serial. This way
 	// the large file(s) at the end of each version will run in parallel.
@@ -578,7 +594,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		go func() {
 			defer wg.Done()
 			for fromManifest := range versionQueue {
-				deltaErr := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
+				deltaErr := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog)
 				if deltaErr != nil {
 					deltaErrors = append(deltaErrors, deltaErr)
 				}

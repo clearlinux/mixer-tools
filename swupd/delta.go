@@ -47,13 +47,11 @@ type Delta struct {
 	to    *File
 }
 
-var bsdiffLog *log.Logger
-
 // CreateDeltasForManifest creates all delta files between the previous and current version of the
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
 // list. If number of workers is zero or less, 1 worker is used.
-func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int) ([]Delta, error) {
+func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int, bsdiffLog *log.Logger) ([]Delta, error) {
 	var c config
 
 	c, err := getConfig(statedir)
@@ -71,19 +69,22 @@ func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWork
 		return nil, err
 	}
 
-	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers)
+	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers, bsdiffLog)
 }
 
-func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int) ([]Delta, error) {
-	logFile, err := os.OpenFile(filepath.Join(c.stateDir, "bsdiff_errors.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+// CreateBsdiffLogger creates a logger for the bsdiff_errors.log file at the directory
+// specified by stateDir.
+func CreateBsdiffLogger(stateDir string) (*log.Logger, *os.File, error) {
+	logFile, err := os.OpenFile(filepath.Join(stateDir, "bsdiff_errors.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
-		return nil, errors.Wrap(err, "Cannot create log file for delta creation")
+		return nil, nil, errors.Wrap(err, "Cannot create log file for delta creation")
 	}
-	defer func() {
-		_ = logFile.Close()
-	}()
-	bsdiffLog = log.New(logFile, "DELTA: ", log.Lshortfile)
+	bsdiffLog := log.New(logFile, "DELTA: ", log.Lshortfile)
 
+	return bsdiffLog, logFile, nil
+}
+
+func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int, bsdiffLog *log.Logger) ([]Delta, error) {
 	deltas, err := findDeltas(c, oldManifest, newManifest)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create deltas list %s", newManifest.Name)
@@ -105,7 +106,7 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, nu
 		go func() {
 			defer wg.Done()
 			for delta := range deltaQueue {
-				delta.Error = createFileDelta(c, delta)
+				delta.Error = createFileDelta(c, delta, bsdiffLog)
 			}
 		}()
 	}
@@ -133,7 +134,7 @@ func CreateManifestDeltas(statedir string, fromManifest, toManifest *Manifest, n
 		return nil, err
 	}
 
-	logFile, err := os.OpenFile(filepath.Join(c.stateDir, "bsdiff_errors.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	bsdiffLog, logFile, err := CreateBsdiffLogger(c.stateDir)
 	if err != nil {
 		return nil, errors.Wrap(err, "Cannot create log file for delta creation")
 	}
@@ -141,7 +142,6 @@ func CreateManifestDeltas(statedir string, fromManifest, toManifest *Manifest, n
 	defer func() {
 		_ = logFile.Close()
 	}()
-	bsdiffLog = log.New(logFile, "DELTA: ", log.Lshortfile)
 
 	toManifest.sortFilesName()
 	fromManifest.sortFilesName()
@@ -204,7 +204,7 @@ func CreateManifestDeltas(statedir string, fromManifest, toManifest *Manifest, n
 		go func() {
 			defer wg.Done()
 			for delta := range deltaQueue {
-				delta.Error = createManifestDelta(&c, delta)
+				delta.Error = createManifestDelta(&c, delta, bsdiffLog)
 			}
 		}()
 	}
@@ -246,21 +246,21 @@ func deltaTooLarge(c *config, delta *Delta, newPath string) bool {
 	return deltaSize >= fcSize
 }
 
-func createFileDelta(c *config, delta *Delta) error {
+func createFileDelta(c *config, delta *Delta, bsdiffLog *log.Logger) error {
 	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
 	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
 
-	return createDelta(c, oldPath, newPath, delta)
+	return createDelta(c, oldPath, newPath, delta, bsdiffLog)
 }
 
-func createManifestDelta(c *config, delta *Delta) error {
+func createManifestDelta(c *config, delta *Delta, bsdiffLog *log.Logger) error {
 	oldPath := filepath.Join(c.stateDir, "www", fmt.Sprint(delta.from.Version), "Manifest."+delta.from.Name)
 	newPath := filepath.Join(c.stateDir, "www", fmt.Sprint(delta.to.Version), "Manifest."+delta.to.Name)
 
-	return createDelta(c, oldPath, newPath, delta)
+	return createDelta(c, oldPath, newPath, delta, bsdiffLog)
 }
 
-func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
+func createDelta(c *config, oldPath, newPath string, delta *Delta, bsdiffLog *log.Logger) error {
 	if _, err := os.Stat(delta.Path); err == nil {
 		// Skip existing deltas. Not verifying since client is resilient about that.
 		return nil

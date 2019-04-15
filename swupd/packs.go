@@ -78,7 +78,7 @@ func (state PackState) String() string {
 // CreateAllDeltas builds all of the deltas using the full manifest from one
 // version to the next. This allows better concurrency and the pack creation
 // code can just worry about adding pre-existing files to packs.
-func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int) error {
+func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, bsdiffLog *log.Logger) error {
 	// Don't try to make deltas for zero packs
 	if fromVersion == 0 {
 		return nil
@@ -105,7 +105,7 @@ func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int) e
 		return err
 	}
 
-	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers)
+	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers, bsdiffLog)
 	if err != nil {
 		return err
 	}

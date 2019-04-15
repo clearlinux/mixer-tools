@@ -255,7 +255,16 @@ func checkManifestMatches(t *testing.T, testDir, ver, name string, res ...*regex
 
 func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
 	t.Helper()
-	deltas, err := CreateDeltasForManifest(manifest, statedir, from, to, 0)
+
+	bsdiffLog, logFile, err := CreateBsdiffLogger(statedir)
+	if err != nil {
+		t.Fatalf("couldn't create logger for %s: %s", manifest, err)
+	}
+	defer func() {
+		_ = logFile.Close()
+	}()
+
+	deltas, err := CreateDeltasForManifest(manifest, statedir, from, to, 0, bsdiffLog)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}
@@ -273,7 +282,16 @@ func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint3
 
 func tryCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32) {
 	t.Helper()
-	_, err := CreateDeltasForManifest(manifest, statedir, from, to, 0)
+
+	bsdiffLog, logFile, err := CreateBsdiffLogger(statedir)
+	if err != nil {
+		t.Fatalf("couldn't create logger for %s: %s", manifest, err)
+	}
+	defer func() {
+		_ = logFile.Close()
+	}()
+
+	_, err = CreateDeltasForManifest(manifest, statedir, from, to, 0, bsdiffLog)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}

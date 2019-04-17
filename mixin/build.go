@@ -98,12 +98,12 @@ func mergeMoMs(mixWS string, mixVer, lastVer int) error {
 	upstreamMoM.Header.Format = 1
 	// system now on mixVer instead of upstream version
 	upstreamMoM.Header.Version = uint32(mixVer)
-	// remove os-core entry from upstreamMoM, we will replace with ours
-	excludeName(upstreamMoM, "os-core")
 	for i := range mixerMoM.Files {
 		if mixerMoM.Files[i].Name == "os-core-update-index" {
 			continue
 		}
+		// remove overlapping bundle names including os-core
+		excludeName(upstreamMoM, mixerMoM.Files[i].Name)
 		mixerMoM.Files[i].Rename = swupd.MixManifest
 		upstreamMoM.Files = append(upstreamMoM.Files, mixerMoM.Files[i])
 	}

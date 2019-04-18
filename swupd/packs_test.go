@@ -427,7 +427,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 	fs.write("image/10/contents/small2", smallContents)
 	fs.write("image/10/contents/large1", largeContents)
 	fs.write("image/10/contents/large2", largeContents)
-	mustCreateManifests(t, 10, minVer, format, fs.Dir)
+	mustCreateManifests(t, 10, 0, minVer, format, fs.Dir)
 
 	//
 	// In version 20, swap the content of small files, and modify the large files
@@ -438,7 +438,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 	fs.write("image/20/contents/small2", smallContents)
 	fs.write("image/20/contents/large1", strings.ToUpper(largeContents[:1])+largeContents[1:])
 	fs.write("image/20/contents/large2", largeContents[:1]+strings.ToUpper(largeContents[1:]))
-	mustCreateManifests(t, 20, minVer, format, fs.Dir)
+	mustCreateManifests(t, 20, 10, minVer, format, fs.Dir)
 
 	info := mustCreatePack(t, "contents", 10, 20, fs.path("www"), fs.path("image"))
 	mustHaveDeltaCount(t, info, 2)
@@ -449,7 +449,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 	mustInitStandardTest(t, fs.Dir, "20", "30", []string{"contents"})
 	fs.cp("image/20/contents", "image/30")
 	fs.write("image/30/contents/large1", strings.ToUpper(largeContents[:2])+largeContents[2:])
-	mustCreateManifests(t, 30, minVer, format, fs.Dir)
+	mustCreateManifests(t, 30, 20, minVer, format, fs.Dir)
 
 	// Pack between 20 and 30 has only a delta for large1.
 	info = mustCreatePack(t, "contents", 20, 30, fs.path("www"), fs.path("image"))
@@ -469,7 +469,7 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 	fs.write("image/10/editors/joe", "joe contents")
 	fs.write("image/10/editors/vim", "vim contents")
 	fs.write("image/10/editors/vi", "vim contents") // Same content as vim!
-	mom := mustCreateManifestsStandard(t, 10, fs.Dir)
+	mom := mustCreateManifestsStandard(t, 10, 0, fs.Dir)
 
 	// Make the chrootDir incomplete.
 	fs.rm("image/10/full/emacs")

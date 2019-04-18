@@ -784,7 +784,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 		Header: ManifestHeader{
 			Format:    ui.format,
 			Version:   ui.version,
-			Previous:  ui.lastVersion,
+			Previous:  ui.previous,
 			TimeStamp: ui.timeStamp,
 			Includes:  []*Manifest{newOsCore},
 		},
@@ -828,7 +828,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 
 	// link in old manifest for version information
 	// first get old MoM
-	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.previous), "Manifest.MoM")
 	oldMoM, err := getOldManifest(oldMoMPath)
 	if err != nil {
 		return nil, err
@@ -837,7 +837,7 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	// get old version
 	ver := getManifestVerFromMoM(oldMoM, idxMan)
 	if ver == 0 {
-		ver = ui.lastVersion
+		ver = ui.previous
 	}
 
 	oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+idxMan.Name)

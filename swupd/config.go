@@ -16,10 +16,8 @@ package swupd
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/go-ini/ini"
@@ -140,25 +138,6 @@ func readGroupsINI(path string) ([]string, error) {
 	}
 
 	return groups, err
-}
-
-func readLastVerFile(path string) (uint32, error) {
-	if !exists(path) {
-		return 0, fmt.Errorf("unable to detect last version (%v file does not exist)", path)
-	}
-
-	lastVerOut, err := ioutil.ReadFile(path)
-	if err != nil {
-		return 0, err
-	}
-
-	lastVerString := strings.TrimSpace(string(lastVerOut))
-	parsed, err := strconv.ParseUint(lastVerString, 10, 32)
-	if err != nil {
-		return 0, err
-	}
-
-	return uint32(parsed), nil
 }
 
 func appendUnique(ss []string, s string) []string {

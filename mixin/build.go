@@ -146,6 +146,12 @@ func buildMix(prepNeeded bool) error {
 	b.MixVer = fmt.Sprint(mixVer)
 	b.MixVerUint32 = uint32(mixVer)
 
+	// Mixin does not use or update the PREVIOUS_MIX_VERSION field in
+	// mixer.state. The previous mix version is overridden by the last
+	// version to maintain consistent behavior for Mixin manifest
+	// generation.
+	b.State.Mix.PreviousMixVer = strconv.Itoa(lastVer)
+
 	err = os.Chdir(mixWS)
 	if err != nil {
 		_ = os.Remove(mixFlagFile)

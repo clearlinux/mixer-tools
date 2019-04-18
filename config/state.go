@@ -42,9 +42,6 @@ type MixState struct {
 	formatSource string
 }
 
-// CurrentStateVersion is the current revision for the state file structure
-var CurrentStateVersion = "1.0"
-
 // DefaultFormatPath is the default path for the format file specified by swupd
 const DefaultFormatPath = "/usr/share/defaults/swupd/format"
 
@@ -130,6 +127,10 @@ func (state *MixState) Load() error {
 		_ = f.Close()
 	}()
 
+	if err := state.parseVersionAndConvert(); err != nil {
+		return err
+	}
+
 	// Read config version
 	reader := bufio.NewReader(f)
 	found, err := state.parseVersion(reader)
@@ -159,4 +160,9 @@ func (state *MixState) parseVersion(reader *bufio.Reader) (bool, error) {
 	state.version = match[1]
 
 	return true, nil
+}
+
+func (state *MixState) parse() error {
+	_, err := toml.DecodeFile(state.filename, &state)
+	return err
 }

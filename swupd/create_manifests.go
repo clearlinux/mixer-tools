@@ -28,13 +28,13 @@ import (
 
 // UpdateInfo contains the meta information for the current update
 type UpdateInfo struct {
-	oldFormat   uint
-	format      uint
-	lastVersion uint32
-	minVersion  uint32
-	version     uint32
-	bundles     []string
-	timeStamp   time.Time
+	oldFormat  uint
+	format     uint
+	previous   uint32
+	minVersion uint32
+	version    uint32
+	bundles    []string
+	timeStamp  time.Time
 }
 
 func initBuildEnv(c config) error {
@@ -78,7 +78,7 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 				Header: ManifestHeader{
 					Format:    ui.format,
 					Version:   ui.version,
-					Previous:  ui.lastVersion,
+					Previous:  ui.previous,
 					TimeStamp: ui.timeStamp,
 				},
 				Name: bundleName,
@@ -224,7 +224,7 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 	}
 
 	// Need old MoM to get version of last bundle manifest
-	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.previous), "Manifest.MoM")
 	oldMoM, err := getOldManifest(oldMoMPath)
 	if err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 		// manifest
 		ver := getManifestVerFromMoM(oldMoM, bundle)
 		if ver == 0 {
-			ver = ui.lastVersion
+			ver = ui.previous
 		}
 
 		oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+bundle.Name)
@@ -391,7 +391,7 @@ func aggregateManifests(newManifests []*Manifest, newMoM *Manifest, version uint
 }
 
 // CreateManifests creates update manifests for changed and added bundles for <version>
-func CreateManifests(version uint32, minVersion uint32, format uint, statedir string, numWorkers int) (*MoM, error) {
+func CreateManifests(version, previous, minVersion uint32, format uint, statedir string, numWorkers int) (*MoM, error) {
 	var err error
 	var c config
 
@@ -417,14 +417,8 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 	groups = append(groups, "full")
 
-	var lastVersion uint32
-	lastVersion, err = readLastVerFile(filepath.Join(c.imageBase, "LAST_VER"))
-	if err != nil {
-		return nil, err
-	}
-
 	timeStamp := time.Now()
-	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(lastVersion), "Manifest.MoM")
+	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(previous), "Manifest.MoM")
 	oldMoM, err := getOldManifest(oldMoMPath)
 	if err != nil {
 		return nil, err
@@ -433,13 +427,13 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 
 	// PROCESS BUNDLES
 	ui := UpdateInfo{
-		oldFormat:   oldFormat,
-		format:      format,
-		lastVersion: lastVersion,
-		minVersion:  minVersion,
-		version:     version,
-		bundles:     groups,
-		timeStamp:   timeStamp,
+		oldFormat:  oldFormat,
+		format:     format,
+		previous:   previous,
+		minVersion: minVersion,
+		version:    version,
+		bundles:    groups,
+		timeStamp:  timeStamp,
 	}
 	var newManifests []*Manifest
 	if newManifests, err = processBundles(ui, c, numWorkers); err != nil {
@@ -462,7 +456,7 @@ func CreateManifests(version uint32, minVersion uint32, format uint, statedir st
 			Format:     format,
 			Version:    version,
 			MinVersion: minVersion,
-			Previous:   lastVersion,
+			Previous:   previous,
 			TimeStamp:  timeStamp,
 		},
 		Type: ManifestMoM,

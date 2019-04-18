@@ -27,7 +27,6 @@ func mustInitStandardTest(t *testing.T, testDir, lastVer, ver string, bundles []
 		mustTrackBundle(t, testDir, ver, b)
 	}
 	mustInitOSRelease(t, testDir, ver)
-	mustSetLatestVer(t, testDir, lastVer)
 }
 
 func mustInitTestDir(t *testing.T, path string) {
@@ -104,14 +103,6 @@ func mustInitOSRelease(t *testing.T, testDir, ver string) {
 	}
 }
 
-func mustSetLatestVer(t *testing.T, testDir, ver string) {
-	t.Helper()
-	err := ioutil.WriteFile(filepath.Join(testDir, "image/LAST_VER"), []byte(ver), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func resetHash() {
 	Hashes = []*string{&AllZeroHash}
 	invHash = map[string]Hashval{AllZeroHash: 0}
@@ -175,14 +166,14 @@ func mustNotExist(t *testing.T, name string) {
 	}
 }
 
-func mustCreateManifestsStandard(t *testing.T, ver uint32, testDir string) *MoM {
+func mustCreateManifestsStandard(t *testing.T, ver, previousVer uint32, testDir string) *MoM {
 	t.Helper()
-	return mustCreateManifests(t, ver, 0, 1, testDir)
+	return mustCreateManifests(t, ver, previousVer, 0, 1, testDir)
 }
 
-func mustCreateManifests(t *testing.T, ver uint32, minVer uint32, format uint, testDir string) *MoM {
+func mustCreateManifests(t *testing.T, ver, previousVer, minVer uint32, format uint, testDir string) *MoM {
 	t.Helper()
-	mom, err := CreateManifests(ver, minVer, format, testDir, runtime.NumCPU())
+	mom, err := CreateManifests(ver, previousVer, minVer, format, testDir, runtime.NumCPU())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -756,9 +747,10 @@ func (fs *testFileSystem) checkNotContains(subpath, sub string) {
 type testSwupd struct {
 	*testFileSystem
 
-	Bundles    []string
-	MinVersion uint32
-	Format     uint
+	Bundles         []string
+	MinVersion      uint32
+	PreviousVersion uint32
+	Format          uint
 }
 
 func newTestSwupd(t *testing.T, prefix string) *testSwupd {
@@ -774,7 +766,6 @@ func newTestSwupd(t *testing.T, prefix string) *testSwupd {
 
 	fs.mkdir("image")
 	fs.mkdir("www")
-	fs.write("image/LAST_VER", "0\n")
 
 	mustInitServerINI(t, fs.Dir)
 
@@ -796,12 +787,12 @@ func (ts *testSwupd) createManifests(version uint32) *MoM {
 	osRelease := fmt.Sprintf("VERSION_ID=%d\n", version)
 	ts.addFile(version, "os-core", "/usr/lib/os-release", osRelease)
 
-	mom, err := CreateManifests(version, ts.MinVersion, ts.Format, ts.Dir, runtime.NumCPU())
+	mom, err := CreateManifests(version, ts.PreviousVersion, ts.MinVersion, ts.Format, ts.Dir, runtime.NumCPU())
 	if err != nil {
 		ts.t.Fatalf("error creating manifests for version %d: %s", version, err)
 	}
 
-	ts.write("image/LAST_VER", fmt.Sprintf("%d\n", version))
+	ts.PreviousVersion = version
 
 	return mom
 }
@@ -817,12 +808,12 @@ func (ts *testSwupd) createManifestsFromChroots(version uint32) *MoM {
 	osRelease := fmt.Sprintf("VERSION_ID=%d\n", version)
 	ts.write(filepath.Join("image", fmt.Sprint(version), "os-core", "usr/lib/os-release"), osRelease)
 
-	mom, err := CreateManifests(version, ts.MinVersion, ts.Format, ts.Dir, runtime.NumCPU())
+	mom, err := CreateManifests(version, ts.PreviousVersion, ts.MinVersion, ts.Format, ts.Dir, runtime.NumCPU())
 	if err != nil {
 		ts.t.Fatalf("error creating manifests for version %d: %s", version, err)
 	}
 
-	ts.write("image/LAST_VER", fmt.Sprintf("%d\n", version))
+	ts.PreviousVersion = version
 
 	return mom
 }

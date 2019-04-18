@@ -49,28 +49,6 @@ func TestReadGroupsINI(t *testing.T) {
 	}
 }
 
-func TestReadLastVerFile(t *testing.T) {
-	var err error
-	if _, err = readLastVerFile("nowhere"); err == nil {
-		// readLastVerFile raises an error when the file does not exist
-		// because it is necessary for the build
-		t.Error("readLastVerFile did not raise an error on a non-existent file")
-	}
-
-	if _, err = readLastVerFile("testdata/BAD_LAST_VER"); err == nil {
-		t.Error("readLastVerFile did not raise an error on file with invalid content")
-	}
-
-	var lastVer uint32
-	if lastVer, err = readLastVerFile("testdata/LAST_VER"); err != nil {
-		t.Error(err)
-	}
-
-	if lastVer != 10 {
-		t.Errorf("readLastVer returned %v when 10 was expected", lastVer)
-	}
-}
-
 func TestReadIncludesFile(t *testing.T) {
 	var err error
 	if _, err = readIncludesFile("nowhere"); err != nil {

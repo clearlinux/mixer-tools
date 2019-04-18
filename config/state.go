@@ -22,12 +22,14 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/BurntSushi/toml"
 )
 
 type mixSection struct {
-	Format string `toml:"FORMAT"`
+	Format         string `toml:"FORMAT"`
+	PreviousMixVer string `toml:"PREVIOUS_MIX_VERSION"`
 }
 
 // MixState holds the current state of the mix
@@ -48,6 +50,7 @@ const DefaultFormatPath = "/usr/share/defaults/swupd/format"
 // LoadDefaults initialize the state object with sane values
 func (state *MixState) LoadDefaults() {
 	state.loadDefaultFormat()
+	state.loadDefaultPreviousMixVer()
 
 	state.filename = "mixer.state"
 	state.version = CurrentStateVersion
@@ -72,6 +75,16 @@ func (state *MixState) loadDefaultFormat() {
 
 	state.Mix.Format = "1"
 	state.formatSource = "Mixer internal value"
+}
+
+func (state *MixState) loadDefaultPreviousMixVer() {
+	/* The LAST_VER is the default for PREVIOUS_MIX_VERSION */
+	lastVer, err := ioutil.ReadFile("update/image/LAST_VER")
+	if err == nil && string(lastVer) != "" {
+		state.Mix.PreviousMixVer = strings.TrimSuffix(string(lastVer), "\n")
+		return
+	}
+	state.Mix.PreviousMixVer = "0"
 }
 
 func (state *MixState) getFormatFromConfig() (string, error) {
@@ -121,6 +134,7 @@ func (state *MixState) Load() error {
 	if err != nil {
 		// If state does not exists, create a default state
 		log.Println("Warning: Using FORMAT value from " + state.formatSource)
+		log.Println("Warning: Using PREVIOUS_MIX_VERSION default value")
 		return state.Save()
 	}
 	defer func() {

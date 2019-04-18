@@ -21,7 +21,7 @@ import (
 )
 
 // CurrentStateVersion is the current revision for the state file structure
-const CurrentStateVersion = "1.0"
+const CurrentStateVersion = "1.1"
 
 func (state *MixState) parseVersionAndConvert() error {
 	f, err := os.Open(state.filename)

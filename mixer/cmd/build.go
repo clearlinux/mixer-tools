@@ -252,6 +252,14 @@ var buildFormatOldCmd = &cobra.Command{
 		if err != nil {
 			fail(err)
 		}
+
+		// The PREVIOUS_MIX_VERSION value in mixer.state replaced the LAST_VER file for
+		// setting the previous version in the manifest header field. The PREVIOUS_MIX_VERSION
+		// value is set to the LAST_VER during format bumps to maintain consistent behavior.
+		if err = b.UpdatePreviousMixVersion(lastVer); err != nil {
+			fail(err)
+		}
+
 		originalVer, err := strconv.Atoi(lastVer)
 		if err != nil {
 			fail(err)
@@ -314,6 +322,12 @@ var buildFormatOldCmd = &cobra.Command{
 		if err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER"), []byte(lastVer), 0644); err != nil {
 			failf("Couldn't update LAST_VER file: %s", err)
 		}
+
+		// PREVIOUS_MIX_VERSION is set to the LAST_VER for format bumps to maintain
+		// consistent format bump behavior.
+		if err = b.UpdatePreviousMixVersion(lastVer); err != nil {
+			fail(err)
+		}
 	},
 }
 
@@ -369,6 +383,17 @@ var buildFormatNewCmd = &cobra.Command{
 		if err != nil {
 			failf("Couldn't build update: %s", err)
 		}
+
+		// The PREVIOUS_MIX_VERSION value in mixer.state replaced the LAST_VER file for
+		// setting the previous version in the manifest header field. The PREVIOUS_MIX_VERSION
+		// value is set to the LAST_VER during format bumps to maintain consistent behavior.
+		lastVer, err := b.GetLastBuildVersion()
+		if err != nil {
+			fail(err)
+		}
+		if err = b.UpdatePreviousMixVersion(lastVer); err != nil {
+			fail(err)
+		}
 	},
 }
 
@@ -396,6 +421,9 @@ var buildUpdateCmd = &cobra.Command{
 		}
 
 		if buildFlags.increment {
+			if err = b.UpdatePreviousMixVersion(b.MixVer); err != nil {
+				fail(err)
+			}
 			ver, err := strconv.Atoi(b.MixVer)
 			if err != nil {
 				fail(err)
@@ -442,6 +470,9 @@ var buildAllCmd = &cobra.Command{
 		}
 
 		if buildFlags.increment {
+			if err = b.UpdatePreviousMixVersion(b.MixVer); err != nil {
+				fail(err)
+			}
 			ver, err := strconv.Atoi(b.MixVer)
 			if err != nil {
 				fail(err)

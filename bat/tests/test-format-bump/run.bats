@@ -37,6 +37,9 @@ EOF
   #check if LAST_VER is set to +20
   test $(< update/image/LAST_VER) -eq 30
 
+  #check PREVIOUS_MIX_VERSION matches LAST_VER
+  test $(sed -n 's/[ ]*PREVIOUS_MIX_VERSION[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq 30
+
   #check if deprecated bundle is marked deleted in +10
   awk '
   $4 == "editors" {
@@ -100,6 +103,9 @@ EOF
 
   #check if LAST_VER is set to +20
   test $(< update/image/LAST_VER) -eq 30
+
+  #check PREVIOUS_MIX_VERSION matches LAST_VER
+  test $(sed -n 's/[ ]*PREVIOUS_MIX_VERSION[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq 30
 
   #check if deprecated bundle is marked deleted in +10
   awk '

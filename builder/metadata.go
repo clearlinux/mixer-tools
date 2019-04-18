@@ -28,6 +28,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+// UpdatePreviousMixVersion updates the PREVIOUS_MIX_VERSION field in mixer.state
+func (b *Builder) UpdatePreviousMixVersion(version string) error {
+	b.State.Mix.PreviousMixVer = version
+
+	return b.State.Save()
+}
+
 // UpdateMixVer sets the mix version in the builder object and writes it out to file
 func (b *Builder) UpdateMixVer(version int) error {
 	// Deprecate '.mixversion' --> 'mixversion'
@@ -323,6 +330,18 @@ Old upstream: %d (format: %s)
 New mix:      %d
 New upstream: %d (format: %s)
 `, b.MixVerUint32, b.UpstreamVerUint32, format, nextMix, nextUpstream, nextFormat)
+
+	// When changing the mix version, update PREVIOUS_MIX_VERSION so the last version
+	// will be used as the previous version for the next update.
+	lastVer, err := b.GetLastBuildVersion()
+	if err != nil {
+		// No available LAST_VER
+		lastVer = "0"
+	}
+	err = b.UpdatePreviousMixVersion(lastVer)
+	if err != nil {
+		return err
+	}
 
 	mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)

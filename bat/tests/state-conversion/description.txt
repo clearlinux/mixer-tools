@@ -1,0 +1,6 @@
+state-conversion
+=================
+This test simulates conversion between state file versions. It replaces the
+default state file with an older version and checks for successful conversions.
+This test also verifies that the PREVIOUS_MIX_VERSION is properly initialized by
+the LAST_VER file during conversions.

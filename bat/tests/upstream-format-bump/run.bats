@@ -34,5 +34,10 @@ setup() {
   format=$((format+1))
   #check if +20 format is set to formatN
   awk -v f=$format '$1 == "MANIFEST" {exit $2 != f}' update/www/30/Manifest.MoM
+
+  #check LAST_VER and PREVIOUS_MIX_VERSION match
+  test $(< update/image/LAST_VER) -eq 30
+  test $(sed -n 's/[ ]*PREVIOUS_MIX_VERSION[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq 30
+
 }
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

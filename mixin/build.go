@@ -135,6 +135,13 @@ func buildMix(prepNeeded bool) error {
 		return err
 	}
 	mixVer := incrementMixVerIfNeeded(ver*1000, mixFlagFile)
+
+	err = os.Chdir(mixWS)
+	if err != nil {
+		_ = os.Remove(mixFlagFile)
+		return err
+	}
+
 	b, err := builder.NewFromConfig(filepath.Join(mixWS, "builder.conf"))
 	if err != nil {
 		_ = os.Remove(mixFlagFile)
@@ -151,12 +158,6 @@ func buildMix(prepNeeded bool) error {
 	// version to maintain consistent behavior for Mixin manifest
 	// generation.
 	b.State.Mix.PreviousMixVer = strconv.Itoa(lastVer)
-
-	err = os.Chdir(mixWS)
-	if err != nil {
-		_ = os.Remove(mixFlagFile)
-		return err
-	}
 
 	if prepNeeded {
 		var rpms []string

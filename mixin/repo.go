@@ -108,12 +108,13 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(configFile)
+
+	err = os.Chdir(mixWS)
 	if err != nil {
 		fail(err)
 	}
 
-	err = os.Chdir(mixWS)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -135,12 +136,13 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(configFile)
+
+	err = os.Chdir(mixWS)
 	if err != nil {
 		fail(err)
 	}
 
-	err = os.Chdir(mixWS)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -157,12 +159,13 @@ func runListRepos(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	b, err := builder.NewFromConfig(configFile)
+
+	err = os.Chdir(mixWS)
 	if err != nil {
 		fail(err)
 	}
 
-	err = os.Chdir(mixWS)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -175,10 +178,6 @@ func runListRepos(cmd *cobra.Command, args []string) {
 
 func runInitRepo(cmd *cobra.Command, args []string) {
 	err := repoPrep()
-	if err != nil {
-		fail(err)
-	}
-	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}
@@ -198,6 +197,11 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 		_ = os.Chdir(wd)
 	}()
 
+	b, err := builder.NewFromConfig(configFile)
+	if err != nil {
+		fail(err)
+	}
+
 	err = b.NewDNFConfIfNeeded()
 	if err != nil {
 		fail(err)
@@ -210,12 +214,12 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	b, err := builder.NewFromConfig(configFile)
+	err = os.Chdir(mixWS)
 	if err != nil {
 		fail(err)
 	}
 
-	err = os.Chdir(mixWS)
+	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
 	}

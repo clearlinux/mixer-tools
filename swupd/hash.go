@@ -65,7 +65,11 @@ func internHash(hash string) Hashval {
 }
 
 func (h Hashval) String() string {
-	return *Hashes[int(h)]
+	rwMutex.RLock()
+	hash := *Hashes[int(h)]
+	rwMutex.RUnlock()
+
+	return hash
 }
 
 // HashEquals trivial equality function for Hashval

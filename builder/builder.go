@@ -566,6 +566,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	// Create all deltas for all previous versions first based on full manifests
 	var versionQueue = make(chan *swupd.Manifest)
+	mux := &sync.Mutex{}
 	var wg sync.WaitGroup
 	var deltaErrors []error
 	versionWorkers := 1
@@ -596,7 +597,9 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 			for fromManifest := range versionQueue {
 				deltaErr := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog)
 				if deltaErr != nil {
+					mux.Lock()
 					deltaErrors = append(deltaErrors, deltaErr)
+					mux.Unlock()
 				}
 			}
 		}()

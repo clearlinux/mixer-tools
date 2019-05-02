@@ -773,6 +773,22 @@ func analyzeMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mca
 			continue
 		}
 
+		// Typically, Mixer updates the /usr/lib/os-release file, so an error is generated
+		// when it is unchanged. When comparing the +10 to the +20, this error will be
+		// removed by removeMcaErrorExceptions.
+		if b.name == "os-core" {
+			releaseFileMod := false
+			for _, file := range b.manFileDiffs.modList {
+				if file == "/usr/lib/os-release" {
+					releaseFileMod = true
+					break
+				}
+			}
+			if releaseFileMod == false {
+				errorList = append(errorList, "ERROR: /usr/lib/os-release is not modified in manifest 'os-core'\n")
+			}
+		}
+
 		errorList = append(errorList, diffResultLists(b.pkgFileDiffs.addList, b.manFileDiffs.addList, toInfo[b.name].subPkgFiles, b.name, "added")...)
 		errorList = append(errorList, diffResultLists(b.pkgFileDiffs.modList, b.manFileDiffs.modList, toInfo[b.name].subPkgFiles, b.name, "modified")...)
 
@@ -846,15 +862,26 @@ func removeMcaErrorExceptions(b *Builder, diffErrors []string, fromVer, toVer in
 		return nil, nil, err
 	}
 
+	// The release file should be modified with the exception of the +10 to +20
+	// comparison. This value will be overridden when the file is unchanged.
+	releaseFileMod := true
+
 	// Special case files that can be modified in a manifest, but have no package
 	// equivalent will generate false positive errors. Remove the false positive
 	// errors and generate error/warning messages when expected special case errors
 	// are missing.
-	var releaseFile, versionFile, versionstampFile, formatFile bool
+	var versionFile, versionstampFile, formatFile bool
 	for _, err := range diffErrors {
 		switch err {
+		// Mixer modifies the version field in the /usr/lib/os-release file, but the
+		// file also exists in the filesystem package. When the filesystem package
+		// is modified, the false positive error will not be generated. To verify that
+		// os-release is modified when not comparing the +10 to the +20, the below error
+		// message is tracked in addition to the false positives.
+		case "ERROR: /usr/lib/os-release is not modified in manifest 'os-core'\n":
+			releaseFileMod = false
 		case "ERROR: /usr/lib/os-release is modified in manifest 'os-core', but not in a package\n":
-			releaseFile = true
+			continue
 		case "ERROR: /usr/share/clear/version is modified in manifest 'os-core', but not in a package\n":
 			versionFile = true
 		case "ERROR: /usr/share/clear/versionstamp is modified in manifest 'os-core', but not in a package\n":
@@ -872,13 +899,16 @@ func removeMcaErrorExceptions(b *Builder, diffErrors []string, fromVer, toVer in
 		// are expected in os-core/os-core-update, but the +20 version cannot be detected since Mixer does
 		// not track the first file in a format. As a result, assume this case is a +10 -> +20
 		// comparison and print a warning message.
-		if releaseFile == false && versionFile == false && versionstampFile == false && formatFile == false {
+		if releaseFileMod == false && versionFile == false && versionstampFile == false && formatFile == false {
 			warningList = append(warningList, "WARNING: If this is not a +10 to +20 comparison, expected file changes are missing from os-core/os-core-update\n")
 			return errorList, warningList, nil
 		}
 		warningList = append(warningList, "WARNING: If this is a +10 to +20 comparison, os-core/os-core-update have file exception errors\n")
 	}
-	if releaseFile == false {
+
+	// When the comparison is not between +10 -> +20 versions, re-add an error when /usr/lib/os-release
+	// is not modified
+	if releaseFileMod == false {
 		errorList = append(errorList, "ERROR: /usr/lib/os-release is not modified in manifest 'os-core'\n")
 	}
 	if versionFile == false {

@@ -18,7 +18,8 @@ setup() {
 
   # Strip required bundles to minimum package set.
   mixer init --no-default-bundles
-  mixer bundle add os-core os-core-update
+  mixer bundle create no-pkgs
+  mixer bundle add os-core os-core-update no-pkgs
   echo "filesystem" > $LOCAL_BUNDLE_DIR/os-core
   echo "clr-bundles" > $LOCAL_BUNDLE_DIR/os-core-update
 

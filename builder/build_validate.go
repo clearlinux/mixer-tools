@@ -277,6 +277,12 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 	bundleWorker := func() {
 		for m := range mCh {
 			var pkgList = []string{}
+
+			// Skip bundles with no packages
+			if len(mInfo[m.name].BundleInfo.AllPackages) == 0 {
+				continue
+			}
+
 			for pkg := range mInfo[m.name].BundleInfo.AllPackages {
 				pkgList = append(pkgList, pkg)
 			}

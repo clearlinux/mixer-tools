@@ -987,7 +987,7 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 			}
 			fmt.Printf(err)
 		}
-		return nil
+		return fmt.Errorf("Manifest errors were identified")
 	}
 
 	fmt.Printf("** Summary: No errors detected in manifests\n\n")

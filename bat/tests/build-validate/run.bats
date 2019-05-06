@@ -117,7 +117,7 @@ setup() {
 
   run sudo mixer build validate --from 10 --to 20 --native
 
-  [[ $status -eq 0 ]]
+  [[ $status -ne 0 ]]
 
   # Check for inserted file failures
   [[ $output =~ "ERROR: /fakeAdd is added in manifest 'os-core', but not in a package" ]]
@@ -135,7 +135,7 @@ setup() {
   
   run sudo mixer build validate --from 20 --to 30 --native
 
-  [[ $status -eq 0 ]]
+  [[ $status -ne 0 ]]
   [[ $output =~ "ERROR: /usr/share/defaults/swupd/format is not modified in manifest 'os-core-update'" ]]
 }
 
@@ -146,7 +146,7 @@ setup() {
 
   run sudo mixer build validate --from 30 --to 40 --native
 
-  [[ $status -eq 0 ]]
+  [[ $status -ne 0 ]]
   [[ $output =~ "WARNING: If this is a +10 to +20 comparison, os-core/os-core-update have file exception errors" ]]
 }
 

@@ -106,12 +106,10 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	}
 
 	var wg sync.WaitGroup
-	// TODO: handle "too many open files" when mom.UpdatedBundles gets too
-	// large. May have to limit the number of workers here.
-	workers := len(mom.UpdatedBundles)
-	wg.Add(workers)
+
+	wg.Add(b.NumBundleWorkers)
 	bundleChan := make(chan *swupd.Manifest)
-	errorChan := make(chan error, workers)
+	errorChan := make(chan error, b.NumBundleWorkers)
 	fmt.Println("Compressing bundle manifests")
 	compWorker := func() {
 		defer wg.Done()
@@ -126,7 +124,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		}
 	}
 
-	for i := 0; i < workers; i++ {
+	for i := 0; i < b.NumBundleWorkers; i++ {
 		go compWorker()
 	}
 

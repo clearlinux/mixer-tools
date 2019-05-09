@@ -50,6 +50,7 @@ type buildCmdFlags struct {
 	skipPacks       bool
 	to              int
 	from            int
+	skipFormatCheck bool
 
 	numFullfileWorkers int
 	numDeltaWorkers    int
@@ -701,6 +702,7 @@ func init() {
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numDeltaWorkers, "delta-workers", 0, "Number of parallel workers when creating deltas, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numBundleWorkers, "bundle-workers", 0, "Number of parallel workers when building bundles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.downloadRetries, "retries", retriesDefault, "Number of retry attempts to download RPMs")
+	buildCmd.PersistentFlags().BoolVar(&buildFlags.skipFormatCheck, "skip-format-check", false, "Skip format bump check")
 
 	RootCmd.AddCommand(buildCmd)
 
@@ -774,7 +776,7 @@ func printFormatMismatch(b *builder.Builder) error {
 
 func checkFormatBump(b *builder.Builder) error {
 	// Skip check if offline
-	if builder.Offline {
+	if builder.Offline || buildFlags.skipFormatCheck {
 		return nil
 	}
 

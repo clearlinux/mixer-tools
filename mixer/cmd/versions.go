@@ -57,6 +57,7 @@ var versionsUpdateFlags struct {
 	mixVersion      uint32
 	upstreamVersion string // Accepts "latest".
 	increment       uint32
+	skipFormatCheck bool
 }
 
 func init() {
@@ -67,6 +68,7 @@ func init() {
 	versionsUpdateCmd.Flags().StringVar(&versionsUpdateFlags.upstreamVersion, "upstream-version", "", "Next upstream version (either version number or 'latest')")
 	versionsUpdateCmd.Flags().StringVar(&versionsUpdateFlags.upstreamVersion, "clear-version", "", "Alias to --upstream-version")
 	versionsUpdateCmd.Flags().Uint32Var(&versionsUpdateFlags.increment, "increment", 10, "Amount to increment current mix version")
+	versionsUpdateCmd.Flags().BoolVar(&versionsUpdateFlags.skipFormatCheck, "skip-format-check", false, "Skip format bump check")
 }
 
 func runVersions(cmd *cobra.Command, args []string) {
@@ -106,7 +108,7 @@ func runVersionsUpdate(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	err = b.UpdateVersions(nextMix, nextUpstream)
+	err = b.UpdateVersions(nextMix, nextUpstream, versionsUpdateFlags.skipFormatCheck)
 	if err != nil {
 		fail(err)
 	}

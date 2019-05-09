@@ -1,0 +1,5 @@
+contentsize-check
+================
+This test calculates the content size of the files in the chroot for each bundle
+and compares them against the contentsize field in the corresponding manifest.
+The directory size is omitted for the content size calculation.

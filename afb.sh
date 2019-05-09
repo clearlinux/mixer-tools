@@ -97,7 +97,7 @@ mixer build update --native
 ###############################################################################
 
 # update mixer to build version 30, which in our case is the +20
-mixer versions update --mix-version 30
+mixer versions update --mix-version 30 --skip-format-check
 # update mixer.state to new format
 sed -i 's/\(FORMAT\).*/\1 = "2"/' mixer.state
 # Fully remove deleted bundles from groups.ini and mixbundles list. This will
@@ -115,4 +115,4 @@ done
 cp -al update/image/20 update/image/30
 # build an update as a minversion, this is the first build where the manifests
 # identify as the new format
-mixer build update --native --min-version 30
+mixer build update --native --min-version 30 --skip-format-check

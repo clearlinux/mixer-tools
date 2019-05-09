@@ -281,7 +281,7 @@ Latest upstream in format: (not available in offline mode)
 // UpdateVersions will validate then update both mix and upstream versions. If
 // upstream version is 0, then the latest upstream version in the current
 // upstream format will be taken instead.
-func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32) error {
+func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32, skipFormatCheck bool) error {
 	var format string
 	var latest uint32
 	var err error
@@ -359,8 +359,10 @@ New upstream: %d (format: %s)
 	b.UpstreamVerUint32 = nextUpstream
 	b.UpstreamVer = nextUpstreamStr
 
-	if _, err := b.CheckBumpNeeded(false); err != nil {
-		return err
+	if !skipFormatCheck {
+		if _, err := b.CheckBumpNeeded(false); err != nil {
+			return err
+		}
 	}
 
 	return nil

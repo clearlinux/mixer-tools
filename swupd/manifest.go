@@ -629,7 +629,12 @@ func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {
 				// this is expensive because we care about order at this point
 				m.Files = append(m.Files[:i], m.Files[i+1:]...)
 				m.Header.FileCount--
-				m.Header.ContentSize -= uint64(f1.Info.Size())
+
+				// Directories can be installed with inconsistent sizes, so the
+				// directory size is not included in the contentsize header field.
+				if f1.Type != TypeDirectory {
+					m.Header.ContentSize -= uint64(f1.Info.Size())
+				}
 			}
 
 			// only need to advance the m2.Files index since i now points to the next
@@ -910,7 +915,9 @@ func fileContentInManifest(f *File, m *Manifest) bool {
 // AppendFile appends a file to the manifest and updates the ContentSize
 func (m *Manifest) AppendFile(file *File) {
 	m.Files = append(m.Files, file)
-	if file.Info != nil {
+	// Directories can be installed with inconsistent sizes, so the
+	// directory size is not included in the contentsize header field.
+	if file.Info != nil && file.Type != TypeDirectory {
 		m.Header.ContentSize += uint64(file.Info.Size())
 	}
 }

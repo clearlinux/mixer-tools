@@ -48,6 +48,11 @@ subcommands.
    Number of parallel workers when creating fullfiles, passing 0 or omitting this
    flag defaults the number of workers to the number of CPUs on the system.
 
+-  ``--skip-format-check``
+
+   Skip check for compatible upstream format when building on top of a new
+   upstream.
+
 -  ``-h, --help``
 
    Display ``build`` help information and exit.

@@ -138,7 +138,7 @@ func (config *MixConfig) convertFormat() error {
 	}
 
 	var state MixState
-	state.LoadDefaults()
+	state.LoadDefaults(*config)
 
 	_, err = os.Stat(state.filename)
 	if err == nil {

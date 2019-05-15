@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -48,9 +49,9 @@ type MixState struct {
 const DefaultFormatPath = "/usr/share/defaults/swupd/format"
 
 // LoadDefaults initialize the state object with sane values
-func (state *MixState) LoadDefaults() {
+func (state *MixState) LoadDefaults(config MixConfig) {
 	state.loadDefaultFormat()
-	state.loadDefaultPreviousMixVer()
+	state.loadDefaultPreviousMixVer(config.Builder.ServerStateDir)
 
 	state.filename = "mixer.state"
 	state.version = CurrentStateVersion
@@ -77,9 +78,9 @@ func (state *MixState) loadDefaultFormat() {
 	state.formatSource = "Mixer internal value"
 }
 
-func (state *MixState) loadDefaultPreviousMixVer() {
+func (state *MixState) loadDefaultPreviousMixVer(stateDir string) {
 	/* The LAST_VER is the default for PREVIOUS_MIX_VERSION */
-	lastVer, err := ioutil.ReadFile("update/image/LAST_VER")
+	lastVer, err := ioutil.ReadFile(filepath.Join(stateDir, "image/LAST_VER"))
 	if err == nil && string(lastVer) != "" {
 		state.Mix.PreviousMixVer = strings.TrimSuffix(string(lastVer), "\n")
 		return
@@ -127,8 +128,8 @@ func (state *MixState) Save() error {
 }
 
 // Load the mixer.state file
-func (state *MixState) Load() error {
-	state.LoadDefaults()
+func (state *MixState) Load(config MixConfig) error {
+	state.LoadDefaults(config)
 
 	f, err := os.Open(state.filename)
 	if err != nil {

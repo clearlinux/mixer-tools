@@ -73,6 +73,10 @@ SUBCOMMANDS
       Set a specific next upstream version (either version number or the default
       "latest" string).
 
+    - ``--skip-format-check``
+
+      Skip check for compatible upstream format when changing upstream version.
+
       This command will not update to an upstream version of a different format
       ("format bumps"). At the moment this needs to be handled manually.
 

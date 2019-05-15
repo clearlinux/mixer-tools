@@ -47,7 +47,7 @@ var initCmd = &cobra.Command{
 			fail(err)
 		}
 
-		b.State.LoadDefaults()
+		b.State.LoadDefaults(b.Config)
 		if initFlags.format != "" {
 			b.State.Mix.Format = initFlags.format
 		}

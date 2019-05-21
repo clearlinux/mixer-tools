@@ -144,6 +144,28 @@ func TestReadManifestHeaderIncludes(t *testing.T) {
 	}
 }
 
+func TestReadManifestHeaderOptional(t *testing.T) {
+	m := Manifest{}
+	if err := readManifestFileHeaderLine([]string{"also-add:", "test-bundle"}, &m); err != nil {
+		t.Error("failed to read also-add header")
+	}
+
+	var expected []*Manifest
+	expected = append(expected, &Manifest{Name: "test-bundle"})
+	if !reflect.DeepEqual(m.Header.Optional, expected) {
+		t.Errorf("manifest also-add set to %v when %v expected", m.Header.Optional, expected)
+	}
+
+	if err := readManifestFileHeaderLine([]string{"also-add:", "test-bundle2"}, &m); err != nil {
+		t.Error("failed to read second includes header")
+	}
+
+	expected = append(expected, &Manifest{Name: "test-bundle2"})
+	if !reflect.DeepEqual(m.Header.Optional, expected) {
+		t.Errorf("manifest also-add set to %v when %v expected", m.Header.Optional, expected)
+	}
+}
+
 func TestReadManifestFileEntry(t *testing.T) {
 	validHash := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	validManifestLines := [][]string{
@@ -210,10 +232,10 @@ func TestCheckInvalidManifestHeaders(t *testing.T) {
 		name   string
 		header ManifestHeader
 	}{
-		{"format not set", ManifestHeader{0, 100, 90, 0, 553, time.Unix(1000, 0), 100000, nil}},
-		{"version zero", ManifestHeader{10, 0, 90, 0, 553, time.Unix(1000, 0), 100000, nil}},
-		{"no files", ManifestHeader{10, 100, 90, 0, 0, time.Unix(1000, 0), 100000, nil}},
-		{"no timestamp", ManifestHeader{10, 100, 0, 90, 553, zeroTime, 100000, nil}},
+		{"format not set", ManifestHeader{0, 100, 90, 0, 553, time.Unix(1000, 0), 100000, nil, nil}},
+		{"version zero", ManifestHeader{10, 0, 90, 0, 553, time.Unix(1000, 0), 100000, nil, nil}},
+		{"no files", ManifestHeader{10, 100, 90, 0, 0, time.Unix(1000, 0), 100000, nil, nil}},
+		{"no timestamp", ManifestHeader{10, 100, 0, 90, 553, zeroTime, 100000, nil, nil}},
 	}
 
 	for _, tt := range tests {

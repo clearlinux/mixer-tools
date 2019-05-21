@@ -899,3 +899,49 @@ func TestNoUpdateStateFiles(t *testing.T) {
 	m20 := ts.parseManifest(20, "test-bundle")
 	fileInManifest(t, m20, 10, "/usr/lib/kernel/file")
 }
+
+func TestCreateManifestOptionalIncludes(t *testing.T) {
+	ts := newTestSwupd(t, "optional-includes")
+	defer ts.cleanup()
+	// optional includes are not supported in formats < 29
+	ts.Format = 29
+
+	ts.Bundles = []string{"test-bundle1", "test-bundle2", "test-bundle3", "test-bundle4"}
+	ts.addIncludes(10, "test-bundle1", []string{"test-bundle2"})
+	ts.addOptional(10, "test-bundle1", []string{"test-bundle3", "test-bundle4"})
+	ts.addFile(10, "test-bundle1", "/test1", "/test1")
+	ts.addFile(10, "test-bundle2", "/test2", "/test2")
+	ts.addFile(10, "test-bundle3", "/test3", "/test3")
+	ts.addFile(10, "test-bundle4", "/test4", "/test4")
+	ts.createManifests(10)
+
+	checkManifestContains(t, ts.Dir, "10", "test-bundle1", "includes:\ttest-bundle2\n")
+	checkManifestContains(t, ts.Dir, "10", "test-bundle1", "also-add:\ttest-bundle3\nalso-add:\ttest-bundle4\n")
+
+	ts.addOptional(20, "test-bundle1", []string{"test-bundle2"})
+	ts.createManifests(20)
+
+	checkManifestNotContains(t, ts.Dir, "20", "test-bundle1", "also-add:\ttest-bundle3\nalso-add:\ttest-bundle4\n")
+}
+
+func TestCreateManifestOptionalIncludesDeduplicate(t *testing.T) {
+	ts := newTestSwupd(t, "optional-includes-dedup")
+	defer ts.cleanup()
+	// optional includes are not supported in formats < 29
+	ts.Format = 29
+
+	ts.Bundles = []string{"test-bundle1", "test-bundle2"}
+	ts.addOptional(10, "test-bundle2", []string{"test-bundle1", "test-bundle1"})
+	ts.addFile(10, "test-bundle1", "/test1", "/test1")
+	ts.addFile(10, "test-bundle2", "/test2", "/test2")
+	ts.createManifests(10)
+
+	dualOptional := "also-add:\ttest-bundle1\nalso-add:\ttest-bundle1"
+	checkManifestNotContains(t, ts.Dir, "10", "test-bundle2", dualOptional)
+	checkManifestContains(t, ts.Dir, "10", "test-bundle2", "also-add:\ttest-bundle1\n")
+
+	ts.addOptional(20, "test-bundle2", []string{"test-bundle1", "test-bundle1"})
+	ts.createManifests(20)
+
+	checkManifestNotContains(t, ts.Dir, "20", "test-bundle2", dualOptional)
+}

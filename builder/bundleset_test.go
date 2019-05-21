@@ -17,6 +17,7 @@ func TestParseBundle(t *testing.T) {
 		Contents         []byte
 		ExpectedHeader   swupd.BundleHeader
 		ExpectedIncludes []string
+		ExpectedOptional []string
 		ExpectedPackages map[string]bool
 		ShouldFail       bool
 	}{
@@ -29,6 +30,8 @@ func TestParseBundle(t *testing.T) {
 # [MAINTAINER]: the maintainer
 include(a)
 include(b)
+also-add(c)
+also-add(d)
 pkg1     # Comment
 pkg2
 `),
@@ -40,6 +43,7 @@ pkg2
 				Maintainer:   "the maintainer",
 			},
 			ExpectedIncludes: []string{"a", "b"},
+			ExpectedOptional: []string{"c", "d"},
 			ExpectedPackages: map[string]bool{"pkg1": true, "pkg2": true},
 		},
 		{
@@ -50,6 +54,7 @@ pkg2
 # [CAPABILITIES]: 
 # [MAINTAINER]: 
 include(a)
+also-add(b)
 pkg1
 `),
 			ExpectedHeader: swupd.BundleHeader{
@@ -57,6 +62,7 @@ pkg1
 				Description: "a description",
 			},
 			ExpectedIncludes: []string{"a"},
+			ExpectedOptional: []string{"b"},
 			ExpectedPackages: map[string]bool{"pkg1": true},
 		},
 		{
@@ -83,6 +89,10 @@ pkg1 # [TITLE]: wrongtitle
 		{Contents: []byte(`Include(`), ShouldFail: true},
 		{Contents: []byte(`include())`), ShouldFail: true},
 		{Contents: []byte(`include(abc))`), ShouldFail: true},
+		{Contents: []byte(`also-add(`), ShouldFail: true},
+		{Contents: []byte(`Also-add(`), ShouldFail: true},
+		{Contents: []byte(`also-add())`), ShouldFail: true},
+		{Contents: []byte(`also-add(abc))`), ShouldFail: true},
 	}
 
 	for _, tt := range tests {
@@ -108,6 +118,10 @@ pkg1 # [TITLE]: wrongtitle
 			t.Errorf("got wrong includes when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES (%d): %s\nEXPECTED INCLUDES (%d): %s", tt.Contents, len(b.DirectIncludes), b.DirectIncludes, len(tt.ExpectedIncludes), tt.ExpectedIncludes)
 		}
 
+		if !reflect.DeepEqual(b.OptionalIncludes, tt.ExpectedOptional) {
+			t.Errorf("got wrong optional includes when parsing bundle\nCONTENTS:\n%s\nPARSED OPTIONAL INCLUDES (%d): %s\nEXPECTED OPTIONAL INCLUDES (%d): %s", tt.Contents, len(b.OptionalIncludes), b.OptionalIncludes, len(tt.ExpectedOptional), tt.ExpectedOptional)
+		}
+
 		if !reflect.DeepEqual(b.DirectPackages, tt.ExpectedPackages) {
 			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%v", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
@@ -119,6 +133,7 @@ func TestParseBundleFile(t *testing.T) {
 		Filename         string
 		Contents         []byte
 		ExpectedIncludes []string
+		ExpectedOptional []string
 		ExpectedPackages map[string]bool
 		ShouldFail       bool
 	}{
@@ -127,10 +142,13 @@ func TestParseBundleFile(t *testing.T) {
 			Contents: []byte(`# Simple fake bundle
 include(a)
 include(b)
+also-add(c)
+also-add(d)
 pkg1     # Comment
 pkg2
 `),
 			ExpectedIncludes: []string{"a", "b"},
+			ExpectedOptional: []string{"c", "d"},
 			ExpectedPackages: map[string]bool{"pkg1": true, "pkg2": true},
 		},
 
@@ -171,6 +189,10 @@ pkg2
 			t.Errorf("got wrong includes when parsing bundle\nCONTENTS:\n%s\nPARSED INCLUDES (%d): %s\nEXPECTED INCLUDES (%d): %s", tt.Contents, len(bundle.DirectIncludes), bundle.DirectIncludes, len(tt.ExpectedIncludes), tt.ExpectedIncludes)
 		}
 
+		if !reflect.DeepEqual(bundle.OptionalIncludes, tt.ExpectedOptional) {
+			t.Errorf("got wrong optional includes when parsing bundle\nCONTENTS:\n%s\nPARSED OPTIONAL INCLUDES (%d): %s\nEXPECTED OPTIONAL INCLUDES (%d): %s", tt.Contents, len(bundle.OptionalIncludes), bundle.OptionalIncludes, len(tt.ExpectedOptional), tt.ExpectedOptional)
+		}
+
 		if !reflect.DeepEqual(bundle.DirectPackages, tt.ExpectedPackages) {
 			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%v", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
@@ -192,6 +214,8 @@ func TestValidateBundle(t *testing.T) {
 # [MAINTAINER]: the maintainer
 include(a)
 include(b)
+also-add(c)
+also-add(d)
 pkg1     # Comment
 pkg2
 `),
@@ -204,9 +228,9 @@ pkg2
 		{Contents: []byte(`# [TITLE]: MoM`), ExpectedErrors: []string{"Invalid bundle name"}, ShouldFail: true},
 		{
 			Contents: []byte(`# [TITLE]: a
-# [DESCRIPTION]: 
-# [MAINTAINER]: 
-# [STATUS]: 
+# [DESCRIPTION]:
+# [MAINTAINER]:
+# [STATUS]:
 # [CAPABILITIES]: `),
 			ExpectedErrors: []string{"Empty Description in bundle header", "Empty Maintainer in bundle header", "Empty Status in bundle header", "Empty Capabilities in bundle header"}, ShouldFail: true,
 		},
@@ -258,6 +282,8 @@ func TestValidateBundleFile(t *testing.T) {
 # [MAINTAINER]: the maintainer
 include(a)
 include(b)
+also-add(c)
+also-add(d)
 pkg1     # Comment
 pkg2
 `),
@@ -276,6 +302,7 @@ pkg2
 		{Filename: "a", Contents: []byte(`# [TITLE]: `), Level: StrictValidation, ExpectedErrors: []string{"in bundle header Title"}, ShouldFail: true},
 		// Bundle contents error (catching errors passed up from parseBundle)
 		{Filename: "b", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
+		{Filename: "c", Contents: []byte(`also-add(a`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
 	}
 
 	testDir, err := ioutil.TempDir("", "bundleset-test-")
@@ -346,6 +373,18 @@ func TestParseBundleSet(t *testing.T) {
 			},
 		},
 		{
+			"simple optional",
+			FilesMap{
+				"a": Lines("A1 A2"),
+				"b": "also-add(a)",
+				// optional bundles should not add packages to AllPackages
+			},
+			CountsMap{
+				"a": 2,
+				"b": 0,
+			},
+		},
+		{
 			"redundant includes",
 			FilesMap{
 				"a": Lines("A1 A2 A3 A4"),
@@ -360,7 +399,21 @@ func TestParseBundleSet(t *testing.T) {
 				"d": 13,
 			},
 		},
-
+		{
+			"redundant optional includes",
+			FilesMap{
+				"a": Lines("A1 A2 A3 A4"),
+				"b": Lines("include(a) B1 B2 B3 B4"),
+				"c": Lines("also-add(b) C1 C2 C3 C4"),
+				"d": Lines("also-add(a) also-add(b) also-add(c) A1 B1 C1 D1"),
+			},
+			CountsMap{
+				"a": 4,
+				"b": 8,
+				"c": 4,
+				"d": 4,
+			},
+		},
 		{
 			"all packages don't have duplicates",
 			FilesMap{
@@ -369,6 +422,8 @@ func TestParseBundleSet(t *testing.T) {
 				"c": Lines("include(b) A A A A include(a)"),
 				"d": Lines("A"),
 				"e": Lines("include(a) include(d) E"),
+				"f": Lines("also-add(b) A A A A also-add(a)"),
+				"g": Lines("also-add(a) also-add(d) E"),
 			},
 			CountsMap{
 				"a": 1,
@@ -376,6 +431,8 @@ func TestParseBundleSet(t *testing.T) {
 				"c": 1,
 				"d": 1,
 				"e": 2,
+				"f": 1,
+				"g": 1,
 			},
 		},
 
@@ -390,6 +447,12 @@ func TestParseBundleSet(t *testing.T) {
 
 		{"bundle not available 2",
 			FilesMap{"a": "include(b)", "b": "include(c)"}, Error},
+
+		{"optional bundle not available",
+			FilesMap{"a": "also-add(c)"}, Error},
+
+		{"optional bundle not available 2",
+			FilesMap{"a": "also-add(b)", "b": "also-add(c)"}, Error},
 	}
 
 	testDir, err := ioutil.TempDir("", "bundleset-test-")

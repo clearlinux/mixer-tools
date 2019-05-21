@@ -63,6 +63,7 @@ type ManifestHeader struct {
 	TimeStamp   time.Time
 	ContentSize uint64
 	Includes    []*Manifest
+	Optional    []*Manifest
 }
 
 // Manifest represents a bundle or list of bundles (MoM)
@@ -135,6 +136,8 @@ func readManifestFileHeaderLine(fields []string, m *Manifest) error {
 		m.Header.ContentSize = parsed
 	case "includes:":
 		m.Header.Includes = append(m.Header.Includes, &Manifest{Name: fields[1]})
+	case "also-add:":
+		m.Header.Optional = append(m.Header.Optional, &Manifest{Name: fields[1]})
 	}
 
 	return nil
@@ -264,7 +267,7 @@ func ParseManifest(r io.Reader) (*Manifest, error) {
 
 		fields := strings.Split(text, manifestFieldDelim)
 		entry := fields[0]
-		if entry != "includes:" && parsedEntries[entry] > 0 {
+		if (entry != "includes:" && entry != "also-add:") && parsedEntries[entry] > 0 {
 			return nil, fmt.Errorf("invalid manifest, duplicate entry %q in header", entry)
 		}
 		parsedEntries[entry]++
@@ -586,6 +589,16 @@ func includesChanged(m1 *Manifest, m2 *Manifest) bool {
 
 	for i := 0; i < len(m1.Header.Includes); i++ {
 		if m1.Header.Includes[i].Name != m2.Header.Includes[i].Name {
+			return true
+		}
+	}
+
+	if len(m1.Header.Optional) != len(m2.Header.Optional) {
+		return true
+	}
+
+	for i := 0; i < len(m1.Header.Optional); i++ {
+		if m1.Header.Optional[i].Name != m2.Header.Optional[i].Name {
 			return true
 		}
 	}

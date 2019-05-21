@@ -305,6 +305,13 @@ func (b *Builder) getFullBundleSet(bundles bundleSet) (bundleSet, error) {
 						return err
 					}
 				}
+
+				if len(bundle.OptionalIncludes) > 0 {
+					err := recurseBundleSet(bundle.OptionalIncludes)
+					if err != nil {
+						return err
+					}
+				}
 			}
 		}
 		return nil
@@ -348,6 +355,17 @@ func (b *Builder) getFullMixBundleSet() (bundleSet, error) {
 	set, err := b.getFullBundleSet(bundles)
 	if err != nil {
 		return nil, err
+	}
+	// Add the included and optional included bundles to the mix
+	for _, bundle := range set {
+		err := b.AddBundles(bundle.DirectIncludes, false, false, false)
+		if err != nil {
+			return nil, err
+		}
+		err = b.AddBundles(bundle.OptionalIncludes, false, false, false)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return set, nil
 }
@@ -746,6 +764,7 @@ const bundleTemplateFormat = `# [TITLE]: %s
 # [MAINTAINER]: 
 # 
 # List bundles one per line. Includes have format: include(bundle)
+# also-adds have format: also-add(bundle)
 `
 
 func createBundleFile(bundle string, path string) error {

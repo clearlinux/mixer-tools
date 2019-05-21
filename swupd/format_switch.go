@@ -40,8 +40,7 @@ includes:	{{.Name}}
 {{.GetFlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
 {{- end}}
 `,
-	// format 26 manifest template
-	// used for formats 26 and greater until a new format is required
+	// formats 26 to 28 manifest template
 	26: `
 {{- with .Header -}}
 MANIFEST	{{.Format}}
@@ -53,6 +52,28 @@ timestamp:	{{(.TimeStamp.Unix)}}
 contentsize:	{{.ContentSize -}}
 {{range .Includes}}
 includes:	{{.Name}}
+{{- end}}
+{{- end}}
+{{ range .Files}}
+{{.GetFlagString}}	{{.Hash}}	{{.Version}}	{{.Name}}
+{{- end}}
+`,
+	// format 29 manifest template
+	// used for formats 29 and greater until a new format is required
+	29: `
+{{- with .Header -}}
+MANIFEST	{{.Format}}
+version:	{{.Version}}
+previous:	{{.Previous}}
+{{ if ne .MinVersion 0 }}minversion:	{{.MinVersion}}
+{{ end }}filecount:	{{.FileCount}}
+timestamp:	{{(.TimeStamp.Unix)}}
+contentsize:	{{.ContentSize -}}
+{{range .Includes}}
+includes:	{{.Name}}
+{{- end -}}
+{{range .Optional}}
+also-add:	{{.Name}}
 {{- end}}
 {{- end}}
 {{ range .Files}}
@@ -97,12 +118,15 @@ func manifestTemplateForFormat(f uint) (t *template.Template) {
 	case f <= 25:
 		// initial format, everything 0-25 uses this format
 		t = template.Must(template.New("manifest").Parse(manTemplates[25]))
-	case f > 25:
-		// template for format 26
+	case f > 25 && f <= 28:
+		// template for formats 26 to 28
 		t = template.Must(template.New("manifest").Parse(manTemplates[26]))
+	case f > 28:
+		// template for formats 29 or higher
+		t = template.Must(template.New("manifest").Parse(manTemplates[29]))
 		// when a new format is required it must be added here and the 'case f
-		// > 25' must be modified to 'case f > 25 && f < <new_format>'. The
-		// <new_format> does not necessarily have to be 27 as format 27 may be
+		// > 28' must be modified to 'case f > 28 && f < <new_format>'. The
+		// <new_format> does not necessarily have to be 29 as format 29 may be
 		// created due to a content breaking change instead of a manifest
 		// format breaking change.
 	}

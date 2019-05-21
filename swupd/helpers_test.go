@@ -439,11 +439,13 @@ func (fs *testFileSystem) write(subpath, content string) {
 }
 
 func (fs *testFileSystem) initBundleInfo(version uint32, bundle string, includes []string) {
+	var optional []string
 	bi := BundleInfo{
-		Name:           bundle,
-		DirectIncludes: includes,
-		DirectPackages: make(map[string]bool),
-		Files:          make(map[string]bool),
+		Name:             bundle,
+		DirectIncludes:   includes,
+		OptionalIncludes: optional,
+		DirectPackages:   make(map[string]bool),
+		Files:            make(map[string]bool),
 	}
 
 	b, err := json.Marshal(&bi)
@@ -571,6 +573,32 @@ func (fs *testFileSystem) addIncludesToBundleInfo(version uint32, bundle string,
 	}
 }
 
+func (fs *testFileSystem) addOptionalToBundleInfo(version uint32, bundle string, optional []string) {
+	bundleInfoPath := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	biBytes, err := ioutil.ReadFile(bundleInfoPath)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	var bi BundleInfo
+	err = json.Unmarshal(biBytes, &bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	bi.OptionalIncludes = optional
+
+	b, err := json.Marshal(&bi)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+
+	err = ioutil.WriteFile(bundleInfoPath, b, 0644)
+	if err != nil {
+		fs.t.Fatal(err)
+	}
+}
+
 func (fs *testFileSystem) addFile(version uint32, bundle, file, content string) {
 	fs.t.Helper()
 	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
@@ -628,6 +656,16 @@ func (fs *testFileSystem) addIncludes(version uint32, bundle string, includes []
 	}
 
 	fs.addIncludesToBundleInfo(version, bundle, includes)
+}
+
+func (fs *testFileSystem) addOptional(version uint32, bundle string, optional []string) {
+	fs.t.Helper()
+	path := filepath.Join(fs.Dir, "image", fmt.Sprint(version), bundle+"-info")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		fs.initBundleInfo(version, bundle, []string{})
+	}
+
+	fs.addOptionalToBundleInfo(version, bundle, optional)
 }
 
 func (fs *testFileSystem) symlink(subpath, linkname string) {

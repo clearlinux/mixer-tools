@@ -35,13 +35,14 @@ type BundleHeader struct {
 
 // BundleInfo describes the JSON object to be read from the *-info files
 type BundleInfo struct {
-	Name           string
-	Filename       string
-	Header         BundleHeader
-	DirectIncludes []string
-	DirectPackages map[string]bool
-	AllPackages    map[string]bool
-	Files          map[string]bool
+	Name             string
+	Filename         string
+	Header           BundleHeader
+	DirectIncludes   []string
+	OptionalIncludes []string
+	DirectPackages   map[string]bool
+	AllPackages      map[string]bool
+	Files            map[string]bool
 }
 
 // GetBundleInfo loads the BundleInfo member of m from the bundle-info file at
@@ -66,6 +67,9 @@ func (m *Manifest) GetBundleInfo(stateDir, path string) error {
 			return err
 		}
 		m.BundleInfo.DirectIncludes = includes
+		// TODO: this part of the code seems to be a legacy thing. Keep
+		// an eye on this to make sure m.BundleInfo.OptionalIncludes don't
+		// need to be added here too
 		return nil
 	}
 
@@ -137,6 +141,7 @@ func appendUniqueManifest(ms []*Manifest, man *Manifest) []*Manifest {
 // ReadIncludesFromBundleInfo sets the Header.Includes field for the given manifest.
 func (m *Manifest) ReadIncludesFromBundleInfo(bundles []*Manifest) error {
 	includes := []*Manifest{}
+	optional := []*Manifest{}
 	// os-core is added as an include for every bundle
 	// handle it manually so we don't have to rely on the includes list having it
 	for _, b := range bundles {
@@ -164,6 +169,14 @@ func (m *Manifest) ReadIncludesFromBundleInfo(bundles []*Manifest) error {
 		}
 	}
 
+	for _, bn := range m.BundleInfo.OptionalIncludes {
+		for _, b := range bundles {
+			if bn == b.Name {
+				optional = appendUniqueManifest(optional, b)
+			}
+		}
+	}
 	m.Header.Includes = includes
+	m.Header.Optional = optional
 	return nil
 }

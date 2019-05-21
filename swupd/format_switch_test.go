@@ -218,3 +218,46 @@ func TestFormats26to27ExperimentalBundles(t *testing.T) {
 	ts.createManifests(20)
 	checkManifestContains(t, ts.Dir, "20", "MoM", "Me..\t")
 }
+
+// optional (also-add) support added in format 29
+func TestFormats28to29Optional(t *testing.T) {
+	ts := newTestSwupd(t, "format28to29optional")
+	defer ts.cleanup()
+
+	ts.Bundles = []string{"test-bundle", "test-bundle-2"}
+
+	// format28 manifest should NOT have also-add bundles in header,
+	// which is introduced in format29.
+	ts.Format = 28
+	ts.addFile(10, "test-bundle", "/foo", "content")
+	ts.addOptional(10, "test-bundle", []string{"test-bundle-2"})
+	ts.createManifests(10)
+
+	expSubs := []string{
+		"MANIFEST\t28",
+		"version:\t10",
+		"previous:\t0",
+		"filecount:\t2",
+		"timestamp:\t",
+		"contentsize:\t",
+		"includes:\tos-core",
+	}
+	checkManifestContains(t, ts.Dir, "10", "test-bundle", expSubs...)
+	checkManifestNotContains(t, ts.Dir, "10", "test-bundle", "also-add:\ttest-bundle-2")
+
+	// updated to format29, the manifest should include the optional bundle
+	ts.Format = 29
+	ts.addFile(20, "test-bundle", "/foo", "new content")
+	ts.addOptional(20, "test-bundle", []string{"test-bundle-2"})
+	ts.createManifests(20)
+
+	expSubs = []string{
+		"MANIFEST\t29",
+		"version:\t20",
+		"previous:\t10",
+		"filecount:\t2",
+		"includes:\tos-core",
+		"also-add:\ttest-bundle-2",
+	}
+	checkManifestContains(t, ts.Dir, "20", "test-bundle", expSubs...)
+}

@@ -20,13 +20,13 @@ var (
 )
 
 type bundle struct {
-	Name     string
-	Filename string
-	Header   swupd.BundleHeader
-
-	DirectIncludes []string
-	DirectPackages map[string]bool
-	AllPackages    map[string]bool
+	Name             string
+	Filename         string
+	Header           swupd.BundleHeader
+	DirectIncludes   []string
+	OptionalIncludes []string
+	DirectPackages   map[string]bool
+	AllPackages      map[string]bool
 
 	Files map[string]bool
 }
@@ -40,9 +40,9 @@ type bundleSet map[string]*bundle
 //    bundle is also in the set.
 // 2) Cycle-Free. The set contains no bundle include cycles.
 func validateAndFillBundleSet(bundles bundleSet) error {
-	// Sort the bundles so that all includes appear before a bundle, then
-	// calculate AllPackages for each bundle. Cycles and missing bundles are
-	// identified as part of sorting the bundles.
+	// Sort the bundles so that all includes and optional (also-add) includes appear
+	// before a bundle, then calculate AllPackages for each bundle.
+	// Cycles and missing bundles are identified as part of sorting the bundles.
 	sortedBundles, err := sortBundles(bundles)
 	if err != nil {
 		return err
@@ -97,6 +97,15 @@ func sortBundles(bundles bundleSet) ([]*bundle, error) {
 				if err != nil {
 					return err
 				}
+			}
+			for _, opt := range b.OptionalIncludes {
+				_, exists := bundles[opt]
+				if !exists {
+					return fmt.Errorf("bundle %q includes optional (also-add) bundle %q which is not available", b.Name, opt)
+				}
+				// we don't need to visit optional bundles, they will not be used to determine
+				// the contents of the manifest that includes them and since they are an
+				// independent bundles, they will be validated on their own in a separate step
 			}
 			visiting = visiting[:len(visiting)-1]
 			mark[b] = Visited
@@ -293,7 +302,8 @@ func parseBundle(contents []byte) (*bundle, error) {
 	scanner := bufio.NewScanner(bytes.NewReader(contents))
 
 	var b bundle
-	var includes, packages []string
+	var duplicate bool
+	var includes, packages, optional []string
 
 	line := 0
 	for scanner.Scan() {
@@ -333,6 +343,15 @@ func parseBundle(contents []byte) (*bundle, error) {
 				return nil, fmt.Errorf("Invalid bundle name %q in line %d", text, line)
 			}
 			includes = append(includes, text)
+		} else if strings.HasPrefix(text, "also-add(") {
+			if !strings.HasSuffix(text, ")") {
+				return nil, fmt.Errorf("Missing end parenthesis in line %d: %q", line, text)
+			}
+			text = text[9 : len(text)-1]
+			if !validBundleNameRegex.MatchString(text) {
+				return nil, fmt.Errorf("Invalid bundle name %q in line %d", text, line)
+			}
+			optional = append(optional, text)
 		} else {
 			if !validPackageNameRegex.MatchString(text) {
 				return nil, fmt.Errorf("Invalid package name %q in line %d", text, line)
@@ -345,6 +364,20 @@ func parseBundle(contents []byte) (*bundle, error) {
 		return nil, scanner.Err()
 	}
 
+	// if a bundle was added to both includes and optional
+	// remove it from the optional
+	for _, optionalBundle := range optional {
+		duplicate = false
+		for _, includedBundle := range includes {
+			if optionalBundle == includedBundle {
+				duplicate = true
+				break
+			}
+		}
+		if duplicate == false {
+			b.OptionalIncludes = append(b.OptionalIncludes, optionalBundle)
+		}
+	}
 	b.DirectIncludes = includes
 	b.DirectPackages = make(map[string]bool)
 	for _, p := range packages {

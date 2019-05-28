@@ -78,6 +78,15 @@ supported.`,
 	Run:  runExcludesRepo,
 }
 
+var setValRepoCmd = &cobra.Command{
+	Use:   "set <repo> <key> <value>",
+	Short: "Set the value for the specified key and repository",
+	Long: `Set the value for the specified key and repository in the .yum-mix.conf file.
+The dnf.conf man page can be used to search for acceptable keys and their descriptions.`,
+	Args: cobra.ExactArgs(3),
+	Run:  runSetValRepo,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
 	removeRepoCmd,
@@ -85,6 +94,7 @@ var repoCmds = []*cobra.Command{
 	initRepoCmd,
 	setURLRepoCmd,
 	setExcludesRepoCmd,
+	setValRepoCmd,
 }
 
 func init() {
@@ -169,4 +179,17 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Set %s baseurl to %s.\n", args[0], args[1])
+}
+
+func runSetValRepo(cmd *cobra.Command, args []string) {
+	b, err := builder.NewFromConfig(configFile)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.SetRepoVal(args[0], args[1], args[2])
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Set %s %s to %s.\n", args[0], args[1], args[2])
 }

@@ -197,6 +197,33 @@ func (b *Builder) SetURLRepo(name, url string) error {
 	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
 }
 
+// SetRepoVal sets a value for the provided repo and key
+func (b *Builder) SetRepoVal(reponame, key, val string) error {
+	if err := b.NewDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	s, err := DNFConf.GetSection(reponame)
+	if err != nil {
+		return err
+	}
+
+	k, err := s.GetKey(key)
+	if err != nil {
+		if k, err = DNFConf.Section(reponame).NewKey(key, val); err != nil {
+			return err
+		}
+	}
+
+	k.SetValue(val)
+	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
+}
+
 // SetExcludesRepo sets the ecludes for the repo <name> to [pkgs...]
 func (b *Builder) SetExcludesRepo(reponame, pkgs string) error {
 	if err := b.NewDNFConfIfNeeded(); err != nil {

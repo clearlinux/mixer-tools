@@ -1,0 +1,4 @@
+mixer-repo-commands
+====================
+This test validates mixer's ability to add new repos and set values in the
+.yum-mix.conf file.

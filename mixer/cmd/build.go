@@ -50,6 +50,8 @@ type buildCmdFlags struct {
 	skipPacks       bool
 	to              int
 	from            int
+	toRepoURLs      *map[string]string
+	fromRepoURLs    *map[string]string
 	skipFormatCheck bool
 
 	numFullfileWorkers int
@@ -496,7 +498,7 @@ var buildValidateCmd = &cobra.Command{
 		}
 		setWorkers(b)
 
-		err = b.CheckManifestCorrectness(buildFlags.from, buildFlags.to, buildFlags.downloadRetries)
+		err = b.CheckManifestCorrectness(buildFlags.from, buildFlags.to, buildFlags.downloadRetries, *buildFlags.fromRepoURLs, *buildFlags.toRepoURLs)
 		if err != nil {
 			fail(err)
 		}
@@ -718,6 +720,8 @@ func init() {
 
 	buildValidateCmd.Flags().IntVar(&buildFlags.to, "to", 0, "Compare manifests targeting a specific version")
 	buildValidateCmd.Flags().IntVar(&buildFlags.from, "from", 0, "Compare manifests from a specific version")
+	buildFlags.toRepoURLs = buildValidateCmd.Flags().StringToString("to-repo-url", nil, "Overrides the baseurl value for the provided repo in the DNF config file for the `to` version: <repo>=<URL>")
+	buildFlags.fromRepoURLs = buildValidateCmd.Flags().StringToString("from-repo-url", nil, "Overrides the baseurl value for the provided repo in the DNF config file for the `from` version: <repo>=<URL>")
 
 	buildImageCmd.Flags().StringVar(&buildFlags.format, "format", "", "Supply the format used for the Mix")
 	buildImageCmd.Flags().StringVar(&buildFlags.template, "template", "", "Path to template file to use")

@@ -224,6 +224,55 @@ func (b *Builder) SetExcludesRepo(reponame, pkgs string) error {
 	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
 }
 
+// WriteRepoURLOverrides writes a copy of the DNF conf file
+// with overridden baseurl values for the specified repos to
+// a tmp config file.
+func (b *Builder) WriteRepoURLOverrides(tmpConf *os.File, repoURLs map[string]string) error {
+	if err := b.NewDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
+	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	for repo, url := range repoURLs {
+		s, err := DNFConf.GetSection(repo)
+		if err != nil {
+			// No existing repo, add new section for repo/baseurl pair
+			s, err = DNFConf.NewSection(repo)
+			if err != nil {
+				return err
+			}
+
+			repoSettings := map[string]string{
+				"failovermethod": "priority",
+				"priority":       "1",
+				"enabled":        "1",
+			}
+			repoSettings["name"] = repo
+			repoSettings["baseurl"] = url
+
+			for key, val := range repoSettings {
+				if _, err = s.NewKey(key, val); err != nil {
+					return err
+				}
+			}
+		} else {
+			// Override the baseurl for existing repo
+			k, err := s.GetKey("baseurl")
+			if err != nil {
+				return err
+			}
+			k.SetValue(url)
+		}
+	}
+
+	_, err = DNFConf.WriteTo(tmpConf)
+	return err
+}
+
 // RemoveRepo removes a configured repo <name> if it exists in the DNF configuration.
 // This will fail if a DNF conf has not yet been generated.
 func (b *Builder) RemoveRepo(name string) error {

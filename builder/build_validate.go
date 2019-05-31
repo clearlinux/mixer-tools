@@ -2,6 +2,7 @@ package builder
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -102,7 +103,7 @@ type fileInfo struct {
 // two versions aligns to the corresponding RPM changes. Any mismatched files
 // between the manifests and RPMs will be printed as errors. When there are no
 // errors, package and file statistics for each modified bundle will be displayed.
-func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int) error {
+func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, fromRepoURLOverrides, toRepoURLOverrides map[string]string) error {
 	if fromVer < 0 || toVer < 0 {
 		return fmt.Errorf("Negative version not supported")
 	}
@@ -114,11 +115,11 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int) 
 	fmt.Printf("WARNING: Local RPMs will override upstream RPMs for both the from and to versions.\n")
 
 	// Get manifest file lists and subtracted RPM pkg/file lists
-	fromInfo, err := b.mcaInfo(fromVer, downloadRetries)
+	fromInfo, err := b.mcaInfo(fromVer, downloadRetries, fromRepoURLOverrides)
 	if err != nil {
 		return err
 	}
-	toInfo, err := b.mcaInfo(toVer, downloadRetries)
+	toInfo, err := b.mcaInfo(toVer, downloadRetries, toRepoURLOverrides)
 	if err != nil {
 		return err
 	}
@@ -156,7 +157,7 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int) 
 // mcaInfo collects manifest/RPM metadata and uses it to create a list
 // of manifest files, subtracted packages, and subtracted package files for each
 // bundle in the provided version.
-func (b *Builder) mcaInfo(version, downloadRetries int) (map[string]*mcaBundleInfo, error) {
+func (b *Builder) mcaInfo(version, downloadRetries int, repoURLOverrides map[string]string) (map[string]*mcaBundleInfo, error) {
 	allBundleInfo := make(map[string]*mcaBundleInfo)
 
 	// Get manifest info for valid bundle entries in the MoM.
@@ -166,7 +167,7 @@ func (b *Builder) mcaInfo(version, downloadRetries int) (map[string]*mcaBundleIn
 	}
 
 	// Download and collect metadata for all packages
-	pInfo, err := b.mcaPkgInfo(mInfo, version, downloadRetries)
+	pInfo, err := b.mcaPkgInfo(mInfo, version, downloadRetries, repoURLOverrides)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +242,8 @@ func (b *Builder) mcaManInfo(version int) (map[string]*swupd.Manifest, error) {
 
 // mcaPkgInfo downloads and queries all packages for each bundle to collect
 // file metadata that will be used to create subtracted package/file lists.
-func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, downloadRetries int) (map[string]*mcaBundlePkgInfo, error) {
+func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, downloadRetries int, repoURLOverrides map[string]string) (map[string]*mcaBundlePkgInfo, error) {
+	var dnfConf string
 	var wg sync.WaitGroup
 	var rw sync.RWMutex
 
@@ -255,6 +257,28 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 		return nil, err
 	}
 
+	if repoURLOverrides != nil {
+		// Create tmp DNF conf with overridden baseurl values for specified repos
+		tmpConf, err := ioutil.TempFile(os.TempDir(), "mixerTmpConf")
+		if err != nil {
+			return nil, err
+		}
+		defer func() {
+			path := tmpConf.Name()
+			_ = tmpConf.Close()
+			_ = os.Remove(path)
+		}()
+
+		err = b.WriteRepoURLOverrides(tmpConf, repoURLOverrides)
+		if err != nil {
+			return nil, err
+		}
+
+		dnfConf = tmpConf.Name()
+	} else {
+		dnfConf = b.Config.Builder.DNFConf
+	}
+
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "validation")
 	buildVersionDir := filepath.Join(bundleDir, fmt.Sprint(version))
 	packageDir := filepath.Join(buildVersionDir, "packages")
@@ -262,7 +286,7 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 	packagerCmd := []string{
 		"dnf",
 		"-y",
-		"--config=" + b.Config.Builder.DNFConf,
+		"--config=" + dnfConf,
 		"--releasever=" + upstreamVer,
 		"--downloaddir=" + packageDir,
 	}

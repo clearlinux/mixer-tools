@@ -150,4 +150,12 @@ setup() {
   [[ $output =~ "WARNING: If this is a +10 to +20 comparison, os-core/os-core-update have file exception errors" ]]
 }
 
+@test "MCA override DNF conf to invalid URL" {
+  # Override upstream repo to invalid URL to confirm DNF conf overrides succeed
+  run sudo sh -c "mixer build validate --from 10 --to 20 --native --from-repo-url clear=foo"
+
+  [[ "$status" -ne 0 ]]
+  [[ "$output" =~ "RPM download attempt 4 failed. Maximum of 4 attempts." ]]
+}
+
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

@@ -462,6 +462,7 @@ func genUpdateBundleSpecialFiles(chrootDir string, b *Builder) error {
 
 func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int) (*bytes.Buffer, error) {
 	var downloadErr error
+	var out *bytes.Buffer
 
 	if maxRetries < 0 {
 		return nil, errors.Errorf("maxRetries value < 0 for RPM downloads")
@@ -471,7 +472,7 @@ func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int)
 	args = append(args, rpmList...)
 
 	for attempts := 0; attempts <= maxRetries; attempts++ {
-		out, downloadErr := helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+		out, downloadErr = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if downloadErr == nil {
 			return out, downloadErr
 		}

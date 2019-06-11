@@ -267,6 +267,32 @@ SUBCOMMANDS
 
      Supply the `path` to the file system where the ``swupd`` binaries live.
 
+``validate``
+
+    Compare two versions to validate that manifest file changes align with corresponding
+    package changes. Inconsistencies between manifest entries and package contents are
+    reported as errors. When no errors occur, package update statistics are displayed.
+
+    - ``--from {version}``
+
+      Compare manifests ``from`` a specific version
+
+    - ``--to {version}``
+
+      Compare manifests ``to`` a specific version
+
+    - ``--from-repo-url {repo}={URL}``
+
+      Overrides the baseurl value for the provided repo in the DNF config file for the ``from`` version
+
+    - ``--to-repo-url {repo}={URL}``
+
+      Overrides the baseurl value for the provided repo in the DNF config file for the ``to`` version
+
+    - ``-h, --help``
+
+      Display ``build validate`` help information and exit.
+
 
 EXIT STATUS
 ===========

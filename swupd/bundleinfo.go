@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,14 +50,9 @@ func (m *Manifest) GetBundleInfo(stateDir, path string) error {
 	var err error
 	if _, err = os.Stat(path); os.IsNotExist(err) {
 		basePath := filepath.Dir(path)
-		err = m.addFilesFromChroot(filepath.Join(filepath.Dir(path), m.Name), "")
+		err = m.getBundleInfoFromChroot(filepath.Join(filepath.Dir(path), m.Name))
 		if err != nil {
 			return err
-		}
-
-		m.BundleInfo.Files = make(map[string]bool)
-		for _, f := range m.Files {
-			m.BundleInfo.Files[f.Name] = true
 		}
 
 		var includes []string
@@ -104,29 +98,21 @@ func (m *Manifest) GetBundleInfo(stateDir, path string) error {
 	return nil
 }
 
-func (m *Manifest) addFilesFromBundleInfo(c config, version uint32) error {
-	chrootDir := filepath.Join(c.imageBase, fmt.Sprint(version), "full")
-	for fpath := range m.BundleInfo.Files {
-		fullPath := filepath.Join(chrootDir, fpath)
-		fi, err := os.Lstat(fullPath)
-		if os.IsNotExist(err) {
-			log.Printf("Warning: Missing file, assuming %%ghost: %s\n", fpath)
-			continue
-		}
-		if err != nil {
-			return err
-		}
+// getBundleInfoFromChroot loads the BundleInfo file list from a bundle chroot
+func (m *Manifest) getBundleInfoFromChroot(rootPath string) error {
+	m.BundleInfo.Files = make(map[string]bool)
 
-		err = m.createFileRecord(chrootDir, fpath, "", fi)
-		if err != nil {
-			if strings.Contains(err.Error(), "hash calculation error") {
-				return err
-			}
-			log.Printf("Warning: %s\n", err)
-		}
+	if _, err := os.Stat(rootPath); os.IsNotExist(err) {
+		return err
 	}
 
-	return nil
+	err := filepath.Walk(rootPath, func(path string, fi os.FileInfo, err error) error {
+		fname := strings.TrimPrefix(path, rootPath)
+		m.BundleInfo.Files[fname] = true
+		return nil
+	})
+
+	return err
 }
 
 func appendUniqueManifest(ms []*Manifest, man *Manifest) []*Manifest {

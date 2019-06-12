@@ -20,11 +20,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -614,6 +617,120 @@ func (m *Manifest) hasUnsupportedTypeChanges() bool {
 	}
 
 	return false
+}
+
+// addAllManifestFiles creates a sorted list of file records for each manifest.
+func addAllManifestFiles(manifests []*Manifest, ui UpdateInfo, c config, numWorkers int) error {
+	var wg sync.WaitGroup
+	if numWorkers <= 0 {
+		numWorkers = runtime.NumCPU()
+	}
+	if numWorkers > len(ui.bundles) {
+		numWorkers = len(ui.bundles)
+	}
+	wg.Add(numWorkers)
+
+	mCh := make(chan *Manifest)
+	errorChan := make(chan error, numWorkers)
+	defer close(errorChan)
+
+	manifestWorker := func() {
+		defer wg.Done()
+		for m := range mCh {
+			if err := m.addManifestFiles(ui, c); err != nil {
+				errorChan <- err
+				return
+			}
+		}
+	}
+
+	for i := 0; i < numWorkers; i++ {
+		go manifestWorker()
+	}
+
+	var err error
+	for _, m := range manifests {
+		select {
+		case mCh <- m:
+		case err = <-errorChan:
+			close(mCh)
+			return err
+		}
+	}
+
+	close(mCh)
+	wg.Wait()
+
+	if err == nil && len(errorChan) > 0 {
+		err = <-errorChan
+	}
+
+	return err
+}
+
+// addManifestFiles creates a sorted list of file records for a manifest.
+// Files in the manifest's bundle info file that exist in included bundles
+// will not be added.
+func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
+	if m.Name == "full" {
+		chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
+		if err := m.addFilesFromChroot(chroot, ""); err != nil {
+			return err
+		}
+	} else {
+		// Add files to manifest that do not exist in included bundles.
+		includes := m.GetRecursiveIncludes()
+		for f := range m.BundleInfo.Files {
+			isIncluded := false
+			for _, inc := range includes {
+				if inc.BundleInfo.Files[f] == true {
+					isIncluded = true
+					break
+				}
+			}
+			if isIncluded == false {
+				if err := m.addFile(f, c, ui.version); err != nil {
+					return err
+				}
+			}
+		}
+
+		if m.hasUnsupportedTypeChanges() {
+			return errors.New("type changes not yet supported")
+		}
+	}
+
+	if c.debuginfo.banned {
+		m.removeDebuginfo(c.debuginfo)
+	}
+
+	m.sortFilesName()
+
+	return nil
+}
+
+// addFile creates a file record and adds it to the manifest.
+func (m *Manifest) addFile(fpath string, c config, version uint32) error {
+	chrootDir := filepath.Join(c.imageBase, fmt.Sprint(version), "full")
+	fullPath := filepath.Join(chrootDir, fpath)
+	fi, err := os.Lstat(fullPath)
+	if os.IsNotExist(err) {
+		log.Printf("Warning: Missing file, assuming %%ghost: %s\n", fpath)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	err = m.createFileRecord(chrootDir, fpath, "", fi)
+	if err != nil {
+		if strings.Contains(err.Error(), "hash calculation error") {
+			return err
+		}
+		log.Printf("Warning: %s\n", err)
+	}
+
+	return nil
 }
 
 // GetRecursiveIncludes returns a list of all recursively included bundles

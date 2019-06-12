@@ -15,7 +15,6 @@
 package swupd
 
 import (
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -89,8 +88,6 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 				// full manifest needs to be processed differently by reading
 				// the files directly from the full chroot. No bundle-info
 				// file exists for full.
-				// handle it after all other bundles have been processed in
-				// case the rsync fallback to the full chroot is used
 				mux.Lock()
 				tmpManifests = append(tmpManifests, bundle)
 				mux.Unlock()
@@ -98,14 +95,12 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 			} else {
 				fmt.Printf("  %s\n", bundleName)
 				biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
-				useBundleInfo := true
 				if _, err = os.Stat(biPath); os.IsNotExist(err) {
 					err = syncToFull(ui.version, bundle.Name, c.imageBase)
 					if err != nil {
 						errorChan <- err
 						return
 					}
-					useBundleInfo = false
 				}
 
 				err = bundle.GetBundleInfo(c.stateDir, biPath)
@@ -113,29 +108,8 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 					errorChan <- err
 					return
 				}
-
-				if useBundleInfo {
-					err = bundle.addFilesFromBundleInfo(c, ui.version)
-				}
-			}
-			if err != nil {
-				errorChan <- err
-				return
 			}
 
-			// detect type changes
-			// fail out here if a type change is detected since this is not yet supported in client
-			if bundle.hasUnsupportedTypeChanges() {
-				errorChan <- errors.New("type changes not yet supported")
-				return
-			}
-
-			// remove banned debuginfo if configured to do so
-			if c.debuginfo.banned {
-				bundle.removeDebuginfo(c.debuginfo)
-			}
-
-			bundle.sortFilesName()
 			mux.Lock()
 			tmpManifests = append(tmpManifests, bundle)
 			mux.Unlock()
@@ -171,31 +145,13 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 		return nil, err
 	}
 
-	// Now handle the full manifest last, we know the full chroot is populated
-	// with any rsync fallbacks that needed to happen.
-	for _, bundle := range tmpManifests {
-		if bundle.Name == "full" {
-			chroot := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
-			err = bundle.addFilesFromChroot(chroot, "")
-			if err != nil {
-				return nil, err
-			}
-
-			// remove banned debuginfo if configured to do so
-			if c.debuginfo.banned {
-				bundle.removeDebuginfo(c.debuginfo)
-			}
-
-			bundle.sortFilesName()
-		}
-	}
 	return tmpManifests, err
 }
 
 func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 	var newFull *Manifest
 	var err error
-	// initialize bundles with with all files and their info
+	// initialize bundles with with their info files
 	tmpManifests, err := initBundles(ui, c, numWorkers)
 	if err != nil {
 		return nil, err
@@ -216,11 +172,11 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 		}
 	}
 
-	// Perform manifest subtraction. Important this is done after all includes
+	// Add manifest file records. Important this is done after all includes
 	// have been read so nested subtraction works.
-	fmt.Println("Performing manifest file subtraction...")
-	for _, bundle := range tmpManifests {
-		bundle.subtractManifests(bundle)
+	fmt.Println("Adding manifest file records...")
+	if err = addAllManifestFiles(tmpManifests, ui, c, numWorkers); err != nil {
+		return nil, err
 	}
 
 	// Need old MoM to get version of last bundle manifest

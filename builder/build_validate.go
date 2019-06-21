@@ -1046,7 +1046,7 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 	if _, err = fmt.Fprintf(w, "\n+---------------------------------------------------------------+\n"); err != nil {
 		return err
 	}
-	if _, err = fmt.Fprintf(w, "|BUNDLE\t CHANGES\n"); err != nil {
+	if _, err = fmt.Fprintf(w, "| BUNDLE\t CHANGES\n"); err != nil {
 		return err
 	}
 	if _, err = fmt.Fprintf(w, "+---------------------------------------------------------------+\n"); err != nil {
@@ -1063,7 +1063,7 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 		if (b.status == unchanged || b.status == removed) && b.minversion == false {
 			continue
 		}
-		if _, err = fmt.Fprintf(w, "|%s\t Summary:\n", b.name); err != nil {
+		if _, err = fmt.Fprintf(w, "| %s\t Summary:\n", b.name); err != nil {
 			return err
 		}
 
@@ -1110,7 +1110,7 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 
 		// Print added and deleted packages for bundle
 		if len(b.pkgDiffs.addList) > 0 {
-			if _, err = fmt.Fprintf(w, "|\t Packages added\n"); err != nil {
+			if _, err = fmt.Fprintf(w, "|\t Packages added:\n"); err != nil {
 				return err
 			}
 			sort.Strings(b.pkgDiffs.addList)
@@ -1122,7 +1122,7 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 			}
 		}
 		if len(b.pkgDiffs.delList) > 0 {
-			if _, err = fmt.Fprintf(w, "|\t Packages deleted\n"); err != nil {
+			if _, err = fmt.Fprintf(w, "|\t Packages deleted:\n"); err != nil {
 				return err
 			}
 			sort.Strings(b.pkgDiffs.delList)

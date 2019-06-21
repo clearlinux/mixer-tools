@@ -60,9 +60,9 @@ setup() {
   [[ "$output" =~ "Deleted bundles: 0" ]]
 
   # testbundle2 is added. testbundle1 and os-core are modified
-  [[ "$output" =~ "|testbundle1" ]]
-  [[ "$output" =~ "|testbundle2" ]]
-  [[ "$output" =~ "|os-core" ]]
+  [[ "$output" =~ "| testbundle1" ]]
+  [[ "$output" =~ "| testbundle2" ]]
+  [[ "$output" =~ "| os-core" ]]
 }
 
 @test "MCA compare to +10" {
@@ -77,8 +77,8 @@ setup() {
 
   # When updating to the +10, the special case files in os-core and
   # os-core-update should be modified
-  [[ "$output" =~ "|os-core" ]]
-  [[ "$output" =~ "|os-core-update" ]]
+  [[ "$output" =~ "| os-core" ]]
+  [[ "$output" =~ "| os-core-update" ]]
 }
 
 @test "MCA compare +10 to +20" {

@@ -26,7 +26,7 @@ const (
 
 // Contains all results from MCA diff and lists of added/deleted/modified bundles
 type mcaDiffResults struct {
-	bundleDiff map[string]*mcaBundleDiff
+	bundleDiff []*mcaBundleDiff
 
 	addList []string
 	delList []string
@@ -537,9 +537,7 @@ func (info *mcaBundleInfo) getSubPkgFiles(bundle string, mInfo map[string]*swupd
 // diffMcaInfo calculates the manifest file, package, and resolved package file
 // differences between two versions and captures metadata required by printMcaResults.
 func diffMcaInfo(fromInfo, toInfo map[string]*mcaBundleInfo) (*mcaDiffResults, error) {
-	results := &mcaDiffResults{
-		bundleDiff: make(map[string]*mcaBundleDiff),
-	}
+	results := &mcaDiffResults{}
 
 	// Bundles in toInfo are either added, modified, or unchanged
 	for bName := range toInfo {
@@ -581,7 +579,7 @@ func diffMcaInfo(fromInfo, toInfo map[string]*mcaBundleInfo) (*mcaDiffResults, e
 			results.addList = append(results.addList, bName)
 		}
 
-		results.bundleDiff[bName] = bundleDiff
+		results.bundleDiff = append(results.bundleDiff, bundleDiff)
 	}
 
 	for bName := range fromInfo {
@@ -593,7 +591,7 @@ func diffMcaInfo(fromInfo, toInfo map[string]*mcaBundleInfo) (*mcaDiffResults, e
 			}
 
 			results.delList = append(results.delList, bName)
-			results.bundleDiff[bName] = bundleDiff
+			results.bundleDiff = append(results.bundleDiff, bundleDiff)
 		}
 	}
 	return results, nil
@@ -1054,6 +1052,10 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 	if _, err = fmt.Fprintf(w, "+---------------------------------------------------------------+\n"); err != nil {
 		return err
 	}
+
+	sort.Slice(results.bundleDiff, func(i, j int) bool {
+		return results.bundleDiff[i].name < results.bundleDiff[j].name
+	})
 
 	// Print statistics for each bundle
 	for _, b := range results.bundleDiff {

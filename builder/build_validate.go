@@ -185,12 +185,12 @@ func (b *Builder) mcaInfo(version, downloadRetries int, repoURLOverrides map[str
 			return nil, err
 		}
 
-		err = info.getSubPkgs(m.Name, mInfo, pInfo)
+		err = info.getSubPkgs(m, pInfo)
 		if err != nil {
 			return nil, err
 		}
 
-		err = info.getSubPkgFiles(m.Name, mInfo, pInfo)
+		err = info.getSubPkgFiles(m, pInfo)
 		if err != nil {
 			return nil, err
 		}
@@ -202,8 +202,8 @@ func (b *Builder) mcaInfo(version, downloadRetries int, repoURLOverrides map[str
 
 // mcaManInfo collects manifest metadata for each bundle listed in
 // the provided version's MoM.
-func (b *Builder) mcaManInfo(version int) (map[string]*swupd.Manifest, error) {
-	mInfo := make(map[string]*swupd.Manifest)
+func (b *Builder) mcaManInfo(version int) ([]*swupd.Manifest, error) {
+	manifests := []*swupd.Manifest{}
 
 	updateDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
 	versionDir := filepath.Join(updateDir, fmt.Sprint(version))
@@ -233,17 +233,26 @@ func (b *Builder) mcaManInfo(version int) (map[string]*swupd.Manifest, error) {
 			return nil, err
 		}
 
-		mInfo[f.Name] = manifest
+		manifests = append(manifests, manifest)
 	}
 
-	return mInfo, nil
+	// Set included manifests which will be used by file/pkg subtraction
+	for _, m := range manifests {
+		if m.Name == "full" || m.Name == "os-core" {
+			continue
+		}
+		if err = m.ReadIncludesFromBundleInfo(manifests); err != nil {
+			return nil, err
+		}
+	}
+
+	return manifests, nil
 }
 
 // mcaPkgInfo downloads and queries all packages for each bundle to collect
 // file metadata that will be used to create subtracted package/file lists.
-func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, downloadRetries int, repoURLOverrides map[string]string) (map[string]*mcaBundlePkgInfo, error) {
+func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetries int, repoURLOverrides map[string]string) (map[string]*mcaBundlePkgInfo, error) {
 	var dnfConf string
-
 	// Download RPMs from correct upstream version
 	upstreamVer, err := b.getLocalUpstreamVersion(strconv.Itoa(version))
 	if err != nil {
@@ -291,7 +300,7 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 	pInfo := make(map[string]*mcaBundlePkgInfo)
 
 	// Download and query file metadata from all packages in each bundle
-	for _, m := range mInfo {
+	for _, m := range manifests {
 		pInfo[m.Name] = &mcaBundlePkgInfo{
 			name:     m.Name,
 			allFiles: make(map[string]bool),
@@ -443,24 +452,19 @@ func (info *mcaBundleInfo) getManFiles(manifest *swupd.Manifest) error {
 }
 
 // getSubPkgs gets the bundle's subtracted packages list
-func (info *mcaBundleInfo) getSubPkgs(bundle string, mInfo map[string]*swupd.Manifest, pInfo map[string]*mcaBundlePkgInfo) error {
-	for p := range pInfo[bundle].allPkgs {
-		subtract := false
+func (info *mcaBundleInfo) getSubPkgs(manifest *swupd.Manifest, pInfo map[string]*mcaBundlePkgInfo) error {
+	includes := manifest.GetRecursiveIncludes()
 
-		// Subtract os-core packages from other bundles
-		if bundle != "os-core" && pInfo["os-core"].allPkgs[p] != nil {
-			continue
-		}
+	for p := range pInfo[manifest.Name].allPkgs {
+		isIncluded := false
 
-		// Subtract packages included by other bundles
-		for _, inc := range mInfo[bundle].BundleInfo.DirectIncludes {
-			if pInfo[inc].allPkgs[p] != nil {
-				subtract = true
+		for _, inc := range includes {
+			if pInfo[inc.Name].allPkgs[p] != nil {
+				isIncluded = true
 				break
 			}
 		}
-
-		if subtract == false {
+		if isIncluded == false {
 			info.subPkgs[p] = true
 		}
 	}
@@ -468,19 +472,22 @@ func (info *mcaBundleInfo) getSubPkgs(bundle string, mInfo map[string]*swupd.Man
 }
 
 // getSubPkgFiles gets the subtracted files that were resolved from RPMs
-func (info *mcaBundleInfo) getSubPkgFiles(bundle string, mInfo map[string]*swupd.Manifest, pInfo map[string]*mcaBundlePkgInfo) error {
+func (info *mcaBundleInfo) getSubPkgFiles(manifest *swupd.Manifest, pInfo map[string]*mcaBundlePkgInfo) error {
+	includes := manifest.GetRecursiveIncludes()
+
 	// Collect all files from bundle's subtracted packages
 	for p := range info.subPkgs {
-		for _, f := range pInfo[bundle].allPkgs[p].files {
-			info.subPkgFiles[f.name] = f
-		}
-	}
+		for _, f := range pInfo[manifest.Name].allPkgs[p].files {
+			isIncluded := false
 
-	// Subtract files included by other bundles
-	for _, inc := range mInfo[bundle].BundleInfo.DirectIncludes {
-		for f := range pInfo[inc].allFiles {
-			if info.subPkgFiles[f] != nil {
-				delete(info.subPkgFiles, f)
+			for _, inc := range includes {
+				if pInfo[inc.Name].allFiles[f.name] == true {
+					isIncluded = true
+					break
+				}
+			}
+			if isIncluded == false {
+				info.subPkgFiles[f.name] = f
 			}
 		}
 	}

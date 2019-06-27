@@ -603,6 +603,29 @@ func (m *Manifest) hasUnsupportedTypeChanges() bool {
 	return false
 }
 
+// GetRecursiveIncludes returns a list of all recursively included bundles
+// for the given manifest.
+func (m *Manifest) GetRecursiveIncludes() []*Manifest {
+	manifests := []*Manifest{}
+	visited := make(map[string]bool)
+
+	for _, inc := range m.Header.Includes {
+		manifests = append(manifests, inc)
+		visited[inc.Name] = true
+	}
+
+	for i := 0; i < len(manifests); i++ {
+		for _, inc := range manifests[i].Header.Includes {
+			if visited[inc.Name] != true {
+				manifests = append(manifests, inc)
+				visited[inc.Name] = true
+			}
+		}
+	}
+
+	return manifests
+}
+
 // subtractManifestFromManifest removes all files present in m2 from m.
 // Expects m and m2 files lists to be sorted by name only
 func (m *Manifest) subtractManifestFromManifest(m2 *Manifest) {

@@ -134,7 +134,8 @@ func appendUniqueManifest(ms []*Manifest, man *Manifest) []*Manifest {
 	return append(ms, man)
 }
 
-func (m *Manifest) readIncludesFromBundleInfo(bundles []*Manifest) error {
+// ReadIncludesFromBundleInfo sets the Header.Includes field for the given manifest.
+func (m *Manifest) ReadIncludesFromBundleInfo(bundles []*Manifest) error {
 	includes := []*Manifest{}
 	// os-core is added as an include for every bundle
 	// handle it manually so we don't have to rely on the includes list having it

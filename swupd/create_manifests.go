@@ -210,7 +210,7 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 		}
 		if bundle.Name != "os-core" {
 			// read in bundle includes
-			if err = bundle.readIncludesFromBundleInfo(tmpManifests); err != nil {
+			if err = bundle.ReadIncludesFromBundleInfo(tmpManifests); err != nil {
 				return nil, err
 			}
 		}

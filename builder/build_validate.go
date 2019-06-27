@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"text/tabwriter"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -83,7 +82,7 @@ type pkgInfo struct {
 	version string
 	arch    string
 
-	files map[string]*fileInfo
+	files []*fileInfo
 }
 
 // fileInfo contains file metadata
@@ -244,12 +243,6 @@ func (b *Builder) mcaManInfo(version int) (map[string]*swupd.Manifest, error) {
 // file metadata that will be used to create subtracted package/file lists.
 func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, downloadRetries int, repoURLOverrides map[string]string) (map[string]*mcaBundlePkgInfo, error) {
 	var dnfConf string
-	var wg sync.WaitGroup
-	var rw sync.RWMutex
-
-	wg.Add(b.NumBundleWorkers)
-	mCh := make(chan *mcaBundlePkgInfo)
-	errorCh := make(chan error, b.NumBundleWorkers)
 
 	// Download RPMs from correct upstream version
 	upstreamVer, err := b.getLocalUpstreamVersion(strconv.Itoa(version))
@@ -292,73 +285,12 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 	}
 
 	// Duplicate package entries can exist across bundles. Use a cache to
-	// avoid re-calculating packages.
-	pkgCache := make(map[string]*pkgInfo)
+	// avoid re-calculating the resolved file list for a package.
+	pkgFileCache := make(map[string][]*fileInfo)
 
 	pInfo := make(map[string]*mcaBundlePkgInfo)
 
 	// Download and query file metadata from all packages in each bundle
-	bundleWorker := func() {
-		for m := range mCh {
-			var pkgList = []string{}
-
-			// Skip bundles with no packages
-			if len(mInfo[m.name].BundleInfo.AllPackages) == 0 {
-				continue
-			}
-
-			for pkg := range mInfo[m.name].BundleInfo.AllPackages {
-				pkgList = append(pkgList, pkg)
-			}
-
-			out, err := downloadRpms(packagerCmd, pkgList, buildVersionDir, downloadRetries)
-			if err != nil {
-				errorCh <- err
-				wg.Done()
-				return
-			}
-
-			// Collect metadata to resolve installed RPM file names
-			bundlePkgInfo := pkgInfoFromNoopInstall(out.String())
-			for _, p := range bundlePkgInfo {
-				// Resolve files for package when it doesn't exist in the cache
-				rw.RLock()
-				if pkgCache[p.name] == nil {
-					rw.RUnlock()
-					p.files, err = b.resolvePkgFiles(p, version)
-					if err != nil {
-						errorCh <- err
-						wg.Done()
-						return
-					}
-
-					rw.Lock()
-					// Another Goroutine may have already populated the cache. The results should
-					// be identical, so there shouldn't be a TOCTOU error.
-					if pkgCache[p.name] == nil {
-						pkgCache[p.name] = p
-					}
-					rw.Unlock()
-
-					m.allPkgs[p.name] = p
-				} else {
-					m.allPkgs[p.name] = pkgCache[p.name]
-					rw.RUnlock()
-				}
-
-				// Track all resolved package files in bundle to be used later
-				// for file subtraction.
-				for f := range m.allPkgs[p.name].files {
-					m.allFiles[f] = true
-				}
-			}
-		}
-		wg.Done()
-	}
-
-	for i := 0; i < b.NumBundleWorkers; i++ {
-		go bundleWorker()
-	}
 	for _, m := range mInfo {
 		pInfo[m.Name] = &mcaBundlePkgInfo{
 			name:     m.Name,
@@ -366,27 +298,47 @@ func (b *Builder) mcaPkgInfo(mInfo map[string]*swupd.Manifest, version, download
 			allPkgs:  make(map[string]*pkgInfo),
 		}
 
-		select {
-		case mCh <- pInfo[m.Name]:
-		case err = <-errorCh:
+		// Skip bundles with no packages
+		if len(m.BundleInfo.AllPackages) == 0 {
+			continue
+		}
+
+		pkgList := []string{}
+
+		for pkg := range m.BundleInfo.AllPackages {
+			pkgList = append(pkgList, pkg)
+		}
+
+		out, err := downloadRpms(packagerCmd, pkgList, buildVersionDir, downloadRetries)
+		if err != nil {
 			return nil, err
 		}
-	}
-	close(mCh)
-	wg.Wait()
 
-	// An error could happen after all the workers are spawned so check again for an
-	// error after wg.Wait() completes.
-	if err == nil && len(errorCh) > 0 {
-		err = <-errorCh
+		// Collect metadata to resolve installed RPM file names
+		pInfo[m.Name].allPkgs = pkgInfoFromNoopInstall(out.String())
+
+		for _, p := range pInfo[m.Name].allPkgs {
+			if pkgFileCache[p.name] == nil {
+				pkgFileCache[p.name], err = b.resolvePkgFiles(p, version)
+				if err != nil {
+					return nil, err
+				}
+			}
+			p.files = pkgFileCache[p.name]
+
+			// Track all resolved package files in bundle to be used later
+			// for file subtraction.
+			for _, f := range p.files {
+				pInfo[m.Name].allFiles[f.name] = true
+			}
+		}
 	}
-	close(errorCh)
 
 	return pInfo, err
 }
 
 // resolvePkgFiles queries a package for a list of file metadata.
-func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) (map[string]*fileInfo, error) {
+func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error) {
 	queryCmd := "[%{filenames}, %{filesizes}, %{filedigests}, %{filemodes:perms}, %{filelinktos}, %{fileusername}, %{filegroupname}\n]"
 	rpmCmd := []string{"rpm", "-qp", "--qf=" + queryCmd}
 
@@ -404,7 +356,7 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) (map[string]*fileIn
 		return nil, err
 	}
 
-	pkgFiles := make(map[string]*fileInfo)
+	pkgFiles := []*fileInfo{}
 
 	// Each line contains metadata for a single file in the package
 	queryLines := strings.Split(out.String(), "\n")
@@ -441,7 +393,7 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) (map[string]*fileIn
 			fileMetadata[0] = strings.Replace(fileMetadata[0], "/usr/sbin/", "/usr/bin/", 1)
 		}
 
-		pkgFiles[fileMetadata[0]] = &fileInfo{
+		pkgFile := &fileInfo{
 			name:  fileMetadata[0],
 			size:  fileMetadata[1],
 			hash:  fileMetadata[2],
@@ -451,6 +403,7 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) (map[string]*fileIn
 			group: fileMetadata[6],
 			pkg:   pkg.name,
 		}
+		pkgFiles = append(pkgFiles, pkgFile)
 	}
 	return pkgFiles, nil
 }

@@ -376,9 +376,10 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 		}
 
 		fileMetadata := strings.Split(line, ", ")
+		path := fileMetadata[0]
 
 		// Paths that are banned from manifests are skipped by MCA
-		if isBannedPath(fileMetadata[0]) {
+		if isBannedPath(path) {
 			continue
 		}
 
@@ -390,20 +391,10 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 
 		// Some Clear Linux packages install files with path components that are
 		// symlinks. MCA must resolve file paths to align with the manifests.
-		if strings.HasPrefix(fileMetadata[0], "/bin/") {
-			fileMetadata[0] = strings.Replace(fileMetadata[0], "/bin/", "/usr/bin/", 1)
-		} else if strings.HasPrefix(fileMetadata[0], "/sbin/") {
-			fileMetadata[0] = strings.Replace(fileMetadata[0], "/sbin/", "/usr/bin/", 1)
-		} else if strings.HasPrefix(fileMetadata[0], "/lib64/") {
-			fileMetadata[0] = strings.Replace(fileMetadata[0], "/lib64/", "/usr/lib64/", 1)
-		} else if strings.HasPrefix(fileMetadata[0], "/lib/") {
-			fileMetadata[0] = strings.Replace(fileMetadata[0], "/lib/", "/usr/lib/", 1)
-		} else if strings.HasPrefix(fileMetadata[0], "/usr/sbin/") {
-			fileMetadata[0] = strings.Replace(fileMetadata[0], "/usr/sbin/", "/usr/bin/", 1)
-		}
+		path = resolveFileName(path)
 
 		pkgFile := &fileInfo{
-			name:  fileMetadata[0],
+			name:  path,
 			size:  fileMetadata[1],
 			hash:  fileMetadata[2],
 			modes: fileMetadata[3],

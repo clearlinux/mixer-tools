@@ -24,7 +24,8 @@ import (
 
 const illegalChars = ";&|*`/<>\\\"'"
 
-func filenameBlacklisted(fname string) bool {
+// FilenameBlacklisted checks for illegal characters in filename
+func FilenameBlacklisted(fname string) bool {
 	return strings.ContainsAny(fname, illegalChars)
 }
 
@@ -60,7 +61,7 @@ func recordFromFile(rootPath, path, removePrefix string, fi os.FileInfo) (*File,
 		return nil, nil
 	}
 
-	if filenameBlacklisted(filepath.Base(fname)) {
+	if FilenameBlacklisted(filepath.Base(fname)) {
 		return nil, fmt.Errorf("%s is a blacklisted file name", fname)
 	}
 

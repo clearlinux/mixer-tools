@@ -383,6 +383,11 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 			continue
 		}
 
+		// Files with blacklisted characters are skipped
+		if swupd.FilenameBlacklisted(filepath.Base(path)) {
+			continue
+		}
+
 		// Directories are omitted from MCA because they may be missed from rpm output.
 		mode := fileMetadata[3]
 		if mode[:1] == "d" {

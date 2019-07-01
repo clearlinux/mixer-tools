@@ -828,11 +828,6 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 		return nil, errors.New("no full manifest found")
 	}
 
-	// construct the tracking files in the bundle and full chroots
-	if err := constructIndexTrackingFile(c, ui); err != nil {
-		return nil, err
-	}
-
 	// now add a manifest
 	idxMan := &Manifest{
 		Header: ManifestHeader{
@@ -846,23 +841,31 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	}
 
 	bundleDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
-	// add files from the chroot created in constructIndex
-	err := idxMan.addFilesFromChroot(filepath.Join(bundleDir, IndexBundle), "")
-	if err != nil {
-		return nil, err
-	}
 
-	// if the allbundles directory was created add all those bundle files
-	// to the index as well
-	metaRoot := filepath.Join(bundleDir, "full", indexAllBundleDir)
-	if _, err = os.Stat(metaRoot); err == nil {
-		err = idxMan.addFilesFromChroot(metaRoot, filepath.Join(bundleDir, "full"))
-		if err != nil {
+	// When there is no bundle chroot for the index manifest, create a tracking file and add
+	// the allbundles directory to the index manifest. The index manifest will be deleted when
+	// a bundle chroot directory exists.
+	if _, err := os.Stat(filepath.Join(bundleDir, IndexBundle)); os.IsNotExist(err) {
+		if err := constructIndexTrackingFile(c, ui); err != nil {
 			return nil, err
 		}
+
+		// add files from the chroot created in constructIndex
+		if err := idxMan.addFilesFromChroot(filepath.Join(bundleDir, IndexBundle), ""); err != nil {
+			return nil, err
+		}
+
+		// if the allbundles directory was created add all those bundle files
+		// to the index as well
+		metaRoot := filepath.Join(bundleDir, "full", indexAllBundleDir)
+		if _, err := os.Stat(metaRoot); err == nil {
+			err = idxMan.addFilesFromChroot(metaRoot, filepath.Join(bundleDir, "full"))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	// record file count
-	idxMan.Header.FileCount = uint32(len(idxMan.Files))
+
 	// sort file list for processing
 	idxMan.sortFilesName()
 	// now subtract out the included os-core
@@ -902,6 +905,13 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 	oldM.sortFilesName()
 	// linkPeersAndChange will update file versions correctly
 	_, _, _ = idxMan.linkPeersAndChange(oldM, ui.minVersion)
+
+	idxMan.Header.FileCount = uint32(len(idxMan.Files))
+
+	if idxMan.Header.FileCount == 0 {
+		return idxMan, nil
+	}
+
 	// now add any new files to the full manifest
 	for _, idxF := range idxMan.Files {
 		i := sort.Search(len(newFull.Files), func(i int) bool {

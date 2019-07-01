@@ -515,18 +515,7 @@ func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *b
 		return err
 	}
 
-	err = ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644)
-	if err != nil {
-		return nil
-	}
-
-	metaPath := filepath.Join(baseDir, "usr/share/clear/allbundles")
-	err = os.MkdirAll(metaPath, 0755)
-	if err != nil {
-		return err
-	}
-
-	return writeBundleInfoPretty(bundle, filepath.Join(metaPath, bundle.Name))
+	return ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644)
 }
 
 func clearDNFCache(packagerCmd []string) error {
@@ -592,15 +581,6 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 	}
 
 	return nil
-}
-
-func writeBundleInfoPretty(bundle *bundle, path string) error {
-	b, err := json.MarshalIndent(*bundle, "", "\t")
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(path, b, 0644)
 }
 
 func writeBundleInfo(bundle *bundle, path string) error {

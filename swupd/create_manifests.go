@@ -473,31 +473,6 @@ func CreateManifests(version, previous, minVersion uint32, format uint, statedir
 		return nil, err
 	}
 
-	// allManifests must include newManifests plus all old ones in the MoM.
-	allManifests, err := aggregateManifests(newManifests, &newMoM, version, c)
-	if err != nil {
-		return nil, err
-	}
-
-	var osIdx *Manifest
-	if osIdx, err = writeIndexManifest(&c, &ui, allManifests); err != nil {
-		return nil, err
-	}
-
-	// read index manifest from the version directory specified in the manifest
-	// itself as an index manifest may not have been created for this version.
-	osIdxDir := filepath.Join(c.outputDir, fmt.Sprint(osIdx.Header.Version))
-	osIdxPath := filepath.Join(osIdxDir, "Manifest."+osIdx.Name)
-	if err = newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version, TypeManifest, osIdx.BundleInfo.Header.Status); err != nil {
-		return nil, err
-	}
-
-	// track here as well so the manifest tar is made
-	// but only if we made it new for this version
-	if osIdx.Header.Version == newMoM.Header.Version {
-		newManifests = append(newManifests, osIdx)
-	}
-
 	// Create Iterative manifests if there isn't a format bump or minVersion
 	if format == oldFormat && minVersion != version {
 		var iManifests []*Manifest
@@ -510,6 +485,43 @@ func CreateManifests(version, previous, minVersion uint32, format uint, statedir
 
 	// copy over unchanged manifests
 	addUnchangedManifests(&newMoM, oldMoM, groups)
+
+	// allManifests must include newManifests plus all old ones in the MoM.
+	allManifests, err := aggregateManifests(newManifests, &newMoM, version, c)
+	if err != nil {
+		return nil, err
+	}
+
+	osIdx, err := writeIndexManifestForFormat(&c, &ui, allManifests, format)
+	if err != nil {
+		return nil, err
+	}
+
+	// The index manifest is deleted when passing format 28
+	if osIdx != nil {
+		// read index manifest from the version directory specified in the manifest
+		// itself as an index manifest may not have been created for this version.
+		osIdxDir := filepath.Join(c.outputDir, fmt.Sprint(osIdx.Header.Version))
+		osIdxPath := filepath.Join(osIdxDir, "Manifest."+osIdx.Name)
+		if err := newMoM.createManifestRecord(osIdxDir, osIdxPath, osIdx.Header.Version, TypeManifest, osIdx.BundleInfo.Header.Status); err != nil {
+			return nil, err
+		}
+
+		// track here as well so the manifest tar is made
+		// but only if we made it new for this version
+		if osIdx.Header.Version == newMoM.Header.Version {
+			newManifests = append(newManifests, osIdx)
+
+			// Create Iterative manifest for index manifest
+			if format == oldFormat && minVersion != version {
+				iManifests, err := newMoM.writeIterativeManifestsForFormat([]*Manifest{osIdx}, verOutput)
+				if err != nil {
+					return nil, err
+				}
+				newManifests = append(newManifests, iManifests...)
+			}
+		}
+	}
 
 	// handle full manifest
 	newFull.sortFilesVersionName()

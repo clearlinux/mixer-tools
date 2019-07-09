@@ -239,6 +239,19 @@ func ParseManifestFile(path string) (*Manifest, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if strings.Compare(m.Name, "MoM") == 0 {
+		m.Type = ManifestMoM
+	} else if strings.Compare(m.Name, "full") == 0 {
+		m.Type = ManifestUnset
+	} else if strings.Contains(m.Name, ".I.") {
+		m.Type = ManifestIterative
+	} else if strings.Contains(m.Name, ".D.") {
+		m.Type = ManifestDelta
+	} else {
+		m.Type = ManifestBundle
+	}
+
 	return m, nil
 }
 

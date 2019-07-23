@@ -180,13 +180,3 @@ func (m *Manifest) ReadIncludesFromBundleInfo(bundles []*Manifest) error {
 	m.Header.Optional = optional
 	return nil
 }
-
-// writeBundleInfoPretty creates files for index manifest bundle entries
-func writeBundleInfoPretty(bundle *BundleInfo, path string) error {
-	b, err := json.MarshalIndent(*bundle, "", "\t")
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(path, b, 0644)
-}

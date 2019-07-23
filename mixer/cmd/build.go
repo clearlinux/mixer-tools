@@ -280,23 +280,6 @@ var buildFormatOldCmd = &cobra.Command{
 		oldFormat := b.State.Mix.Format
 		b.State.Mix.Format = buildFlags.newFormat
 
-		oldFormatInt, err := strconv.Atoi(oldFormat)
-		if err != nil {
-			fail(err)
-		}
-		newFormatInt, err := strconv.Atoi(b.State.Mix.Format)
-		if err != nil {
-			fail(err)
-		}
-
-		// Delete index manifest when passing format 28
-		if oldFormatInt <= 28 && newFormatInt > 28 {
-			bdir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "os-core-update-index")
-			if err := os.MkdirAll(bdir, 0755); err != nil {
-				fail(err)
-			}
-		}
-
 		// Build bundles normally. At this point the bundles to be deleted should still
 		// be part of the mixbundles list and the groups.ini
 		if err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries); err != nil {

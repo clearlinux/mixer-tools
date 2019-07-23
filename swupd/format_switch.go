@@ -16,9 +16,6 @@ package swupd
 
 import (
 	"archive/tar"
-	"fmt"
-	"os"
-	"path/filepath"
 	"text/template"
 )
 
@@ -112,53 +109,6 @@ func (m *Manifest) writeIterativeManifestsForFormat(newManifests []*Manifest, ou
 	}
 
 	return m.writeIterativeManifests(newManifests, out)
-}
-
-// The index manifest is not generated after format 28
-func writeIndexManifestForFormat(c *config, ui *UpdateInfo, bundles []*Manifest, format uint) (*Manifest, error) {
-	if format <= 28 {
-		bundleDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
-		baseDir := filepath.Join(bundleDir, "full")
-		metaPath := filepath.Join(baseDir, "usr/share/clear/allbundles")
-
-		err := os.MkdirAll(metaPath, 0755)
-		if err != nil {
-			return nil, err
-		}
-
-		// Create index manifest bundle entries when a bundle chroot doesn't exist
-		if _, err = os.Stat(filepath.Join(bundleDir, "os-core-update-index")); os.IsNotExist(err) {
-			for _, b := range bundles {
-				// full and iterative manifests are not included in index manifest
-				if b.Name == "full" || b.Type == ManifestIterative {
-					continue
-				}
-
-				// Load bundle info files that haven't been loaded
-				if b.BundleInfo.Name == "" {
-					biPath := filepath.Join(bundleDir, b.Name+"-info")
-					if err = b.GetBundleInfo(c.stateDir, biPath); err != nil {
-						return nil, err
-					}
-				}
-
-				// Write index manifest content to full chroot
-				err = writeBundleInfoPretty(&b.BundleInfo, filepath.Join(metaPath, b.Name))
-				if err != nil {
-					return nil, err
-				}
-			}
-		} else if err != nil {
-			return nil, err
-		}
-
-		osIdx, err := writeIndexManifest(c, ui, bundles)
-		if err != nil {
-			return nil, err
-		}
-		return osIdx, nil
-	}
-	return nil, nil
 }
 
 // manifestTemplateForFormat returns the *template.Template for creating

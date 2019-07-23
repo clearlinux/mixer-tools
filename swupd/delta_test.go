@@ -145,15 +145,14 @@ func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	}
 
 	// Since pack has 3 deltas, no other delta is there. Double check other deltas
-	// were not created in the file system (with the exception of the index manifest).
+	// were not created in the file system.
 	fis, err := ioutil.ReadDir(ts.path("www/20/delta"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Check if all deltas and the delta manifest were created. An additional delta
-	// was created for the index manifest
-	if uint64(len(fis)) != info.DeltaCount+1 {
+	// Check if all deltas and the delta manifest were created
+	if uint64(len(fis)) != info.DeltaCount {
 		t.Fatalf("found %d files in %s but expected %d", len(fis), ts.path("www/20/delta"), info.DeltaCount)
 	}
 }

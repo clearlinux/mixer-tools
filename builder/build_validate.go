@@ -348,7 +348,7 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 
 // resolvePkgFiles queries a package for a list of file metadata.
 func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error) {
-	queryCmd := "[%{filenames}, %{filesizes}, %{filedigests}, %{filemodes:perms}, %{filelinktos}, %{fileusername}, %{filegroupname}\n]"
+	queryCmd := "[%{filenames}\a%{filesizes}\a%{filedigests}\a%{filemodes:perms}\a%{filelinktos}\a%{fileusername}\a%{filegroupname}\n]"
 	rpmCmd := []string{"rpm", "-qp", "--qf=" + queryCmd}
 
 	validationDir := filepath.Join(b.Config.Builder.ServerStateDir, "validation")
@@ -375,7 +375,7 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 			continue
 		}
 
-		fileMetadata := strings.Split(line, ", ")
+		fileMetadata := strings.Split(line, "\a")
 		path := fileMetadata[0]
 
 		// Paths that are banned from manifests are skipped by MCA

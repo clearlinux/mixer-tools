@@ -22,7 +22,7 @@ import (
 	"strings"
 )
 
-const illegalChars = ";&|*`/<>\\\"'"
+const illegalChars = ";&|*`/<>\\\"'\a"
 
 // FilenameBlacklisted checks for illegal characters in filename
 func FilenameBlacklisted(fname string) bool {

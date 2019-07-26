@@ -13,4 +13,4 @@ before_install:
     - docker build -t testdock .
 
 script:
-    - docker run testdock
+    - travis_wait 60 docker run testdock

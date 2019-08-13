@@ -580,9 +580,7 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 	}
 
 	// Run rename detection on old and new manifests
-	renameDetection(newManifest, added, removed, *c)
-
-	return nil
+	return renameDetection(newManifest, added, removed, *c)
 }
 
 func includesChanged(m1 *Manifest, m2 *Manifest) bool {

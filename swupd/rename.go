@@ -22,17 +22,17 @@ import (
 	"strings"
 )
 
-func renameDetection(manifest *Manifest, added []*File, removed []*File, c config) {
+func renameDetection(manifest *Manifest, added []*File, removed []*File, c config) error {
 	if len(added) == 0 || len(removed) == 0 {
-		return // nothing to rename
+		return nil // nothing to rename
 	}
 	added = trimRenamed(added) // Make copies of input slices, tidy up whilst we are here
 	removed = trimRenamed(removed)
 	if err := fixupStatFields(removed, manifest, &c); err != nil {
-		panic(err)
+		return err
 	}
 	if err := fixupStatFields(added, manifest, &c); err != nil {
-		panic(err)
+		return err
 	}
 	// Handle pure renames first, don't need to worry about size. Should we skip zero size?
 	// just add call to trimSmall if so
@@ -64,8 +64,14 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 	// Link things with the same names skipping digits
 	// First remove small files (not worth sending diff) and files which have
 	// exact match
-	added = trimSmall(trimRenamed(added), minimumSizeToMakeDeltaInBytes)     // Make it explicit we are doing two steps
-	removed = trimSmall(trimRenamed(removed), minimumSizeToMakeDeltaInBytes) // TODO. make it one pass.
+	added, err := trimSmall(trimRenamed(added), minimumSizeToMakeDeltaInBytes) // Make it explicit we are doing two steps
+	if err != nil {
+		return err
+	}
+	removed, err = trimSmall(trimRenamed(removed), minimumSizeToMakeDeltaInBytes) // TODO. make it one pass.
+	if err != nil {
+		return err
+	}
 	//generate the pairs of *File and short name
 	pa := makePairedNames(added)
 	pr := makePairedNames(removed)
@@ -84,6 +90,7 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 			rx++
 		}
 	}
+	return nil
 }
 
 // linkRenamePair links two files together
@@ -120,17 +127,18 @@ func trimRenamed(a []*File) []*File {
 }
 
 // trimsmall returns an slice which has had files with small files removed
-func trimSmall(a []*File, minsize int64) []*File {
+func trimSmall(a []*File, minsize int64) ([]*File, error) {
 	r := make([]*File, 0, len(a))
 	for _, f := range a {
 		if f.Info == nil {
-			panic("Missing f.Info for " + f.Name)
+			err := fmt.Errorf("Missing f.Info for " + f.Name)
+			return r, err
 		}
 		if f.Info.Size() > minsize {
 			r = append(r, f)
 		}
 	}
-	return r
+	return r, nil
 }
 
 // pairednames holds a *File and another "name", which is used for various

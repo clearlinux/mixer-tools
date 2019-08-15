@@ -508,7 +508,7 @@ func (m *Manifest) newDeleted(df *File) {
 
 // linkDeltaPeersForPack sets the DeltaPeer of the files in newManifest that have the corresponding files
 // in oldManifest.
-func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error {
+func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest, ignoreMissingFlag bool) error {
 	newIndex := 0
 	oldIndex := 0
 	added := []*File{}
@@ -568,6 +568,9 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 			newPath := filepath.Join(c.imageBase, fmt.Sprint(nf.Version), "full", nf.Name)
 			fi, err := os.Stat(newPath)
 			if err != nil {
+				if ignoreMissingFlag {
+					continue
+				}
 				return errors.Wrapf(err, "error accessing %s to decide whether it can have a delta or not", newPath)
 			}
 			if fi.Size() < minimumSizeToMakeDeltaInBytes {
@@ -580,7 +583,7 @@ func linkDeltaPeersForPack(c *config, oldManifest, newManifest *Manifest) error 
 	}
 
 	// Run rename detection on old and new manifests
-	return renameDetection(newManifest, added, removed, *c)
+	return renameDetection(newManifest, added, removed, *c, ignoreMissingFlag)
 }
 
 func includesChanged(m1 *Manifest, m2 *Manifest) bool {

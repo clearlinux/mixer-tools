@@ -22,16 +22,16 @@ import (
 	"strings"
 )
 
-func renameDetection(manifest *Manifest, added []*File, removed []*File, c config) error {
+func renameDetection(manifest *Manifest, added []*File, removed []*File, c config, ignoreMissingFlag bool) error {
 	if len(added) == 0 || len(removed) == 0 {
 		return nil // nothing to rename
 	}
 	added = trimRenamed(added) // Make copies of input slices, tidy up whilst we are here
 	removed = trimRenamed(removed)
-	if err := fixupStatFields(removed, manifest, &c); err != nil {
+	if err := fixupStatFields(removed, manifest, &c, ignoreMissingFlag); err != nil {
 		return err
 	}
-	if err := fixupStatFields(added, manifest, &c); err != nil {
+	if err := fixupStatFields(added, manifest, &c, ignoreMissingFlag); err != nil {
 		return err
 	}
 	// Handle pure renames first, don't need to worry about size. Should we skip zero size?
@@ -64,11 +64,11 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 	// Link things with the same names skipping digits
 	// First remove small files (not worth sending diff) and files which have
 	// exact match
-	added, err := trimSmall(trimRenamed(added), minimumSizeToMakeDeltaInBytes) // Make it explicit we are doing two steps
+	added, err := trimSmall(trimRenamed(added), minimumSizeToMakeDeltaInBytes, ignoreMissingFlag) // Make it explicit we are doing two steps
 	if err != nil {
 		return err
 	}
-	removed, err = trimSmall(trimRenamed(removed), minimumSizeToMakeDeltaInBytes) // TODO. make it one pass.
+	removed, err = trimSmall(trimRenamed(removed), minimumSizeToMakeDeltaInBytes, ignoreMissingFlag) // TODO. make it one pass.
 	if err != nil {
 		return err
 	}
@@ -127,10 +127,13 @@ func trimRenamed(a []*File) []*File {
 }
 
 // trimsmall returns an slice which has had files with small files removed
-func trimSmall(a []*File, minsize int64) ([]*File, error) {
+func trimSmall(a []*File, minsize int64, ignoreMissingFlag bool) ([]*File, error) {
 	r := make([]*File, 0, len(a))
 	for _, f := range a {
 		if f.Info == nil {
+			if ignoreMissingFlag {
+				continue
+			}
 			err := fmt.Errorf("Missing f.Info for " + f.Name)
 			return r, err
 		}
@@ -187,7 +190,7 @@ func makePairedNames(list []*File) []pairedNames {
 // construct the path to the old chroot by Joining the c.imageBase
 // file.Previous, bundle name, and file.Name fields
 // Note this is horrible
-func fixupStatFields(needed []*File, m *Manifest, c *config) error {
+func fixupStatFields(needed []*File, m *Manifest, c *config, ignoreMissingFlag bool) error {
 	var bundleChroot string
 	for i := range needed {
 		if needed[i].Info != nil {
@@ -197,6 +200,9 @@ func fixupStatFields(needed []*File, m *Manifest, c *config) error {
 		path := filepath.Join(bundleChroot, needed[i].Name)
 		fi, err := os.Lstat(path)
 		if err != nil {
+			if ignoreMissingFlag {
+				continue
+			}
 			return err
 		}
 		needed[i].Info = fi

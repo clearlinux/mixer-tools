@@ -57,6 +57,7 @@ type buildCmdFlags struct {
 	numFullfileWorkers int
 	numDeltaWorkers    int
 	numBundleWorkers   int
+	ignoreMissing      bool
 }
 
 var buildFlags buildCmdFlags
@@ -250,6 +251,7 @@ var buildFormatOldCmd = &cobra.Command{
 		}
 
 		setWorkers(b)
+		b.IgnoreMissing = buildFlags.ignoreMissing
 
 		lastVer, err := b.GetLastBuildVersion()
 		if err != nil {
@@ -363,6 +365,7 @@ var buildFormatNewCmd = &cobra.Command{
 		}
 
 		setWorkers(b)
+		b.IgnoreMissing = buildFlags.ignoreMissing
 
 		if err = b.ModifyBundles(b.RemoveBundlesGroupINI); err != nil {
 			fail(err)
@@ -410,6 +413,7 @@ var buildUpdateCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
+		b.IgnoreMissing = buildFlags.ignoreMissing
 		params := builder.UpdateParameters{
 			MinVersion:    buildFlags.minVersion,
 			Format:        buildFlags.format,
@@ -448,6 +452,7 @@ var buildAllCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
+		b.IgnoreMissing = buildFlags.ignoreMissing
 		rpms, err := helpers.ListVisibleFiles(b.Config.Mixer.LocalRPMDir)
 		if err == nil {
 			err = b.AddRPMList(rpms)
@@ -604,6 +609,8 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 		fail(err)
 	}
 	setWorkers(b)
+	b.IgnoreMissing = buildFlags.ignoreMissing
+
 	if fromChanged {
 		err = b.BuildDeltaPacks(buildDeltaPacksFlags.from, buildDeltaPacksFlags.to, buildDeltaPacksFlags.report)
 	} else {
@@ -627,6 +634,8 @@ func runBuildDeltaManifests(cmd *cobra.Command, args []string) error {
 		fail(err)
 	}
 	setWorkers(b)
+	b.IgnoreMissing = buildFlags.ignoreMissing
+
 	if fromChanged {
 		err = b.BuildDeltaManifests(buildDeltaManifestsFlags.from, buildDeltaManifestsFlags.to)
 	} else {
@@ -705,6 +714,7 @@ func init() {
 	buildCmd.PersistentFlags().IntVar(&buildFlags.numBundleWorkers, "bundle-workers", 0, "Number of parallel workers when building bundles, 0 means number of CPUs")
 	buildCmd.PersistentFlags().IntVar(&buildFlags.downloadRetries, "retries", retriesDefault, "Number of retry attempts to download RPMs")
 	buildCmd.PersistentFlags().BoolVar(&buildFlags.skipFormatCheck, "skip-format-check", false, "Skip format bump check")
+	buildCmd.PersistentFlags().BoolVar(&buildFlags.ignoreMissing, "ignore-missing", false, "Ignore missing files while generating deltas, continue generating deltas for existing files")
 
 	RootCmd.AddCommand(buildCmd)
 

@@ -51,7 +51,7 @@ type Delta struct {
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
 // list. If number of workers is zero or less, 1 worker is used.
-func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int, bsdiffLog *log.Logger) ([]Delta, error) {
+func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int, bsdiffLog *log.Logger, ignoreMissing bool) ([]Delta, error) {
 	var c config
 
 	c, err := getConfig(statedir)
@@ -69,7 +69,7 @@ func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWork
 		return nil, err
 	}
 
-	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers, bsdiffLog)
+	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers, bsdiffLog, ignoreMissing)
 }
 
 // CreateBsdiffLogger creates a logger for the bsdiff_errors.log file at the directory
@@ -84,8 +84,8 @@ func CreateBsdiffLogger(stateDir string) (*log.Logger, *os.File, error) {
 	return bsdiffLog, logFile, nil
 }
 
-func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int, bsdiffLog *log.Logger) ([]Delta, error) {
-	deltas, err := findDeltas(c, oldManifest, newManifest)
+func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int, bsdiffLog *log.Logger, ignoreMissing bool) ([]Delta, error) {
+	deltas, err := findDeltas(c, oldManifest, newManifest, ignoreMissing)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create deltas list %s", newManifest.Name)
 	}
@@ -322,11 +322,11 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta, bsdiffLog *lo
 	return nil
 }
 
-func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) {
+func findDeltas(c *config, oldManifest, newManifest *Manifest, ignoreMissing bool) ([]Delta, error) {
 	oldManifest.sortFilesName()
 	newManifest.sortFilesName()
 
-	err := linkDeltaPeersForPack(c, oldManifest, newManifest)
+	err := linkDeltaPeersForPack(c, oldManifest, newManifest, ignoreMissing)
 	if err != nil {
 		return nil, err
 	}

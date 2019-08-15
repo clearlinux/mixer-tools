@@ -137,7 +137,7 @@ func TestRename(t *testing.T) {
 	for _, tc := range tests {
 		add := filelist(t, sn, tc.add)
 		remove := markdelete(filelist(t, sn, tc.remove))
-		err := renameDetection(&Manifest{}, add, remove, config{})
+		err := renameDetection(&Manifest{}, add, remove, config{}, false)
 		if err != nil {
 			t.Fatalf("Invalid testcase %v, renameDetection failed ", tc)
 		}

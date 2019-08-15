@@ -264,7 +264,7 @@ func mustCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint3
 		_ = logFile.Close()
 	}()
 
-	deltas, err := CreateDeltasForManifest(manifest, statedir, from, to, 0, bsdiffLog)
+	deltas, err := CreateDeltasForManifest(manifest, statedir, from, to, 0, bsdiffLog, false)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}
@@ -291,7 +291,7 @@ func tryCreateAllDeltas(t *testing.T, manifest, statedir string, from, to uint32
 		_ = logFile.Close()
 	}()
 
-	_, err = CreateDeltasForManifest(manifest, statedir, from, to, 0, bsdiffLog)
+	_, err = CreateDeltasForManifest(manifest, statedir, from, to, 0, bsdiffLog, false)
 	if err != nil {
 		t.Fatalf("couldn't create deltas for %s: %s", manifest, err)
 	}

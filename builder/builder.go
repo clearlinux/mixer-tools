@@ -66,7 +66,7 @@ type Builder struct {
 	NumFullfileWorkers int
 	NumDeltaWorkers    int
 	NumBundleWorkers   int
-
+	IgnoreMissing      bool
 	// Parsed versions.
 	MixVerUint32      uint32
 	UpstreamVerUint32 uint32
@@ -512,13 +512,13 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 	defer func() {
 		_ = logFile.Close()
 	}()
-	err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog)
+	err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog, b.IgnoreMissing)
 	if err != nil {
 		return err
 	}
 
 	// Create packs filling in any missing deltas
-	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
+	return createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers, b.IgnoreMissing)
 }
 
 // BuildDeltaPacksPreviousVersions builds packs to version from up to
@@ -599,7 +599,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		go func() {
 			defer wg.Done()
 			for fromManifest := range versionQueue {
-				deltaErr := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog)
+				deltaErr := swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers, bsdiffLog, b.IgnoreMissing)
 				if deltaErr != nil {
 					mux.Lock()
 					deltaErrors = append(deltaErrors, deltaErr)
@@ -625,7 +625,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 	// Simply pack all deltas up since they are now created
 	for _, fromManifest := range previousManifests {
 		fmt.Println()
-		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers)
+		err = createDeltaPacks(fromManifest, toManifest, printReport, outputDir, bundleDir, b.NumDeltaWorkers, b.IgnoreMissing)
 		if err != nil {
 			return err
 		}

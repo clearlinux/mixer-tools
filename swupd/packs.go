@@ -78,7 +78,7 @@ func (state PackState) String() string {
 // CreateAllDeltas builds all of the deltas using the full manifest from one
 // version to the next. This allows better concurrency and the pack creation
 // code can just worry about adding pre-existing files to packs.
-func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, bsdiffLog *log.Logger) error {
+func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, bsdiffLog *log.Logger, ignoreMissing bool) error {
 	// Don't try to make deltas for zero packs
 	if fromVersion == 0 {
 		return nil
@@ -105,7 +105,7 @@ func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, b
 		return err
 	}
 
-	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers, bsdiffLog)
+	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers, bsdiffLog, ignoreMissing)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func writeDeltaManifest(tw *tar.Writer, outputDir string, dManifest *Manifest, t
 // fullfiles. If not empty, chrootDir is tried first as a fast alternative to
 // decompressing the fullfiles. Multiple workers are used to parallelize delta creation.
 // If number of workers is zero or less, 1 worker is used.
-func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string, numWorkers int) (info *PackInfo, err error) {
+func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string, numWorkers int, ignoreMissing bool) (info *PackInfo, err error) {
 	if toManifest == nil {
 		return nil, fmt.Errorf("need a valid toManifest")
 	}
@@ -170,7 +170,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			return nil, err
 		}
 
-		deltas, err = findDeltas(&c, fromManifest, toManifest)
+		deltas, err = findDeltas(&c, fromManifest, toManifest, ignoreMissing)
 		if err != nil {
 			return nil, err
 		}
@@ -557,7 +557,7 @@ func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, 
 // Empty packs will lead to not creating the pack.
 // Multiple workers are used to parallelize delta creation. If number of workers is zero or
 // less, 1 worker is used.
-func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string, numWorkers int) (*PackInfo, error) {
+func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string, numWorkers int, ignoreMissing bool) (*PackInfo, error) {
 	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
 	toM, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
 	if err != nil {
@@ -577,7 +577,7 @@ func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir
 	if err != nil {
 		return nil, err
 	}
-	info, err := WritePack(output, fromM, toM, outputDir, chrootDir, numWorkers)
+	info, err := WritePack(output, fromM, toM, outputDir, chrootDir, numWorkers, ignoreMissing)
 	if err != nil {
 		_ = output.Close()
 		_ = os.RemoveAll(packPath)

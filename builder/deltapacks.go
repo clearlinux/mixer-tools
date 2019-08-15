@@ -27,7 +27,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printReport bool, outputDir, bundleDir string, numWorkers int) error {
+func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printReport bool, outputDir, bundleDir string, numWorkers int, ignoreMissing bool) error {
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 	timer.Start("CREATE DELTA PACKS")
@@ -75,7 +75,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 			defer wg.Done()
 			for b := range bundleQueue {
 				fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
-				info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers)
+				info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir, numWorkers, ignoreMissing)
 				if err != nil {
 					log.Printf("ERROR: Pack %q from %d to %d FAILED to be created: %s\n", b.Name, b.FromVersion, b.ToVersion, err)
 					// Do not exit on errors, we have logging for all other failures and deltas are optional

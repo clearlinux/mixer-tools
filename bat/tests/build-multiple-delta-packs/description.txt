@@ -1,0 +1,4 @@
+build-multiple-delta-packs
+=====================
+This test case tests and runs 'mixer build delta-packs' command multiple times for different
+versions with some delta files missing when generating content with 'mixer build all'.

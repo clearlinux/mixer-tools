@@ -370,16 +370,35 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	}
 
 	fmt.Printf("Setting latest version to %s\n", b.MixVer)
-
-	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "latest_version"), []byte(b.MixVer), 0644)
+	latestVerFilePath := filepath.Join(b.Config.Builder.ServerStateDir, "www", "version", "latest_version")
+	err = ioutil.WriteFile(latestVerFilePath, []byte(b.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest_version file")
 	}
 
+	// sign the latest_version file
+	if !params.SkipSigning {
+		fmt.Println("Signing latest_version file.")
+		err = b.signFile(latestVerFilePath)
+		if err != nil {
+			return errors.Wrapf(err, "couldn't sign the latest_version file")
+		}
+	}
 	err = ioutil.WriteFile(filepath.Join(formatDir, "latest"), []byte(b.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest version")
 	}
+
+	// sign the latest file in place based on the Mixed format
+	// read from builder.conf.
+	if !params.SkipSigning {
+		fmt.Println("Signing latest file.")
+		err = b.signFile(filepath.Join(formatDir, "latest"))
+		if err != nil {
+			return errors.Wrapf(err, "couldn't sign the latest file")
+		}
+	}
+
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.ServerStateDir, "image", "LAST_VER"), []byte(b.MixVer), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "couldn't update the latest version")

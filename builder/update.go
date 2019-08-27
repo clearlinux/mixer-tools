@@ -29,28 +29,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-// SignManifestMoM will sign the Manifest.MoM file in in place based on the Mix
-// version read from builder.conf.
-func (b *Builder) SignManifestMoM() error {
-	mom := filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "Manifest.MoM")
-	sig := mom + ".sig"
-
-	// Call openssl because signing and pkcs7 stuff is not well supported in Go yet.
-	cmd := exec.Command("openssl", "smime", "-sign", "-binary", "-in", mom,
-		"-signer", b.Config.Builder.Cert, "-inkey", filepath.Dir(b.Config.Builder.Cert)+"/private.pem",
-		"-outform", "DER", "-out", sig)
-
-	// Capture the output as it is useful in case of errors.
-	var out bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
-	err := cmd.Run()
-	if err != nil {
-		return fmt.Errorf("failed to sign Manifest.MoM:\n%s", out.String())
-	}
-	return nil
-}
-
 func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) error {
 	var err error
 
@@ -84,9 +62,11 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		fmt.Printf("- %-20s %d\n", f.Name, f.Version)
 	}
 
+	// sign the Manifest.MoM file in place based on the Mix
+	// version read from builder.conf.
 	if !params.SkipSigning {
 		fmt.Println("Signing manifest.")
-		err = b.SignManifestMoM()
+		err = b.signFile(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "Manifest.MoM"))
 		if err != nil {
 			return err
 		}
@@ -294,4 +274,22 @@ func archiveFiles(w io.Writer, srcs []string) error {
 		}
 	}
 	return tw.Close()
+}
+
+func (b *Builder) signFile(fileName string) error {
+	sig := fileName + ".sig"
+	// Call openssl because signing and pkcs7 stuff is not well supported in Go yet.
+	cmd := exec.Command("openssl", "smime", "-sign", "-binary", "-in", fileName,
+		"-signer", b.Config.Builder.Cert, "-inkey", filepath.Dir(b.Config.Builder.Cert)+"/private.pem",
+		"-outform", "DER", "-out", sig)
+
+	// Capture the output as it is useful in case of errors.
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to sign file:\n%s", out.String())
+	}
+	return nil
 }

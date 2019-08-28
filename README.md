@@ -3,4 +3,4 @@
 
 This project contains tooling for using the software update mixer.
 
-Please follow the guide at https://clearlinux.org/documentation/clear-linux/guides/maintenance/mixer to learn more about how to use the mixer tool.
+Please follow the guide at https://docs.01.org/clearlinux/latest/guides/clear/mixer.html to learn more about how to use the mixer tool.

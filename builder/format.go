@@ -72,8 +72,8 @@ func (b *Builder) getLastBuildUpstreamVersion() (string, error) {
 	return strings.TrimSpace(string(lastVer)), nil
 }
 
-// getFormatForVersion returns the format for the provided local version
-func (b *Builder) getFormatForVersion(version string) (string, error) {
+// GetFormatForVersion returns the format for the provided local version
+func (b *Builder) GetFormatForVersion(version string) (string, error) {
 	var format []byte
 	var err error
 
@@ -98,7 +98,8 @@ func (b *Builder) getLatestForFormat(format string) (string, error) {
 	return strings.TrimSpace(string(lastVer)), nil
 }
 
-func (b *Builder) getLocalUpstreamVersion(version string) (string, error) {
+// GetLocalUpstreamVersion returns the upstream version for the provided version
+func (b *Builder) GetLocalUpstreamVersion(version string) (string, error) {
 	var localUpstreamVer []byte
 	var err error
 

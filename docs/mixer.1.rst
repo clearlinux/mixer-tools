@@ -114,6 +114,15 @@ SUBCOMMANDS
     upstream available. Also allows the user to update mix and upstream
     versions. See ``mixer.versions``\(1) for more details.
 
+``reset``
+
+   Reverts a mix state to the end of the last build or to the end
+   of a given version build if one is provided. By default, the value
+   of PREVIOUS_MIX_VERSION in mixer.state will be used to define the
+   last build. This command can be used to roll back the mixer state
+   in case of a build failure or in case the user wants to roll back
+   to a previous version. See ``mixer.reset``\(1) for more details.
+
 
 FILES
 =====
@@ -142,6 +151,7 @@ SEE ALSO
 * ``mixer.init``\(1)
 * ``mixer.repo``\(1)
 * ``mixer.versions``\(1)
+* ``mixer.reset``\(1)
 * ``swupd``\(1)
 * ``os-format``\(7)
 * https://github.com/clearlinux/mixer-tools

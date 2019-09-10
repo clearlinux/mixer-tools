@@ -1,0 +1,7 @@
+reset
+====================
+This test attempts to create multiple mixes of different versions
+in different format. It then tries to revert the mix to a previous stable
+version. If clean flag is set, mixer will delete all files associated with
+versions that are bigger than the one provided.
+

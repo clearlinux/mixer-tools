@@ -272,7 +272,7 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 	repoURIs := make(map[string]string)
 
 	// Download RPMs from correct upstream version
-	upstreamVer, err := b.getLocalUpstreamVersion(strconv.Itoa(version))
+	upstreamVer, err := b.GetLocalUpstreamVersion(strconv.Itoa(version))
 	if err != nil {
 		return nil, err
 	}
@@ -1126,7 +1126,7 @@ func checkMcaFbErrors(b *Builder, diffErrors []string, fromVer, toVer int) ([]st
 // isPlus10Version determines whether the version is the last version in a format.
 func (b *Builder) isPlus10Version(ver int) (bool, error) {
 	verStr := strconv.Itoa(ver)
-	format, err := b.getFormatForVersion(verStr)
+	format, err := b.GetFormatForVersion(verStr)
 	if err != nil {
 		return false, err
 	}
@@ -1146,11 +1146,11 @@ func (b *Builder) isPlus10Version(ver int) (bool, error) {
 
 // checkFormatsMatch determines whether two versions are in the same format.
 func (b *Builder) checkFormatsMatch(fromVer, toVer int) (bool, error) {
-	fromFormat, err := b.getFormatForVersion(strconv.Itoa(fromVer))
+	fromFormat, err := b.GetFormatForVersion(strconv.Itoa(fromVer))
 	if err != nil {
 		return false, err
 	}
-	toFormat, err := b.getFormatForVersion(strconv.Itoa(toVer))
+	toFormat, err := b.GetFormatForVersion(strconv.Itoa(toVer))
 	if err != nil {
 		return false, err
 	}

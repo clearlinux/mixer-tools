@@ -126,6 +126,10 @@ func (m *Manifest) addFilesFromChroot(rootPath, removePrefix string) error {
 	}
 
 	err := filepath.Walk(rootPath, func(path string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		err = m.createFileRecord(rootPath, path, removePrefix, fi)
 		if err != nil {
 			if strings.Contains(err.Error(), "hash calculation error") {

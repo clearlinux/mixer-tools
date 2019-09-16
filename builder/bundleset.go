@@ -374,7 +374,7 @@ func parseBundle(contents []byte) (*bundle, error) {
 				break
 			}
 		}
-		if duplicate == false {
+		if !duplicate {
 			b.OptionalIncludes = append(b.OptionalIncludes, optionalBundle)
 		}
 	}

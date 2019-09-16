@@ -460,7 +460,7 @@ func (info *mcaBundleInfo) getSubPkgs(manifest *swupd.Manifest, pInfo map[string
 				break
 			}
 		}
-		if isIncluded == false {
+		if !isIncluded {
 			info.subPkgs[p] = true
 		}
 	}
@@ -477,12 +477,12 @@ func (info *mcaBundleInfo) getSubPkgFiles(manifest *swupd.Manifest, pInfo map[st
 			isIncluded := false
 
 			for _, inc := range includes {
-				if pInfo[inc.Name].allFiles[f.name] == true {
+				if pInfo[inc.Name].allFiles[f.name] {
 					isIncluded = true
 					break
 				}
 			}
-			if isIncluded == false {
+			if !isIncluded {
 				info.subPkgFiles[f.name] = f
 			}
 		}
@@ -663,7 +663,7 @@ func getPkgDiffLists(fromPkgs, toPkgs map[string]bool, bundleDiff *mcaBundleDiff
 	modList := []string{}
 
 	for p := range toPkgs {
-		if fromPkgs[p] != false {
+		if fromPkgs[p] {
 			// Match
 			if isPkgMod(p, bundleDiff) {
 				modList = append(modList, p)
@@ -675,7 +675,7 @@ func getPkgDiffLists(fromPkgs, toPkgs map[string]bool, bundleDiff *mcaBundleDiff
 	}
 
 	for p := range fromPkgs {
-		if toPkgs[p] == false {
+		if !toPkgs[p] {
 			// Deleted pkg
 			delList = append(delList, p)
 		}
@@ -694,7 +694,7 @@ func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File) (bool, diffL
 			// Match
 			if isManFileMod(fromFiles[f], toFiles[f]) {
 				modList = append(modList, f)
-			} else if minversion == false {
+			} else if !minversion {
 				minversion = isMinversion(fromFiles[f], toFiles[f])
 			}
 		} else {
@@ -722,10 +722,7 @@ func isFileMod(from, to *fileInfo) bool {
 
 func isPkgMod(key string, bundleDiff *mcaBundleDiff) bool {
 	// When file(s) associated with a package are modified, the package is modified
-	if (bundleDiff.pkgFileCounts[key].add + bundleDiff.pkgFileCounts[key].mod + bundleDiff.pkgFileCounts[key].del) != 0 {
-		return true
-	}
-	return false
+	return (bundleDiff.pkgFileCounts[key].add + bundleDiff.pkgFileCounts[key].mod + bundleDiff.pkgFileCounts[key].del) != 0
 }
 
 func isManFileMod(from, to *swupd.File) bool {
@@ -762,7 +759,7 @@ func analyzeMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mca
 					break
 				}
 			}
-			if releaseFileMod == false {
+			if !releaseFileMod {
 				errorList = append(errorList, "ERROR: /usr/lib/os-release is not modified in manifest 'os-core'\n")
 			}
 		}
@@ -865,7 +862,7 @@ func removeMcaErrorExceptions(b *Builder, diffErrors []string, fromVer, toVer in
 		case "ERROR: /usr/share/clear/versionstamp is modified in manifest 'os-core', but not in a package\n":
 			versionstampFile = true
 		case "ERROR: /usr/share/defaults/swupd/format is modified in manifest 'os-core-update', but not in a package\n":
-			if toPlus10 || formatMatch == false {
+			if toPlus10 || !formatMatch {
 				formatFile = true
 			}
 		default:
@@ -877,7 +874,7 @@ func removeMcaErrorExceptions(b *Builder, diffErrors []string, fromVer, toVer in
 		// are expected in os-core/os-core-update, but the +20 version cannot be detected since Mixer does
 		// not track the first file in a format. As a result, assume this case is a +10 -> +20
 		// comparison and print a warning message.
-		if releaseFileMod == false && versionFile == false && versionstampFile == false && formatFile == false {
+		if !releaseFileMod && !versionFile && !versionstampFile && !formatFile {
 			warningList = append(warningList, "WARNING: If this is not a +10 to +20 comparison, expected file changes are missing from os-core/os-core-update\n")
 			return errorList, warningList, nil
 		}
@@ -886,17 +883,17 @@ func removeMcaErrorExceptions(b *Builder, diffErrors []string, fromVer, toVer in
 
 	// When the comparison is not between +10 -> +20 versions, re-add an error when /usr/lib/os-release
 	// is not modified
-	if releaseFileMod == false {
+	if !releaseFileMod {
 		errorList = append(errorList, "ERROR: /usr/lib/os-release is not modified in manifest 'os-core'\n")
 	}
-	if versionFile == false {
+	if !versionFile {
 		errorList = append(errorList, "ERROR: /usr/share/clear/version is not modified in manifest 'os-core'\n")
 	}
-	if versionstampFile == false {
+	if !versionstampFile {
 		errorList = append(errorList, "ERROR: /usr/share/clear/versionstamp is not modified in manifest 'os-core'\n")
 	}
 
-	if (toPlus10 || formatMatch == false) && formatFile == false {
+	if (toPlus10 || !formatMatch) && !formatFile {
 		if fromPlus10 {
 			warningList = append(warningList, "WARNING: If comparing +10 to a version across multiple format boundaries, the format file in 'os-core-update' must be modified\n")
 		} else {
@@ -951,19 +948,19 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 
 	// Print any warnings
 	for _, msg := range warningList {
-		fmt.Printf(msg)
+		fmt.Print(msg)
 	}
-	fmt.Printf("\n")
+	fmt.Print("\n")
 
 	// An overwhelming number of errors can be generated when this test
 	// identifies a manifest bug, so limit the error output to 50.
 	if len(errorList) > 0 {
 		for i, err := range errorList {
 			if i == 50 {
-				fmt.Printf("WARNING: Error reporting is limited to 50, so additional errors were skipped.\n")
+				fmt.Print("WARNING: Error reporting is limited to 50, so additional errors were skipped.\n")
 				break
 			}
-			fmt.Printf(err)
+			fmt.Print(err)
 		}
 		return fmt.Errorf("Manifest errors were identified")
 	}
@@ -1016,7 +1013,7 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 	// Print statistics for each bundle
 	for _, b := range results.bundleDiff {
 		// Skip unchanged and deleted bundles
-		if (b.status == unchanged || b.status == removed) && b.minversion == false {
+		if (b.status == unchanged || b.status == removed) && !b.minversion {
 			continue
 		}
 		if _, err = fmt.Fprintf(w, "| %s\t Summary:\n", b.name); err != nil {

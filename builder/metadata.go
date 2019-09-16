@@ -307,8 +307,7 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32, skipFormatCheck b
 
 	nextUpstreamStr := strconv.FormatUint(uint64(nextUpstream), 10)
 
-	var nextFormat string
-	nextFormat = format
+	nextFormat := format
 	if checkUpstream {
 		if nextUpstream > latest {
 			nextFormat, err = b.getUpstreamFormat(nextUpstreamStr)

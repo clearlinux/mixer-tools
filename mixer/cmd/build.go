@@ -62,8 +62,7 @@ type buildCmdFlags struct {
 var buildFlags buildCmdFlags
 
 func setWorkers(b *builder.Builder) {
-	var workers int
-	workers = buildFlags.numFullfileWorkers
+	workers := buildFlags.numFullfileWorkers
 	if workers < 1 {
 		workers = runtime.NumCPU()
 	}

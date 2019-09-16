@@ -105,7 +105,7 @@ func getDirFromConfigPath(path string) (string, error) {
 	f, err := os.Stat(path)
 	if os.IsNotExist(err) || (err == nil && !f.Mode().IsDir()) {
 		path = filepath.Dir(path)
-		f, err = os.Stat(path)
+		_, err = os.Stat(path)
 	}
 	if err != nil {
 		return "", err

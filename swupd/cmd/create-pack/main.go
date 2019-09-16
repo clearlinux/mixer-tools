@@ -72,7 +72,7 @@ func main() {
 		}
 	}
 
-	var bundles map[string]*swupd.BundleToPack
+	bundles := make(map[string]*swupd.BundleToPack)
 
 	if *allBundles {
 		toDir := filepath.Join(stateDir, "www", toVersion)

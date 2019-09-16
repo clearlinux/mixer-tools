@@ -64,7 +64,7 @@ checkcoverage:
 
 .PHONY: lint
 lint: gopath
-	@gometalinter.v2 --deadline=10m --tests --vendor --disable-all \
+	@golangci-lint run --deadline=10m --tests --disable-all \
 	--enable=misspell \
 	--enable=vet \
 	--enable=ineffassign \

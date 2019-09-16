@@ -476,7 +476,7 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 
 	// Creating a pack should fail, no way to get emacs contents from neither chroot
 	// or fullfile.
-	info, err := CreatePack("editors", 0, 10, fs.path("www"), fs.path("image"), 0)
+	_, err := CreatePack("editors", 0, 10, fs.path("www"), fs.path("image"), 0)
 	if err == nil {
 		t.Fatalf("unexpected success when creating pack with incomplete chroot")
 	}
@@ -487,7 +487,7 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 	fs.rm("image/10/full/emacs")
 
 	// Now create pack.
-	info = mustCreatePack(t, "editors", 0, 10, fs.path("www"), fs.path("image"))
+	info := mustCreatePack(t, "editors", 0, 10, fs.path("www"), fs.path("image"))
 	mustValidateZeroPack(t, fs.path("www/10/Manifest.editors"), fs.path("www/10/pack-editors-from-0.tar"))
 
 	// And note that we have a warning.

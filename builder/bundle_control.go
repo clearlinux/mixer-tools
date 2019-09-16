@@ -326,8 +326,7 @@ func (b *Builder) getFullBundleSet(bundles bundleSet) (bundleSet, error) {
 }
 
 func populateSetFromPackages(source *map[string]bool, dest bundleSet, filename string) error {
-	var err error
-	err = setPackagesList(source, filename)
+	err := setPackagesList(source, filename)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to read packages file: %s", filename)
 	}

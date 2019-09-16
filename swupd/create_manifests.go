@@ -140,7 +140,7 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 	close(bundleChan)
 	wg.Wait()
 
-	if err == nil && len(errorChan) > 0 {
+	if len(errorChan) > 0 {
 		err = <-errorChan
 		return nil, err
 	}

@@ -99,8 +99,7 @@ func excludeName(man *swupd.Manifest, exclude string) {
 }
 
 func setUpMixDir(upstreamVer, mixVer int) error {
-	var err error
-	err = os.MkdirAll(filepath.Join(mixWS, "local-rpms"), 755)
+	err := os.MkdirAll(filepath.Join(mixWS, "local-rpms"), 0755)
 	if err != nil {
 		return err
 	}

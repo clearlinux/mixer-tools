@@ -145,9 +145,7 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 
 	for repo, pkgs := range repoPkgs {
 		queryString := merge(packagerCmd, "repoquery", "-l", "--quiet", "--repo", repo)
-		for _, p := range pkgs {
-			queryString = append(queryString, p)
-		}
+		queryString = append(queryString, pkgs...)
 		outBuf, err := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err != nil {
 			return err

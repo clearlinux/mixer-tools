@@ -251,8 +251,7 @@ func (f *File) GetFlagString() (string, error) {
 
 	// only write a '.' or 'm' to a manifest
 	// the 'r' flag is deprecated
-	var renameByte byte
-	renameByte = '.'
+	renameByte := byte('.')
 	if f.Rename == MixManifest {
 		renameByte = 'm'
 	}

@@ -281,7 +281,7 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	}
 
 	// Generate the certificate needed for signing verification if it does not exist
-	if signflag == false && template != nil {
+	if !signflag && template != nil {
 		err := helpers.GenerateCertificate(b.Config.Builder.Cert, template, template, &privkey.PublicKey, privkey)
 		if err != nil {
 			return err

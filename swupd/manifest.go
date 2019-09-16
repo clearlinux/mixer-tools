@@ -172,8 +172,7 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 	ver := uint32(parsed)
 
 	// create a file record
-	var file *File
-	file = &File{Name: fname, Version: ver}
+	file := &File{Name: fname, Version: ver}
 
 	// set the file hash
 	file.Hash = internHash(fhash)
@@ -659,7 +658,7 @@ func addAllManifestFiles(manifests []*Manifest, ui UpdateInfo, c config, numWork
 	close(mCh)
 	wg.Wait()
 
-	if err == nil && len(errorChan) > 0 {
+	if len(errorChan) > 0 {
 		err = <-errorChan
 	}
 
@@ -681,12 +680,12 @@ func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
 		for f := range m.BundleInfo.Files {
 			isIncluded := false
 			for _, inc := range includes {
-				if inc.BundleInfo.Files[f] == true {
+				if inc.BundleInfo.Files[f] {
 					isIncluded = true
 					break
 				}
 			}
-			if isIncluded == false {
+			if !isIncluded {
 				if err := m.addFile(f, c, ui.version); err != nil {
 					return err
 				}
@@ -744,7 +743,7 @@ func (m *Manifest) GetRecursiveIncludes() []*Manifest {
 
 	for i := 0; i < len(manifests); i++ {
 		for _, inc := range manifests[i].Header.Includes {
-			if visited[inc.Name] != true {
+			if !visited[inc.Name] {
 				manifests = append(manifests, inc)
 				visited[inc.Name] = true
 			}

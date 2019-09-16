@@ -29,12 +29,7 @@ func (b *Builder) ValidateLocalBundles(lvl ValidationLevel) error {
 		return errors.Wrap(err, "Failed to read local-bundles")
 	}
 
-	bundles := make([]string, len(files))
-	for i, file := range files {
-		bundles[i] = file
-	}
-
-	return b.ValidateBundles(bundles, lvl)
+	return b.ValidateBundles(files, lvl)
 }
 
 // ValidateBundles runs bundle parsing validation on a list of local bundles. In

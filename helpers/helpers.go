@@ -419,7 +419,7 @@ func DownloadFile(url string, filePath string) error {
 
 	_, err = io.Copy(out, *fr)
 	if err != nil {
-		if rmErr := os.RemoveAll(filePath); err != nil {
+		if rmErr := os.RemoveAll(filePath); rmErr != nil {
 			return errors.Wrap(err, rmErr.Error())
 		}
 		return err

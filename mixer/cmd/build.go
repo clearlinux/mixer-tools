@@ -167,6 +167,21 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			fail(err)
 		}
 
+		// check if --new-format flag is set, if not set it to prevFormat +1
+		if buildFlags.newFormat == "" {
+			newFormat, err := strconv.Atoi(b.State.Mix.Format)
+			if err != nil {
+				fail(err)
+			}
+			newFormat = newFormat + 1
+			buildFlags.newFormat = strconv.Itoa(newFormat)
+		}
+
+		_, err = strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
+
 		// Don't print any more warnings about being behind formats when we loop
 		silent := true
 		bumpNeeded := true
@@ -218,6 +233,10 @@ var buildFormatBumpCmd = &cobra.Command{
 		if buildFlags.newFormat == "" {
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
+		_, err := strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
 
 		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --retries %d --native", buildFlags.newFormat, buildFlags.downloadRetries)
 		cmdToRun := strings.Split(cmdStr, " ")
@@ -243,6 +262,15 @@ var buildFormatOldCmd = &cobra.Command{
 	Short: "Build the +10 version in the old format for the format bump",
 	Long:  `Build the +10 version in the old format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if buildFlags.newFormat == "" {
+			fail(errors.New("Please supply the next format version with --new-format"))
+		}
+
+		_, err := strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -341,6 +369,15 @@ var buildFormatNewCmd = &cobra.Command{
 	Short: "Build the +20 version in the new format for the format bump",
 	Long:  `Build the +20 version in the new format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if buildFlags.newFormat == "" {
+			fail(errors.New("Please supply the next format version with --new-format"))
+		}
+
+		_, err := strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -525,26 +562,19 @@ var buildDeltaPacksCmd = &cobra.Command{
 	Use:   "delta-packs",
 	Short: "Build packs used to optimize update between versions",
 	Long: `Build packs used to optimize update between versions
-
 When a swupd client updates a bundle, it looks for a pack file from
 its current version to the new version. If not available, the client
 will download the individual files necessary for the update. If a
 bundle haven't changed between two versions, no pack need to be
 generated.
-
 To generate the packs to optimize update from VER to the current mix
 version use
-
     mixer build delta-packs --from VER
-
 Alternatively, to generate packs for a set of NUM previous versions,
 each one to the current mix version, instead of --from use
-
     mixer build delta-packs --previous-versions NUM
-
 To change the target version (by default the current version), use the
 flag --to. The target version must be larger than the --from version.
-
 `,
 	RunE: runBuildDeltaPacks,
 }
@@ -553,27 +583,20 @@ var buildDeltaManifestsCmd = &cobra.Command{
 	Use:   "delta-manifests",
 	Short: "Build delta manifests used to optimize update between versions",
 	Long: `Build delta manifests used to optimize update between versions
-
 When a swupd client updates content, it uses manifest files to get file
 metadata. If the current versions manifests already exists on the system
 and the delta manifest files are available on the server, the client will
 attempt to apply the delta manifests to create the new version manifests
 rather than downloading the full manifest directly. If a bundle hasn't changed
 between two versions, no delta manifest needs to be generated.
-
 To generate the delta manifests to optimize update from VER to the current mix
 version use
-
     mixer build delta-manifests --from VER
-
 Alternatively, to generate delta manifests for a set of NUM previous versions,
 each one to the current mix version, instead of --from use
-
     mixer build delta-manifests --previous-versions NUM
-
 To change the target version (by default the current version), use the
 flag --to. The target version must be larger than the --from version.
-
 `,
 	RunE: runBuildDeltaManifests,
 }

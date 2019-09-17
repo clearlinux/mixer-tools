@@ -167,6 +167,21 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			fail(err)
 		}
 
+		// check if --new-format flag is set, if not set it to prevFormat +1
+		if buildFlags.newFormat == "" {
+			newFormat, err := strconv.Atoi(b.State.Mix.Format)
+			if err != nil {
+				fail(err)
+			}
+			newFormat = newFormat + 1
+			buildFlags.newFormat = strconv.Itoa(newFormat)
+		}
+
+		_, err = strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
+
 		// Don't print any more warnings about being behind formats when we loop
 		silent := true
 		bumpNeeded := true
@@ -218,6 +233,10 @@ var buildFormatBumpCmd = &cobra.Command{
 		if buildFlags.newFormat == "" {
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
+		_, err := strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
 
 		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --retries %d --native", buildFlags.newFormat, buildFlags.downloadRetries)
 		cmdToRun := strings.Split(cmdStr, " ")
@@ -243,6 +262,15 @@ var buildFormatOldCmd = &cobra.Command{
 	Short: "Build the +10 version in the old format for the format bump",
 	Long:  `Build the +10 version in the old format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if buildFlags.newFormat == "" {
+			fail(errors.New("Please supply the next format version with --new-format"))
+		}
+
+		_, err := strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -341,6 +369,15 @@ var buildFormatNewCmd = &cobra.Command{
 	Short: "Build the +20 version in the new format for the format bump",
 	Long:  `Build the +20 version in the new format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if buildFlags.newFormat == "" {
+			fail(errors.New("Please supply the next format version with --new-format"))
+		}
+
+		_, err := strconv.Atoi(buildFlags.newFormat)
+		if err != nil {
+			fail(errors.New("Please supply a valid format version with --new-format"))
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)

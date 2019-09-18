@@ -485,7 +485,7 @@ func verifySignature(content, sig, cert string) error {
 		"-inform", "der",
 		"-content", content,
 		"-CAfile", cert,
-		"-purpose", "crlsign",
+		"-purpose", "any",
 	)
 	var buf bytes.Buffer
 	cmd.Stdout = &buf

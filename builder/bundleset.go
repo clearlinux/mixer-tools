@@ -29,6 +29,9 @@ type bundle struct {
 	AllPackages      map[string]bool
 
 	Files map[string]bool
+
+	/* hidden property, not to be included in file usr/share/clear/allbundles */
+	AllRpmPackages map[string]bool `json:"-"`
 }
 
 type bundleSet map[string]*bundle

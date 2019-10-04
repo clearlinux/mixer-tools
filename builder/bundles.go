@@ -36,6 +36,9 @@ var bannedPaths = [...]string{
 	"/tmp/",
 }
 
+const rpmDir = "/var/cache/yum/clear/"
+const extractRetries = 5
+
 func isBannedPath(path string) bool {
 	if path == "/" {
 		return true
@@ -139,6 +142,7 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 
 // repoPkgMap is a map of repo names to the packages they provide
 type repoPkgMap map[string][]string
+type repoRpmMap map[string][]packageMetadata
 
 func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []string) error {
 	bundle.Files = make(map[string]bool)
@@ -294,18 +298,21 @@ func parseNoopInstall(installOut string) []packageMetadata {
 	return pkgs
 }
 
-func repoPkgFromNoopInstall(installOut string) repoPkgMap {
+func repoPkgFromNoopInstall(installOut string) (repoPkgMap, repoRpmMap) {
 	repoPkgs := make(repoPkgMap)
-
+	repoRpmMap := make(repoRpmMap)
 	// TODO: parseNoopInstall may fail, so consider a way to stop the processing
 	// once we find that failure. See how errorCh works in fullfiles.go.
 	pkgs := parseNoopInstall(installOut)
 
 	for _, p := range pkgs {
 		repoPkgs[p.repo] = append(repoPkgs[p.repo], p.name)
+		repoRpmMap[p.repo] = append(repoRpmMap[p.repo], p)
 	}
-	return repoPkgs
+	return repoPkgs, repoRpmMap
 }
+
+var fileSystemRpm string
 
 func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) *sync.Map {
 	var wg sync.WaitGroup
@@ -327,6 +334,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			for p := range bundle.AllPackages {
 				queryString = append(queryString, p)
 			}
+			bundle.AllRpmPackages = make(map[string]bool)
 			// ignore error from the --assumeno install. It is an error every time because
 			// --assumeno forces the install command to "abort" and return a non-zero exit
 			// status. This exit status is 1, which is the same as any other dnf install
@@ -334,11 +342,19 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 
-			rpm := repoPkgFromNoopInstall(outBuf.String())
-			for _, pkgs := range rpm {
+			rpm, fullRpm := repoPkgFromNoopInstall(outBuf.String())
+			for _, pkgs := range fullRpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {
-					bundle.AllPackages[pkg] = true
+					name := pkg.name + "-" + pkg.version + "." + pkg.arch + ".rpm"
+					bundle.AllPackages[pkg.name] = true
+					bundle.AllRpmPackages[name] = true
+					// to find the fullName of filesystem rpm, as filesystem needs to be extracted first
+					if bundle.Name == "os-core" {
+						if pkg.name == "filesystem" {
+							fileSystemRpm = name
+						}
+					}
 				}
 			}
 
@@ -363,13 +379,36 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 	return &bundleRepoPkgs
 }
 
-func installFilesystem(packagerCmd []string, chrootDir string) error {
-	installArgs := merge(packagerCmd,
-		"--installroot="+chrootDir,
-		"install",
-		"filesystem",
-	)
-	_, err := helpers.RunCommandOutputEnv(installArgs[0], installArgs[1:], []string{"LC_ALL=en_US.UTF-8"})
+func installFilesystem(chrootDir string, localPath string, packagerCmd []string, downloadRetries int) error {
+	var rpmFull string
+	var err error
+
+	rpmFull = filepath.Join(localPath, fileSystemRpm)
+	rpmMap[fileSystemRpm] = true
+	if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
+		if !Offline {
+			rpmPath, err := downloadRpm(packagerCmd, []string{"filesystem"}, chrootDir, downloadRetries)
+			if err != nil {
+				return err
+			}
+			rpmFull = filepath.Join(rpmPath, fileSystemRpm)
+			if _, err = os.Stat(rpmFull); err != nil {
+				fmt.Println("rpm not found: ", rpmFull)
+				return err
+			}
+		} else {
+			fmt.Println("rpm not found: ", rpmFull)
+			return err
+		}
+	}
+
+	for i := 0; i < extractRetries; i++ {
+		err = extractRpm(chrootDir, rpmFull)
+		if err != nil {
+			continue
+		}
+		break
+	}
 	return err
 }
 
@@ -405,10 +444,6 @@ func initRPMDB(chrootDir string) error {
 func buildOsCore(b *Builder, packagerCmd []string, chrootDir, version string) error {
 	err := initRPMDB(chrootDir)
 	if err != nil {
-		return err
-	}
-
-	if err := installFilesystem(packagerCmd, chrootDir); err != nil {
 		return err
 	}
 
@@ -480,32 +515,142 @@ func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int)
 	return nil, downloadErr
 }
 
-func installBundleToFull(packagerCmd []string, buildVersionDir string, bundle *bundle, downloadRetries int) error {
+func downloadRpm(packagerCmd []string, rpmList []string, baseDir string, downloadRetries int) (string, error) {
+	// Retry RPM downloads to avoid timeout failures due to slow network
+	_, err := downloadRpms(packagerCmd, rpmList, baseDir, downloadRetries)
+	if err != nil {
+		return "", nil
+	}
+	path := baseDir + rpmDir
+
+	fullRpmPath, err := filepath.Glob(filepath.Join(path, "clear-*"))
+	if err != nil {
+		fmt.Print("cant find path to rpm")
+		return "", err
+	}
+	if len(fullRpmPath) < 0 {
+		return "", fmt.Errorf("cant find rpms packages")
+	}
+	fullRpmPath[0] = fullRpmPath[0] + "/packages"
+
+	return fullRpmPath[0], nil
+}
+
+func extractRpm(baseDir string, rpm string) error {
+	dir, file := filepath.Split(rpm)
+
+	rpm2Cmd := exec.Command("rpm2archive", file)
+	rpm2Cmd.Dir = dir
+	rpm2Cmd.Env = os.Environ()
+
+	rpmTar := file + ".tgz"
+	tarCmd := exec.Command("tar", "-xf", rpmTar, "-C", baseDir)
+	tarCmd.Env = os.Environ()
+	tarCmd.Dir = dir
+
 	var err error
-	baseDir := filepath.Join(buildVersionDir, "full")
-	rpmList := []string{}
 
-	if len(bundle.AllPackages) > 0 {
-		// There were packages directly included for this bundle so
-		// install to full chroot. This check is necessary so we don't
-		// call dnf install with no package listed.
-		for p := range bundle.AllPackages {
-			rpmList = append(rpmList, p)
+	err = rpm2Cmd.Run()
+	if err != nil {
+		return fmt.Errorf("rpm2archive cmd failed with %v", err.Error())
+	}
+
+	err = tarCmd.Run()
+	if err != nil {
+		return fmt.Errorf("tarCmd failed with %v", err)
+	}
+
+	err = os.Remove(dir + rpmTar)
+	if err != nil {
+		fmt.Println("failed to remove file")
+	}
+
+	return nil
+}
+
+func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, downloadRetries int, numWorkers int, localPath string) error {
+	var err error
+	var wg sync.WaitGroup
+	rpmCh := make(chan string)
+
+	var errCh error
+	var rpmPath string
+	var missingRpms []string
+
+	if len(bundle.AllRpmPackages) < numWorkers {
+		numWorkers = len(bundle.AllRpmPackages)
+	}
+	errorCh := make(chan error, numWorkers)
+	wg.Add(numWorkers)
+
+	rpmWorker := func() {
+		var e error
+		for rpm := range rpmCh {
+			// running for extractRetries times as rpm2archive and tar can fail if two files are extracted at exact same path
+			for i := 0; i < extractRetries; i++ {
+				e = extractRpm(baseDir, rpm)
+				if e == nil {
+					break
+				}
+			}
+			if e != nil {
+				errorCh <- e
+				break
+			}
 		}
+		wg.Done()
+	}
 
-		// Retry RPM downloads to avoid timeout failures due to slow network
-		_, err = downloadRpms(packagerCmd, rpmList, baseDir, downloadRetries)
-		if err != nil {
-			return err
+	for rpm := range bundle.AllRpmPackages {
+		if rpmMap[rpm] {
+			continue
 		}
-
-		args := merge(packagerCmd, "--installroot="+baseDir, "install")
-		args = append(args, rpmList...)
-		_, err = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
-		if err != nil {
-			return err
+		rpmFull := filepath.Join(localPath, rpm)
+		if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
+			rpmName := strings.TrimSuffix(rpm, ".rpm")
+			missingRpms = append(missingRpms, rpmName)
 		}
 	}
+
+	if len(missingRpms) > 0 {
+		// downloadRpm if not in offline mode, if in offline mode return error
+		if !Offline {
+			rpmPath, err = downloadRpm(packagerCmd, missingRpms, baseDir, downloadRetries)
+			if err != nil {
+				return err
+			}
+		} else {
+			return fmt.Errorf("rpms not found: %s ", missingRpms)
+		}
+	}
+
+	for i := 0; i < numWorkers; i++ {
+		go rpmWorker()
+	}
+
+	// feed the channel
+	for rpm := range bundle.AllRpmPackages {
+		if rpmMap[rpm] {
+			continue
+		}
+		rpmFull := filepath.Join(localPath, rpm)
+		if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
+			rpmFull = filepath.Join(rpmPath, rpm)
+		}
+		rpmMap[rpm] = true
+		select {
+		case rpmCh <- rpmFull:
+		case errCh = <-errorCh:
+			fmt.Println("extraction failed for ", rpm)
+			break
+		}
+		if errCh != nil {
+			return errCh
+		}
+	}
+
+	close(rpmCh)
+	wg.Wait()
 
 	bundleDir := filepath.Join(baseDir, "usr/share/clear/bundles")
 	err = os.MkdirAll(filepath.Join(bundleDir), 0755)
@@ -556,7 +701,9 @@ func rmDNFStatePaths(fullDir string) {
 	}
 }
 
-func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string, downloadRetries int) error {
+var rpmMap map[string]bool
+
+func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string, downloadRetries int, numWorkers int) error {
 	fmt.Println("Cleaning DNF cache before full install")
 	if err := clearDNFCache(packagerCmd); err != nil {
 		return err
@@ -564,10 +711,24 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 	fmt.Println("Installing all bundles to full chroot")
 	totalBundles := len(*set)
 	fullDir := filepath.Join(buildVersionDir, "full")
+	err := os.MkdirAll(fullDir, 0755)
+	if err != nil {
+		return err
+	}
 	i := 0
+	rpmMap = make(map[string]bool)
+
+	if err := installFilesystem(fullDir, b.Config.Mixer.LocalRepoDir, packagerCmd, downloadRetries); err != nil {
+		return err
+	}
+
 	for _, bundle := range *set {
 		i++
 		fmt.Printf("[%d/%d] %s\n", i, totalBundles, bundle.Name)
+
+		if err := installBundleToFull(packagerCmd, fullDir, bundle, downloadRetries, numWorkers, b.Config.Mixer.LocalRepoDir); err != nil {
+			return err
+		}
 		// special handling for os-core
 		if bundle.Name == "os-core" {
 			fmt.Println("... building special os-core content")
@@ -575,11 +736,6 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 				return err
 			}
 		}
-
-		if err := installBundleToFull(packagerCmd, buildVersionDir, bundle, downloadRetries); err != nil {
-			return err
-		}
-
 		// special handling for update bundle
 		if bundle.Name == b.Config.Swupd.Bundle {
 			fmt.Printf("... Adding swupd default values to %s bundle\n", bundle.Name)
@@ -751,7 +907,7 @@ src=%s
 	}
 
 	// install all bundles in the set (including os-core) to the full chroot
-	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version, downloadRetries)
+	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version, downloadRetries, numWorkers)
 	if err != nil {
 		return err
 	}

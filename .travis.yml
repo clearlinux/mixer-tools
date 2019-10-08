@@ -2,15 +2,41 @@ language: go
 sudo: required
 
 go:
-    - 1.11
+    - 1.13
 
 go_import_path: github.com/clearlinux/mixer-tools
 
 services:
     - docker
 
+env:
+    - TEST_DIR=09-update-mixver-offline
+    - TEST_DIR=build-all-delta-packs
+    - TEST_DIR=build-delta-manifests
+    - TEST_DIR=build-multiple-delta-packs
+    - TEST_DIR=build-validate
+    - TEST_DIR=bundle-commands
+    - TEST_DIR=clean-rebuild
+    - TEST_DIR=config-conversion
+    - TEST_DIR=contentsize-check
+#    - TEST_DIR=create-mix-bump-version-add-remove-bundles
+    - TEST_DIR=create-mix-with-blended-content
+    - TEST_DIR=create-mix-with-custom-content
+    - TEST_DIR=create-mix-with-upstream-bundles
+    - TEST_DIR=customize-os-release
+    - TEST_DIR=ister-config
+    - TEST_DIR=manual-format-bump-flow
+    - TEST_DIR=manual-upstream-format-bump-flow
+    - TEST_DIR=mixin-repo-commands
+    - TEST_DIR=no-delta-manifests-over-format-bump
+    - TEST_DIR=no-delta-packs-over-format-bump
+    - TEST_DIR=no-state-variables-in-full
+    - TEST_DIR=state-conversion
+    - TEST_DIR=test-format-bump
+    - TEST_DIR=upstream-format-bump
+
 before_install:
     - docker build -t testdock .
 
 script:
-    - docker run testdock
+    - docker run -e TEST_DIR=$TEST_DIR testdock

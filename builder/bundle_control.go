@@ -52,57 +52,47 @@ func (b *Builder) getUpstreamPackagesPath() string {
 }
 
 func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
+	//TODO: Remove the prune parameter if its always true.
+
 	if Offline {
 		return nil
 	}
 
+	bundleDir := b.getUpstreamBundlesPath(ver)
+
+	// Return if upstream bundle dir for current version already exists
+	if _, err := os.Stat(bundleDir); err == nil {
+		return nil
+	}
+
+	return b.downloadUpstreamBundles(ver)
+}
+
+func (b *Builder) downloadUpstreamBundles(ver string) error {
 	// Make the folder to store upstream bundles if does not exist
 	if err := os.MkdirAll(upstreamBundlesBaseDir, 0777); err != nil {
 		return errors.Wrap(err, "Failed to create upstream-bundles dir.")
 	}
 
-	bundleDir := b.getUpstreamBundlesPath(ver)
-
-	// Clear out other bundle dirs if needed
-	if prune {
-		files, err := helpers.ListVisibleFiles(upstreamBundlesBaseDir)
-		if err != nil {
-			return errors.Wrap(err, "Failed to read bundles for pruning.")
-		}
-		curver := getUpstreamBundlesVerDir(ver)
-		for _, file := range files {
-			// Skip the current version cache, but delete all others
-			if file != curver {
-				if err = os.RemoveAll(filepath.Join(upstreamBundlesBaseDir, file)); err != nil {
-					return errors.Wrapf(err, "Failed to remove %s while pruning bundles", file)
-				}
-			}
-		}
-	}
-
-	// Check if bundles already exist
-	if _, err := os.Stat(bundleDir); err == nil {
-		return nil
-	}
-
-	tmptarfile := filepath.Join(upstreamBundlesBaseDir, ver+".tar.gz")
-	URL := "https://github.com/clearlinux/clr-bundles/archive/" + ver + ".tar.gz"
-	if err := helpers.DownloadFile(URL, tmptarfile); err != nil {
+	tmpTarFile := filepath.Join(upstreamBundlesBaseDir, ver+".tar.gz")
+	URL := b.Config.Swupd.UpstreamBundlesURL + ver + ".tar.gz"
+	fmt.Printf("Fetching upstream bundles from %s\n", URL)
+	if err := helpers.DownloadFile(URL, tmpTarFile); err != nil {
 		return errors.Wrapf(err, "Failed to download bundles for upstream version %s", ver)
 	}
 
-	if err := helpers.UnpackFile(tmptarfile, upstreamBundlesBaseDir); err != nil {
-		err = errors.Wrapf(err, "Error unpacking bundles for upstream version %s\n%s left for debuging", ver, tmptarfile)
+	if err := helpers.UnpackFile(tmpTarFile, upstreamBundlesBaseDir); err != nil {
+		err = errors.Wrapf(err, "Error unpacking bundles for upstream version %s\n%s left for debuging", ver, tmpTarFile)
 
 		// Clean up upstream bundle dir, since unpack failed
 		path := filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(ver))
-		if rerr := os.RemoveAll(path); rerr != nil {
+		if cErr := os.RemoveAll(path); cErr != nil {
 			err = errors.Wrapf(err, "Error cleaning up upstream bundle dir: %s", path)
 		}
 		return err
 	}
 
-	return errors.Wrapf(os.Remove(tmptarfile), "Failed to remove temp bundle archive: %s", tmptarfile)
+	return errors.Wrapf(os.Remove(tmpTarFile), "Failed to remove temp bundle archive: %s", tmpTarFile)
 }
 
 func setPackagesList(source *map[string]bool, filename string) error {

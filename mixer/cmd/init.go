@@ -10,14 +10,15 @@ import (
 )
 
 type initCmdFlags struct {
-	allLocal    bool
-	allUpstream bool
-	noDefaults  bool
-	clearVer    string
-	mixver      int
-	upstreamURL string
-	git         bool
-	format      string
+	allLocal           bool
+	allUpstream        bool
+	noDefaults         bool
+	clearVer           string
+	mixVer             int
+	upstreamURL        string
+	upstreamBundlesURL string
+	git                bool
+	format             string
 }
 
 var initFlags initCmdFlags
@@ -47,6 +48,14 @@ var initCmd = &cobra.Command{
 			fail(err)
 		}
 
+		// Save upstreamBundlesURL value in the config file
+		if initFlags.upstreamBundlesURL != "" {
+			b.Config.Swupd.UpstreamBundlesURL = initFlags.upstreamBundlesURL
+		}
+		if err := b.Config.SaveConfig(); err != nil {
+			fail(err)
+		}
+
 		b.State.LoadDefaults(b.Config)
 		if initFlags.format != "" {
 			b.State.Mix.Format = initFlags.format
@@ -55,7 +64,7 @@ var initCmd = &cobra.Command{
 			fail(err)
 		}
 
-		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixver), initFlags.allLocal, initFlags.allUpstream, initFlags.noDefaults, initFlags.upstreamURL, initFlags.git)
+		err := b.InitMix(initFlags.clearVer, strconv.Itoa(initFlags.mixVer), initFlags.allLocal, initFlags.allUpstream, initFlags.noDefaults, initFlags.upstreamURL, initFlags.git)
 		if err != nil {
 			fail(err)
 		}
@@ -78,8 +87,9 @@ func init() {
 	initCmd.Flags().BoolVar(&initFlags.noDefaults, "no-default-bundles", false, "Skip adding default bundles to the mix")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "clear-version", "latest", "Upstream version used to compose the mix. It must be either an integer or 'latest'")
 	initCmd.Flags().StringVar(&initFlags.clearVer, "upstream-version", "latest", "Alias to --clear-version")
-	initCmd.Flags().IntVar(&initFlags.mixver, "mix-version", 10, "Supply the Mix version to build")
+	initCmd.Flags().IntVar(&initFlags.mixVer, "mix-version", 10, "Supply the Mix version to build")
 	initCmd.Flags().StringVar(&initFlags.upstreamURL, "upstream-url", "https://cdn.download.clearlinux.org", "Supply an upstream URL to use for mixing")
+	initCmd.Flags().StringVar(&initFlags.upstreamBundlesURL, "upstream-bundles-url", "", "Supply an upstream bundles URL to get bundle definitions")
 	initCmd.Flags().BoolVar(&initFlags.git, "git", false, "Track mixer's internal work dir with git")
 	initCmd.Flags().StringVar(&initFlags.format, "format", "", "Supply the format version for the mix")
 

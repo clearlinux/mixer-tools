@@ -76,15 +76,14 @@ Display \fBbundle add\fP help information and exit.
 .UNINDENT
 .UNINDENT
 .sp
-\fBedit\fP
+\fBcreate\fP
 .INDENT 0.0
 .INDENT 3.5
-Creates local and upstream bundle definition files.
+Create new bundles or copy existing bundles.
 This command will locate the bundle by first looking in local\-bundles,
-and then in upstream\-bundles. If the bundle is only found upstream, the
-bundle file will be copied to your local\-bundles directory.
-If the bundle is not found anywhere, a blank template is created
-with the correct name.
+and then in upstream\-bundles. If the bundle is only found upstream,
+the bundle file will be copied to your local\-bundles directory. If the bundle is
+not found anywhere, a blank template will be created with the correct name.
 .sp
 Passing \(aq\-\-add\(aq will also add the bundle(s) to your mix. Please note that
 bundles are added after all bundles are created, and thus will not be added
@@ -113,11 +112,6 @@ version control.
 \fB\-h, \-\-help\fP
 .sp
 Display \fBbundle create\fP help information and exit.
-.IP \(bu 2
-\fB\-\-suppress\-editor\fP
-.sp
-Suppress launching editor and only copy to local\-bundles or create a
-template for the bundle.
 .UNINDENT
 .UNINDENT
 .UNINDENT

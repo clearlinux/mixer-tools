@@ -62,6 +62,11 @@ flag defaults the number of workers to the number of CPUs on the system.
 Number of parallel workers when creating fullfiles, passing 0 or omitting this
 flag defaults the number of workers to the number of CPUs on the system.
 .IP \(bu 2
+\fB\-\-skip\-format\-check\fP
+.sp
+Skip check for compatible upstream format when building on top of a new
+upstream.
+.IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp
 Display \fBbuild\fP help information and exit.
@@ -183,7 +188,7 @@ Generate packs from the specified \fIversion\fP\&.
 .IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp
-Display \fBbuild bundles\fP help information and exit.
+Display \fBbuild delta\-packs\fP help information and exit.
 .IP \(bu 2
 \fB\-\-previous\-versions {number}\fP
 .sp
@@ -221,7 +226,7 @@ Generate packs from the specified \fIversion\fP\&.
 .IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp
-Display \fBbuild bundles\fP help information and exit.
+Display \fBbuild delta\-manifests\fP help information and exit.
 .IP \(bu 2
 \fB\-\-previous\-versions {number}\fP
 .sp
@@ -253,7 +258,7 @@ Supply the format \fInumber\fP used for the mix.
 .IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp
-Display \fBbuild bundles\fP help information and exit.
+Display \fBbuild image\fP help information and exit.
 .IP \(bu 2
 \fB\-\-template {path}\fP
 .sp
@@ -288,7 +293,7 @@ Supply the format \fInumber\fP used for the mix.
 .IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp
-Display \fBbuild bundles\fP help information and exit.
+Display \fBbuild update\fP help information and exit.
 .IP \(bu 2
 \fB\-\-increment\fP
 .sp
@@ -332,19 +337,19 @@ reported as errors. When no errors occur, package update statistics are displaye
 .IP \(bu 2
 \fB\-\-from {version}\fP
 .sp
-Compare manifests from a specific version\&.
+Compare manifests \fBfrom\fP a specific version
 .IP \(bu 2
 \fB\-\-to {version}\fP
 .sp
-Compare manifests to a specific version\&.
+Compare manifests \fBto\fP a specific version
 .IP \(bu 2
-\fB\-\-from-repo-url {repo}={URL}\fP
+\fB\-\-from\-repo\-url {repo}={URL}\fP
 .sp
-Overrides the baseurl value for the provided repo in the DNF config file for the from version\&.
+Overrides the baseurl value for the provided repo in the DNF config file for the \fBfrom\fP version
 .IP \(bu 2
-\fB\-\-to-repo-url {repo}={URL}\fP
+\fB\-\-to\-repo\-url {repo}={URL}\fP
 .sp
-Overrides the baseurl value for the provided repo in the DNF config file for the to version\&.
+Overrides the baseurl value for the provided repo in the DNF config file for the \fBto\fP version
 .IP \(bu 2
 \fB\-h, \-\-help\fP
 .sp

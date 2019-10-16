@@ -152,7 +152,7 @@ SUBCOMMANDS
 
     - ``-h, --help``
 
-      Display ``build bundles`` help information and exit.
+      Display ``build delta-packs`` help information and exit.
 
     - ``--previous-versions {number}``
 
@@ -185,7 +185,7 @@ SUBCOMMANDS
 
     - ``-h, --help``
 
-      Display ``build bundles`` help information and exit.
+      Display ``build delta-manifests`` help information and exit.
 
     - ``--previous-versions {number}``
 
@@ -212,7 +212,7 @@ SUBCOMMANDS
 
     - ``-h, --help``
 
-      Display ``build bundles`` help information and exit.
+      Display ``build image`` help information and exit.
 
     - ``--template {path}``
 
@@ -240,7 +240,7 @@ SUBCOMMANDS
 
     - ``-h, --help``
 
-      Display ``build bundles`` help information and exit.
+      Display ``build update`` help information and exit.
 
     - ``--increment``
 

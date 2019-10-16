@@ -54,10 +54,11 @@ type builderConf struct {
 }
 
 type swupdConf struct {
-	Bundle      string   `required:"false" toml:"BUNDLE"`
-	ContentURL  string   `required:"false" toml:"CONTENTURL"`
-	VersionURL  string   `required:"false" toml:"VERSIONURL"`
-	Compression []string `required:"false" toml:"COMPRESSION"`
+	Bundle             string   `required:"false" toml:"BUNDLE"`
+	ContentURL         string   `required:"false" toml:"CONTENTURL"`
+	VersionURL         string   `required:"false" toml:"VERSIONURL"`
+	Compression        []string `required:"false" toml:"COMPRESSION"`
+	UpstreamBundlesURL string   `required:"false" toml:"UPSTREAM_BUNDLES_URL"`
 }
 
 type serverConf struct {
@@ -99,6 +100,7 @@ func (config *MixConfig) LoadDefaultsForPath(path string) {
 	config.Swupd.ContentURL = "<URL where the content will be hosted>"
 	config.Swupd.VersionURL = "<URL where the version of the mix will be hosted>"
 	config.Swupd.Compression = []string{"external-xz"}
+	config.Swupd.UpstreamBundlesURL = "https://github.com/clearlinux/clr-bundles/archive/"
 
 	// [Server]
 	config.Server.DebugInfoBanned = "true"
@@ -199,7 +201,7 @@ func (config *MixConfig) SetProperty(propertyStr string, value string) error {
 }
 
 // LoadConfig loads a configuration file from a provided path or from local directory
-// is none is provided
+// if none is provided
 func (config *MixConfig) LoadConfig(filename string) error {
 	if err := config.InitConfigPath(filename); err != nil {
 		return err

@@ -196,6 +196,12 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 	if !noDefaults {
 		bundles = []string{"os-core", "os-core-update", "bootloader", "kernel-native"}
 	}
+
+	// Clean up the upstream bundles folder and its contents
+	if err := os.RemoveAll(upstreamBundlesBaseDir); err != nil {
+		return errors.Wrap(err, "Failed to delete upstream-bundles dir.")
+	}
+
 	if err := b.AddBundles(bundles, allLocal, allUpstream, false); err != nil {
 		return err
 	}

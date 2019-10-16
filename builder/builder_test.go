@@ -42,7 +42,7 @@ func TestNewDNFConfOnInit(t *testing.T) {
 	}
 	Offline = true
 
-	err = b.InitMix("10", "10", false, false, true, "https://example.com", false)
+	err = b.InitMix("latest", "10", false, false, true, "https://cdn.download.clearlinux.org", false)
 	if err != nil {
 		t.Errorf("Failed to initialize mix: %s", err)
 	}

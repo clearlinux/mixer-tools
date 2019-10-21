@@ -93,9 +93,9 @@ func setManifestStatusForFormat(format uint, bundleStatus string, statusFlag *St
 	}
 }
 
-// Delta manifests were introduced in format 26 and should not be created in older formats
+// Delta manifests were introduced in format 26 and removed in format 29
 func writeDeltaManifestForFormat(tw *tar.Writer, outputDir string, dManifest *Manifest, toVersion uint32) error {
-	if dManifest == nil || dManifest.Header.Format <= 25 {
+	if dManifest == nil || dManifest.Header.Format <= 25 || dManifest.Header.Format >= 29 {
 		return nil
 	}
 

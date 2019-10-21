@@ -102,9 +102,18 @@ func writeDeltaManifestForFormat(tw *tar.Writer, outputDir string, dManifest *Ma
 	return writeDeltaManifest(tw, outputDir, dManifest, toVersion)
 }
 
+// Iterative manifests is being deprecated in format 29
+func shouldAddIManifestForFormat(manifest *Manifest) bool {
+	if manifest == nil || manifest.Header.Format >= 29 {
+		return false
+	}
+
+    return true
+}
+
 // Iterative manifests were introduced in format 26 and will cause issues with older formats
 func (m *Manifest) writeIterativeManifestsForFormat(newManifests []*Manifest, out string) ([]*Manifest, error) {
-	if m.Header.Format <= 25 {
+	if m.Header.Format <= 25 || m.Header.Format >= 29 {
 		return nil, nil
 	}
 

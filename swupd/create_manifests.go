@@ -235,6 +235,10 @@ func addUnchangedManifests(appendTo *Manifest, appendFrom *Manifest, bundles []s
 
 		bundleName := f.Name
 		if f.Type == TypeIManifest {
+			if !shouldAddIManifestForFormat(appendTo) {
+				continue
+			}
+
 			// Don't add iterative manifests across minversion updates
 			if f.Version < appendTo.Header.MinVersion {
 				continue

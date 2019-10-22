@@ -43,19 +43,6 @@ const IndexBundle = "os-core-update-index"
 // this should be done when configuration is in a more stable state
 const indexAllBundleDir = "/usr/share/clear/allbundles"
 
-// ManifestType specifies whether the manifest is a MoM, bundle, iterative, or
-// delta manifest.
-type ManifestType uint8
-
-// Valid values for ManifestType.
-const (
-	ManifestUnset ManifestType = iota
-	ManifestMoM
-	ManifestBundle
-	ManifestIterative
-	ManifestDelta
-)
-
 // ManifestHeader contains metadata for the manifest
 type ManifestHeader struct {
 	Format      uint
@@ -76,7 +63,6 @@ type Manifest struct {
 	Files        []*File
 	DeletedFiles []*File
 	BundleInfo   BundleInfo
-	Type         ManifestType
 }
 
 // MoM is a manifest that holds references to bundle manifests.
@@ -202,9 +188,7 @@ func (m *Manifest) CheckHeaderIsValid() error {
 	if m.Header.Version == 0 {
 		return errors.New("manifest has version zero, version must be positive")
 	}
-
-	// Iterative manifests updated to include new bundles can have 0 files.
-	if m.Header.FileCount == 0 && m.Type != ManifestIterative {
+	if m.Header.FileCount == 0 {
 		return errors.New("manifest has a zero file count")
 	}
 
@@ -331,7 +315,6 @@ func (m *Manifest) createIterativeManifest(fromVersion uint32) *Manifest {
 		Header:     m.Header,
 		Name:       fmt.Sprintf("%s.I.%d", m.Name, m.Header.Previous),
 		BundleInfo: m.BundleInfo,
-		Type:       ManifestIterative,
 	}
 	fm.Header.ContentSize = 0
 

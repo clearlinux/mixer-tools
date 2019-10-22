@@ -15,7 +15,6 @@
 package swupd
 
 import (
-	"archive/tar"
 	"text/template"
 )
 
@@ -91,15 +90,6 @@ func setManifestStatusForFormat(format uint, bundleStatus string, statusFlag *St
 			*statusFlag = StatusExperimental
 		}
 	}
-}
-
-// Delta manifests were introduced in format 26 and should not be created in older formats
-func writeDeltaManifestForFormat(tw *tar.Writer, outputDir string, dManifest *Manifest, toVersion uint32) error {
-	if dManifest == nil || dManifest.Header.Format <= 25 {
-		return nil
-	}
-
-	return writeDeltaManifest(tw, outputDir, dManifest, toVersion)
 }
 
 // Iterative manifests were introduced in format 26 and will cause issues with older formats

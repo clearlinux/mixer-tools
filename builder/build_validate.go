@@ -217,7 +217,7 @@ func (b *Builder) mcaManInfo(version int) ([]*swupd.Manifest, error) {
 	// Get bundle info for each MoM entry
 	for _, f := range mom.Files {
 		// os-core-update-index and iterative manifests are not checked by MCA
-		if f.Name == "os-core-update-index" || f.Type == swupd.TypeIManifest {
+		if f.Name == "os-core-update-index" {
 			continue
 		}
 

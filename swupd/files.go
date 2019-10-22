@@ -17,7 +17,6 @@ package swupd
 import (
 	"fmt"
 	"os"
-	"strings"
 )
 
 // TypeFlag describes the file type of a manifest entry.
@@ -269,18 +268,6 @@ func (f *File) GetFlagString() (string, error) {
 func (f *File) findFileNameInSlice(fs []*File) *File {
 	for _, file := range fs {
 		if file.Name == f.Name {
-			return file
-		}
-	}
-
-	return nil
-}
-
-func (f *File) findIManifestInSlice(fs []*File) *File {
-	// get bundle name without IManifest version
-	prefix := strings.SplitAfter(f.Name, ".I.")[0]
-	for _, file := range fs {
-		if strings.HasPrefix(file.Name, prefix) {
 			return file
 		}
 	}

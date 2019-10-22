@@ -308,30 +308,6 @@ func (m *Manifest) WriteManifest(w io.Writer) error {
 	return nil
 }
 
-// createIterativeManifest returns a new manifest with only Files and DeletedFiles
-// updated in versions greater than fromVersion
-func (m *Manifest) createIterativeManifest(fromVersion uint32) *Manifest {
-	fm := &Manifest{
-		Header:     m.Header,
-		Name:       fmt.Sprintf("%s.I.%d", m.Name, m.Header.Previous),
-		BundleInfo: m.BundleInfo,
-	}
-	fm.Header.ContentSize = 0
-
-	for _, f := range m.Files {
-		if f.Version > fromVersion {
-			fm.AppendFile(f)
-			if f.Status == StatusDeleted {
-				fm.DeletedFiles = append(fm.DeletedFiles, f)
-			}
-		}
-	}
-
-	fm.Header.FileCount = uint32(len(fm.Files))
-	fm.sortFilesVersionName()
-	return fm
-}
-
 // WriteManifestFile writes manifest m to a new file at path.
 func (m *Manifest) WriteManifestFile(path string) error {
 	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0644)

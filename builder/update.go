@@ -173,9 +173,6 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		timer.Start("CREATE ZERO PACKS")
 		bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 		for _, bundle := range mom.Files {
-			if bundle.Type != swupd.TypeManifest {
-				continue
-			}
 			// TODO: Evaluate if it's worth using goroutines.
 			name := bundle.Name
 			version := bundle.Version

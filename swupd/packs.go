@@ -113,26 +113,6 @@ func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, b
 	return nil
 }
 
-func writeDeltaManifest(tw *tar.Writer, outputDir string, dManifest *Manifest, toVersion uint32) error {
-	if dManifest == nil || len(dManifest.Files) == 0 {
-		return nil
-	}
-
-	dManifest.Header.FileCount = uint32(len(dManifest.Files))
-	dManifestPath := filepath.Join(outputDir, fmt.Sprint(toVersion),
-		fmt.Sprintf("Manifest.%s.D.%d", dManifest.Name, dManifest.Header.Version))
-
-	if err := dManifest.WriteManifestFile(dManifestPath); err != nil {
-		return err
-	}
-
-	if _, err := copyFromPath(tw, dManifestPath, fmt.Sprint(toVersion)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // WritePack writes the pack between two Manifests, or a zero pack if fromManifest is
 // nil. The toManifest should always be non nil. The outputDir is used to pick deltas and
 // fullfiles. If not empty, chrootDir is tried first as a fast alternative to
@@ -149,7 +129,6 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 
 	var fromVersion uint32
 	var deltas []Delta
-	var dManifest *Manifest
 	if fromManifest != nil {
 		fromVersion = fromManifest.Header.Version
 		if fromVersion >= toVersion {
@@ -233,19 +212,6 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		fullChrootDir = filepath.Join(chrootDir, fmt.Sprint(toVersion), "full")
 	}
 
-	if fromManifest != nil {
-		dManifest = &Manifest{
-			Header: fromManifest.Header,
-			Name:   fromManifest.Name,
-			Type:   ManifestDelta,
-		}
-		dManifest.Header.ContentSize = 0
-
-		// The Includes header field is unnecessary for delta manifests, so it is
-		// removed to reduce file size.
-		dManifest.Header.Includes = nil
-	}
-
 	// Add all deltas that have not failed.
 	hasDelta := make(map[Hashval]*Delta)
 	for i := range deltas {
@@ -255,7 +221,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			continue
 		}
 		var fallback bool
-		fallback, err = copyFromPath(tw, d.Path, "delta")
+		fallback, err = copyFromDelta(tw, d)
 		if err != nil {
 			// If copy from delta fails before writing to the pack, we can
 			// fallback to use the fullfile later.
@@ -266,13 +232,8 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			return nil, err
 		}
 
-		dManifest.Files = append(dManifest.Files, d.from)
 		info.DeltaCount++
 		hasDelta[d.to.Hash] = d
-	}
-
-	if err = writeDeltaManifestForFormat(tw, outputDir, dManifest, toVersion); err != nil {
-		return nil, err
 	}
 
 	// TODO: In some cases we could be packing both a delta and the fullfile. Should
@@ -340,8 +301,8 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 	return info, nil
 }
 
-func copyFromPath(tw *tar.Writer, path string, pathPrefix string) (fallback bool, err error) {
-	f, err := os.Open(path)
+func copyFromDelta(tw *tar.Writer, delta *Delta) (fallback bool, err error) {
+	f, err := os.Open(delta.Path)
 	if err != nil {
 		return true, err
 	}
@@ -353,13 +314,13 @@ func copyFromPath(tw *tar.Writer, path string, pathPrefix string) (fallback bool
 		return true, err
 	}
 	if !fi.Mode().IsRegular() {
-		return true, fmt.Errorf("file %s is not a regular file", path)
+		return true, fmt.Errorf("delta %s is not a regular file", delta.Path)
 	}
 	hdr, err := getHeaderFromFileInfo(fi)
 	if err != nil {
 		return true, err
 	}
-	hdr.Name = filepath.Join(pathPrefix, fi.Name())
+	hdr.Name = "delta/" + fi.Name()
 	hdr.Typeflag = tar.TypeReg
 
 	// After we start writing on the tar writer, we can't let the caller fallback to another

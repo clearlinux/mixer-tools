@@ -142,12 +142,6 @@ func TestFormats25to26DeltaManifest(t *testing.T) {
 	ts.addFile(40, "test-bundle", "/foo", contents+"D")
 	ts.createManifests(40)
 	checkManifestContains(t, ts.Dir, "40", "MoM", "MANIFEST\t26")
-
-	// Delta manifests should be created in format 26
-	ts.mustHashFile("image/30/full/foo")
-	ts.mustHashFile("image/40/full/foo")
-	ts.createPack("test-bundle", 30, 40, ts.path("image"))
-	checkDeltaManifest(ts, 30, 40, "test-bundle", 1)
 }
 
 func TestFormat25BadContentSize(t *testing.T) {

@@ -39,14 +39,11 @@ func TestCreateManifestsBasic(t *testing.T) {
 
 	ts.Bundles = []string{"test-bundle"}
 
-	// Iterative manifests are not supported in formats < 26
-	ts.Format = 26
-
 	ts.addFile(10, "test-bundle", "/foo", "content")
 	ts.createManifests(10)
 
 	expSubs := []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t10",
 		"previous:\t0",
 		"filecount:\t2",
@@ -69,7 +66,7 @@ func TestCreateManifestsBasic(t *testing.T) {
 	ts.createManifests(20)
 
 	expSubs = []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t20",
 		"previous:\t10",
 		"filecount:\t2",
@@ -81,7 +78,7 @@ func TestCreateManifestsBasic(t *testing.T) {
 	checkManifestNotContains(t, ts.Dir, "20", "MoM", "20\tManifest.full")
 
 	expSubs = []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t20",
 		"previous:\t10",
 		"filecount:\t1",
@@ -91,7 +88,7 @@ func TestCreateManifestsBasic(t *testing.T) {
 	checkManifestFileCount(ts, "20", "os-core.I.10", 1, 0)
 
 	expSubs = []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t20",
 		"previous:\t10",
 		"filecount:\t1",
@@ -106,10 +103,6 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 	ts := newTestSwupd(t, "delete-no-version-bump")
 	defer ts.cleanup()
 	ts.Bundles = []string{"test-bundle1", "test-bundle2"}
-
-	// Iterative manifests are not supported in formats < 26
-	ts.Format = 26
-
 	ts.addFile(10, "test-bundle1", "/foo", "content")
 	ts.addFile(10, "test-bundle2", "/foo", "content")
 	ts.createManifests(10)
@@ -122,7 +115,7 @@ func TestCreateManifestsDeleteNoVerBump(t *testing.T) {
 	fileInManifest(t, ts.parseManifest(20, "full"), 10, "/foo")
 
 	expSubs := []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t20",
 		"previous:\t10",
 		"filecount:\t1",
@@ -172,10 +165,6 @@ func TestCreateManifestGhosted(t *testing.T) {
 	ts := newTestSwupd(t, "ghosted")
 	defer ts.cleanup()
 	ts.Bundles = []string{"test-bundle"}
-
-	// Iterative manifests are not supported in formats < 26
-	ts.Format = 26
-
 	ts.addFile(10, "test-bundle", "/usr/lib/kernel/bar", "bar")
 	ts.createManifests(10)
 
@@ -285,10 +274,6 @@ func TestCreateManifestsMoM(t *testing.T) {
 	ts := newTestSwupd(t, "MoM")
 	defer ts.cleanup()
 	ts.Bundles = []string{"test-bundle1", "test-bundle2", "test-bundle3", "test-bundle4"}
-
-	// Iterative manifests are not supported in formats < 26
-	ts.Format = 26
-
 	ts.createManifests(10)
 
 	// initial update, all manifests should be present at this version
@@ -403,10 +388,6 @@ func TestCreateManifestResurrect(t *testing.T) {
 	ts := newTestSwupd(t, "resurrect-file")
 	defer ts.cleanup()
 	ts.Bundles = []string{"test-bundle"}
-
-	// Iterative manifests are not supported in formats < 26
-	ts.Format = 26
-
 	ts.addFile(10, "test-bundle", "/foo", "foo")
 	ts.addFile(10, "test-bundle", "/foo1", "foo1")
 	ts.createManifests(10)
@@ -415,7 +396,7 @@ func TestCreateManifestResurrect(t *testing.T) {
 	ts.createManifests(20)
 
 	expSubs := []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t20",
 		"previous:\t10",
 		"filecount:\t1",
@@ -428,7 +409,7 @@ func TestCreateManifestResurrect(t *testing.T) {
 	ts.createManifests(30)
 
 	expSubs = []string{
-		"MANIFEST\t26",
+		"MANIFEST\t1",
 		"version:\t30",
 		"previous:\t20",
 		"filecount:\t2",

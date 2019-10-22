@@ -71,42 +71,6 @@ func TestFormats25to26Minversion(t *testing.T) {
 	checkManifestContains(t, ts.Dir, "30", "MoM", "minversion:\t20")
 }
 
-// Iterative manifest support added in format 26
-func TestFormats25to26IterativeManifest(t *testing.T) {
-	ts := newTestSwupd(t, "format25to26iterativeManifest")
-	defer ts.cleanup()
-
-	ts.Bundles = []string{"test-bundle"}
-
-	// Format 25 should not have iterative manifest support
-	ts.Format = 25
-	ts.addFile(10, "test-bundle", "/foo", "content")
-	ts.createManifests(10)
-
-	ts.addFile(20, "test-bundle", "/foo", "new content")
-	ts.createManifests(20)
-	checkManifestContains(t, ts.Dir, "20", "MoM", "MANIFEST\t25")
-
-	// Iterative manifests should not have entries in the MoM or be generated
-	checkManifestNotContains(t, ts.Dir, "20", "MoM", "I...\t")
-	ts.checkNotExists("www/20/Manifest.test-bundle.I.10")
-	ts.checkNotExists("www/20/Manifest.os-core.I.10")
-
-	// Update to format26
-	ts.Format = 26
-	ts.addFile(30, "test-bundle", "/foo", "even newer content")
-	ts.createManifests(30)
-
-	ts.addFile(40, "test-bundle", "/foo", "more new content")
-	ts.createManifests(40)
-	checkManifestContains(t, ts.Dir, "40", "MoM", "MANIFEST\t26")
-
-	// Updates in format 26 should support iterative manifests
-	checkManifestContains(t, ts.Dir, "40", "MoM", "\ttest-bundle.I.30", "\tos-core.I.30")
-	ts.checkExists("www/40/Manifest.test-bundle.I.30")
-	ts.checkExists("www/40/Manifest.os-core.I.30")
-}
-
 // Delta manifest support added in format 26
 func TestFormats25to26DeltaManifest(t *testing.T) {
 	ts := newTestSwupd(t, "format25to26deltaManifest")

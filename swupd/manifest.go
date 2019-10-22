@@ -168,6 +168,12 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 		return fmt.Errorf("invalid flags: %v", err)
 	}
 
+	// IManifests are deprecated. Ignore them
+	// TODO: Remove code on format 30
+	if file.Type == TypeIManifest {
+		return nil
+	}
+
 	// add file to manifest
 	m.Files = append(m.Files, file)
 

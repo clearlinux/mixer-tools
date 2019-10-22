@@ -200,11 +200,6 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 		return err
 	}
 
-	// Get upstream bundles
-	if err := b.getUpstreamBundles(upstreamVer, true); err != nil {
-		return err
-	}
-
 	if git {
 		if err := ioutil.WriteFile(".gitignore", []byte(mixDirGitIgnore), 0644); err != nil {
 			return errors.Wrap(err, "Failed to create .gitignore file")

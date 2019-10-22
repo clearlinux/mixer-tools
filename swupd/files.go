@@ -30,6 +30,7 @@ const (
 	TypeDirectory
 	TypeLink
 	TypeManifest
+	// TODO: IManifests are deprecated. Remove them on format 30
 	TypeIManifest
 )
 

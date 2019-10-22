@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -174,7 +175,20 @@ func (config *MixConfig) SetProperty(propertyStr string, value string) error {
 		tag, ok := sectionT.Field(i).Tag.Lookup("toml")
 
 		if ok && tag == property {
-			sectionV.Field(i).SetString(value)
+			switch sectionV.Field(i).Kind() {
+			case reflect.Slice:
+				items := strings.Split(value, ",")
+				sectionV.Field(i).Set(reflect.ValueOf(items))
+			case reflect.Int:
+				intV, err := strconv.ParseInt(value, 10, 64)
+				if err != nil {
+					return err
+				}
+				sectionV.Field(i).SetInt(intV)
+			default:
+				val := reflect.ValueOf(value)
+				sectionV.Field(i).Set(val.Convert(sectionV.Field(i).Type()))
+			}
 			return config.SaveConfig()
 		}
 	}
@@ -219,6 +233,9 @@ func (config *MixConfig) expandEnv() error {
 		}
 
 		for j := 0; j < sectionV.NumField(); j++ {
+			if sectionV.Field(j).Kind() != reflect.String {
+				continue
+			}
 			val := sectionV.Field(j).String()
 			matches := re.FindAllStringSubmatch(val, -1)
 

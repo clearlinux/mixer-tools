@@ -773,11 +773,6 @@ func (b *Builder) buildBundles(set bundleSet, downloadRetries int) error {
 		return err
 	}
 
-	if _, ok := set[b.Config.Swupd.Bundle]; !ok {
-		return fmt.Errorf("couldn't find bundle %q specified in configuration as the update bundle",
-			b.Config.Swupd.Bundle)
-	}
-
 	// Write INI files. These are used to communicate to the next step of mixing (build update).
 	var serverINI bytes.Buffer
 	_, _ = fmt.Fprintf(&serverINI, `[Server]
@@ -868,7 +863,6 @@ src=%s
 		return err
 	}
 
-	updateBundle := set[b.Config.Swupd.Bundle]
 	var osCore *bundle
 	for _, bundle := range set {
 		if bundle.Name == "os-core" {
@@ -877,7 +871,10 @@ src=%s
 		}
 	}
 	addOsCoreSpecialFiles(osCore)
-	addUpdateBundleSpecialFiles(b, updateBundle)
+
+	if updateBundle, ok := set[b.Config.Swupd.Bundle]; ok {
+		addUpdateBundleSpecialFiles(b, updateBundle)
+	}
 
 	for _, bundle := range set {
 		err = writeBundleInfo(bundle, filepath.Join(buildVersionDir, bundle.Name+"-info"))

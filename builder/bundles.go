@@ -383,6 +383,10 @@ func installFilesystem(chrootDir string, localPath string, packagerCmd []string,
 	var rpmFull string
 	var err error
 
+	if fileSystemRpm == "" {
+		return nil
+	}
+
 	rpmFull = filepath.Join(localPath, fileSystemRpm)
 	rpmMap[fileSystemRpm] = true
 	if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
@@ -759,10 +763,6 @@ func (b *Builder) buildBundles(set bundleSet, downloadRetries int) error {
 	// bootstraping or cleaning up.
 	outputDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
 
-	if _, ok := set["os-core"]; !ok {
-		return fmt.Errorf("os-core bundle not found")
-	}
-
 	// Bootstrap the directories.
 	err = os.MkdirAll(filepath.Join(bundleDir, "0"), 0755)
 	if err != nil {
@@ -863,14 +863,9 @@ src=%s
 		return err
 	}
 
-	var osCore *bundle
-	for _, bundle := range set {
-		if bundle.Name == "os-core" {
-			osCore = bundle
-			break
-		}
+	if osCore, ok := set["os-core"]; ok {
+		addOsCoreSpecialFiles(osCore)
 	}
-	addOsCoreSpecialFiles(osCore)
 
 	if updateBundle, ok := set[b.Config.Swupd.Bundle]; ok {
 		addUpdateBundleSpecialFiles(b, updateBundle)

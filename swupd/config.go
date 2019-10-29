@@ -118,7 +118,6 @@ func readGroupsINI(path string) ([]string, error) {
 
 	sections := cfg.SectionStrings()
 
-	osCoreFound := false
 	groups := []string{}
 	for _, section := range sections {
 		if section == "DEFAULT" {
@@ -128,13 +127,6 @@ func readGroupsINI(path string) ([]string, error) {
 
 		// we don't appear to need the status key at the moment
 		groups = append(groups, section)
-		if !osCoreFound && section == "os-core" {
-			osCoreFound = true
-		}
-	}
-
-	if !osCoreFound {
-		err = errors.New("os-core bundle is not listed in groups.ini")
 	}
 
 	return groups, err

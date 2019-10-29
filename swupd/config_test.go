@@ -34,10 +34,6 @@ func TestReadGroupsINI(t *testing.T) {
 		t.Error("readGroupsINI did not raise an error on a non-existent file")
 	}
 
-	if _, err = readGroupsINI("testdata/groups.ini.no-os-core"); err == nil {
-		t.Error("readGroupsINI did not raise an error for groups.ini file with no os-core listed")
-	}
-
 	var groups []string
 	if groups, err = readGroupsINI("testdata/groups.ini"); err != nil {
 		t.Error(err)

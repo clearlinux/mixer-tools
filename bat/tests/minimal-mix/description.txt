@@ -1,0 +1,6 @@
+minimal-mix
+===========
+This test validates if mixer can create a minimal mix without
+any mandatory bundle or file. Mix is created without os-core,
+os-core-update and os-core-update-index. Only one empty bundle
+is added.

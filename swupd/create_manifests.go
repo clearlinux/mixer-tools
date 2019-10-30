@@ -205,7 +205,7 @@ func processBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error
 		oldM.sortFilesName()
 		changedFiles, added, deleted := bundle.linkPeersAndChange(oldM, ui.minVersion)
 		// if nothing changed, skip
-		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes {
+		if changedFiles == 0 && added == 0 && deleted == 0 && !changedIncludes && bundle.Name != "full" {
 			continue
 		}
 

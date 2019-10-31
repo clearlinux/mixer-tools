@@ -840,10 +840,10 @@ func maximizeFull(mf *Manifest, bundles []*Manifest) {
 }
 
 func createAndWrite(path string, contents []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0777); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	return ioutil.WriteFile(path, contents, 0655)
+	return ioutil.WriteFile(path, contents, 0644)
 }
 
 func fileContains(path string, sub string) bool {

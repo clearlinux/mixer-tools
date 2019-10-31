@@ -16,7 +16,6 @@ package swupd
 
 import (
 	"bufio"
-	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -38,10 +37,6 @@ const manifestFieldDelim = "\t"
 // IndexBundle defines the name of the bundle that contains index information
 // about the current update
 const IndexBundle = "os-core-update-index"
-
-// TODO make this configurable (optional and configurable bundle/filepath)
-// this should be done when configuration is in a more stable state
-const indexAllBundleDir = "/usr/share/clear/allbundles"
 
 // ManifestHeader contains metadata for the manifest
 type ManifestHeader struct {
@@ -846,15 +841,6 @@ func createAndWrite(path string, contents []byte) error {
 	return ioutil.WriteFile(path, contents, 0644)
 }
 
-func fileContains(path string, sub string) bool {
-	b, err := ioutil.ReadFile(path)
-	if err != nil {
-		return false
-	}
-
-	return bytes.Contains(b, []byte(sub))
-}
-
 // constructIndexTrackingFile writes an empty tracking file to the bundle chroot
 // and to the full chroot.
 func constructIndexTrackingFile(c *config, ui *UpdateInfo) error {
@@ -869,34 +855,49 @@ func constructIndexTrackingFile(c *config, ui *UpdateInfo) error {
 	return createAndWrite(filepath.Join(imageVerPath, "full", trackingFile), []byte{})
 }
 
-// writeIndexManifest creates a file that is an index of all files -> bundle mappings in
-// the current update. This file excludes directories and files that are not present and
-// sorts the index first by filename then by bundle name. writeIndexManifest creates a new
-// bundle in which the file will live. This bundle is added to the "full" manifest which
-// is part of the bundles slice. A pointer to the new manifest is returned on success.
-func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manifest, error) {
-	var newFull, newOsCore *Manifest
-	for _, b := range bundles {
-		if b.Name == "full" {
-			// record for later and skip
-			newFull = b
-			continue
+// writeIndexManifest creates a deprecated and empty index bundle.
+// If the previous index isn't deprecated, create a new empty bundle, adding only the tracking file.
+// If the previous index is already deprecated or inexistent return without errors because the empty index should be carried out.
+func writeIndexManifest(c *config, ui *UpdateInfo, oldMoM *Manifest, bundles []*Manifest) (*Manifest, error) {
+	// Get old version of IndexBundle
+	ver := ui.previous
+	for _, m := range oldMoM.Files {
+		if m.Name == IndexBundle {
+			ver = m.Version
+		}
+	}
+
+	// Get old Manifest
+	oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+IndexBundle)
+	oldM, err := getOldManifest(oldMPath)
+	if err != nil || oldM.Header.Version == 0 {
+		// No old index, just ignore
+		return nil, nil
+	}
+
+	if ui.minVersion != ui.version {
+		numFiles := 0
+		for _, f := range oldM.Files {
+			if f.Status == StatusUnset {
+				numFiles++
+				if numFiles > 1 {
+					break
+				}
+			}
 		}
 
+		if numFiles == 1 {
+			// This is an empty index
+			return nil, nil
+		}
+	}
+
+	var newOsCore *Manifest
+	for _, b := range bundles {
 		if b.Name == "os-core" {
 			// record for includes list
 			newOsCore = b
 		}
-	}
-
-	// no full manifest in bundles list
-	if newFull == nil {
-		return nil, errors.New("no full manifest found")
-	}
-
-	// construct the tracking files in the bundle and full chroots
-	if err := constructIndexTrackingFile(c, ui); err != nil {
-		return nil, err
 	}
 
 	// now add a manifest
@@ -906,92 +907,42 @@ func writeIndexManifest(c *config, ui *UpdateInfo, bundles []*Manifest) (*Manife
 			Version:   ui.version,
 			Previous:  ui.previous,
 			TimeStamp: ui.timeStamp,
-			Includes:  []*Manifest{newOsCore},
 		},
 		Name: IndexBundle,
 	}
 
+	// construct the tracking files in the bundle and full chroots
+	if err := constructIndexTrackingFile(c, ui); err != nil {
+		return nil, err
+	}
+
 	bundleDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version))
 	// add files from the chroot created in constructIndex
-	err := idxMan.addFilesFromChroot(filepath.Join(bundleDir, IndexBundle), "")
+	err = idxMan.addFilesFromChroot(filepath.Join(bundleDir, IndexBundle), "")
 	if err != nil {
 		return nil, err
 	}
 
-	// if the allbundles directory was created add all those bundle files
-	// to the index as well
-	metaRoot := filepath.Join(bundleDir, "full", indexAllBundleDir)
-	if _, err = os.Stat(metaRoot); err == nil {
-		err = idxMan.addFilesFromChroot(metaRoot, filepath.Join(bundleDir, "full"))
-		if err != nil {
-			return nil, err
+	if newOsCore != nil {
+		idxMan.Header.Includes = append(idxMan.Header.Includes, newOsCore)
+		idxMan.subtractManifests(newOsCore)
+	}
+
+	oldM.sortFilesName()
+	_, _, _ = idxMan.linkPeersAndChange(oldM, ui.minVersion)
+
+	// Fix version of deleted files in the case of a minVersion
+	for _, f := range idxMan.Files {
+		if f.Version < ui.minVersion {
+			f.Version = ui.minVersion
 		}
 	}
+
 	// record file count
 	idxMan.Header.FileCount = uint32(len(idxMan.Files))
-	// sort file list for processing
-	idxMan.sortFilesName()
-	// now subtract out the included os-core
-	idxMan.subtractManifests(newOsCore)
-	// figure out if we need to update any includes
-	for _, b := range bundles {
-		if b.Header.Version < ui.version {
-			continue
-		}
-
-		includesPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "noship", b.Name+"-includes")
-		if fileContains(includesPath, IndexBundle) {
-			b.Header.Includes = append(b.Header.Includes, idxMan)
-			b.subtractManifests(idxMan)
-		}
-	}
-
-	// link in old manifest for version information
-	// first get old MoM
-	oldMoMPath := filepath.Join(c.outputDir, fmt.Sprint(ui.previous), "Manifest.MoM")
-	oldMoM, err := getOldManifest(oldMoMPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// get old version
-	ver := getManifestVerFromMoM(oldMoM, idxMan)
-	if ver == 0 {
-		ver = ui.previous
-	}
-
-	oldMPath := filepath.Join(c.outputDir, fmt.Sprint(ver), "Manifest."+idxMan.Name)
-	oldM, err := getOldManifest(oldMPath)
-	if err != nil {
-		return nil, err
-	}
-	oldM.sortFilesName()
-	// linkPeersAndChange will update file versions correctly
-	_, _, _ = idxMan.linkPeersAndChange(oldM, ui.minVersion)
-	// now add any new files to the full manifest
-	for _, idxF := range idxMan.Files {
-		i := sort.Search(len(newFull.Files), func(i int) bool {
-			return newFull.Files[i].Name >= idxF.Name
-		})
-
-		if i < len(newFull.Files) && newFull.Files[i].Name == idxF.Name {
-			// overwrite existing
-			newFull.Files[i] = idxF
-			continue
-		}
-
-		// add to full manifest
-		newFull.Files = append(newFull.Files, idxF)
-	}
 
 	// done processing, sort by version before writing
 	idxMan.sortFilesVersionName()
-	// check that there is actually a change to this manifest before writing
-	if idxMan.Files[len(idxMan.Files)-1].Version < idxMan.Header.Version {
-		// return the old version of the manifest since there was no change
-		// in this version
-		return oldM, nil
-	}
 
 	// there were changes at this version, so write the manifest
 	manOutput := filepath.Join(c.outputDir, fmt.Sprint(ui.version), "Manifest."+IndexBundle)

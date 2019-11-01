@@ -503,12 +503,7 @@ func TestContentSizeAcrossVersionsIncludes(t *testing.T) {
 	checkSize(manifests["os-core"], osCoreSize)
 
 	// full should have increased with all new files.
-	// also need to account for the os-core-update-index-files changing in size
-	// 18 additional bytes from adding the following to test-bundle1-info
-	// foobarbaz":true,"/
-	// and 16 additional bytes from adding the following to test-bundle2-info
-	// foo2bar":true,"/
-	checkSize(manifests["full"], fullSize+10+8+18+16)
+	checkSize(manifests["full"], fullSize+10+8)
 }
 
 func mustParseAllManifests(t *testing.T, version uint32, outputDir string) map[string]*Manifest {

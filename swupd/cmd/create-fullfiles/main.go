@@ -78,7 +78,7 @@ func main() {
 	}
 
 	log.Printf("Output directory: %s", *outputDir)
-	_, err = swupd.CreateFullfiles(m, chrootDir, *outputDir, 0)
+	_, err = swupd.CreateFullfiles(m, chrootDir, *outputDir, 0, []string{"external-xz"})
 	if err != nil {
 		log.Fatal(err)
 	}

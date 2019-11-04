@@ -29,7 +29,7 @@ import (
 )
 
 // CurrentConfigVersion holds the current version of the config file
-const CurrentConfigVersion = "1.1"
+const CurrentConfigVersion = "1.2"
 
 func (config *MixConfig) parseVersion(reader *bufio.Reader) (bool, error) {
 	verBytes, err := reader.ReadString('\n')

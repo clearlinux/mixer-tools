@@ -54,9 +54,10 @@ type builderConf struct {
 }
 
 type swupdConf struct {
-	Bundle     string `required:"false" toml:"BUNDLE"`
-	ContentURL string `required:"false" toml:"CONTENTURL"`
-	VersionURL string `required:"false" toml:"VERSIONURL"`
+	Bundle      string   `required:"false" toml:"BUNDLE"`
+	ContentURL  string   `required:"false" toml:"CONTENTURL"`
+	VersionURL  string   `required:"false" toml:"VERSIONURL"`
+	Compression []string `required:"false" toml:"COMPRESSION"`
 }
 
 type serverConf struct {
@@ -97,6 +98,7 @@ func (config *MixConfig) LoadDefaultsForPath(path string) {
 	config.Swupd.Bundle = "os-core-update"
 	config.Swupd.ContentURL = "<URL where the content will be hosted>"
 	config.Swupd.VersionURL = "<URL where the version of the mix will be hosted>"
+	config.Swupd.Compression = []string{"external-xz"}
 
 	// [Server]
 	config.Server.DebugInfoBanned = "true"

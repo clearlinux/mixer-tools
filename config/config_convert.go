@@ -89,6 +89,11 @@ func (config *MixConfig) parseVersionAndConvert() error {
 }
 
 func (config *MixConfig) convertCurrent() error {
+	// Load default values for new properties
+	if err := config.LoadDefaults(); err != nil {
+		return err
+	}
+
 	// Version only exists in New Config, so parse builder.conf as TOML
 	if err := config.parse(); err != nil {
 		return err
@@ -101,6 +106,11 @@ func (config *MixConfig) convertCurrent() error {
 }
 
 func (config *MixConfig) convertLegacy() error {
+	// Load default values for new properties
+	if err := config.LoadDefaults(); err != nil {
+		return err
+	}
+
 	// Assume missing version and try to parse as TOML
 	if _, err := toml.DecodeFile(config.filename, &config); err != nil {
 		// Try parsing as INI

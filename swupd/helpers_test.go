@@ -858,7 +858,7 @@ func (ts *testSwupd) createFullfiles(version uint32) {
 	}
 	chrootDir := ts.path(filepath.Join("image", fmt.Sprint(version), "full"))
 	outputDir := ts.path(filepath.Join("www", fmt.Sprint(version), "files"))
-	_, err = CreateFullfiles(m, chrootDir, outputDir, 0)
+	_, err = CreateFullfiles(m, chrootDir, outputDir, 0, []string{"external-bzip2", "external-gzip", "external-xz"})
 	if err != nil {
 		ts.t.Fatalf("couldn't create fullfiles: %s", err)
 	}

@@ -30,13 +30,10 @@ var debugFullfiles = false
 
 type compressFunc func(dst io.Writer, src io.Reader) error
 
-var fullfileCompressors = []struct {
-	Name string
-	Func compressFunc
-}{
-	{"external-bzip2", externalCompressFunc("bzip2")},
-	{"external-gzip", externalCompressFunc("gzip")},
-	{"external-xz", externalCompressFunc("xz")},
+var fullfileCompressors = map[string]compressFunc{
+	"external-bzip2": externalCompressFunc("bzip2"),
+	"external-gzip":  externalCompressFunc("gzip"),
+	"external-xz":    externalCompressFunc("xz"),
 }
 
 // FullfilesInfo holds statistics about a fullfile generation.
@@ -49,7 +46,7 @@ type FullfilesInfo struct {
 // CreateFullfiles creates full file compressed tars for files in chrootDir and places
 // them in outputDir. It doesn't regenerate full files that already exist. If number
 // of workers is zero or less, 1 worker is used.
-func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int) (*FullfilesInfo, error) {
+func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int, compression []string) (*FullfilesInfo, error) {
 	var err error
 	if _, err = os.Stat(chrootDir); err != nil {
 		return nil, fmt.Errorf("couldn't access the full chroot: %s", err)
@@ -99,7 +96,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int) (
 			case TypeLink:
 				tErr = createLinkFullfile(input, name, output, info)
 			case TypeFile:
-				tErr = createRegularFullfile(input, name, output, info)
+				tErr = createRegularFullfile(input, name, output, info, compression)
 			default:
 				tErr = fmt.Errorf("file %s is of unsupported type %q", f.Name, f.Type)
 			}
@@ -213,7 +210,7 @@ func createLinkFullfile(input, name, output string, info *FullfilesInfo) error {
 	return nil
 }
 
-func createRegularFullfile(input, name, output string, info *FullfilesInfo) (err error) {
+func createRegularFullfile(input, name, output string, info *FullfilesInfo, compression []string) (err error) {
 	// Ensure this is a regular file.
 	fi, err := os.Lstat(input)
 	if err != nil {
@@ -252,9 +249,15 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo) (err
 	// Pick the best compression option (or no compression) for that specific fullfile.
 	best := ""
 	bestSize := uncompressedSize
-	for i, c := range fullfileCompressors {
+	for i, cName := range compression {
+		cFunc, ok := fullfileCompressors[cName]
+		if !ok {
+			log.Printf("WARNING: Unknown compression method: '" + cName + "' - Skipping")
+			continue
+		}
+
 		var candidateSize int64
-		candidate := fmt.Sprintf("%s.%d.%s", output, i, c.Name)
+		candidate := fmt.Sprintf("%s.%d.%s", output, i, cName)
 
 		_, err := uncompressed.Seek(0, io.SeekStart)
 		if err != nil {
@@ -262,12 +265,12 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo) (err
 		}
 		out, err := os.Create(candidate)
 		if err != nil {
-			log.Printf("WARNING: couldn't create output file for %q compressor: %s", c.Name, err)
+			log.Printf("WARNING: couldn't create output file for %q compressor: %s", cName, err)
 			continue
 		}
-		err = c.Func(out, uncompressed)
+		err = cFunc(out, uncompressed)
 		if err != nil {
-			log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, c.Name, err)
+			log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, cName, err)
 			_ = out.Close()
 			_ = os.RemoveAll(candidate)
 			continue

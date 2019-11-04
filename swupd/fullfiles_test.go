@@ -107,7 +107,7 @@ func TestCreateFullfiles(t *testing.T) {
 		m.Files = append(m.Files, f)
 	}
 
-	_, err = CreateFullfiles(m, chrootDir, outputDir, 0)
+	_, err = CreateFullfiles(m, chrootDir, outputDir, 0, []string{"external-xz"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestCreateFullfiles(t *testing.T) {
 }
 
 func TestCreateFullfilesErrorPaths(t *testing.T) {
-	if _, err := CreateFullfiles(nil, "/tmp/bogusdir", "/tmp/bogusdir", 1); err == nil {
+	if _, err := CreateFullfiles(nil, "/tmp/bogusdir", "/tmp/bogusdir", 1, []string{"external-xz"}); err == nil {
 		t.Error("CreateFullfiles did not return error on bogus chroot directory")
 	}
 }
@@ -176,7 +176,7 @@ func TestCreateLinkFullfileErrorPaths(t *testing.T) {
 
 func TestCreateRegularFullfileErrorPaths(t *testing.T) {
 	debugFullfiles = true
-	if err := createRegularFullfile("bogusfile", "bogus", "bogus", nil); err == nil {
+	if err := createRegularFullfile("bogusfile", "bogus", "bogus", nil, []string{"external-xz"}); err == nil {
 		t.Error("createRegularFullfile did not return error on bogus file")
 	}
 
@@ -188,7 +188,7 @@ func TestCreateRegularFullfileErrorPaths(t *testing.T) {
 		_ = os.RemoveAll(d)
 	}()
 
-	if err := createRegularFullfile(d, "bogus", "bogus", nil); err == nil {
+	if err := createRegularFullfile(d, "bogus", "bogus", nil, []string{"external-xz"}); err == nil {
 		t.Error("createRegularFullfile did not return error on directory")
 	}
 }

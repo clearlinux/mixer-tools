@@ -80,13 +80,8 @@ func TestNewCompressedTarReaderBzip2(t *testing.T) {
 	}()
 
 	// select external-bzip2 compressor
-	var compressor compressFunc
-	for _, fc := range fullfileCompressors {
-		if fc.Name == "external-bzip2" {
-			compressor = fc.Func
-			break
-		}
-	}
+	compressor := fullfileCompressors["external-bzip2"]
+
 	if compressor == nil {
 		t.Fatalf("unable to find bzip2 compression function")
 	}

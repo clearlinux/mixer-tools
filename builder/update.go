@@ -148,7 +148,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
 		fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full")
 		var info *swupd.FullfilesInfo
-		info, err = swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers)
+		info, err = swupd.CreateFullfiles(mom.FullManifest, fullChrootDir, fullfilesDir, b.NumFullfileWorkers, b.Config.Swupd.Compression)
 		if err != nil {
 			return err
 		}

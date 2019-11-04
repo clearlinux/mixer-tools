@@ -34,6 +34,7 @@ var fullfileCompressors = map[string]compressFunc{
 	"external-bzip2": externalCompressFunc("bzip2"),
 	"external-gzip":  externalCompressFunc("gzip"),
 	"external-xz":    externalCompressFunc("xz"),
+	"external-zstd":  externalCompressFunc("zstd"),
 }
 
 // FullfilesInfo holds statistics about a fullfile generation.

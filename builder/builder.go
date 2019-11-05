@@ -238,7 +238,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // the file contents of all bundles.
 func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag, clean bool, downloadRetries int) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(); err != nil {
 		return err
 	}
 

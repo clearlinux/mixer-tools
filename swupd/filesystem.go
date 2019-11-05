@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 const illegalChars = ";&|*`/<>\\\"'\a"
@@ -55,6 +56,8 @@ func (m *Manifest) createFileRecord(rootPath, path, removePrefix string, fi os.F
 	return nil
 }
 
+var hashMap sync.Map
+
 // recordFromFile creates a struct File record from an os.FileInfo object
 // this function sets the Name, Info, Type, and Hash fields
 func recordFromFile(rootPath, path, removePrefix string, fi os.FileInfo) (*File, error) {
@@ -89,13 +92,17 @@ func recordFromFile(rootPath, path, removePrefix string, fi os.FileInfo) (*File,
 	default:
 		return nil, fmt.Errorf("%v is an unsupported file type", file.Name)
 	}
-
-	fh, err := Hashcalc(filepath.Join(rootPath, file.Name))
-	if err != nil {
-		return nil, fmt.Errorf("hash calculation error: %v", err)
+	filePath := filepath.Join(rootPath, file.Name)
+	if val, ok := hashMap.Load(filePath); ok {
+		file.Hash = val.(Hashval)
+	} else {
+		fh, err := Hashcalc(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("hash calculation error: %v", err)
+		}
+		file.Hash = fh
+		hashMap.Store(filePath, fh)
 	}
-
-	file.Hash = fh
 
 	return file, nil
 }

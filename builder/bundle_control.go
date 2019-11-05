@@ -39,8 +39,9 @@ func getUpstreamBundlesVerDir(ver string) string {
 	return fmt.Sprintf(upstreamBundlesVerDirFmt, ver)
 }
 
-func (b *Builder) getUpstreamBundlesPath(ver string) string {
-	return filepath.Join(b.Config.Builder.VersionPath, upstreamBundlesBaseDir, fmt.Sprintf(upstreamBundlesVerDirFmt, ver), upstreamBundlesBundleDir)
+func (b *Builder) getUpstreamBundlesPath() string {
+	return filepath.Join(b.Config.Builder.VersionPath, upstreamBundlesBaseDir,
+		fmt.Sprintf(upstreamBundlesVerDirFmt, b.UpstreamVer), upstreamBundlesBundleDir)
 }
 
 func (b *Builder) getLocalPackagesPath() string {
@@ -51,41 +52,36 @@ func (b *Builder) getUpstreamPackagesPath() string {
 	return filepath.Join(b.Config.Builder.VersionPath, upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer), "packages")
 }
 
-func (b *Builder) getUpstreamBundles(ver string, prune bool) error {
-	//TODO: Remove the prune parameter if its always true.
-
+func (b *Builder) getUpstreamBundles() error {
 	if Offline {
 		return nil
 	}
 
-	bundleDir := b.getUpstreamBundlesPath(ver)
+	bundleDir := b.getUpstreamBundlesPath()
 
 	// Return if upstream bundle dir for current version already exists
 	if _, err := os.Stat(bundleDir); err == nil {
 		return nil
 	}
 
-	return b.downloadUpstreamBundles(ver)
-}
-
-func (b *Builder) downloadUpstreamBundles(ver string) error {
 	// Make the folder to store upstream bundles if does not exist
 	if err := os.MkdirAll(upstreamBundlesBaseDir, 0777); err != nil {
 		return errors.Wrap(err, "Failed to create upstream-bundles dir.")
 	}
 
-	tmpTarFile := filepath.Join(upstreamBundlesBaseDir, ver+".tar.gz")
-	URL := b.Config.Swupd.UpstreamBundlesURL + ver + ".tar.gz"
+	// Download the upstream bundles
+	tmpTarFile := filepath.Join(upstreamBundlesBaseDir, b.UpstreamVer+".tar.gz")
+	URL := b.Config.Swupd.UpstreamBundlesURL + b.UpstreamVer + ".tar.gz"
 	fmt.Printf("Fetching upstream bundles from %s\n", URL)
 	if err := helpers.DownloadFile(URL, tmpTarFile); err != nil {
-		return errors.Wrapf(err, "Failed to download bundles for upstream version %s", ver)
+		return errors.Wrapf(err, "Failed to download bundles for upstream version %s", b.UpstreamVer)
 	}
 
 	if err := helpers.UnpackFile(tmpTarFile, upstreamBundlesBaseDir); err != nil {
-		err = errors.Wrapf(err, "Error unpacking bundles for upstream version %s\n%s left for debuging", ver, tmpTarFile)
+		err = errors.Wrapf(err, "Error unpacking bundles for upstream version %s\n%s left for debuging", b.UpstreamVer, tmpTarFile)
 
 		// Clean up upstream bundle dir, since unpack failed
-		path := filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(ver))
+		path := filepath.Join(upstreamBundlesBaseDir, getUpstreamBundlesVerDir(b.UpstreamVer))
 		if cErr := os.RemoveAll(path); cErr != nil {
 			err = errors.Wrapf(err, "Error cleaning up upstream bundle dir: %s", path)
 		}
@@ -133,7 +129,7 @@ func (b *Builder) getBundlePath(bundle string) (string, error) {
 	}
 
 	// Check upstream-bundles
-	path = filepath.Join(b.getUpstreamBundlesPath(b.UpstreamVer), bundle)
+	path = filepath.Join(b.getUpstreamBundlesPath(), bundle)
 	if _, err = os.Stat(path); err == nil {
 		return path, nil
 	}
@@ -364,7 +360,7 @@ func (b *Builder) getFullMixBundleSet() (bundleSet, error) {
 // Bundles List will be in sorted order.
 func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, git bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(); err != nil {
 		return err
 	}
 
@@ -423,7 +419,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 	// Add all upstream bundles to the bundles
 	if allUpstream {
-		upstreamBundleDir := b.getUpstreamBundlesPath(b.UpstreamVer)
+		upstreamBundleDir := b.getUpstreamBundlesPath()
 		upstreamSet, err := b.getDirBundlesListAsSet(upstreamBundleDir)
 		if err != nil {
 			return errors.Wrapf(err, "Failed to read upstream bundles dir: %s", upstreamBundleDir)
@@ -470,7 +466,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 // Bundles List will be in sorted order.
 func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(); err != nil {
 		return err
 	}
 
@@ -610,7 +606,7 @@ const (
 // ListBundles prints out a bundle list in either a flat list or tree view
 func (b *Builder) ListBundles(listType listType, tree bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(); err != nil {
 		return err
 	}
 
@@ -630,7 +626,7 @@ func (b *Builder) ListBundles(listType listType, tree bool) error {
 	if err != nil {
 		return err
 	}
-	upstreamBundles, err := b.getDirBundlesListAsSet(b.getUpstreamBundlesPath(b.UpstreamVer))
+	upstreamBundles, err := b.getDirBundlesListAsSet(b.getUpstreamBundlesPath())
 	if err != nil {
 		if !Offline {
 			return err
@@ -773,7 +769,7 @@ func createBundleFile(bundle string, path string) error {
 // 'add' will also add the bundles to the mix.
 func (b *Builder) CreateBundles(bundles []string, add bool, git bool) error {
 	// Fetch upstream bundle files if needed
-	if err := b.getUpstreamBundles(b.UpstreamVer, true); err != nil {
+	if err := b.getUpstreamBundles(); err != nil {
 		return err
 	}
 	var err error

@@ -49,7 +49,8 @@ func TestGetUpstreamBundlesPath(t *testing.T) {
 	b.Config.Builder.VersionPath = "test"
 	for _, tc := range testCases {
 		t.Run(tc.ver, func(t *testing.T) {
-			actual := b.getUpstreamBundlesPath(tc.ver)
+			b.UpstreamVer = tc.ver
+			actual := b.getUpstreamBundlesPath()
 			if actual != tc.exp {
 				t.Errorf("expected %s on input %s but got %s", tc.exp, tc.ver, actual)
 			}
@@ -98,7 +99,7 @@ func TestGetUpstreamPackagesPath(t *testing.T) {
 func TestGetUpstreamBundles(t *testing.T) {
 	b := New()
 	Offline = true
-	if b.getUpstreamBundles("", false) != nil {
+	if b.getUpstreamBundles() != nil {
 		t.Error("returned error when in offline mode")
 	}
 	// TODO: mock network
@@ -197,7 +198,7 @@ func mustCreateTempBundleDirs(t *testing.T, b *Builder, d string) {
 		t.Fatal(err)
 	}
 
-	if err = os.MkdirAll(b.getUpstreamBundlesPath(b.UpstreamVer), 0755); err != nil {
+	if err = os.MkdirAll(b.getUpstreamBundlesPath(), 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -241,7 +242,7 @@ func mustAddBundleToLocalPackages(t *testing.T, b *Builder, name string) {
 
 func mustAddBundleToUpstream(t *testing.T, b *Builder, name string) {
 	t.Helper()
-	mustAddBundleToPath(t, b.getUpstreamBundlesPath(b.UpstreamVer), name)
+	mustAddBundleToPath(t, b.getUpstreamBundlesPath(), name)
 }
 
 func mustAddBundleToUpstreamPackages(t *testing.T, b *Builder, name string) {

@@ -39,7 +39,7 @@ function copy_test_state() {
   copy_test_state configs/1.0_mixer.state
 
   # Verify that state is converted when LAST_VER doesn't exist
-  sudo mixer build all --native
+  sudo mixer build all
   diff mixer.state current.state
 
   # Increment versions and update expected PREVIOUS_MIX_VERSION value
@@ -50,7 +50,7 @@ function copy_test_state() {
   # Verify that state is converted and initialized to LAST_VER. At the
   # time of the PREVIOUS_MIX_VERSION initialization, LAST_VER should
   # still be 10.
-  sudo mixer build all --native
+  sudo mixer build all
   diff mixer.state current.state
 }
 

@@ -48,8 +48,8 @@ mixer bundle add os-core os-core-update foo
 ###############################################################################
 
 # build bundles and updates regularly
-mixer build bundles --native
-mixer build update --native
+mixer build bundles
+mixer build update
 
 ###############################################################################
 # +10
@@ -66,7 +66,7 @@ mixer build update --native
 mixer versions update --mix-version 20
 # build bundles normally. At this point the bundles to be deleted should still
 # be part of the mixbundles list and the groups.ini
-mixer build bundles --native
+mixer build bundles
 # remove all deleted bundles' content by replacing bundle-info files with empty
 # directories. This causes mixer to fall back to reading content for those
 # bundles from a chroot. The chroots for these bundles will be empty.
@@ -85,7 +85,7 @@ echo 2 > update/image/20/full/usr/share/defaults/swupd/format
 # build update based on the modified bundle information. This is *not* a
 # minversion and these manifests must be built with the mixer from the original
 # format (if manifest format changes).
-mixer build update --native
+mixer build update
 
 
 ###############################################################################
@@ -115,4 +115,4 @@ done
 cp -al update/image/20 update/image/30
 # build an update as a minversion, this is the first build where the manifests
 # identify as the new format
-mixer build update --native --min-version 30 --skip-format-check
+mixer build update --min-version 30 --skip-format-check

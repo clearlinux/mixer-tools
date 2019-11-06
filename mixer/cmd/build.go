@@ -17,7 +17,6 @@ package cmd
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -96,10 +95,6 @@ var buildCmd = &cobra.Command{
 
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
-			return err
-		}
-
-		if err := printFormatMismatch(b); err != nil {
 			return err
 		}
 
@@ -793,27 +788,6 @@ func init() {
 		externalDeps[buildBundlesCmd],
 		append(externalDeps[buildUpdateCmd],
 			externalDeps[buildImageCmd]...)...)
-}
-
-func printFormatMismatch(b *builder.Builder) error {
-	// Skip check if offline
-	if builder.Offline {
-		return nil
-	}
-
-	hostFormat, upstreamFormat, err := b.GetHostAndUpstreamFormats()
-	if err != nil {
-		return err
-	}
-
-	if hostFormat == "" {
-		log.Println("Warning: Unable to determine host format. Running natively may fail.")
-	} else if hostFormat != upstreamFormat {
-		log.Println("Warning: The host format and mix upstream format do not match.",
-			"Mixer may be incompatible with this format; running natively may fail.")
-	}
-
-	return nil
 }
 
 func checkFormatBump(b *builder.Builder) error {

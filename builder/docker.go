@@ -29,25 +29,6 @@ import (
 	"github.com/clearlinux/mixer-tools/helpers"
 )
 
-// GetHostAndUpstreamFormats retreives the formats for the host and the mix's
-// upstream version. It attempts to determine the format for the host machine,
-// and if successful, looks up the format for the desired upstream version.
-func (b *Builder) GetHostAndUpstreamFormats() (string, string, error) {
-	// Determine the host's format
-	hostFormat, err := ioutil.ReadFile("/usr/share/defaults/swupd/format")
-	if err != nil && !os.IsNotExist(err) {
-		return "", "", err
-	}
-
-	// Get the upstream format
-	upstreamFormat, err := b.DownloadFileFromUpstreamAsString(fmt.Sprintf("update/%s/format", b.UpstreamVer))
-	if err != nil {
-		return "", "", err
-	}
-
-	return string(hostFormat), upstreamFormat, nil
-}
-
 func (b *Builder) getDockerImageName(format string) (string, error) {
 	if b.Config.Mixer.DockerImgPath == "" {
 		return "", errors.New("Docker Image Path is not set in the config file")

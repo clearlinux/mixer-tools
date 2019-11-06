@@ -182,7 +182,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 		bumpNeeded := true
 
 		for bumpNeeded {
-			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s  --retries %d --native", buildFlags.newFormat, buildFlags.downloadRetries)
+			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s  --retries %d", buildFlags.newFormat, buildFlags.downloadRetries)
 			cmdToRun := strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
@@ -194,7 +194,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			if err = ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
 				fail(err)
 			}
-			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s --native", buildFlags.newFormat)
+			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", buildFlags.newFormat)
 			cmdToRun = strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
@@ -233,12 +233,12 @@ var buildFormatBumpCmd = &cobra.Command{
 			fail(errors.New("Please supply a valid format version with --new-format"))
 		}
 
-		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --retries %d --native", buildFlags.newFormat, buildFlags.downloadRetries)
+		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --retries %d", buildFlags.newFormat, buildFlags.downloadRetries)
 		cmdToRun := strings.Split(cmdStr, " ")
 		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
 		}
-		cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s --native", buildFlags.newFormat)
+		cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", buildFlags.newFormat)
 		cmdToRun = strings.Split(cmdStr, " ")
 		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
@@ -688,16 +688,13 @@ func setUpdateFlags(cmd *cobra.Command) {
 	_ = cmd.Flags().MarkDeprecated("keep-chroots", "this flag is ignored by the update builder")
 }
 
-var containerCmds = []*cobra.Command{
+var buildCmds = []*cobra.Command{
 	buildBundlesCmd,
 	buildUpdateCmd,
 	buildAllCmd,
 	buildValidateCmd,
 	buildDeltaPacksCmd,
 	buildDeltaManifestsCmd,
-}
-
-var nativeCmds = []*cobra.Command{
 	buildFormatBumpCmd,
 	buildUpstreamFormatCmd,
 	buildImageCmd,
@@ -709,17 +706,11 @@ var bumpCmds = []*cobra.Command{
 }
 
 func init() {
-	for _, cmd := range containerCmds {
-		addMarker(cmd, containerMarker)
-		buildCmd.AddCommand(cmd)
-	}
-
-	for _, cmd := range nativeCmds {
+	for _, cmd := range buildCmds {
 		buildCmd.AddCommand(cmd)
 	}
 
 	for _, cmd := range bumpCmds {
-		addMarker(cmd, containerMarker)
 		addMarker(cmd, bumpMarker)
 		buildFormatBumpCmd.AddCommand(cmd)
 	}

@@ -64,10 +64,6 @@ used to modify the core behavior and resources that ``mixer`` uses.
    Skip caching upstream bundles and work entirely with local bundles.
    Do not reach out over network to perform operations.
 
--  ``--native``
-
-   Run mixer command on native host instead of in a container.
-
 
 SUBCOMMANDS
 ===========

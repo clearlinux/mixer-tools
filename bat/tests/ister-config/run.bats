@@ -14,7 +14,7 @@ setup() {
   # `build image` should fail because the prerequisite commands are not executed.
   # This is intentional in order to reduce test execution time.
   # The goal is to unit test the creation of ister config file with relevant bundles.
-  run sudo mixer $MIXARGS build image --native
+  run sudo mixer $MIXARGS build image
   [[ "$status" -eq 1 ]]
   [[ "$output" =~ "release-image-config.json not found" ]]
   [[ "$output" =~ "Copying image template" ]]

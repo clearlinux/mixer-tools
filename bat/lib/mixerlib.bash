@@ -15,74 +15,74 @@ global_setup() {
 }
 
 localize_builder_conf() {
-  mixer $MIXARGS config set Mixer.LOCAL_RPM_DIR $BATS_TEST_DIRNAME/local-rpms --native=true
-  mixer $MIXARGS config set  Mixer.LOCAL_REPO_DIR $BATS_TEST_DIRNAME/local-yum --native=true
+  mixer $MIXARGS config set Mixer.LOCAL_RPM_DIR $BATS_TEST_DIRNAME/local-rpms
+  mixer $MIXARGS config set  Mixer.LOCAL_REPO_DIR $BATS_TEST_DIRNAME/local-yum
 }
 
 # Initializes a mix with the desired versions. Then for efficiency converts 
 # builder.conf to use os-core for the "update bundle", strips os-core to just
 # the filesystem, and adds only os-core to the mix
 mixer-init-stripped-down() {
-  mixer $MIXARGS init --clear-version $1 --mix-version $2 --no-default-bundles --native=true
+  mixer $MIXARGS init --clear-version $1 --mix-version $2 --no-default-bundles
   sed -i 's/os-core-update/os-core/' $BATS_TEST_DIRNAME/builder.conf
   echo "filesystem" > $LOCAL_BUNDLE_DIR/os-core
-  mixer $MIXARGS bundle add os-core --native=true
+  mixer $MIXARGS bundle add os-core
 }
 
 mixer-versions-update() {
-  mixer $MIXARGS versions update --mix-version $1 --upstream-version $2 --native=true
+  mixer $MIXARGS versions update --mix-version $1 --upstream-version $2
 }
 mixer-mixversion-update() {
-  mixer $MIXARGS versions update --mix-version $1 --native=true
+  mixer $MIXARGS versions update --mix-version $1
 }
 
 mixer-upstream-update() {
-  mixer $MIXARGS versions update --upstream-version $1 --native=true
+  mixer $MIXARGS versions update --upstream-version $1
 }
 
 mixer-build-bundles() {
-  sudo -E mixer $MIXARGS build bundles --config $BATS_TEST_DIRNAME/builder.conf --native=true
+  sudo -E mixer $MIXARGS build bundles --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-build-update() {
-  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --native=true
+  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-build-update-minversion() {
-  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --native=true --min-version $1
+  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --min-version $1
 }
 
 mixer-build-all() {
-  sudo -E mixer $MIXARGS build all --config $BATS_TEST_DIRNAME/builder.conf --native=true
+  sudo -E mixer $MIXARGS build all --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 mixer-build-delta-packs() {
-  sudo -E mixer $MIXARGS build delta-packs --config $BATS_TEST_DIRNAME/builder.conf --native=true --previous-versions $1
+  sudo -E mixer $MIXARGS build delta-packs --config $BATS_TEST_DIRNAME/builder.conf --previous-versions $1
 }
 
 mixer-build-delta-manifests() {
-  sudo -E mixer $MIXARGS build delta-manifests --config $BATS_TEST_DIRNAME/builder.conf --native=true --previous-versions $1
+  sudo -E mixer $MIXARGS build delta-manifests --config $BATS_TEST_DIRNAME/builder.conf --previous-versions $1
 }
 
 mixer-build-format-bump-new() {
-  sudo -E mixer $MIXARGS build format-bump new --new-format $1 --native=true
+  sudo -E mixer $MIXARGS build format-bump new --new-format $1
 }
 
 mixer-build-format-bump-old() {
-  sudo -E mixer $MIXARGS build format-bump old --new-format $1 --native=true
+  sudo -E mixer $MIXARGS build format-bump old --new-format $1
 }
 
 mixer-build-format-bump() {
-  sudo -E mixer $MIXARGS build format-bump --new-format $1 --native=true
+  sudo -E mixer $MIXARGS build format-bump --new-format $1
 }
 
 mixer-build-upstream-format-bump() {
-  sudo -E mixer $MIXARGS build upstream-format --new-format $1 --native=true
+  sudo -E mixer $MIXARGS build upstream-format --new-format $1
 }
 
 mixer-add-rpms() {
   mkdir -p $BATS_TEST_DIRNAME/local-yum $BATS_TEST_DIRNAME/local-rpms
-  sudo -E mixer $MIXARGS add-rpms --config $BATS_TEST_DIRNAME/builder.conf --native=true
+  sudo -E mixer $MIXARGS add-rpms --config $BATS_TEST_DIRNAME/builder.conf
 }
 
 create-empty-local-bundle() {
@@ -98,11 +98,11 @@ remove-package-from-local-bundle() {
 }
 
 mixer-bundle-add() {
-  mixer $MIXARGS bundle add $1 --native=true
+  mixer $MIXARGS bundle add $1
 }
 
 mixer-bundle-remove() {
-  mixer $MIXARGS bundle remove $1 --native=true
+  mixer $MIXARGS bundle remove $1
 }
 
 get-current-version() {

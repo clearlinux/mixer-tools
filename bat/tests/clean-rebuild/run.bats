@@ -14,7 +14,7 @@ setup() {
   mixer-build-all
 
   # Rebuild v20 with --clean
-  run sudo mixer build all --clean --native
+  run sudo mixer build all --clean
   [[ $status -eq 0 ]]
 
   mom="$BATS_TEST_DIRNAME"/update/www/20/Manifest.MoM
@@ -30,7 +30,7 @@ setup() {
   # LAST_VER which will lead to an incorrectly generated manifest.
   sed -i "/PREVIOUS_MIX_VERSION/d" mixer.state
 
-  run sudo mixer build all --clean --native
+  run sudo mixer build all --clean
   [[ $status -eq 0 ]]
 
   # Verify that previous is incorrect

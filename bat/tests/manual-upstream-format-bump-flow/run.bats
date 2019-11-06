@@ -90,7 +90,7 @@ setup() {
   # caused the bundles to be dropped from client systems at that point.
   for i in $(grep -lir "\[STATUS\]: Deprecated" upstream-bundles/ local-bundles/); do
     b=$(basename $i)
-    sudo mixer $MIXARGS bundle remove $b --native=true; sudo sed -i "/\[$b\]/d;/group=$b/d" update/groups.ini;
+    sudo mixer $MIXARGS bundle remove $b; sudo sed -i "/\[$b\]/d;/group=$b/d" update/groups.ini;
   done
   # link the +10 bundles to the +20 so we are building the update with the same
   # underlying content. The only things that might change are the manifests
@@ -99,7 +99,7 @@ setup() {
   sudo cp -al update/image/20 update/image/30
   # build an update as a minversion, this is the first build where the manifests
   # identify as the new format
-  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --native=true --min-version 30 --skip-format-check
+  sudo -E mixer $MIXARGS build update --config $BATS_TEST_DIRNAME/builder.conf --min-version 30 --skip-format-check
 
   # validate the +20 build
   grep -P "MANIFEST\t2" update/www/30/Manifest.MoM

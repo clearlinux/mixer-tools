@@ -30,7 +30,7 @@ setup() {
   add-package-to-local-bundle "bsdiff" "testbundle1"
   mixer bundle add testbundle1
 
-  sudo mixer build all --increment --native
+  sudo mixer build all --increment
 
   # Modify testbundle1
   add-package-to-local-bundle "helloworld" "testbundle1"
@@ -40,17 +40,17 @@ setup() {
   add-package-to-local-bundle "bsdiff" "testbundle2"
   mixer bundle add testbundle2
 
-  sudo mixer build all --increment --native
+  sudo mixer build all --increment
 
   # Create format bump
-  sudo mixer build format-bump --new-format $((format+1)) --native
+  sudo mixer build format-bump --new-format $((format+1))
 
   # Store a copy of update so that it doesn't need to be regenerated
   sudo cp -r "${BATS_TEST_DIRNAME}"/update "${BATS_TEST_DIRNAME}"/update-backup
 }
 
 @test "MCA compare manifests with added, modified, and unchanged bundles" {
-  run sudo sh -c "mixer build validate --from 10 --to 20 --native"
+  run sudo sh -c "mixer build validate --from 10 --to 20"
 
   [[ "$status" -eq 0 ]]
 
@@ -66,7 +66,7 @@ setup() {
 }
 
 @test "MCA compare to +10" {
-  run sudo mixer build validate --from 20 --to 30 --native
+  run sudo mixer build validate --from 20 --to 30
 
   [[ "$status" -eq 0 ]]
 
@@ -82,7 +82,7 @@ setup() {
 }
 
 @test "MCA compare +10 to +20" {
-  run sudo mixer build validate --from 30 --to 40 --native
+  run sudo mixer build validate --from 30 --to 40
 
   [[ $status -eq 0 ]]
 
@@ -115,7 +115,7 @@ setup() {
   sudo sed -i "/version$/ s/[a-z0-9]\{64\}/$versionHash/" ${BATS_TEST_DIRNAME}/update/www/20/Manifest.os-core
   sudo sed -i "/versionstamp$/ s/[a-z0-9]\{64\}/$stampHash/" ${BATS_TEST_DIRNAME}/update/www/20/Manifest.os-core
 
-  run sudo mixer build validate --from 10 --to 20 --native
+  run sudo mixer build validate --from 10 --to 20
 
   [[ $status -ne 0 ]]
 
@@ -133,7 +133,7 @@ setup() {
   formatHash=$(awk '/swupd\/format$/ {print $2}' "${BATS_TEST_DIRNAME}"/update/www/10/Manifest.os-core-update)
   sudo sed -i "/swupd\/format$/ s/[a-z0-9]\{64\}/$formatHash/" ${BATS_TEST_DIRNAME}/update/www/30/Manifest.os-core-update
   
-  run sudo mixer build validate --from 20 --to 30 --native
+  run sudo mixer build validate --from 20 --to 30
 
   [[ $status -ne 0 ]]
   [[ $output =~ "ERROR: /usr/share/defaults/swupd/format is not modified in manifest 'os-core-update'" ]]
@@ -144,7 +144,7 @@ setup() {
   hash1=d93a5e9123361e28b9e244fe422234e3a1794b001a082aeb78e16fd881673a2c
   sudo sed -i "/os-release$/ s/[a-z0-9]\{64\}/$hash1/" ${BATS_TEST_DIRNAME}/update/www/40/Manifest.os-core
 
-  run sudo mixer build validate --from 30 --to 40 --native
+  run sudo mixer build validate --from 30 --to 40
 
   [[ $status -ne 0 ]]
   [[ $output =~ "WARNING: If this is a +10 to +20 comparison, os-core/os-core-update have file exception errors" ]]
@@ -152,7 +152,7 @@ setup() {
 
 @test "MCA override DNF conf to invalid URL" {
   # Override upstream repo to invalid URL to confirm DNF conf overrides succeed
-  run sudo sh -c "mixer build validate --from 10 --to 20 --native --from-repo-url clear=foo"
+  run sudo sh -c "mixer build validate --from 10 --to 20 --from-repo-url clear=foo"
 
   [[ "$status" -ne 0 ]]
   [[ "$output" =~ "RPM download attempt 4 failed. Maximum of 4 attempts." ]]

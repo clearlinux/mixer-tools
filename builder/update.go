@@ -189,7 +189,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 			fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
 
 			var info *swupd.PackInfo
-			info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir, 0)
+			info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir)
 			if err != nil {
 				return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
 			}

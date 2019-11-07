@@ -229,7 +229,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	ts.createManifests(20)
 
 	// Expect failure when creating packs without the fullfiles.
-	_, err := CreatePack("editors", 0, 20, ts.path("www"), "", 0)
+	_, err := CreatePack("editors", 0, 20, ts.path("www"), "")
 	if err == nil {
 		t.Fatalf("unexpected success creating pack without chrootDir nor fullfiles available")
 	}
@@ -244,7 +244,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 
 	// Expect failure when creating packs for bundle shells, it won't find the new
 	// shell added in version 20.
-	_, err = CreatePack("shells", 0, 20, ts.path("www"), "", 0)
+	_, err = CreatePack("shells", 0, 20, ts.path("www"), "")
 	if err == nil {
 		t.Fatalf("unexpected success creating pack without all fullfiles available")
 	}
@@ -392,7 +392,7 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 
 	// Creating a pack should fail, no way to get emacs contents from neither chroot
 	// or fullfile.
-	_, err := CreatePack("editors", 0, 10, fs.path("www"), fs.path("image"), 0)
+	_, err := CreatePack("editors", 0, 10, fs.path("www"), fs.path("image"))
 	if err == nil {
 		t.Fatalf("unexpected success when creating pack with incomplete chroot")
 	}
@@ -539,7 +539,7 @@ func mustCreatePack(t *testing.T, name string, fromVersion, toVersion uint32, ou
 		t.Fatalf("error creating pack for bundle %s: %s", name, err)
 	}
 	var info *PackInfo
-	info, err = CreatePack(name, fromVersion, toVersion, outputDir, chrootDir, 0)
+	info, err = CreatePack(name, fromVersion, toVersion, outputDir, chrootDir)
 	if err != nil {
 		t.Fatalf("error creating pack for bundle %s: %s", name, err)
 	}
@@ -801,19 +801,19 @@ func TestWritePackErrorPaths(t *testing.T) {
 	}()
 	// valid fromManifest
 	fm := Manifest{Name: "test"}
-	if _, err = WritePack(f, &fm, nil, d, d, 1); err == nil {
+	if _, err = WritePack(f, &fm, nil, d, d); err == nil {
 		t.Error("WritePack did not return error with nil toManifest")
 	}
 
 	tm := Manifest{}
-	if _, err = WritePack(f, &fm, &tm, d, d, 1); err == nil {
+	if _, err = WritePack(f, &fm, &tm, d, d); err == nil {
 		t.Error("WritePack did not return error with unnamed toManifest")
 	}
 
 	tm.Name = "testto"
 	tm.Header.Version = 10
 	fm.Header.Version = 20
-	if _, err = WritePack(f, &fm, &tm, d, d, 1); err == nil {
+	if _, err = WritePack(f, &fm, &tm, d, d); err == nil {
 		t.Error("WritePack did not return error with invalid version pairs")
 	}
 
@@ -823,7 +823,7 @@ func TestWritePackErrorPaths(t *testing.T) {
 	}
 
 	tm.Header.Version = 30
-	if _, err = WritePack(f, &fm, &tm, d, d, 1); err == nil {
+	if _, err = WritePack(f, &fm, &tm, d, d); err == nil {
 		t.Error("WritePack did not return error with no config present")
 	}
 }
@@ -910,7 +910,7 @@ func TestCreatePackErrorPaths(t *testing.T) {
 		_ = os.RemoveAll(d)
 	}()
 
-	if _, err = CreatePack("test", 0, 10, d, d, 1); err == nil {
+	if _, err = CreatePack("test", 0, 10, d, d); err == nil {
 		t.Error("CreatePack did not return error with failed manifest parsing")
 	}
 
@@ -936,7 +936,7 @@ func TestCreatePackErrorPaths(t *testing.T) {
 		t.Fatalf("could not write test to manifest: %s", err)
 	}
 
-	if _, err := CreatePack("testto", 10, 20, d, d, 1); err == nil {
+	if _, err := CreatePack("testto", 10, 20, d, d); err == nil {
 		t.Error("CreatePack did not return error with failed from manifest parsing")
 	}
 }

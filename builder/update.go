@@ -170,10 +170,32 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	}
 
 	if !params.SkipPacks {
-		timer.Start("CREATE ZERO PACKS")
-		bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
-		for _, bundle := range mom.Files {
-			// TODO: Evaluate if it's worth using goroutines.
+		if err = b.createZeroPack(timer, mom.Files, outputDir); err != nil {
+			return err
+		}
+	} else {
+		fmt.Println("\n=> CREATE ZERO PACKS - skipped")
+	}
+
+	return nil
+}
+
+func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, outputDir string) error {
+	timer.Start("CREATE ZERO PACKS")
+	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
+
+	var err error
+	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
+	bundleChan := make(chan *swupd.File)
+	errorChan := make(chan error, b.NumDeltaWorkers)
+	defer close(errorChan)
+
+	var wg sync.WaitGroup
+
+	// Define the worker
+	zeroPackWorker := func() {
+		defer wg.Done()
+		for bundle := range bundleChan {
 			name := bundle.Name
 			version := bundle.Version
 			packPath := filepath.Join(outputDir, fmt.Sprint(version), swupd.GetPackFilename(name, 0))
@@ -183,15 +205,16 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 				continue
 			}
 			if !os.IsNotExist(err) {
-				return errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+				errorChan <- errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+				break
 			}
 
 			fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
-
 			var info *swupd.PackInfo
 			info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir)
 			if err != nil {
-				return errors.Wrapf(err, "couldn't make pack for bundle %q", name)
+				errorChan <- errors.Wrapf(err, "couldn't make pack for bundle %q", name)
+				break
 			}
 			if len(info.Warnings) > 0 {
 				fmt.Println("Warnings during pack:")
@@ -200,15 +223,34 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 				}
 				fmt.Println()
 			}
-			fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
-			fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
+			fmt.Printf("Fullfiles in pack %s: %d\n", name, info.FullfileCount)
+			fmt.Printf("Deltas in pack %s: %d\n", name, info.DeltaCount)
 		}
-		timer.Stop()
-	} else {
-		fmt.Println("\n=> CREATE ZERO PACKS - skipped")
 	}
 
-	return nil
+	// Call the worker
+	for i := 0; i < b.NumDeltaWorkers; i++ {
+		wg.Add(1)
+		go zeroPackWorker()
+	}
+
+	// Create feed for the worker
+	for _, bundle := range bundles {
+		select {
+		case bundleChan <- bundle:
+		case err = <-errorChan:
+			break // break as soon as a failure in encountered
+		}
+	}
+	close(bundleChan)
+	wg.Wait()
+
+	if err == nil && len(errorChan) > 0 {
+		err = <-errorChan
+	}
+
+	timer.Stop()
+	return err
 }
 
 // createCompressedArchive will use tar and xz to create a compressed

@@ -124,7 +124,7 @@ func main() {
 
 		fmt.Printf("Packing %s from %d to %d...\n", b.Name, b.FromVersion, b.ToVersion)
 
-		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, filepath.Join(stateDir, "www"), chrootDir, 0)
+		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, filepath.Join(stateDir, "www"), chrootDir)
 		if err != nil {
 			log.Fatal(err)
 		}

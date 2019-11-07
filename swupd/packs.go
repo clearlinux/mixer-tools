@@ -116,9 +116,8 @@ func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, b
 // WritePack writes the pack between two Manifests, or a zero pack if fromManifest is
 // nil. The toManifest should always be non nil. The outputDir is used to pick deltas and
 // fullfiles. If not empty, chrootDir is tried first as a fast alternative to
-// decompressing the fullfiles. Multiple workers are used to parallelize delta creation.
-// If number of workers is zero or less, 1 worker is used.
-func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string, numWorkers int) (info *PackInfo, err error) {
+// decompressing the fullfiles.
+func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chrootDir string) (info *PackInfo, err error) {
 	if toManifest == nil {
 		return nil, fmt.Errorf("need a valid toManifest")
 	}
@@ -514,9 +513,7 @@ func FindBundlesToPack(from *Manifest, to *Manifest) (map[string]*BundleToPack, 
 // CreatePack creates the pack file for a specific bundle between two versions. The pack is written
 // in the TO version subdirectory of outputDir (e.g. a pack from 10 to 20 is written to "www/20").
 // Empty packs will lead to not creating the pack.
-// Multiple workers are used to parallelize delta creation. If number of workers is zero or
-// less, 1 worker is used.
-func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string, numWorkers int) (*PackInfo, error) {
+func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir string) (*PackInfo, error) {
 	toDir := filepath.Join(outputDir, fmt.Sprint(toVersion))
 	toM, err := ParseManifestFile(filepath.Join(toDir, "Manifest."+name))
 	if err != nil {
@@ -536,7 +533,7 @@ func CreatePack(name string, fromVersion, toVersion uint32, outputDir, chrootDir
 	if err != nil {
 		return nil, err
 	}
-	info, err := WritePack(output, fromM, toM, outputDir, chrootDir, numWorkers)
+	info, err := WritePack(output, fromM, toM, outputDir, chrootDir)
 	if err != nil {
 		_ = output.Close()
 		_ = os.RemoveAll(packPath)

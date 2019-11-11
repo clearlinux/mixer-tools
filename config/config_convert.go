@@ -88,9 +88,23 @@ func (config *MixConfig) parseVersionAndConvert() error {
 	return config.convertCurrent()
 }
 
-func (config *MixConfig) convertCurrent() error {
+func (config *MixConfig) resetValuesForFile() error {
+	//reset values for all properties but preserve the file location.
+	filename := config.filename
+
 	// Load default values for new properties
 	if err := config.LoadDefaults(); err != nil {
+		return err
+	}
+
+	config.filename = filename
+
+	return nil
+}
+
+func (config *MixConfig) convertCurrent() error {
+	// Load default values for new properties
+	if err := config.resetValuesForFile(); err != nil {
 		return err
 	}
 
@@ -107,7 +121,7 @@ func (config *MixConfig) convertCurrent() error {
 
 func (config *MixConfig) convertLegacy() error {
 	// Load default values for new properties
-	if err := config.LoadDefaults(); err != nil {
+	if err := config.resetValuesForFile(); err != nil {
 		return err
 	}
 

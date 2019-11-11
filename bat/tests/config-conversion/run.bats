@@ -25,6 +25,13 @@ setup() {
 
 }
 
+@test "Convert custom path" {
+  cp configs/1.0_builder.conf configs/custom_builder.conf
+  sed -i "s:/home/clr/mix:$PWD:g" configs/custom_builder.conf
+
+  mixer init --config configs/custom_builder.conf > /dev/null
+}
+
 @test "Test format transfer" {
   mixer init > /dev/null
 

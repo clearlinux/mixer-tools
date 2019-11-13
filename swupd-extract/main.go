@@ -22,7 +22,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/clearlinux/mixer-tools/internal/client"
+	"github.com/clearlinux/mixer-tools/library/client"
 	"github.com/clearlinux/mixer-tools/swupd"
 )
 

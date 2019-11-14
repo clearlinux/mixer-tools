@@ -1,3 +1,0 @@
-ister-config
-============
-This test case tests the usage of ister config file during 'mixer build image'.

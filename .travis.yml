@@ -24,7 +24,7 @@ env:
     - TEST_DIR=create-mix-with-custom-content
     - TEST_DIR=create-mix-with-upstream-bundles
     - TEST_DIR=customize-os-release
-    - TEST_DIR=ister-config
+    - TEST_DIR=clr-installer-config
     - TEST_DIR=manual-format-bump-flow
     - TEST_DIR=manual-upstream-format-bump-flow
     - TEST_DIR=mixin-repo-commands

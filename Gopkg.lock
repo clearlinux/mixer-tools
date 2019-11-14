@@ -49,6 +49,14 @@
   revision = "298182f68c66c05229eb03ac171abe6e309ee79a"
   version = "v1.0.3"
 
+[[projects]]
+  digest = "1:16c45073e621eb4261d14740daeaf985e53657ebb40b14fc56499c23e876f84a"
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  pruneopts = ""
+  revision = "f90ceb4f409096b60e2e9076b38b304b8246e5fa"
+  version = "v2.2.5"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -57,7 +65,7 @@
     "github.com/go-ini/ini",
     "github.com/pkg/errors",
     "github.com/spf13/cobra",
-    "github.com/spf13/pflag",
+    "gopkg.in/yaml.v2",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

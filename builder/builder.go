@@ -17,7 +17,6 @@ package builder
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -26,7 +25,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"sync"
+
+	"gopkg.in/yaml.v2"
 
 	"github.com/clearlinux/mixer-tools/config"
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -404,8 +407,8 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	return nil
 }
 
-const imageTemplate = "release-image-config.json"
-const isterConfigDir = "/usr/share/defaults/ister"
+const clrInstallerConfigDir = "/usr/share/clr-installer/mixer"
+const imageTemplate = "release-image-config.yaml"
 
 // BuildImage will now proceed to build the full image with the previously
 // validated configuration.
@@ -419,11 +422,11 @@ func (b *Builder) BuildImage(format string, template string) error {
 	if template == "" {
 		template = imageTemplate
 		// If the default image template is not present in the mix workspace,
-		// copy it from the default ister config directory and update the bundle list based on mix bundles
+		// copy it from the default clr-installer config directory and update the bundle list based on mix bundles
 		templateFile := filepath.Join(b.Config.Builder.VersionPath, template)
 		if _, err := os.Stat(templateFile); os.IsNotExist(err) {
 			fmt.Printf("Warning: Image template %s not found\n", templateFile)
-			configFile := filepath.Join(isterConfigDir, template)
+			configFile := filepath.Join(clrInstallerConfigDir, template)
 			fmt.Printf("Copying image template from %s\n", configFile)
 			if err = b.copyImageTemplate(configFile, templateFile); err != nil {
 				return err
@@ -433,29 +436,23 @@ func (b *Builder) BuildImage(format string, template string) error {
 		}
 	}
 
-	// swupd (client) called by itser will need a temporary directory to act as its stage dir.
-	wd, _ := os.Getwd()
-	tempStage, err := ioutil.TempDir(wd, "ister-swupd-client-")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = os.RemoveAll(tempStage)
-	}()
-
+	logFile := filepath.Join(b.Config.Builder.VersionPath,
+		strings.Replace(template, ".yaml", ".log", 1))
 	content := "file://" + b.Config.Builder.ServerStateDir + "/www"
-	imagecmd := exec.Command("ister.py", "-S", tempStage, "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Config.Builder.Cert)
+	imagecmd := exec.Command("clr-installer", "-c", template, "--swupd-versionurl",
+		content, "--swupd-contenturl", content, "--swupd-format", format,
+		"--swupd-cert", b.Config.Builder.Cert, "--log-file", logFile)
 	imagecmd.Stdout = os.Stdout
 	imagecmd.Stderr = os.Stderr
 
 	return imagecmd.Run()
 }
 
-// copyImageTemplate will copy the image template from the default ister config directory
+// copyImageTemplate will copy the image template from the default clr-installer config directory
 // and update the image bundle list based on mix bundles.
 // If there is an error updating the image bundle list, the default bundle list will be used.
 func (b *Builder) copyImageTemplate(configFile, templateFile string) error {
-	// Read ister template
+	// Read clr-installer template
 	configValues, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return err
@@ -468,7 +465,7 @@ func (b *Builder) copyImageTemplate(configFile, templateFile string) error {
 			bundles = append(bundles, bundle.Name)
 		}
 		if err = updateImageBundles(&configValues, bundles); err != nil {
-			return errors.Wrap(err, "Failed to copy image template. Invalid JSON format")
+			return errors.Wrap(err, "Failed to copy image template. Invalid YAML format")
 		}
 	} else {
 		fmt.Printf("Warning: Failed to read %s. Using default bundle list instead\n", b.MixBundlesFile)
@@ -480,12 +477,35 @@ func (b *Builder) copyImageTemplate(configFile, templateFile string) error {
 // updateImageBundles will update the image bundle list based on the mix bundles.
 func updateImageBundles(configValues *[]byte, bundles []string) error {
 	var data map[string]interface{}
-	err := json.Unmarshal(*configValues, &data)
+	err := yaml.Unmarshal(*configValues, &data)
 	if err != nil {
 		return err
 	}
-	data["Bundles"] = bundles
-	*configValues, err = json.MarshalIndent(data, "", " ")
+	var confBundles []string
+	var kernelBundles []string
+	for _, bundle := range bundles {
+		if strings.HasPrefix(bundle, "kernel-") {
+			kernelBundles = append(kernelBundles, bundle)
+			continue
+		}
+		confBundles = append(confBundles, bundle)
+	}
+	data["bundles"] = confBundles
+	// Sort the kernels as we want one that had the CDROM loadable
+	// kernel modules by default: native or LTS
+	sort.Sort(sort.Reverse(sort.StringSlice(kernelBundles)))
+	var foundKernel bool
+	for _, bundle := range kernelBundles {
+		// Only use the first kernel bundle
+		if !foundKernel {
+			foundKernel = true
+			data["kernel"] = bundle
+		} else {
+			fmt.Printf("Warning: Ignoring extra kernel bundle '%s' in YAML file; '%s' already in use.\n", bundle, data["kernel"])
+		}
+		continue
+	}
+	*configValues, err = yaml.Marshal(data)
 	return err
 }
 

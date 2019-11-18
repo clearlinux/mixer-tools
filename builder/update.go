@@ -197,23 +197,27 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 		defer wg.Done()
 		for bundle := range bundleChan {
 			name := bundle.Name
-			version := bundle.Version
-			packPath := filepath.Join(outputDir, fmt.Sprint(version), swupd.GetPackFilename(name, 0))
+			version := fmt.Sprint(bundle.Version)
+			packPath := filepath.Join(outputDir, version, swupd.GetPackFilename(name, 0))
 			_, err = os.Lstat(packPath)
 			if err == nil {
-				fmt.Printf("Zero pack already exists for %s to version %d\n", name, version)
+				fmt.Printf("Zero pack %s already exists for version %s\n", name, version)
 				continue
 			}
 			if !os.IsNotExist(err) {
-				errorChan <- errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+				err = errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
+				fmt.Println(err)
+				errorChan <- err
 				break
 			}
 
-			fmt.Printf("Creating zero pack for %s to version %d\n", name, version)
+			fmt.Printf("Creating zero pack %s for version %s\n", name, version)
 			var info *swupd.PackInfo
-			info, err = swupd.CreatePack(name, 0, version, outputDir, bundleDir)
+			info, err = swupd.CreatePack(name, 0, bundle.Version, outputDir, bundleDir)
 			if err != nil {
-				errorChan <- errors.Wrapf(err, "couldn't make pack for bundle %q", name)
+				err = errors.Wrapf(err, "couldn't make pack %s for version %s", name, version)
+				fmt.Println(err)
+				errorChan <- err
 				break
 			}
 			if len(info.Warnings) > 0 {

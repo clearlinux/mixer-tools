@@ -552,12 +552,12 @@ func extractRpm(baseDir string, rpm string) error {
 
 	err = rpm2Cmd.Run()
 	if err != nil {
-		return fmt.Errorf("rpm2archive cmd failed with %v", err.Error())
+		return fmt.Errorf("rpm2archive cmd failed for %s with %s", file, err.Error())
 	}
 
 	err = tarCmd.Run()
 	if err != nil {
-		return fmt.Errorf("tarCmd failed with %v", err)
+		return fmt.Errorf("tarCmd failed for %s with %s", rpmTar, err.Error())
 	}
 
 	err = os.Remove(dir + rpmTar)
@@ -641,7 +641,6 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 		select {
 		case rpmCh <- rpmFull:
 		case errCh = <-errorCh:
-			fmt.Println("extraction failed for ", rpm)
 			break
 		}
 		if errCh != nil {

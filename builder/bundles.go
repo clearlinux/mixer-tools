@@ -519,18 +519,21 @@ func downloadRpm(packagerCmd []string, rpmList []string, baseDir string, downloa
 	// Retry RPM downloads to avoid timeout failures due to slow network
 	_, err := downloadRpms(packagerCmd, rpmList, baseDir, downloadRetries)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 	path := baseDir + rpmDir
 
-	fullRpmPath, err := filepath.Glob(filepath.Join(path, "clear-*"))
+	fp := filepath.Join(path, "clear-*")
+	fullRpmPath, err := filepath.Glob(fp)
 	if err != nil {
-		fmt.Print("cant find path to rpm")
 		return "", err
 	}
-	if len(fullRpmPath) < 0 {
-		return "", fmt.Errorf("cant find rpms packages")
+
+	// Check length because Glob() does not return I/O errors
+	if len(fullRpmPath) <= 0 {
+		return "", errors.Errorf("Can't find rpm path %s", fp)
 	}
+
 	fullRpmPath[0] = fullRpmPath[0] + "/packages"
 
 	return fullRpmPath[0], nil

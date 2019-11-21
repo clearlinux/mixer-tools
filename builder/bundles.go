@@ -662,6 +662,9 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 		rpmFull := filepath.Join(localPath, rpm)
 		if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
 			rpmFull = filepath.Join(rpmPath, rpm)
+			if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
+				return fmt.Errorf("rpm not found: %s ", rpmFull)
+			}
 		}
 		rpmMap[rpm] = true
 		select {

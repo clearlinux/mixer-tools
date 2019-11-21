@@ -312,9 +312,27 @@ func repoPkgFromNoopInstall(installOut string) (repoPkgMap, repoRpmMap) {
 	return repoPkgs, repoRpmMap
 }
 
+func queryRpmName(packageCmd []string, pkgName string) string {
+	queryStringRpm := merge(
+		packageCmd,
+		"repoquery",
+		"--location",
+		"--repo",
+		"local",
+	)
+	queryStringRpm = append(queryStringRpm, pkgName)
+	outBuf, _ := helpers.RunCommandOutputEnv(queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
+	if outBuf.String() != "" {
+		rpm := strings.Split(outBuf.String(), "\n")
+		_, rpmName := filepath.Split(rpm[0])
+		return rpmName
+	}
+	return ""
+}
+
 var fileSystemRpm string
 
-func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) *sync.Map {
+func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string, localPath string) *sync.Map {
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
 	wg.Add(numWorkers)
@@ -346,13 +364,18 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			for _, pkgs := range fullRpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {
-					name := pkg.name + "-" + pkg.version + "." + pkg.arch + ".rpm"
+					rpmName := pkg.name + "-" + pkg.version + "." + pkg.arch + ".rpm"
+					if pkg.repo == "local" {
+						if _, err := os.Stat(filepath.Join(localPath, rpmName)); os.IsNotExist(err) {
+							rpmName = queryRpmName(packagerCmd, pkg.name)
+						}
+					}
 					bundle.AllPackages[pkg.name] = true
-					bundle.AllRpmPackages[name] = true
+					bundle.AllRpmPackages[rpmName] = true
 					// to find the fullName of filesystem rpm, as filesystem needs to be extracted first
 					if bundle.Name == "os-core" {
 						if pkg.name == "filesystem" {
-							fileSystemRpm = name
+							fileSystemRpm = rpmName
 						}
 					}
 				}
@@ -863,7 +886,7 @@ src=%s
 	}()
 
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
-	bundleRepoPkgs := resolvePackages(numWorkers, set, packagerCmd, emptyDir)
+	bundleRepoPkgs := resolvePackages(numWorkers, set, packagerCmd, emptyDir, b.Config.Mixer.LocalRepoDir)
 
 	err = resolveFiles(numWorkers, set, bundleRepoPkgs, packagerCmd)
 	if err != nil {

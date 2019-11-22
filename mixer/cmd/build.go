@@ -773,7 +773,7 @@ func init() {
 		"xz",
 	}
 	externalDeps[buildImageCmd] = []string{
-		"ister.py",
+		"clr-installer",
 	}
 	externalDeps[buildAllCmd] = append(
 		externalDeps[buildBundlesCmd],

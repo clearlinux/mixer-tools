@@ -17,7 +17,6 @@ package builder
 import (
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -26,6 +25,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/clearlinux/mixer-tools/config"
@@ -404,89 +404,114 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	return nil
 }
 
-const imageTemplate = "release-image-config.json"
-const isterConfigDir = "/usr/share/defaults/ister"
+const migrationConfig = "release-image-config.json"
+const buildConfig = "release-image-config.yaml"
 
 // BuildImage will now proceed to build the full image with the previously
 // validated configuration.
-func (b *Builder) BuildImage(format string, template string) error {
+func (b *Builder) BuildImage(format string, configFile string) error {
 	// If the user did not pass in a format, default to builder.conf
 	if format == "" {
 		format = b.State.Mix.Format
 	}
 
-	// If the user did not pass in a template, use the default template
-	if template == "" {
-		template = imageTemplate
-		// If the default image template is not present in the mix workspace,
-		// copy it from the default ister config directory and update the bundle list based on mix bundles
-		templateFile := filepath.Join(b.Config.Builder.VersionPath, template)
-		if _, err := os.Stat(templateFile); os.IsNotExist(err) {
-			fmt.Printf("Warning: Image template %s not found\n", templateFile)
-			configFile := filepath.Join(isterConfigDir, template)
-			fmt.Printf("Copying image template from %s\n", configFile)
-			if err = b.copyImageTemplate(configFile, templateFile); err != nil {
+	// If the user did not pass in a configFile, use the default configFile
+	if configFile == "" {
+		configFile = filepath.Join(b.Config.Builder.VersionPath, buildConfig)
+		migrationFile := filepath.Join(b.Config.Builder.VersionPath, migrationConfig)
+
+		// If the default configFile is not present in the mix workspace
+		if _, err := os.Stat(configFile); os.IsNotExist(err) {
+			// If old default JSON !exists
+			if _, err := os.Stat(migrationFile); os.IsNotExist(err) {
+				// create default YAML with clr-installer tool updating the bundle list based on mix bundles
+				fmt.Printf("Warning: Image configuration file %s not found; generating\n", buildConfig)
+				if err = b.generateImageConfig(configFile); err != nil {
+					return err
+				}
+			} else if err != nil {
 				return err
+			} else {
+				// The previous ister.py configuration file exist,
+				// we need to migrate it to clr-installer YAML
+				fmt.Printf("Warning: Previous generation image config %s found\n", migrationFile)
+				if err = b.migrateConfigFile(migrationFile, configFile); err != nil {
+					return err
+				}
 			}
 		} else if err != nil {
 			return err
 		}
+
+		// If the legacy JSON file exists, rename the old file to prevent migration
+		// each time we build and discourage the user from using the old JSON file.
+		if _, err := os.Stat(migrationFile); os.IsNotExist(err) {
+		} else if err != nil {
+			return err
+		} else {
+			renameFile := migrationFile + "-EOL"
+			fmt.Printf("Info: Renaming previous generation config %s to %s\n", migrationFile, renameFile)
+			if mvErr := os.Rename(migrationFile, renameFile); mvErr != nil {
+				fmt.Printf("Warning: Failed to rename %s: %v\n", migrationFile, mvErr)
+			}
+		}
+	} else {
+		if !strings.HasSuffix(configFile, "yaml") {
+			return fmt.Errorf("build configuration file '%s' must end in .yaml", configFile)
+		}
 	}
 
-	// swupd (client) called by itser will need a temporary directory to act as its stage dir.
-	wd, _ := os.Getwd()
-	tempStage, err := ioutil.TempDir(wd, "ister-swupd-client-")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = os.RemoveAll(tempStage)
-	}()
-
+	clrLogFile := strings.Replace(configFile, ".yaml", ".log", 1)
 	content := "file://" + b.Config.Builder.ServerStateDir + "/www"
-	imagecmd := exec.Command("ister.py", "-S", tempStage, "-t", template, "-V", content, "-C", content, "-f", format, "-s", b.Config.Builder.Cert)
+	imagecmd := exec.Command("clr-installer", "-c", configFile, "--swupd-versionurl",
+		content, "--swupd-contenturl", content, "--swupd-format", format,
+		"--swupd-cert", b.Config.Builder.Cert, "--log-file", clrLogFile)
 	imagecmd.Stdout = os.Stdout
 	imagecmd.Stderr = os.Stderr
 
 	return imagecmd.Run()
 }
 
-// copyImageTemplate will copy the image template from the default ister config directory
+// migrateConfigFile will generate a clr-install YAML file based on the existing
+// ister JSON file. We will also rename the existing ister JSON to prevent it
+// from being migrated a second time.
+func (b *Builder) migrateConfigFile(migrationFile, configFile string) error {
+	fmt.Printf("Migrating image config from %s to %s\n", migrationConfig, buildConfig)
+
+	convertCmd := exec.Command("clr-installer", "--json-yaml", migrationFile, "--iso", "--keep-image")
+	convertCmd.Stdout = os.Stdout
+	convertCmd.Stderr = os.Stderr
+
+	return convertCmd.Run()
+}
+
+// generateImageConfig will create the image template using the clr-installer tool
 // and update the image bundle list based on mix bundles.
 // If there is an error updating the image bundle list, the default bundle list will be used.
-func (b *Builder) copyImageTemplate(configFile, templateFile string) error {
-	// Read ister template
-	configValues, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		return err
-	}
+func (b *Builder) generateImageConfig(configFile string) error {
 	fmt.Printf("Updating image bundle list based on %s\n", b.MixBundlesFile)
-	mixBundles, err := b.getMixBundlesListAsSet() // returns empty set with no error if mix bundles file is not present
-	if err == nil && len(mixBundles) > 0 {        // check if set is not empty
-		var bundles []string
+
+	var cmdOpts []string
+	var bundles []string
+
+	cmdOpts = append(cmdOpts, "--template", configFile) // set the output filename
+	cmdOpts = append(cmdOpts, "--iso")                  // enable ISO generation
+	cmdOpts = append(cmdOpts, "--keep-image")           // keep the raw image file too
+	mixBundles, err := b.getMixBundlesListAsSet()       // returns empty set with no error if mix bundles file is not present
+	if err == nil && len(mixBundles) > 0 {              // check if set is not empty
 		for _, bundle := range mixBundles {
 			bundles = append(bundles, bundle.Name)
 		}
-		if err = updateImageBundles(&configValues, bundles); err != nil {
-			return errors.Wrap(err, "Failed to copy image template. Invalid JSON format")
-		}
+		cmdOpts = append(cmdOpts, "--bundles", strings.Join(bundles, ",")) // Add mix bundles
 	} else {
 		fmt.Printf("Warning: Failed to read %s. Using default bundle list instead\n", b.MixBundlesFile)
 	}
 
-	return ioutil.WriteFile(templateFile, configValues, 0644)
-}
+	convertCmd := exec.Command("clr-installer", cmdOpts...)
+	convertCmd.Stdout = os.Stdout
+	convertCmd.Stderr = os.Stderr
 
-// updateImageBundles will update the image bundle list based on the mix bundles.
-func updateImageBundles(configValues *[]byte, bundles []string) error {
-	var data map[string]interface{}
-	err := json.Unmarshal(*configValues, &data)
-	if err != nil {
-		return err
-	}
-	data["Bundles"] = bundles
-	*configValues, err = json.MarshalIndent(data, "", " ")
-	return err
+	return convertCmd.Run()
 }
 
 // BuildDeltaPacks between two versions of the mix.

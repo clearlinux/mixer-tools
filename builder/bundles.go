@@ -416,12 +416,10 @@ func installFilesystem(chrootDir string, localPath string, packagerCmd []string,
 			}
 			rpmFull = filepath.Join(rpmPath, fileSystemRpm)
 			if _, err = os.Stat(rpmFull); err != nil {
-				fmt.Println("rpm not found: ", rpmFull)
-				return err
+				return fmt.Errorf("rpm not found: %s", rpmFull)
 			}
 		} else {
-			fmt.Println("rpm not found: ", rpmFull)
-			return err
+			return fmt.Errorf("rpm not found: %s", rpmFull)
 		}
 	}
 
@@ -663,7 +661,7 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 		if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
 			rpmFull = filepath.Join(rpmPath, rpm)
 			if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
-				return fmt.Errorf("rpm not found: %s ", rpmFull)
+				return fmt.Errorf("rpm not found: %s", rpmFull)
 			}
 		}
 		rpmMap[rpm] = true

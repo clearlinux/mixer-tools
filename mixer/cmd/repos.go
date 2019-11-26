@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
@@ -113,12 +114,18 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-
-	err = b.AddRepo(args[0], args[1])
+	u, err := url.Parse(args[1])
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Added %s repo at %s url.\n", args[0], args[1])
+	if u.Scheme == "" {
+		u.Scheme = "file"
+	}
+	err = b.AddRepo(args[0], u.String())
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Added %s repo at %s url.\n", args[0], u.String())
 }
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {
@@ -164,9 +171,18 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	err = b.SetURLRepo(args[0], args[1])
+	u, err := url.Parse(args[1])
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Set %s baseurl to %s.\n", args[0], args[1])
+	if u.Scheme == "" {
+		u.Scheme = "file"
+	}
+
+	err = b.SetURLRepo(args[0], u.String())
+	if err != nil {
+		fail(err)
+	}
+
+	fmt.Printf("Set %s baseurl to %s.\n", args[0], u.String())
 }

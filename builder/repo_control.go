@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +33,11 @@ import (
 
 type dnfRepoConf struct {
 	RepoName, RepoURL string
+}
+
+type repoInfo struct {
+	cacheDir  string
+	urlScheme string
 }
 
 const dnfConfRepoTemplate = `
@@ -306,18 +312,39 @@ func (b *Builder) ListRepos() error {
 		return errors.Wrap(err, "unable to load DNF configration, try initializing workspace")
 	}
 
+	b.repos = make(map[string]repoInfo)
+
 	for _, s := range DNFConf.Sections() {
+		var repo repoInfo
 		name := s.Name()
 		if name == "" {
 			continue
 		}
 
-		url := s.Key("baseurl").Value()
-		if url == "" {
+		u := s.Key("baseurl").Value()
+		if u == "" {
 			continue
 		}
 
-		fmt.Printf("%s\t%s\n", name, url)
+		pURL, err := url.Parse(u)
+		if err != nil {
+			return err
+		}
+		if pURL.Scheme == "" {
+			pURL.Scheme = "file"
+		}
+
+		fmt.Printf("%s\t%s\n", name, pURL.String())
+
+		repo.urlScheme = pURL.Scheme
+		if pURL.Scheme == "file" {
+			pURL.Scheme = ""
+			repo.cacheDir = pURL.String()
+		} else {
+			repo.cacheDir = dnfDownloadDir
+		}
+
+		b.repos[name] = repo
 	}
 	return nil
 }

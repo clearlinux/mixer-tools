@@ -66,6 +66,7 @@ type Builder struct {
 	// Parsed versions.
 	MixVerUint32      uint32
 	UpstreamVerUint32 uint32
+	repos             map[string]repoInfo
 }
 
 // UpdateParameters contains the configuration parameters for building an update

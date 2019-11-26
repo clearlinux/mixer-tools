@@ -31,7 +31,7 @@ type bundle struct {
 	Files map[string]bool
 
 	/* hidden property, not to be included in file usr/share/clear/allbundles */
-	AllRpmPackages map[string]bool `json:"-"`
+	AllRpms map[string]packageMetadata `json:"-"`
 }
 
 type bundleSet map[string]*bundle

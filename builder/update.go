@@ -184,7 +184,6 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 	timer.Start("CREATE ZERO PACKS")
 	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
 
-	var err error
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	bundleChan := make(chan *swupd.File)
 	errorChan := make(chan error, b.NumDeltaWorkers)
@@ -199,25 +198,25 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 			name := bundle.Name
 			version := fmt.Sprint(bundle.Version)
 			packPath := filepath.Join(outputDir, version, swupd.GetPackFilename(name, 0))
-			_, err = os.Lstat(packPath)
-			if err == nil {
+			_, zErr := os.Lstat(packPath)
+			if zErr == nil {
 				fmt.Printf("Zero pack %s already exists for version %s\n", name, version)
 				continue
 			}
-			if !os.IsNotExist(err) {
-				err = errors.Wrapf(err, "couldn't access existing pack file %s", packPath)
-				fmt.Println(err)
-				errorChan <- err
+			if !os.IsNotExist(zErr) {
+				zErr = errors.Wrapf(zErr, "couldn't access existing pack file %s", packPath)
+				fmt.Println(zErr)
+				errorChan <- zErr
 				break
 			}
 
 			fmt.Printf("Creating zero pack %s for version %s\n", name, version)
 			var info *swupd.PackInfo
-			info, err = swupd.CreatePack(name, 0, bundle.Version, outputDir, bundleDir)
-			if err != nil {
-				err = errors.Wrapf(err, "couldn't make pack %s for version %s", name, version)
-				fmt.Println(err)
-				errorChan <- err
+			info, zErr = swupd.CreatePack(name, 0, bundle.Version, outputDir, bundleDir)
+			if zErr != nil {
+				zErr = errors.Wrapf(zErr, "couldn't make pack %s for version %s", name, version)
+				fmt.Println(zErr)
+				errorChan <- zErr
 				break
 			}
 			if len(info.Warnings) > 0 {
@@ -238,6 +237,7 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 		go zeroPackWorker()
 	}
 
+	var err error
 	// Create feed for the worker
 	for _, bundle := range bundles {
 		select {

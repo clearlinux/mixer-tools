@@ -95,7 +95,8 @@ type fileInfo struct {
 	user  string
 	group string
 
-	pkg string
+	hashLen int
+	pkg     string
 }
 
 // CheckManifestCorrectness validates that the changes in manifest files between
@@ -399,14 +400,15 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 		path = resolveFileName(path)
 
 		pkgFile := &fileInfo{
-			name:  path,
-			size:  fileMetadata[1],
-			hash:  fileMetadata[2],
-			modes: fileMetadata[3],
-			links: fileMetadata[4],
-			user:  fileMetadata[5],
-			group: fileMetadata[6],
-			pkg:   pkg.name,
+			name:    path,
+			size:    fileMetadata[1],
+			hash:    fileMetadata[2],
+			modes:   fileMetadata[3],
+			links:   fileMetadata[4],
+			user:    fileMetadata[5],
+			group:   fileMetadata[6],
+			hashLen: len(fileMetadata[2]),
+			pkg:     pkg.name,
 		}
 		pkgFiles = append(pkgFiles, pkgFile)
 	}
@@ -556,8 +558,11 @@ func diffMcaInfo(fromInfo, toInfo map[string]*mcaBundleInfo) (*mcaDiffResults, e
 // diffBundles calculates resolved package file, package, and manifest file
 // diffs between two versions and updates package file statistics.
 func (bundleDiff *mcaBundleDiff) diffBundles(bundle string, fromInfo, toInfo map[string]*mcaBundleInfo) error {
+	// File changes caused by the md5 to sha256 hash calc transition are skipped
+	skipMap := getSkippedFiles(fromInfo[bundle].subPkgFiles, toInfo[bundle].subPkgFiles)
+
 	// Diff package files
-	diffList := getFileDiffLists(fromInfo[bundle].subPkgFiles, toInfo[bundle].subPkgFiles)
+	diffList := getFileDiffLists(fromInfo[bundle].subPkgFiles, toInfo[bundle].subPkgFiles, skipMap)
 	bundleDiff.pkgFileDiffs = diffList
 
 	// For every added, modified, or deleted file, update package file statistics
@@ -579,7 +584,7 @@ func (bundleDiff *mcaBundleDiff) diffBundles(bundle string, fromInfo, toInfo map
 	bundleDiff.pkgDiffs = diffList
 
 	// diff manifest files
-	isMinversion, diffList := getManFileDiffLists(fromInfo[bundle].manFiles, toInfo[bundle].manFiles)
+	isMinversion, diffList := getManFileDiffLists(fromInfo[bundle].manFiles, toInfo[bundle].manFiles, skipMap)
 	bundleDiff.manFileDiffs = diffList
 
 	// When there is a file change, the bundle is modified
@@ -590,6 +595,35 @@ func (bundleDiff *mcaBundleDiff) diffBundles(bundle string, fromInfo, toInfo map
 	}
 
 	return nil
+}
+
+// getSkippedFiles returns a map of files to skip for the MCA check. rpm 4.12 used
+// md5 file hashes by default and rpm 4.14 switched the default to sha256. As a result,
+// in build 31680, rpms started to use sha256 hashes instead of md5. Since MCA assumes
+// that hash changes indicate content changes, rpm comparisons with different hash types
+// are not possible without expanding the scope of MCA to verify content hashes.
+func getSkippedFiles(fromFiles, toFiles map[string]*fileInfo) map[string]bool {
+	skipMap := make(map[string]bool)
+	for fName, toFile := range toFiles {
+		// The os-release file is expected to change every build, so a change caused
+		// by a different hashing algorithm will not cause an MCA error.
+		if fName == "/usr/lib/os-release" {
+			continue
+		}
+
+		// Flag comparisons between md5 hashes (len == 32) and sha256 hashes (len == 64),
+		// so they can be skipped later. Symlinks have a hashLen of 0 and are not skipped.
+		fromFile := fromFiles[fName]
+		if fromFile != nil {
+			if (fromFile.hashLen == 32 || fromFile.hashLen == 64) &&
+				(toFile.hashLen == 32 || toFile.hashLen == 64) &&
+				fromFile.hashLen != toFile.hashLen {
+
+				skipMap[fName] = true
+			}
+		}
+	}
+	return skipMap
 }
 
 // isBundleMod returns true when a manifest diffList is changed
@@ -631,12 +665,15 @@ func (bundleDiff *mcaBundleDiff) addBundle(bundle string, toInfo map[string]*mca
 	return nil
 }
 
-func getFileDiffLists(fromFiles, toFiles map[string]*fileInfo) diffLists {
+func getFileDiffLists(fromFiles, toFiles map[string]*fileInfo, skipMap map[string]bool) diffLists {
 	addList := []string{}
 	delList := []string{}
 	modList := []string{}
 
 	for f := range toFiles {
+		if skipMap[f] {
+			continue
+		}
 		if fromFiles[f] != nil {
 			// Match
 			if isFileMod(fromFiles[f], toFiles[f]) {
@@ -683,13 +720,16 @@ func getPkgDiffLists(fromPkgs, toPkgs map[string]bool, bundleDiff *mcaBundleDiff
 	return diffLists{modList: modList, addList: addList, delList: delList}
 }
 
-func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File) (bool, diffLists) {
+func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File, skipMap map[string]bool) (bool, diffLists) {
 	addList := []string{}
 	delList := []string{}
 	modList := []string{}
 	minversion := false
 
 	for f := range toFiles {
+		if skipMap[f] {
+			continue
+		}
 		if fromFiles[f] != nil {
 			// Match
 			if isManFileMod(fromFiles[f], toFiles[f]) {

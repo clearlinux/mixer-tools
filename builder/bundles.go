@@ -139,16 +139,17 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 	addFileAndPath(bundle.Files, filesToAdd...)
 }
 
-// repoPkgMap is a map of repo names to the packages they provide
-type repoPkgMap map[string][]string
-type repoRpmMap map[string][]packageMetadata
+// repoPkgMap is a map of repo names to the package metadata they provide
+type repoPkgMap map[string][]packageMetadata
 
 func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []string) error {
 	bundle.Files = make(map[string]bool)
 
 	for repo, pkgs := range repoPkgs {
 		queryString := merge(packagerCmd, "repoquery", "-l", "--quiet", "--repo", repo)
-		queryString = append(queryString, pkgs...)
+		for _, pkg := range pkgs {
+			queryString = append(queryString, pkg.name)
+		}
 		outBuf, err := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err != nil {
 			return err
@@ -298,18 +299,16 @@ func parseNoopInstall(installOut string) ([]packageMetadata, error) {
 	return pkgs, nil
 }
 
-func repoPkgFromNoopInstall(installOut string) (repoPkgMap, repoRpmMap, error) {
+func repoPkgFromNoopInstall(installOut string) (repoPkgMap, error) {
 	repoPkgs := make(repoPkgMap)
-	repoRpmMap := make(repoRpmMap)
 	pkgs, err := parseNoopInstall(installOut)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	for _, p := range pkgs {
-		repoPkgs[p.repo] = append(repoPkgs[p.repo], p.name)
-		repoRpmMap[p.repo] = append(repoRpmMap[p.repo], p)
+		repoPkgs[p.repo] = append(repoPkgs[p.repo], p)
 	}
-	return repoPkgs, repoRpmMap, nil
+	return repoPkgs, nil
 }
 
 func queryRpmName(packageCmd []string, pkgName string, repo string) string {
@@ -338,7 +337,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
 	wg.Add(numWorkers)
 	bundleCh := make(chan *bundle)
-	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
+	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packageMetadata
 	var bundleRepoPkgs sync.Map
 	errorCh := make(chan error, numWorkers)
 
@@ -361,14 +360,14 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// error. Fortunately if this is a different error than we expect, it should
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
-			rpm, fullRpm, e := repoPkgFromNoopInstall(outBuf.String())
+			rpm, e := repoPkgFromNoopInstall(outBuf.String())
 			if !isEmptyBundle(bundle) && e != nil {
 				e = errors.Wrapf(e, bundle.Name)
 				fmt.Println(e)
 				errorCh <- e
 				break
 			}
-			for _, pkgs := range fullRpm {
+			for _, pkgs := range rpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {
 					rpmName := pkg.name + "-" + pkg.version + "." + pkg.arch + ".rpm"
@@ -910,7 +909,7 @@ src=%s
 		_ = os.RemoveAll(emptyDir)
 	}()
 
-	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
+	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packageMetadata
 	bundleRepoPkgs, err := resolvePackages(numWorkers, set, packagerCmd, emptyDir)
 	if err != nil {
 		return err

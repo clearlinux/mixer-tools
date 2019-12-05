@@ -3,11 +3,14 @@ package builder
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"text/tabwriter"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -79,9 +82,8 @@ type mcaBundlePkgInfo struct {
 
 // pkgInfo contains package metadata
 type pkgInfo struct {
-	name    string
-	version string
-	arch    string
+	name string
+	uri  string
 
 	files []*fileInfo
 }
@@ -114,6 +116,11 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, 
 	}
 
 	fmt.Printf("WARNING: Local RPMs will override upstream RPMs for both the from and to versions.\n")
+
+	// Load initial repo map
+	if err := b.ListRepos(); err != nil {
+		return err
+	}
 
 	// Get manifest file lists and subtracted RPM pkg/file lists
 	fromInfo, err := b.mcaInfo(fromVer, downloadRetries, fromRepoURLOverrides)
@@ -255,6 +262,10 @@ func (b *Builder) mcaManInfo(version int) ([]*swupd.Manifest, error) {
 // file metadata that will be used to create subtracted package/file lists.
 func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetries int, repoURLOverrides map[string]string) (map[string]*mcaBundlePkgInfo, error) {
 	var dnfConf string
+
+	// map of repositories and their URIs with resolved $releasever
+	repoURIs := make(map[string]string)
+
 	// Download RPMs from correct upstream version
 	upstreamVer, err := b.getLocalUpstreamVersion(strconv.Itoa(version))
 	if err != nil {
@@ -273,7 +284,7 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 			_ = os.Remove(path)
 		}()
 
-		err = b.WriteRepoURLOverrides(tmpConf, repoURLOverrides)
+		repoURIs, err = b.WriteRepoURLOverrides(tmpConf, repoURLOverrides)
 		if err != nil {
 			return nil, err
 		}
@@ -281,89 +292,159 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 		dnfConf = tmpConf.Name()
 	} else {
 		dnfConf = b.Config.Builder.DNFConf
+		for repo, r := range b.repos {
+			repoURIs[repo] = r.url
+		}
 	}
 
-	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "validation")
-	buildVersionDir := filepath.Join(bundleDir, fmt.Sprint(version))
-	packageDir := filepath.Join(buildVersionDir, "packages")
+	for repo, url := range repoURIs {
+		repoURIs[repo] = strings.ReplaceAll(url, "$releasever", upstreamVer)
+	}
 
 	packagerCmd := []string{
 		"dnf",
 		"-y",
 		"--config=" + dnfConf,
 		"--releasever=" + upstreamVer,
-		"--downloaddir=" + packageDir,
 	}
 
-	// Duplicate package entries can exist across bundles. Use a cache to
-	// avoid re-calculating the resolved file list for a package.
-	pkgFileCache := make(map[string][]*fileInfo)
+	set := make(bundleSet)
+	for _, m := range manifests {
+		// DirectPackages is used to populate AllPackages because AllPackages contains
+		// unnecessary packages from included bundles that would be subtracted away.
+		set[m.Name] = &bundle{
+			Name:        m.BundleInfo.Name,
+			AllPackages: m.BundleInfo.DirectPackages,
+		}
+	}
+
+	emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		_ = os.RemoveAll(emptyDir)
+	}()
+
+	// TODO: resolvePackages is a bottleneck that could be removed by updating the bundleinfo files
+	// to contain resolved packages and associate them with their repo, version, and arch.
+
+	// Resolve the package dependencies and collect the repo, version, and arch for each package
+	repoPkgs, err := resolvePackages(b.NumBundleWorkers, set, packagerCmd, emptyDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Obtain necessary package metadata by querying each rpm
+	return b.resolveBundlePkgInfos(manifests, repoPkgs, packagerCmd, repoURIs)
+}
+
+func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *sync.Map, packagerCmd []string, repoURIs map[string]string) (map[string]*mcaBundlePkgInfo, error) {
+	pkgCh := make(chan *pkgInfo, b.NumBundleWorkers)
+	errCh := make(chan error, b.NumBundleWorkers)
+	var wg sync.WaitGroup
 
 	pInfo := make(map[string]*mcaBundlePkgInfo)
 
-	// Download and query file metadata from all packages in each bundle
+	// Duplicate packages re-use the same *pkgInfo
+	pkgInfoCache := make(map[string]*pkgInfo)
+
+	pkgWorker := func() {
+		wg.Add(1)
+		defer wg.Done()
+
+		for p := range pkgCh {
+			var err error
+			p.files, err = b.resolvePkgFiles(p)
+			if err != nil {
+				errCh <- err
+			}
+		}
+	}
+	for i := 0; i < b.NumBundleWorkers; i++ {
+		go pkgWorker()
+	}
+
+	// TODO: file/package subtraction could be integrated here so that they don't need to be
+	// subtracted later.
+
+	// Query file metadata for each package in repoPkgs and update the allPkgs field for each bundle.
 	for _, m := range manifests {
-		pInfo[m.Name] = &mcaBundlePkgInfo{
+		bundlePkgInfo := &mcaBundlePkgInfo{
 			name:     m.Name,
 			allFiles: make(map[string]bool),
 			allPkgs:  make(map[string]*pkgInfo),
 		}
+		pInfo[m.Name] = bundlePkgInfo
 
-		// Skip bundles with no packages
-		if len(m.BundleInfo.AllPackages) == 0 {
-			continue
+		// repoPkgs is a map of bundles -> map of repos -> list of packageMetadata
+		repo, ok := repoPkgs.Load(m.Name)
+		if !ok {
+			return nil, errors.Errorf("Failed to load bundle %s from map", m.Name)
 		}
 
-		pkgList := []string{}
+		for repo, r := range repo.(repoPkgMap) {
+			resolveList := []packageMetadata{}
+			for _, p := range r {
+				pkg, ok := pkgInfoCache[p.name]
+				if !ok {
+					pkg = &pkgInfo{
+						name: p.name,
+					}
+					pkgInfoCache[p.name] = pkg
+					resolveList = append(resolveList, p)
+				}
+				bundlePkgInfo.allPkgs[p.name] = pkg
+			}
 
-		for pkg := range m.BundleInfo.AllPackages {
-			pkgList = append(pkgList, pkg)
-		}
+			// TODO: resolveRpmURIs is a bottleneck when all files are local. Running this function with a long
+			// list of packages is significantly faster than running many times with small lists.
 
-		out, err := downloadRpms(packagerCmd, pkgList, buildVersionDir, downloadRetries)
-		if err != nil {
-			return nil, err
-		}
+			// Resolve the URI of each new rpm
+			if err := resolveRpmURIs(resolveList, repo, repoURIs[repo], pkgInfoCache, packagerCmd); err != nil {
+				return nil, err
+			}
 
-		// Collect metadata to resolve installed RPM file names
-		pInfo[m.Name].allPkgs, err = pkgInfoFromNoopInstall(out.String())
-		if err != nil {
-			return nil, errors.Wrapf(err, m.Name)
-		}
-		for _, p := range pInfo[m.Name].allPkgs {
-			if pkgFileCache[p.name] == nil {
-				pkgFileCache[p.name], err = b.resolvePkgFiles(p, version)
-				if err != nil {
+			// Query file metadata for each new package
+			for _, p := range resolveList {
+				pkg, ok := pkgInfoCache[p.name]
+				if !ok {
+					return nil, errors.Errorf("Failed to load pkg %s from map", p.name)
+				}
+				select {
+				case pkgCh <- pkg:
+				case err := <-errCh:
 					return nil, err
 				}
 			}
-			p.files = pkgFileCache[p.name]
+		}
+	}
+	close(pkgCh)
+	wg.Wait()
 
-			// Track all resolved package files in bundle to be used later
-			// for file subtraction.
+	if len(errCh) > 0 {
+		return nil, <-errCh
+	}
+
+	// Create map of files in each bundle
+	for _, bundlePkgInfo := range pInfo {
+		for _, p := range bundlePkgInfo.allPkgs {
 			for _, f := range p.files {
-				pInfo[m.Name].allFiles[f.name] = true
+				bundlePkgInfo.allFiles[f.name] = true
 			}
 		}
 	}
 
-	return pInfo, err
+	return pInfo, nil
 }
 
 // resolvePkgFiles queries a package for a list of file metadata.
-func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error) {
+func (b *Builder) resolvePkgFiles(pkg *pkgInfo) ([]*fileInfo, error) {
 	queryCmd := "[%{filenames}\a%{filesizes}\a%{filedigests}\a%{filemodes:perms}\a%{filelinktos}\a%{fileusername}\a%{filegroupname}\n]"
 	rpmCmd := []string{"rpm", "-qp", "--qf=" + queryCmd}
 
-	validationDir := filepath.Join(b.Config.Builder.ServerStateDir, "validation")
-	buildVersionDir := filepath.Join(validationDir, fmt.Sprint(version))
-	pkgDir := filepath.Join(buildVersionDir, "packages")
-
-	pkgFileName := pkg.name + "-" + pkg.version + "." + pkg.arch + ".rpm"
-	pkgPath := filepath.Join(pkgDir, pkgFileName)
-
 	// Query RPM for file metadata lists
-	args := merge(rpmCmd, pkgPath)
+	args := merge(rpmCmd, pkg.uri)
 	out, err := helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 	if err != nil {
 		return nil, err
@@ -418,23 +499,64 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 	return pkgFiles, nil
 }
 
-// pkgInfoFromNoopInstall parses DNF install output to collect and store package metadata
-func pkgInfoFromNoopInstall(installOut string) (map[string]*pkgInfo, error) {
-	pInfo := make(map[string]*pkgInfo)
+// resolveRpmURIs resolves the rpm URIs for the pkgList and updates the pkgInfoCache
+func resolveRpmURIs(pkgList []packageMetadata, repo, baseURI string, pkgInfoCache map[string]*pkgInfo, packagerCmd []string) error {
+	if len(pkgList) == 0 {
+		return nil
+	}
 
-	// Parse DNF install output
-	pkgs, err := parseNoopInstall(installOut)
+	// Query the relative location of the rpm within the repo and the package name.
+	// The relative rpm location is appended to the baseURI to determine the uri of
+	// the rpm and the package name is used as the pkgInfoCache key to update the map.
+	queryCmd := "%{location}\a%{name}\n"
+	queryStringRpm := merge(
+		packagerCmd,
+		"repoquery",
+		"--quiet",
+		"--repo",
+		repo,
+		"--qf",
+		queryCmd,
+	)
+	for _, p := range pkgList {
+		// Use NVRA (name-version-release.arch) to avoid ambiguous results with
+		// multiple packages. The p.version field is formatted as version-release.
+		rpmName := p.name + "-" + p.version + "." + p.arch
+		queryStringRpm = append(queryStringRpm, rpmName)
+	}
+
+	outBuf, err := helpers.RunCommandOutputEnv(queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	for _, p := range pkgs {
-		pInfo[p.name] = &pkgInfo{
-			name:    p.name,
-			arch:    p.arch,
-			version: p.version,
+
+	repoURI, err := url.Parse(baseURI)
+	if err != nil {
+		return err
+	}
+
+	// Each line contains the relative location of the rpm within the repository and
+	// a key for the pkgInfoCache. These values are separated by '\a'.
+	queryLines := strings.Split(outBuf.String(), "\n")
+	for _, line := range queryLines {
+		queryResults := strings.Split(line, "\a")
+		if len(queryResults) != 2 {
+			continue
 		}
+
+		// Append the relative rpm path to repoURI
+		u := *repoURI
+		u.Path = path.Join(u.Path, queryResults[0])
+
+		key := queryResults[1]
+
+		pkg, ok := pkgInfoCache[key]
+		if !ok {
+			return errors.Errorf("%s not in pkgInfoCache", key)
+		}
+		pkg.uri = u.String()
 	}
-	return pInfo, nil
+	return nil
 }
 
 // getManFiles collects the manifest's file list

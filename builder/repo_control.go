@@ -38,6 +38,7 @@ type dnfRepoConf struct {
 type repoInfo struct {
 	cacheDir  string
 	urlScheme string
+	url       string
 }
 
 const dnfConfRepoTemplate = `
@@ -233,23 +234,28 @@ func (b *Builder) SetExcludesRepo(reponame, pkgs string) error {
 // WriteRepoURLOverrides writes a copy of the DNF conf file
 // with overridden baseurl values for the specified repos to
 // a tmp config file.
-func (b *Builder) WriteRepoURLOverrides(tmpConf *os.File, repoURLs map[string]string) error {
+func (b *Builder) WriteRepoURLOverrides(tmpConf *os.File, repoOverrideURLs map[string]string) (map[string]string, error) {
 	if err := b.NewDNFConfIfNeeded(); err != nil {
-		return err
+		return nil, err
 	}
 
 	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for repo, url := range repoURLs {
+	repoURLs := make(map[string]string)
+	for repo, r := range b.repos {
+		repoURLs[repo] = r.url
+	}
+
+	for repo, url := range repoOverrideURLs {
 		s, err := DNFConf.GetSection(repo)
 		if err != nil {
 			// No existing repo, add new section for repo/baseurl pair
 			s, err = DNFConf.NewSection(repo)
 			if err != nil {
-				return err
+				return nil, err
 			}
 
 			repoSettings := map[string]string{
@@ -262,21 +268,25 @@ func (b *Builder) WriteRepoURLOverrides(tmpConf *os.File, repoURLs map[string]st
 
 			for key, val := range repoSettings {
 				if _, err = s.NewKey(key, val); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		} else {
 			// Override the baseurl for existing repo
 			k, err := s.GetKey("baseurl")
 			if err != nil {
-				return err
+				return nil, err
 			}
 			k.SetValue(url)
 		}
+		repoURLs[repo] = url
 	}
 
-	_, err = DNFConf.WriteTo(tmpConf)
-	return err
+	if _, err = DNFConf.WriteTo(tmpConf); err != nil {
+		return nil, err
+	}
+
+	return repoURLs, nil
 }
 
 // RemoveRepo removes a configured repo <name> if it exists in the DNF configuration.
@@ -344,6 +354,7 @@ func (b *Builder) ListRepos() error {
 		fmt.Printf("%s\t%s\n", name, pURL.String())
 
 		repo.urlScheme = pURL.Scheme
+		repo.url = pURL.String()
 		if pURL.Scheme == "file" {
 			pURL.Scheme = ""
 			repo.cacheDir = pURL.String()

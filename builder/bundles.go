@@ -259,14 +259,15 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packa
 // Transaction Summary
 // =============================================================================
 // <more metadata>
-func parseNoopInstall(installOut string) []packageMetadata {
+func parseNoopInstall(installOut string) ([]packageMetadata, error) {
 	// Split out the section between the install list and the transaction Summary.
 	parts := strings.Split(installOut, "Installing:\n")
 	if len(parts) < 2 {
 		// If there is no such section, e.g. dnf fails because there's
 		// no matching package (so no "Installing:"), return nil. Real
 		// failure will happen later when doing the actual install.
-		return nil
+
+		return nil, fmt.Errorf("unable to resolve package")
 	}
 	pkgList := strings.Split(parts[1], "\nTransaction Summary")[0]
 
@@ -295,21 +296,21 @@ func parseNoopInstall(installOut string) []packageMetadata {
 		pkgs = append(pkgs, pkg)
 	}
 
-	return pkgs
+	return pkgs, nil
 }
 
-func repoPkgFromNoopInstall(installOut string) (repoPkgMap, repoRpmMap) {
+func repoPkgFromNoopInstall(installOut string) (repoPkgMap, repoRpmMap, error) {
 	repoPkgs := make(repoPkgMap)
 	repoRpmMap := make(repoRpmMap)
-	// TODO: parseNoopInstall may fail, so consider a way to stop the processing
-	// once we find that failure. See how errorCh works in fullfiles.go.
-	pkgs := parseNoopInstall(installOut)
-
+	pkgs, err := parseNoopInstall(installOut)
+	if err != nil {
+		return nil, nil, err
+	}
 	for _, p := range pkgs {
 		repoPkgs[p.repo] = append(repoPkgs[p.repo], p.name)
 		repoRpmMap[p.repo] = append(repoRpmMap[p.repo], p)
 	}
-	return repoPkgs, repoRpmMap
+	return repoPkgs, repoRpmMap, nil
 }
 
 func queryRpmName(packageCmd []string, pkgName string) string {
@@ -332,13 +333,15 @@ func queryRpmName(packageCmd []string, pkgName string) string {
 
 var fileSystemRpm string
 
-func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string, localPath string) *sync.Map {
+func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string, localPath string) (*sync.Map, error) {
+	var err error
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
 	wg.Add(numWorkers)
 	bundleCh := make(chan *bundle)
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
 	var bundleRepoPkgs sync.Map
+	errorCh := make(chan error, numWorkers)
 
 	packageWorker := func() {
 		for bundle := range bundleCh {
@@ -360,7 +363,13 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 
-			rpm, fullRpm := repoPkgFromNoopInstall(outBuf.String())
+			rpm, fullRpm, e := repoPkgFromNoopInstall(outBuf.String())
+			if !isEmptyBundle(bundle) && e != nil {
+				e = errors.Wrapf(e, bundle.Name)
+				fmt.Println(e)
+				errorCh <- e
+				break
+			}
 			for _, pkgs := range fullRpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {
@@ -391,15 +400,24 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 		go packageWorker()
 	}
 
-	// feed the channel
 	for _, bundle := range set {
-		bundleCh <- bundle
+		select {
+		case bundleCh <- bundle:
+		case err = <-errorCh:
+			// break as soon as there is a failure.
+			break
+		}
 	}
-
 	close(bundleCh)
 	wg.Wait()
 
-	return &bundleRepoPkgs
+	// an error could happen after all the workers are spawned so check again for an
+	// error after wg.Wait() completes.
+	if err == nil && len(errorCh) > 0 {
+		err = <-errorCh
+	}
+
+	return &bundleRepoPkgs, err
 }
 
 func installFilesystem(chrootDir string, localPath string, packagerCmd []string, downloadRetries int) error {
@@ -887,8 +905,10 @@ src=%s
 	}()
 
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packages
-	bundleRepoPkgs := resolvePackages(numWorkers, set, packagerCmd, emptyDir, b.Config.Mixer.LocalRepoDir)
-
+	bundleRepoPkgs, err := resolvePackages(numWorkers, set, packagerCmd, emptyDir, b.Config.Mixer.LocalRepoDir)
+	if err != nil {
+		return err
+	}
 	err = resolveFiles(numWorkers, set, bundleRepoPkgs, packagerCmd)
 	if err != nil {
 		return err

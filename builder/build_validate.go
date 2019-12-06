@@ -12,6 +12,7 @@ import (
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
+	"github.com/pkg/errors"
 )
 
 type bundleStatus int
@@ -325,8 +326,10 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 		}
 
 		// Collect metadata to resolve installed RPM file names
-		pInfo[m.Name].allPkgs = pkgInfoFromNoopInstall(out.String())
-
+		pInfo[m.Name].allPkgs, err = pkgInfoFromNoopInstall(out.String())
+		if err != nil {
+			return nil, errors.Wrapf(err, m.Name)
+		}
 		for _, p := range pInfo[m.Name].allPkgs {
 			if pkgFileCache[p.name] == nil {
 				pkgFileCache[p.name], err = b.resolvePkgFiles(p, version)
@@ -416,12 +419,14 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, version int) ([]*fileInfo, error
 }
 
 // pkgInfoFromNoopInstall parses DNF install output to collect and store package metadata
-func pkgInfoFromNoopInstall(installOut string) map[string]*pkgInfo {
+func pkgInfoFromNoopInstall(installOut string) (map[string]*pkgInfo, error) {
 	pInfo := make(map[string]*pkgInfo)
 
 	// Parse DNF install output
-	pkgs := parseNoopInstall(installOut)
-
+	pkgs, err := parseNoopInstall(installOut)
+	if err != nil {
+		return nil, err
+	}
 	for _, p := range pkgs {
 		pInfo[p.name] = &pkgInfo{
 			name:    p.name,
@@ -429,7 +434,7 @@ func pkgInfoFromNoopInstall(installOut string) map[string]*pkgInfo {
 			version: p.version,
 		}
 	}
-	return pInfo
+	return pInfo, nil
 }
 
 // getManFiles collects the manifest's file list

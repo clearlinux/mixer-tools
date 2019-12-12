@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/url"
@@ -336,10 +337,10 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 	}
 
 	// Obtain necessary package metadata by querying each rpm
-	return b.resolveBundlePkgInfos(manifests, repoPkgs, packagerCmd, repoURIs)
+	return b.resolveBundlePkgInfos(manifests, repoPkgs, packagerCmd, repoURIs, downloadRetries)
 }
 
-func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *sync.Map, packagerCmd []string, repoURIs map[string]string) (map[string]*mcaBundlePkgInfo, error) {
+func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *sync.Map, packagerCmd []string, repoURIs map[string]string, downloadRetries int) (map[string]*mcaBundlePkgInfo, error) {
 	pkgCh := make(chan *pkgInfo, b.NumBundleWorkers)
 	errCh := make(chan error, b.NumBundleWorkers)
 	var wg sync.WaitGroup
@@ -355,7 +356,7 @@ func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *s
 
 		for p := range pkgCh {
 			var err error
-			p.files, err = b.resolvePkgFiles(p)
+			p.files, err = b.resolvePkgFiles(p, downloadRetries)
 			if err != nil {
 				errCh <- err
 			}
@@ -439,15 +440,23 @@ func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *s
 }
 
 // resolvePkgFiles queries a package for a list of file metadata.
-func (b *Builder) resolvePkgFiles(pkg *pkgInfo) ([]*fileInfo, error) {
+func (b *Builder) resolvePkgFiles(pkg *pkgInfo, downloadRetries int) ([]*fileInfo, error) {
+	var err error
+	var out *bytes.Buffer
+
 	queryCmd := "[%{filenames}\a%{filesizes}\a%{filedigests}\a%{filemodes:perms}\a%{filelinktos}\a%{fileusername}\a%{filegroupname}\n]"
 	rpmCmd := []string{"rpm", "-qp", "--qf=" + queryCmd}
 
 	// Query RPM for file metadata lists
 	args := merge(rpmCmd, pkg.uri)
-	out, err := helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
-	if err != nil {
-		return nil, err
+	for attempts := 0; attempts <= downloadRetries; attempts++ {
+		out, err = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+		if err == nil {
+			break
+		}
+		if attempts == downloadRetries {
+			return nil, err
+		}
 	}
 
 	pkgFiles := []*fileInfo{}

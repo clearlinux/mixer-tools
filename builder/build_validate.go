@@ -115,8 +115,13 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, 
 	if fromVer >= toVer {
 		return fmt.Errorf("From version must be less than to version")
 	}
-
-	fmt.Printf("WARNING: Local RPMs will override upstream RPMs for both the from and to versions.\n")
+	
+	// Suppress Stdout so that it doesn't clutter the results
+	stdOut := os.Stdout
+	os.Stdout,_ = os.Open(os.DevNull)
+	defer func() {
+		os.Stdout = stdOut
+	}()
 
 	// Load initial repo map
 	if err := b.ListRepos(); err != nil {
@@ -153,6 +158,9 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, 
 	if err != nil {
 		return err
 	}
+
+	// Re-enable Stdout for the results
+	os.Stdout = stdOut
 
 	// Display errors and package/file statistics
 	err = printMcaResults(results, fromInfo, toInfo, fromVer, toVer, errorList, warningList)

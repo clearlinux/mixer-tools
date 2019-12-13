@@ -131,7 +131,6 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Removed %s repo.\n", args[0])
 }
 
 func runListRepos(cmd *cobra.Command, args []string) {

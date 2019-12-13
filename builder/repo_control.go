@@ -287,11 +287,18 @@ func (b *Builder) RemoveRepo(name string) error {
 
 	_, err = DNFConf.GetSection(name)
 	if err != nil {
-		fmt.Printf("Repo %s does not exist.\n", name)
+		return errors.Errorf("unable to remove repo %s, does not exist.", name)
 	}
 
 	DNFConf.DeleteSection(name)
-	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
+
+	err = DNFConf.SaveTo(b.Config.Builder.DNFConf)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Removing repo %s\n", name)
+	return nil
 }
 
 // ListRepos lists all configured repositories in the DNF configuration file.

@@ -729,17 +729,9 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 	if err := clearDNFCache(packagerCmd); err != nil {
 		return err
 	}
-	fmt.Println("Installing all bundles to full chroot")
-	totalBundles := len(*set)
-
-	fullDir := filepath.Join(buildVersionDir, "full")
-	err := os.MkdirAll(fullDir, 0755)
-	if err != nil {
-		return err
-	}
 
 	dnfDownloadDir = filepath.Join(buildVersionDir, "downloadedRpms")
-	err = os.MkdirAll(dnfDownloadDir, 0755)
+	err := os.MkdirAll(dnfDownloadDir, 0755)
 	if err != nil {
 		return err
 	}
@@ -747,7 +739,17 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 		_ = os.RemoveAll(dnfDownloadDir)
 	}()
 
+	fmt.Println("Available repos: ")
 	err = b.ListRepos()
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Installing all bundles to full chroot")
+	totalBundles := len(*set)
+
+	fullDir := filepath.Join(buildVersionDir, "full")
+	err = os.MkdirAll(fullDir, 0755)
 	if err != nil {
 		return err
 	}

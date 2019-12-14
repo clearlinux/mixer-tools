@@ -32,49 +32,49 @@ var repoCmd = &cobra.Command{
 
 var addRepoCmd = &cobra.Command{
 	Use:   "add <name> <url>",
-	Short: "Add repo <name> at <url>",
-	Long:  `Add the repo at <url> as a repo from which to pull RPMs for building bundles`,
+	Short: "Add repo to DNF conf file",
+	Long:  `Add repo <name> with <url> to the DNF conf file used by mixer. The <url> must be an absolute path.`,
 	Args:  cobra.ExactArgs(2),
 	Run:   runAddRepo,
 }
 
 var removeRepoCmd = &cobra.Command{
 	Use:   "remove <name>",
-	Short: "Removes repo <name> from the DNF conf used by mixer",
-	Long:  `Remove the repo named <name> from the configured DNF conf used by mixer`,
+	Short: "Remove repo from DNF conf file",
+	Long:  `Remove repo <name> from the DNF conf file used by mixer.`,
 	Args:  cobra.ExactArgs(1),
 	Run:   runRemoveRepo,
 }
 
 var listReposCmd = &cobra.Command{
 	Use:   "list",
-	Short: "List all configured RPM Repositories",
-	Long:  `List all RPM repositories configured in the DNF configuration file used by mixer`,
+	Short: "List all repos in DNF conf file",
+	Long:  `List all the repos in the DNF conf file used by mixer.`,
 	Run:   runListRepos,
 }
 
 var initRepoCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize the DNF conf with default repo enabled",
-	Long:  `Initialize the DNF configuration file with the default 'Clear' repo enabled`,
+	Short: "Initialize DNF conf file with default repos",
+	Long:  `Initialize the DNF conf file with the default 'Clear' and 'Local' repos enabled.`,
 	Run:   runInitRepo,
 }
 
 var setURLRepoCmd = &cobra.Command{
 	Use:   "set-url <name> <url>",
-	Short: "Sets the URL for repo <name> to <url>",
-	Long:  `Sets the URL, for repo <name> to <url>. If <name> does not exist the repo will be added to the configuration.`,
-	Args:  cobra.ExactArgs(2),
-	Run:   runSetURLRepo,
+	Short: "Set URL of repo in DNF conf file",
+	Long: `Set repo <name> with <url> to the DNF conf file used by mixer. The <url> must be an absolute path.
+If repo <name> does not exist, the repo will be added to the conf file.`,
+	Args: cobra.ExactArgs(2),
+	Run:  runSetURLRepo,
 }
 
 var setExcludesRepoCmd = &cobra.Command{
 	Use:   "exclude <repo> <pkg> [<pkg>...]",
-	Short: "Exclude packages from a specified repo",
+	Short: "Exclude packages from specified repo",
 	Long: `Exclude packages from a specified repo. These packages will be ignored
 during build bundles, which allows the user to explicitly select which packages
-to use when building bundles by excluding the unwanted ones. Globbing is
-supported.`,
+to use when building bundles by excluding the unwanted ones. Globbing is supported.`,
 	Args: cobra.MinimumNArgs(2),
 	Run:  runExcludesRepo,
 }
@@ -125,7 +125,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Added %s repo at %s url.\n", args[0], u.String())
+	fmt.Printf("Adding repo %s with url %s \n", args[0], u.String())
 }
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {
@@ -183,5 +183,5 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	fmt.Printf("Set %s baseurl to %s.\n", args[0], u.String())
+	fmt.Printf("Setting repo %s with url %s\n", args[0], u.String())
 }

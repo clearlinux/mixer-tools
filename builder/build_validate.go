@@ -347,8 +347,9 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *sync.Map, packagerCmd []string, repoURIs map[string]string, downloadRetries int) (map[string]*mcaBundlePkgInfo, error) {
 	pkgCh := make(chan *pkgInfo, b.NumBundleWorkers)
 	errCh := make(chan error, b.NumBundleWorkers)
+	defer close(errCh)
 	var wg sync.WaitGroup
-
+	var err error
 	pInfo := make(map[string]*mcaBundlePkgInfo)
 
 	// Duplicate packages re-use the same *pkgInfo
@@ -359,7 +360,6 @@ func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *s
 		defer wg.Done()
 
 		for p := range pkgCh {
-			var err error
 			p.files, err = b.resolvePkgFiles(p, downloadRetries)
 			if err != nil {
 				errCh <- err
@@ -418,14 +418,21 @@ func (b *Builder) resolveBundlePkgInfos(manifests []*swupd.Manifest, repoPkgs *s
 				}
 				select {
 				case pkgCh <- pkg:
-				case err := <-errCh:
-					return nil, err
+				case err = <-errCh:
+					break
+				}
+				if err != nil {
+					break
 				}
 			}
 		}
 	}
 	close(pkgCh)
 	wg.Wait()
+
+	if err != nil {
+		return nil, err
+	}
 
 	if len(errCh) > 0 {
 		return nil, <-errCh

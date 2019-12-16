@@ -90,6 +90,8 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	wg.Add(b.NumBundleWorkers)
 	bundleChan := make(chan *swupd.Manifest)
 	errorChan := make(chan error, b.NumBundleWorkers)
+	defer close(errorChan)
+
 	fmt.Println("Compressing bundle manifests")
 	compWorker := func() {
 		defer wg.Done()
@@ -98,8 +100,9 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 			f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
 			err := createCompressedArchive(f+".tar", f)
 			if err != nil {
+				fmt.Println(err.Error())
 				errorChan <- err
-				break
+				return
 			}
 		}
 	}
@@ -115,20 +118,18 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 			// break as soon as we see a failure
 			break
 		}
+		if err != nil {
+			break
+		}
 	}
 	close(bundleChan)
 	wg.Wait()
-	if err == nil && len(errorChan) > 0 {
-		err = <-errorChan
-	}
-
-	chanLen := len(errorChan)
-	for i := 0; i < chanLen; i++ {
-		<-errorChan
-	}
 
 	if err != nil {
 		return err
+	}
+	if len(errorChan) > 0 {
+		return <-errorChan
 	}
 
 	// Now tar the full manifest, since it doesn't show up in the MoM
@@ -207,7 +208,7 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 				zErr = errors.Wrapf(zErr, "couldn't access existing pack file %s", packPath)
 				fmt.Println(zErr)
 				errorChan <- zErr
-				break
+				return
 			}
 
 			fmt.Printf("Creating zero pack %s for version %s\n", name, version)
@@ -217,7 +218,7 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 				zErr = errors.Wrapf(zErr, "couldn't make pack %s for version %s", name, version)
 				fmt.Println(zErr)
 				errorChan <- zErr
-				break
+				return
 			}
 			if len(info.Warnings) > 0 {
 				fmt.Println("Warnings during pack:")
@@ -243,13 +244,16 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 		select {
 		case bundleChan <- bundle:
 		case err = <-errorChan:
-			break // break as soon as a failure in encountered
+			break
+		}
+		if err != nil {
+			break
 		}
 	}
 	close(bundleChan)
 	wg.Wait()
 
-	if err == nil && len(errorChan) > 0 {
+	if len(errorChan) > 0 {
 		err = <-errorChan
 	}
 

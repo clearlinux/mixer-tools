@@ -69,6 +69,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int, c
 	// Used by the task runners to indicate an error happened. The channel is buffered to ensure
 	// that all the goroutines can send their failure and finish.
 	errorCh := make(chan error, numWorkers)
+	defer close(errorCh)
 
 	infos := make([]FullfilesInfo, numWorkers)
 	for i := range infos {
@@ -77,6 +78,7 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int, c
 	}
 
 	taskRunner := func(info *FullfilesInfo) {
+		defer wg.Done()
 		for f := range taskCh {
 			var tErr error
 			input := filepath.Join(chrootDir, f.Name)
@@ -104,10 +106,9 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int, c
 
 			if tErr != nil {
 				errorCh <- tErr
-				break
+				return
 			}
 		}
-		wg.Done()
 	}
 
 	for i := 0; i < numWorkers; i++ {
@@ -124,21 +125,23 @@ func CreateFullfiles(m *Manifest, chrootDir, outputDir string, numWorkers int, c
 		select {
 		case taskCh <- f:
 		case err = <-errorCh:
-			// Break as soon as there is a failure.
+			// break as soon as there is a failure.
+			break
+		}
+		if err != nil {
 			break
 		}
 	}
 	close(taskCh)
 	wg.Wait()
 
-	// Sending loop might finish before any goroutine could send an error back, so check for
-	// error again after they are all done.
-	if err == nil && len(errorCh) > 0 {
-		err = <-errorCh
-	}
-
 	if err != nil {
 		return nil, err
+	}
+	// Sending loop might finish before any goroutine could send an error back, so check for
+	// error again after they are all done.
+	if len(errorCh) > 0 {
+		return nil, <-errorCh
 	}
 
 	total := &FullfilesInfo{

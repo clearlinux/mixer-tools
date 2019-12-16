@@ -178,26 +178,29 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packa
 	// buffering to numWorkers will make sure we always have space for the
 	// errors.
 	errorCh := make(chan error, numWorkers)
+	defer close(errorCh)
 
 	fileWorker := func() {
+		defer wg.Done()
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
 			// Resolve files for this bundle, passing it the map of repos to packages
 			r, ok := bundleRepoPkgs.Load(bundle.Name)
 			if !ok {
+				fmt.Println("couldn't find %s bundle", bundle.Name)
 				errorCh <- fmt.Errorf("couldn't find %s bundle", bundle.Name)
-				break
+				return
 			}
 			e := resolveFilesForBundle(bundle, r.(repoPkgMap), packagerCmd)
 			if e != nil {
 				// break on the first error we get
 				// causes wg.Done to be called and the worker to exit
 				// the break is important so we don't overflow the errorCh
+				fmt.Println(e.Error())
 				errorCh <- e
-				break
+				return
 			}
 		}
-		wg.Done()
 	}
 
 	// kick off the fileworkers
@@ -212,14 +215,21 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packa
 			// break as soon as there is a failure.
 			break
 		}
+		if err != nil {
+			break
+		}
 	}
 	close(bundleCh)
 	wg.Wait()
 
+	if err != nil {
+		return err
+	}
+
 	// an error could happen after all the workers are spawned so check again for an
 	// error after wg.Wait() completes.
-	if err == nil && len(errorCh) > 0 {
-		err = <-errorCh
+	if len(errorCh) > 0 {
+		return <-errorCh
 	}
 
 	return err
@@ -364,8 +374,10 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packageMetadata
 	var bundleRepoPkgs sync.Map
 	errorCh := make(chan error, numWorkers)
+	defer close(errorCh)
 
 	packageWorker := func() {
+		defer wg.Done()
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
 			queryString := merge(
@@ -389,7 +401,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 				e = errors.Wrapf(e, bundle.Name)
 				fmt.Println(e)
 				errorCh <- e
-				break
+				return
 			}
 			for _, pkgs := range rpm {
 				// Add packages to bundle's AllPackages
@@ -411,7 +423,6 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 
 			fmt.Printf("... done with %s\n", bundle.Name)
 		}
-		wg.Done()
 	}
 	for i := 0; i < numWorkers; i++ {
 		go packageWorker()
@@ -421,17 +432,23 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 		select {
 		case bundleCh <- bundle:
 		case err = <-errorCh:
-			// break as soon as there is a failure.
+			// break as soon as there is a failure
+			break
+		}
+		if err != nil {
 			break
 		}
 	}
 	close(bundleCh)
 	wg.Wait()
 
+	if err != nil {
+		return nil, err
+	}
 	// an error could happen after all the workers are spawned so check again for an
 	// error after wg.Wait() completes.
-	if err == nil && len(errorCh) > 0 {
-		err = <-errorCh
+	if len(errorCh) > 0 {
+		return nil, <-errorCh
 	}
 
 	return &bundleRepoPkgs, err
@@ -607,16 +624,17 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 	var wg sync.WaitGroup
 	rpmCh := make(chan string)
 
-	var errCh error
 	var missingRpms []string
 
 	if len(bundle.AllRpms) < numWorkers {
 		numWorkers = len(bundle.AllRpms)
 	}
 	errorCh := make(chan error, numWorkers)
+	defer close(errorCh)
 	wg.Add(numWorkers)
 
 	rpmWorker := func() {
+		defer wg.Done()
 		var e error
 		for rpm := range rpmCh {
 			// running for extractRetries times as rpm2archive and tar can fail if two files are extracted at exact same path
@@ -627,11 +645,11 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 				}
 			}
 			if e != nil {
+				fmt.Println(e)
 				errorCh <- e
-				break
+				return
 			}
 		}
-		wg.Done()
 	}
 
 	for rpm, pkgInfo := range bundle.AllRpms {
@@ -689,16 +707,26 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 
 		select {
 		case rpmCh <- rpmFullPath:
-		case errCh = <-errorCh:
+		case err = <-errorCh:
 			break
 		}
-		if errCh != nil {
-			return errCh
+		if err != nil {
+			break
 		}
 	}
 
 	close(rpmCh)
 	wg.Wait()
+
+	if err != nil {
+		return err
+	}
+
+	// Sending loop might finish before any goroutine could send an error back, so check for
+	// error again after they are all done.
+	if len(errorCh) > 0 {
+		return <-errorCh
+	}
 
 	bundleDir := filepath.Join(baseDir, "usr/share/clear/bundles")
 	err = os.MkdirAll(filepath.Join(bundleDir), 0755)

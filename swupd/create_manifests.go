@@ -65,6 +65,8 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 
 	bundleChan := make(chan string)
 	errorChan := make(chan error, numWorkers)
+	defer close(errorChan)
+
 	mux := &sync.Mutex{}
 	tmpManifests := []*Manifest{}
 	fmt.Println("Generating initial manifests...")
@@ -123,24 +125,24 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 		select {
 		case bundleChan <- bn:
 		case err = <-errorChan:
-			// Closing the channel here prevents workers from start processing
-			// a new Bundle while mixer is exiting.
-			close(bundleChan)
-
-			// If there is an error, there is no need to wait for the workers
-			// to finish since mixer will exit with that error, so we skip
-			// wg.Wait() here and return right away. Exiting mixer will clean
-			// any running worker.
-			return nil, err
+			// If there is an error,we break
+			// immediately and return error
+			break
+		}
+		if err != nil {
+			break
 		}
 	}
 
 	close(bundleChan)
 	wg.Wait()
 
-	if len(errorChan) > 0 {
-		err = <-errorChan
+	if err != nil {
 		return nil, err
+	}
+
+	if len(errorChan) > 0 {
+		return nil, <-errorChan
 	}
 
 	return tmpManifests, err

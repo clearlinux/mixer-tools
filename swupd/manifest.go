@@ -598,6 +598,7 @@ func addAllManifestFiles(manifests []*Manifest, ui UpdateInfo, c config, numWork
 		defer wg.Done()
 		for m := range mCh {
 			if err := m.addManifestFiles(ui, c); err != nil {
+				fmt.Println(err)
 				errorChan <- err
 				return
 			}
@@ -613,13 +614,19 @@ func addAllManifestFiles(manifests []*Manifest, ui UpdateInfo, c config, numWork
 		select {
 		case mCh <- m:
 		case err = <-errorChan:
-			close(mCh)
-			return err
+			break
+		}
+		if err != nil {
+			break
 		}
 	}
 
 	close(mCh)
 	wg.Wait()
+
+	if err != nil {
+		return err
+	}
 
 	if len(errorChan) > 0 {
 		err = <-errorChan

@@ -33,9 +33,10 @@ var repoCmd = &cobra.Command{
 var addRepoCmd = &cobra.Command{
 	Use:   "add <name> <url>",
 	Short: "Add repo to DNF conf file",
-	Long:  `Add repo <name> with <url> to the DNF conf file used by mixer. The <url> must be an absolute path.`,
-	Args:  cobra.ExactArgs(2),
-	Run:   runAddRepo,
+	Long: `Add repo <name> with <url> to the DNF conf file used by mixer. The <url> must be an absolute path.
+NOTE: For <url> with "file" scheme, ensure that the rpms are stored directly within the <url> path for better performance.`,
+	Args: cobra.ExactArgs(2),
+	Run:  runAddRepo,
 }
 
 var removeRepoCmd = &cobra.Command{
@@ -64,7 +65,8 @@ var setURLRepoCmd = &cobra.Command{
 	Use:   "set-url <name> <url>",
 	Short: "Set URL of repo in DNF conf file",
 	Long: `Set repo <name> with <url> to the DNF conf file used by mixer. The <url> must be an absolute path.
-If repo <name> does not exist, the repo will be added to the conf file.`,
+If repo <name> does not exist, the repo will be added to the conf file.
+NOTE: For <url> with "file" scheme, ensure that the rpms are stored directly within the <url> path for better performance.`,
 	Args: cobra.ExactArgs(2),
 	Run:  runSetURLRepo,
 }

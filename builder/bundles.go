@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -312,7 +313,12 @@ func repoPkgFromNoopInstall(installOut string) (repoPkgMap, repoRpmMap, error) {
 	return repoPkgs, repoRpmMap, nil
 }
 
-func queryRpmName(packageCmd []string, pkgName string, repo string) string {
+// queryRpmFullPath returns the expected rpm full path for a package using dnf repoquery.
+// It queries the dnf database for the location.
+// If the query result is empty, it returns an err.
+// If the query result has a "file" scheme, it returns the full path without the scheme.
+// If the query result has a non "file" scheme, it assumes the full path is within the corresponding repo cache dir.
+func queryRpmFullPath(packageCmd []string, pkgName string, repo string) (string, error) {
 	queryStringRpm := merge(
 		packageCmd,
 		"repoquery",
@@ -322,12 +328,26 @@ func queryRpmName(packageCmd []string, pkgName string, repo string) string {
 	)
 	queryStringRpm = append(queryStringRpm, pkgName)
 	outBuf, _ := helpers.RunCommandOutputEnv(queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
-	if outBuf.String() != "" {
-		rpm := strings.Split(outBuf.String(), "\n")
-		_, file := filepath.Split(rpm[0])
-		return file
+
+	if outBuf.String() == "" {
+		return "", fmt.Errorf("rpm not found for pkg: %s", pkgName)
 	}
-	return ""
+
+	out := strings.Split(outBuf.String(), "\n")
+	pURL, err := url.Parse(out[0])
+	if err != nil {
+		return "", err
+	}
+
+	var rpmFullPath string
+	if pURL.Scheme == "file" { // obtain the full path without the url scheme
+		pURL.Scheme = ""
+		rpmFullPath = pURL.String()
+	} else { // obtain only the rpm name and append to repo cache dir
+		_, rpm := filepath.Split(out[0])
+		rpmFullPath = filepath.Join(dnfDownloadDir, rpm)
+	}
+	return rpmFullPath, nil
 }
 
 var fileSystemInfo packageMetadata
@@ -415,12 +435,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 }
 
 func installFilesystem(chrootDir string, packagerCmd []string, downloadRetries int, repos map[string]repoInfo) error {
-	var rpmFull string
 	var err error
-	var rpmDir string
-
-	rpm := fileSystemInfo.name + "-" + fileSystemInfo.version + "." + fileSystemInfo.arch + ".rpm"
-	rpmDir = repos[fileSystemInfo.repo].cacheDir
 
 	if repos[fileSystemInfo.repo].urlScheme != "file" {
 		packagerCmdNew := merge(packagerCmd, "--destdir", dnfDownloadDir)
@@ -430,25 +445,28 @@ func installFilesystem(chrootDir string, packagerCmd []string, downloadRetries i
 		}
 	}
 
-	rpmFull = filepath.Join(rpmDir, rpm)
-	rpmMap[rpm] = true
+	pkgFull := fileSystemInfo.name + "-" + fileSystemInfo.version + "." + fileSystemInfo.arch
+	rpm := pkgFull + ".rpm"
+	rpmFullPath := filepath.Join(repos[fileSystemInfo.repo].cacheDir, rpm) // assuming the full path based on Clear Linux repo and naming conventions
 
-	if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
-		// if rpm is not found, name of rpm file is not in autospec generated format. In this case
-		// we query the database to get the name of the rpm file containing the package.
-		rpm = queryRpmName(packagerCmd, fileSystemInfo.name+"-"+fileSystemInfo.version+"."+fileSystemInfo.arch, fileSystemInfo.repo)
-		if rpm == "" {
-			return fmt.Errorf("rpm not found: %s", fileSystemInfo.name)
+	if _, err = os.Stat(rpmFullPath); os.IsNotExist(err) {
+		// If rpm is not found, the rpm filename may not be in autospec generated format and/or in another location
+		// within the repo. In this case, determine the actual rpm filename with its full path.
+		rpmFullPath, err = queryRpmFullPath(packagerCmd, pkgFull, fileSystemInfo.repo)
+		if err != nil {
+			return err
 		}
-
-		rpmFull = filepath.Join(rpmDir, rpm)
-		if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
-			return fmt.Errorf("rpm not found for pkg: %s", fileSystemInfo.name)
+		if _, err = os.Stat(rpmFullPath); os.IsNotExist(err) {
+			return fmt.Errorf("rpm not found for pkg: %s", pkgFull)
+		}
+		if err != nil {
+			return err
 		}
 	}
+	rpmMap[rpm] = true
 
 	for i := 0; i < extractRetries; i++ {
-		err = extractRpm(chrootDir, rpmFull)
+		err = extractRpm(chrootDir, rpmFullPath)
 		if err != nil {
 			continue
 		}
@@ -647,31 +665,30 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 
 	// feed the channel
 	for rpm, pkgInfo := range bundle.AllRpms {
-		var rpmFull string
-
 		if rpmMap[rpm] {
 			continue
 		}
+		pkgFull := pkgInfo.name + "-" + pkgInfo.version + "." + pkgInfo.arch
+		rpmFullPath := filepath.Join(repos[pkgInfo.repo].cacheDir, rpm) // assuming the full path based on Clear Linux repo and naming conventions
 
-		rpmDir := repos[pkgInfo.repo].cacheDir
-		rpmFull = filepath.Join(rpmDir, rpm)
-		rpmMap[rpm] = true
-
-		if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
-			// if rpm is not found, name of rpm file is not in autospec generated format. In this case
-			// we query the database to get the name of the rpm file containing the package.
-			rpm = queryRpmName(packagerCmd, pkgInfo.name+"-"+pkgInfo.version+"."+pkgInfo.arch, pkgInfo.repo)
-			if rpm == "" {
-				return fmt.Errorf("rpm not found: %s", pkgInfo.name)
+		if _, err = os.Stat(rpmFullPath); os.IsNotExist(err) {
+			// If rpm is not found, the rpm filename may not be in autospec generated format and/or in another location
+			// within the repo. In this case, determine the actual rpm filename with its full path.
+			rpmFullPath, err = queryRpmFullPath(packagerCmd, pkgFull, pkgInfo.repo)
+			if err != nil {
+				return err
 			}
-			rpmFull = filepath.Join(rpmDir, rpm)
-			if _, err = os.Stat(rpmFull); os.IsNotExist(err) {
-				return fmt.Errorf("rpm not found for pkg: %s", pkgInfo.name)
+			if _, err = os.Stat(rpmFullPath); os.IsNotExist(err) {
+				return fmt.Errorf("rpm not found for pkg: %s", pkgFull)
+			}
+			if err != nil {
+				return err
 			}
 		}
+		rpmMap[rpm] = true
 
 		select {
-		case rpmCh <- rpmFull:
+		case rpmCh <- rpmFullPath:
 		case errCh = <-errorCh:
 			break
 		}

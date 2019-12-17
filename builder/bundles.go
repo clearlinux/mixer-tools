@@ -490,24 +490,7 @@ func createClearDir(chrootDir, version string) error {
 	return ioutil.WriteFile(filepath.Join(clearDir, "versionstamp"), []byte(versionstamp), 0644)
 }
 
-func initRPMDB(chrootDir string) error {
-	err := os.MkdirAll(filepath.Join(chrootDir, "var/lib/rpm"), 0755)
-	if err != nil {
-		return err
-	}
-
-	return helpers.RunCommandSilent(
-		"rpm",
-		"--root", chrootDir,
-		"--initdb",
-	)
-}
-
 func buildOsCore(b *Builder, packagerCmd []string, chrootDir, version string) error {
-	err := initRPMDB(chrootDir)
-	if err != nil {
-		return err
-	}
 
 	if err := createClearDir(chrootDir, version); err != nil {
 		return err
@@ -961,31 +944,12 @@ src=%s
 		return err
 	}
 
-	// create os-packages file for validation tools
-	err = createOsPackagesFile(buildVersionDir)
-	if err != nil {
-		return err
-	}
-
 	// now that all dnf/yum/rpm operations have completed
 	// remove all packager state files from chroot
 	// This is not a critical step, just to prevent these files from
 	// making it into the Manifest.full
 	rmDNFStatePaths(filepath.Join(buildVersionDir, "full"))
 	return nil
-}
-
-// createOsPackagesFile creates a file that contains all the packages mapped to their
-// srpm names for use by validation tooling to identify orphaned packages and verify
-// there are no file collisions in the build.
-func createOsPackagesFile(buildVersionDir string) error {
-	fullChroot := filepath.Join(buildVersionDir, "full")
-	packages, err := helpers.RunCommandOutput("rpm", "--root="+fullChroot, "-qa", "--queryformat", "%{NAME}\t%{SOURCERPM}\n")
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(filepath.Join(buildVersionDir, "os-packages"), packages.Bytes(), 0644)
 }
 
 // createVersionsFile creates a file that contains all the packages available for a specific

@@ -16,6 +16,8 @@ package builder
 
 import (
 	"net/url"
+	"os"
+	"os/exec"
 	"path"
 	"strconv"
 	"strings"
@@ -76,4 +78,21 @@ func (b *Builder) DownloadFileFromUpstream(subpath string, filePath string) erro
 		return err
 	}
 	return helpers.DownloadFile(url, filePath)
+}
+
+// TerminalWidth determines the screen width of the calling terminal.
+func TerminalWidth() (int, error) {
+	cmd := exec.Command("stty", "size")
+	cmd.Stdin = os.Stdin
+	out, err := cmd.Output()
+
+	outStrs := strings.Fields(string(out))
+	if len(outStrs) != 2 {
+		return 0, errors.Errorf("Invalid stty output")
+	}
+	width, err := strconv.Atoi(outStrs[1])
+	if err != nil {
+		return 0, err
+	}
+	return width, nil
 }

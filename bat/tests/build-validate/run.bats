@@ -155,7 +155,6 @@ setup() {
   run sudo sh -c "mixer build validate --from 10 --to 20 --from-repo-url clear=foo"
 
   [[ "$status" -ne 0 ]]
-  [[ "$output" =~ "RPM download attempt 4 failed. Maximum of 4 attempts." ]]
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

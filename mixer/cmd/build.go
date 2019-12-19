@@ -49,6 +49,7 @@ type buildCmdFlags struct {
 	skipPacks       bool
 	to              int
 	from            int
+	tableWidth      int
 	toRepoURLs      *map[string]string
 	fromRepoURLs    *map[string]string
 	skipFormatCheck bool
@@ -529,7 +530,19 @@ var buildValidateCmd = &cobra.Command{
 		}
 		setWorkers(b)
 
-		err = b.CheckManifestCorrectness(buildFlags.from, buildFlags.to, buildFlags.downloadRetries, *buildFlags.fromRepoURLs, *buildFlags.toRepoURLs)
+		tableWidth := buildFlags.tableWidth
+		if tableWidth == 0 {
+			if tableWidth, err = builder.TerminalWidth(); err != nil {
+				fmt.Fprintf(os.Stderr, "Cannot determine default MCA statistics table width, disabling")
+				tableWidth = -1
+			}
+		}
+		if tableWidth >= 0 && tableWidth < builder.MinMcaTableWidth {
+			fmt.Fprintf(os.Stderr, "MCA statistics table width less than minimum: %d, disabling\n", builder.MinMcaTableWidth)
+			tableWidth = -1
+		}
+
+		err = b.CheckManifestCorrectness(buildFlags.from, buildFlags.to, buildFlags.downloadRetries, tableWidth, *buildFlags.fromRepoURLs, *buildFlags.toRepoURLs)
 		if err != nil {
 			fail(err)
 		}
@@ -742,6 +755,7 @@ func init() {
 
 	buildValidateCmd.Flags().IntVar(&buildFlags.to, "to", 0, "Compare manifests targeting a specific version")
 	buildValidateCmd.Flags().IntVar(&buildFlags.from, "from", 0, "Compare manifests from a specific version")
+	buildValidateCmd.Flags().IntVar(&buildFlags.tableWidth, "table-width", 0, "Max width of package statistics table, defaults to terminal width and disabled by negative numbers")
 	buildFlags.toRepoURLs = buildValidateCmd.Flags().StringToString("to-repo-url", nil, "Overrides the baseurl value for the provided repo in the DNF config file for the `to` version: <repo>=<URL>")
 	buildFlags.fromRepoURLs = buildValidateCmd.Flags().StringToString("from-repo-url", nil, "Overrides the baseurl value for the provided repo in the DNF config file for the `from` version: <repo>=<URL>")
 

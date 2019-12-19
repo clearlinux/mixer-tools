@@ -289,6 +289,10 @@ SUBCOMMANDS
 
       Overrides the baseurl value for the provided repo in the DNF config file for the ``to`` version
 
+    - ``--table-width {width}``
+
+      Max width of package statistics table, defaults to terminal width and disabled by negative numbers
+
     - ``-h, --help``
 
       Display ``build validate`` help information and exit.

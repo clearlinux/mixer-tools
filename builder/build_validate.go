@@ -12,14 +12,17 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"text/tabwriter"
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/swupd"
+	"github.com/olekukonko/tablewriter"
 	"github.com/pkg/errors"
 )
 
 type bundleStatus int
+
+// MinMcaTableWidth is the minimum width for MCA statistics table
+const MinMcaTableWidth = 80
 
 const (
 	unchanged bundleStatus = iota
@@ -107,7 +110,7 @@ type fileInfo struct {
 // two versions aligns to the corresponding RPM changes. Any mismatched files
 // between the manifests and RPMs will be printed as errors. When there are no
 // errors, package and file statistics for each modified bundle will be displayed.
-func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, fromRepoURLOverrides, toRepoURLOverrides map[string]string) error {
+func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries, tableWidth int, fromRepoURLOverrides, toRepoURLOverrides map[string]string) error {
 	if fromVer < 0 || toVer < 0 {
 		return fmt.Errorf("Negative version not supported")
 	}
@@ -115,10 +118,10 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, 
 	if fromVer >= toVer {
 		return fmt.Errorf("From version must be less than to version")
 	}
-	
+
 	// Suppress Stdout so that it doesn't clutter the results
 	stdOut := os.Stdout
-	os.Stdout,_ = os.Open(os.DevNull)
+	os.Stdout, _ = os.Open(os.DevNull)
 	defer func() {
 		os.Stdout = stdOut
 	}()
@@ -163,7 +166,7 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries int, 
 	os.Stdout = stdOut
 
 	// Display errors and package/file statistics
-	err = printMcaResults(results, fromInfo, toInfo, fromVer, toVer, errorList, warningList)
+	err = printMcaResults(results, fromInfo, toInfo, fromVer, toVer, tableWidth, errorList, warningList)
 	if err != nil {
 		return err
 	}
@@ -1127,9 +1130,7 @@ func (b *Builder) checkFormatsMatch(fromVer, toVer int) (bool, error) {
 }
 
 // printMcaResults displays any MCA errors and prints bundle diff statistics when there are no errors.
-func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBundleInfo, fromVer, toVer int, errorList, warningList []string) error {
-	var err error
-
+func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBundleInfo, fromVer, toVer, tableWidth int, errorList, warningList []string) error {
 	// Print any warnings
 	for _, msg := range warningList {
 		fmt.Print(msg)
@@ -1167,28 +1168,28 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 		fmt.Printf("  - %s\n", b)
 	}
 
-	// The output is formatted into a BUNDLE column and a CHANGES column with
-	// rows for each changed bundle. The BUNDLE column contains the bundle name
-	// and the CHANGES column contains content size, file, and package statistics.
-	w := tabwriter.NewWriter(os.Stdout, 30, 0, 1, ' ', tabwriter.Debug)
-	defer func() {
-		_ = w.Flush()
-	}()
-
 	// No bundle information to print
 	if len(results.bundleDiff) == 0 {
 		return nil
 	}
 
-	if _, err = fmt.Fprintf(w, "\n+---------------------------------------------------------------+\n"); err != nil {
-		return err
+	// Skip statistics table when tableWidth too small
+	if tableWidth < MinMcaTableWidth {
+		return nil
 	}
-	if _, err = fmt.Fprintf(w, "| BUNDLE\t CHANGES\n"); err != nil {
-		return err
-	}
-	if _, err = fmt.Fprintf(w, "+---------------------------------------------------------------+\n"); err != nil {
-		return err
-	}
+
+	// The results table requires 7 characters to build 2 column table. The bundle
+	// column character limit is set to 25% of the available characters and the changes
+	// column is set to the remaining 75% of available characters.
+	bundleWidth := (tableWidth - 7) / 4
+	changesWidth := tableWidth - 7 - bundleWidth
+
+	// Create table with separator rows after each bundle entry. The table's text wrapping
+	// does not work well, so text wrapping is handled by the appendMcaTableEntry function.
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetRowLine(true)
+	table.SetAutoWrapText(false)
+	table.SetHeader([]string{"BUNDLE", "CHANGES"})
 
 	sort.Slice(results.bundleDiff, func(i, j int) bool {
 		return results.bundleDiff[i].name < results.bundleDiff[j].name
@@ -1196,18 +1197,16 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 
 	// Print statistics for each bundle
 	for _, b := range results.bundleDiff {
+		var entryLine string
+
 		// Skip unchanged and deleted bundles
 		if (b.status == unchanged || b.status == removed) && !b.minversion {
 			continue
 		}
-		if _, err = fmt.Fprintf(w, "| %s\t Summary:\n", b.name); err != nil {
-			return err
-		}
+		changeStr := appendMcaTableEntry("", "Summary:", changesWidth)
 
 		if b.minversion {
-			if _, err = fmt.Fprintf(w, "|\t ** Minversion bump detected\n"); err != nil {
-				return err
-			}
+			changeStr = appendMcaTableEntry(changeStr, "** Minversion bump detected", changesWidth)
 		}
 
 		// Print bundle sizes in MB and calculate bundle content size
@@ -1216,74 +1215,60 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 
 		if fromInfo[b.name] == nil || fromInfo[b.name].size == 0 {
 			// Print added bundle size
-			if _, err = fmt.Fprintf(w, "|\t Size: %.1fMB\n", toSize); err != nil {
-				return err
-			}
+			entryLine = fmt.Sprintf("Size: %.1fMB", toSize)
+			changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 		} else {
 			fromSize := float64(fromInfo[b.name].size) / 1048576
 			sizeChange := ((toSize / fromSize) - 1) * 100
 
 			if sizeChange <= 0 {
-				if _, err = fmt.Fprintf(w, "|\t Size change: %.1fMB -> %.1fMB (%.2f%%)\n", fromSize, toSize, sizeChange); err != nil {
-					return err
-				}
+				entryLine = fmt.Sprintf("Size change: %.1fMB -> %.1fMB (%.2f%%)", fromSize, toSize, sizeChange)
+				changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 			} else {
-				if _, err = fmt.Fprintf(w, "|\t Size change: %.1fMB -> %.1fMB (+%.2f%%)\n", fromSize, toSize, sizeChange); err != nil {
-					return err
-				}
+				entryLine = fmt.Sprintf("Size change: %.1fMB -> %.1fMB (+%.2f%%)", fromSize, toSize, sizeChange)
+				changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 			}
 		}
 
 		// Print bundle file statistics
-		if _, err = fmt.Fprintf(w, "|\t Files added: %d\n", len(b.manFileDiffs.addList)); err != nil {
-			return err
-		}
-		if _, err = fmt.Fprintf(w, "|\t Files changed: %d\n", len(b.manFileDiffs.modList)); err != nil {
-			return err
-		}
-		if _, err = fmt.Fprintf(w, "|\t Files deleted: %d\n", len(b.manFileDiffs.delList)); err != nil {
-			return err
-		}
+		entryLine = fmt.Sprintf("Files added: %d", len(b.manFileDiffs.addList))
+		changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
+
+		entryLine = fmt.Sprintf("Files changed: %d", len(b.manFileDiffs.modList))
+		changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
+
+		entryLine = fmt.Sprintf("Files deleted: %d", len(b.manFileDiffs.delList))
+		changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 
 		// Print added and deleted packages for bundle
 		if len(b.pkgDiffs.addList) > 0 {
-			if _, err = fmt.Fprintf(w, "|\t Packages added:\n"); err != nil {
-				return err
-			}
+			changeStr = appendMcaTableEntry(changeStr, "Packages added:", changesWidth)
 			sort.Strings(b.pkgDiffs.addList)
 		}
 
 		for _, p := range b.pkgDiffs.addList {
-			if _, err = fmt.Fprintf(w, "|\t    %s\n", p); err != nil {
-				return err
-			}
+			entryLine := fmt.Sprintf("   %s", p)
+			changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 		}
 		if len(b.pkgDiffs.delList) > 0 {
-			if _, err = fmt.Fprintf(w, "|\t Packages deleted:\n"); err != nil {
-				return err
-			}
+			changeStr = appendMcaTableEntry(changeStr, "Packages deleted:", changesWidth)
 			sort.Strings(b.pkgDiffs.delList)
 		}
 
 		for _, p := range b.pkgDiffs.delList {
-			if _, err = fmt.Fprintf(w, "|\t    %s\n", p); err != nil {
-				return err
-			}
+			entryLine := fmt.Sprintf("   %s", p)
+			changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 		}
 
 		// Print file changes for each package in bundle
-		if _, err = fmt.Fprintf(w, "|\t Changes per package:\n"); err != nil {
-			return err
-		}
+		changeStr = appendMcaTableEntry(changeStr, " Changes per package:", changesWidth)
 
 		pkgList := append(b.pkgDiffs.addList, b.pkgDiffs.delList...)
 		pkgList = append(pkgList, b.pkgDiffs.modList...)
 		sort.Strings(pkgList)
 
 		if len(pkgList) == 0 {
-			if _, err = fmt.Fprintf(w, "|\t   (none)\n"); err != nil {
-				return err
-			}
+			changeStr = appendMcaTableEntry(changeStr, "  (none)", changesWidth)
 		}
 
 		for _, p := range pkgList {
@@ -1293,14 +1278,32 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 			if (b.pkgFileCounts[p].add + b.pkgFileCounts[p].mod + b.pkgFileCounts[p].del) == 0 {
 				continue
 			}
-			_, err = fmt.Fprintf(w, "|\t    %s (%d added, %d changed, %d deleted)\n", p, b.pkgFileCounts[p].add, b.pkgFileCounts[p].mod, b.pkgFileCounts[p].del)
-			if err != nil {
-				return err
-			}
+			entryLine = fmt.Sprintf("   %s (%d added, %d changed, %d deleted)", p, b.pkgFileCounts[p].add, b.pkgFileCounts[p].mod, b.pkgFileCounts[p].del)
+			changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
 		}
-		if _, err = fmt.Fprintf(w, "+---------------------------------------------------------------+\n"); err != nil {
-			return err
-		}
+		bundleStr := appendMcaTableEntry("", b.name, bundleWidth)
+		table.Append([]string{bundleStr, changeStr})
 	}
+
+	fmt.Printf("\nFiles changed per manifest:\n\n")
+
+	table.Render()
 	return nil
+}
+
+// appendMcaTableEntry adds a new row to an MCA results table entry. Rows longer
+// than the maxLen will be wrapped to the next line.
+func appendMcaTableEntry(baseStr, newStr string, maxLen int) string {
+	if len(baseStr) > 0 {
+		baseStr += "\n"
+	}
+
+	for len(newStr) > maxLen {
+		baseStr += newStr[0:maxLen] + "\n"
+		newStr = newStr[maxLen:]
+	}
+	if len(newStr) > 0 {
+		baseStr += newStr
+	}
+	return baseStr
 }

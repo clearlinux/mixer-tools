@@ -36,7 +36,7 @@ type dnfRepoConf struct {
 }
 
 type repoInfo struct {
-	cacheDir  string
+	cacheDirs map[string]bool
 	urlScheme string
 	url       string
 }
@@ -355,11 +355,11 @@ func (b *Builder) ListRepos() error {
 
 		repo.urlScheme = pURL.Scheme
 		repo.url = pURL.String()
+		repo.cacheDirs = make(map[string]bool)
 		if pURL.Scheme == "file" {
-			pURL.Scheme = ""
-			repo.cacheDir = pURL.String()
+			repo.cacheDirs[pURL.String()] = true
 		} else {
-			repo.cacheDir = dnfDownloadDir
+			repo.cacheDirs[dnfDownloadDir] = true
 		}
 
 		b.repos[name] = repo

@@ -26,6 +26,22 @@
   version = "v1.0"
 
 [[projects]]
+  digest = "1:d93779dc5d7750c2afd77c2e162c728dacfacce1c32af63fd03f23b7376ea30f"
+  name = "github.com/mattn/go-runewidth"
+  packages = ["."]
+  pruneopts = ""
+  revision = "18c3d09a134a52720932bbaa92c798a0ab111004"
+  version = "v0.0.7"
+
+[[projects]]
+  digest = "1:be76fb5b006046835859bbfd38adfc01574c672685fd5d4c6f0bce073ac16bfb"
+  name = "github.com/olekukonko/tablewriter"
+  packages = ["."]
+  pruneopts = ""
+  revision = "876dd0e0227ec99c0243b639b92139915b65331a"
+  version = "v0.0.4"
+
+[[projects]]
   digest = "1:1d7e1867c49a6dd9856598ef7c3123604ea3daabf5b83f303ff457bcbc410b1d"
   name = "github.com/pkg/errors"
   packages = ["."]
@@ -55,9 +71,9 @@
   input-imports = [
     "github.com/BurntSushi/toml",
     "github.com/go-ini/ini",
+    "github.com/olekukonko/tablewriter",
     "github.com/pkg/errors",
     "github.com/spf13/cobra",
-    "github.com/spf13/pflag",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -1221,12 +1221,14 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 			fromSize := float64(fromInfo[b.name].size) / 1048576
 			sizeChange := ((toSize / fromSize) - 1) * 100
 
-			if sizeChange <= 0 {
+			if sizeChange <= float64(-0.01) {
 				entryLine = fmt.Sprintf("Size change: %.1fMB -> %.1fMB (%.2f%%)", fromSize, toSize, sizeChange)
 				changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
-			} else {
+			} else if sizeChange >= float64(0.01) {
 				entryLine = fmt.Sprintf("Size change: %.1fMB -> %.1fMB (+%.2f%%)", fromSize, toSize, sizeChange)
 				changeStr = appendMcaTableEntry(changeStr, entryLine, changesWidth)
+			} else {
+				changeStr = appendMcaTableEntry(changeStr, "Size change: (none)", changesWidth)
 			}
 		}
 

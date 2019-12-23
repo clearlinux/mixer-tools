@@ -1158,7 +1158,7 @@ func (b *Builder) checkFormatsMatch(fromVer, toVer int) (bool, error) {
 func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBundleInfo, fromVer, toVer, tableWidth int, errorList, warningList []string) error {
 	// Print any warnings
 	for _, msg := range warningList {
-		fmt.Print(msg)
+		fmt.Fprintf(os.Stderr, "%s", msg)
 	}
 	fmt.Print("\n")
 

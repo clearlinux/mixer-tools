@@ -575,9 +575,8 @@ func resolveRpmURIs(pkgList []packageMetadata, repo, baseURI string, pkgInfoCach
 // getManFiles collects the manifest's file list
 func (info *mcaBundleInfo) getManFiles(manifest *swupd.Manifest) error {
 	for _, file := range manifest.Files {
-		// Skip directories, the bundle file, and deleted/ghosted files
+		// Skip directories and deleted/ghosted files
 		if file.Type == swupd.TypeDirectory ||
-			file.Name == "/usr/share/clear/bundles/"+manifest.Name ||
 			file.Status == swupd.StatusDeleted ||
 			file.Status == swupd.StatusGhosted {
 
@@ -981,6 +980,9 @@ func diffResultLists(bundleDiff *mcaBundleDiff, info map[string]*fileInfo, mode 
 
 	var errorList = []string{}
 
+	trackingFileFound := false
+	trackingFile := "/usr/share/clear/bundles/" + bundleDiff.name
+
 	// Compare manifest and package file lists. When they don't match, add an
 	// error string to the error slice.
 	i := 0
@@ -998,8 +1000,14 @@ func diffResultLists(bundleDiff *mcaBundleDiff, info map[string]*fileInfo, mode 
 		switch fileComp {
 		case 1:
 			// File in manifest list, but not package
-			errorMsg := fmt.Sprintf("ERROR: %s is %s in manifest '%s', but not in a package\n", manFiles[j], mode, bundleDiff.name)
-			errorList = append(errorList, errorMsg)
+			if manFiles[j] == trackingFile && mode == "added" && bundleDiff.status == added {
+				// Each manifest should have a tracking file that will not be
+				// included in a package
+				trackingFileFound = true
+			} else {
+				errorMsg := fmt.Sprintf("ERROR: %s is %s in manifest '%s', but not in a package\n", manFiles[j], mode, bundleDiff.name)
+				errorList = append(errorList, errorMsg)
+			}
 			j++
 		case -1:
 			// File in package list, but not manifest
@@ -1010,6 +1018,12 @@ func diffResultLists(bundleDiff *mcaBundleDiff, info map[string]*fileInfo, mode 
 			i++
 			j++
 		}
+	}
+
+	// Create error when new bundle doesn't add a bundle tracking file.
+	if !trackingFileFound && mode == "added" && bundleDiff.status == added {
+		errorMsg := fmt.Sprintf("ERROR: %s is missing from manifest '%s'\n", trackingFile, bundleDiff.name)
+		errorList = append(errorList, errorMsg)
 	}
 
 	return errorList

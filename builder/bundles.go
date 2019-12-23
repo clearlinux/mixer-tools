@@ -451,7 +451,7 @@ func installFilesystem(chrootDir string, packagerCmd []string, downloadRetries i
 	pkgFull := fileSystemInfo.name + "-" + fileSystemInfo.version + "." + fileSystemInfo.arch
 	rpm := pkgFull + ".rpm"
 	var rpmFullPath string
-	for cacheDir, _ := range repos[fileSystemInfo.repo].cacheDirs {
+	for cacheDir := range repos[fileSystemInfo.repo].cacheDirs {
 		rpmFullPath = filepath.Join(cacheDir, rpm) // assuming the full path based on Clear Linux repo and naming conventions
 		_, err = os.Stat(rpmFullPath)
 		if err == nil {
@@ -663,7 +663,7 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 		}
 		var rpmFullPath string
 		pkgFull := pkgInfo.name + "-" + pkgInfo.version + "." + pkgInfo.arch
-		for cacheDir, _ := range repos[pkgInfo.repo].cacheDirs {
+		for cacheDir := range repos[pkgInfo.repo].cacheDirs {
 			rpmFullPath = filepath.Join(cacheDir, rpm) // assuming the full path based on Clear Linux repo and naming conventions
 			_, err = os.Stat(rpmFullPath)
 			if err == nil {

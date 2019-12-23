@@ -85,6 +85,9 @@ func TerminalWidth() (int, error) {
 	cmd := exec.Command("stty", "size")
 	cmd.Stdin = os.Stdin
 	out, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
 
 	outStrs := strings.Fields(string(out))
 	if len(outStrs) != 2 {

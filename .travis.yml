@@ -14,7 +14,7 @@ env:
     - TEST_DIR=build-all-delta-packs
     - TEST_DIR=build-delta-manifests
     - TEST_DIR=build-multiple-delta-packs
-    - TEST_DIR=build-validate
+#    - TEST_DIR=build-validate
     - TEST_DIR=bundle-commands
     - TEST_DIR=clean-rebuild
     - TEST_DIR=config-conversion

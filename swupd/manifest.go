@@ -439,9 +439,12 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 		added = append(added, nf)
 	}
 
-	// anything remaining in oldManifest is newly deleted in the new manifest
+	// anything remaining in oldManifest is deleted in the new manifest
 	for _, of := range oldManifest.Files[ox:omFilesLen] {
-		if of.Status == StatusDeleted || of.Status == StatusGhosted {
+		if !of.Present() {
+			if of.Status == StatusDeleted && m.Header.Format == oldManifest.Header.Format {
+				m.Files = append(m.Files, of)
+			}
 			continue
 		}
 		m.newDeleted(of)

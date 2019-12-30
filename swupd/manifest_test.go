@@ -395,6 +395,7 @@ func TestLinkPeersAndChange(t *testing.T) {
 			{Name: "3", Status: StatusGhosted, Info: sizer(0)},
 			{Name: "4", Status: StatusUnset, Info: sizer(0)},
 			{Name: "5", Status: StatusUnset, Hash: 1, Info: sizer(0)},
+			{Name: "7", Status: StatusDeleted, Info: sizer(0)},
 		},
 	}
 
@@ -406,6 +407,18 @@ func TestLinkPeersAndChange(t *testing.T) {
 			{Name: "5", Status: StatusUnset, Hash: 2, Info: sizer(0)},
 			{Name: "6", Status: StatusUnset, Info: sizer(0)},
 		},
+	}
+
+	// 1: modified, 2: deleted->added, 3: ghosted->added, 4: newly deleted,
+	// 5: modified, 6: newly added, 7: previously deleted
+	expectedFiles := []*File{
+		{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
+		{Name: "2", Status: StatusUnset, Info: sizer(0)},
+		{Name: "3", Status: StatusUnset, Info: sizer(0)},
+		{Name: "4", Status: StatusDeleted, Info: sizer(0)},
+		{Name: "5", Status: StatusUnset, Hash: 2, Info: sizer(0)},
+		{Name: "6", Status: StatusUnset, Info: sizer(0)},
+		{Name: "7", Status: StatusDeleted, Info: sizer(0)},
 	}
 
 	testCases := map[string]struct {
@@ -430,11 +443,16 @@ func TestLinkPeersAndChange(t *testing.T) {
 	if added != 3 {
 		t.Errorf("%v files detected as added when 3 were expected", added)
 	}
+	// The previously deleted file will not be counted as a newly deleted file.
 	if deleted != 1 {
 		t.Errorf("%v files detected as deleted when only 1 was expected", deleted)
 	}
 
-	for _, f := range mNew.Files {
+	if len(mNew.Files) != len(expectedFiles) {
+		t.Errorf("new file len: %d does not match expected len: %d", len(mNew.Files), len(expectedFiles))
+	}
+
+	for i, f := range mNew.Files {
 		if testCases[f.Name].hasPeer {
 			if f.DeltaPeer == nil {
 				t.Fatalf("File %v does not have delta peer when expected", f.Name)
@@ -446,6 +464,14 @@ func TestLinkPeersAndChange(t *testing.T) {
 					f.DeltaPeer.Name,
 					testCases[f.Name].expected)
 			}
+		}
+
+		if f.Name != expectedFiles[i].Name && f.Status != expectedFiles[i].Status {
+			t.Errorf("file name: %s or file status: %s does not match expected name: %s or expected status: %s",
+				f.Name,
+				f.Status,
+				expectedFiles[i].Name,
+				expectedFiles[i].Status)
 		}
 	}
 }

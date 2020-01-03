@@ -4,11 +4,11 @@ include Makefile.bats
 
 VERSION=6.1.4
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
+GOPATH ?= ${HOME}/go
 
 .PHONY: build install clean check
 
 .DEFAULT_GOAL := build
-
 
 build:
 	go install -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
@@ -17,7 +17,7 @@ build:
 	go install ${GO_PACKAGE_PREFIX}/swupd-inspector
 	go install ${GO_PACKAGE_PREFIX}/mixer-completion
 
-install:
+install: build
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
 	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.

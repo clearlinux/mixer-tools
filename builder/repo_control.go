@@ -23,6 +23,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -218,6 +219,18 @@ func (b *Builder) SetURLRepo(repo, url string) error {
 // SetExcludesRepo sets the excludes for the repo <repo> to [pkgs...]
 func (b *Builder) SetExcludesRepo(repo, pkgs string) error {
 	return b.setRepoVal(repo, "excludepkgs", pkgs)
+}
+
+// SetPriorityRepo sets the priority for the repo
+func (b *Builder) SetPriorityRepo(repo, priority string) error {
+	p, err := strconv.Atoi(priority)
+	if err != nil {
+		return err
+	}
+	if p < 1 || p > 99 {
+		return errors.Errorf("repo priority %d must be between 1 and 99", p)
+	}
+	return b.setRepoVal(repo, "priority", priority)
 }
 
 // WriteRepoURLOverrides writes a copy of the DNF conf file

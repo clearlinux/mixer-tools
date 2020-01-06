@@ -60,6 +60,10 @@ SUBCOMMANDS
 
     Remove the repo `name` from the DNF configuration file used by mixer.
 
+``set-priority {name} {priority}``
+
+    Sets the priority for repo `name` to the provided `priority`.
+
 ``set-url {name} {url}``
 
     Sets the URL for repo `name` to the provided `url`. If `name` does not exist

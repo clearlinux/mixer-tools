@@ -81,6 +81,15 @@ to use when building bundles by excluding the unwanted ones. Globbing is support
 	Run:  runExcludesRepo,
 }
 
+var setPriorityRepoCmd = &cobra.Command{
+	Use:   "set-priority <repo> <priority>",
+	Short: "Set priority of repo in DNF conf file",
+	Long: `Set repo <repo> with <priority> to the DNF conf file used by mixer. The <priority> must be a
+number between 1 and 99.`,
+	Args: cobra.ExactArgs(2),
+	Run:  runPriorityRepo,
+}
+
 var repoCmds = []*cobra.Command{
 	addRepoCmd,
 	removeRepoCmd,
@@ -88,6 +97,7 @@ var repoCmds = []*cobra.Command{
 	initRepoCmd,
 	setURLRepoCmd,
 	setExcludesRepoCmd,
+	setPriorityRepoCmd,
 }
 
 func init() {
@@ -109,6 +119,19 @@ func runExcludesRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 	fmt.Printf("Excluded packages from repo %s:\n%s\n", args[0], strings.Join(args[1:], "\n"))
+}
+
+func runPriorityRepo(cmd *cobra.Command, args []string) {
+	b, err := builder.NewFromConfig(configFile)
+	if err != nil {
+		fail(err)
+	}
+
+	err = b.SetPriorityRepo(args[0], args[1])
+	if err != nil {
+		fail(err)
+	}
+	fmt.Printf("Setting repo %s with priority %s\n", args[0], args[1])
 }
 
 func runAddRepo(cmd *cobra.Command, args []string) {

@@ -5,6 +5,7 @@ include Makefile.bats
 VERSION=6.1.4
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 GOPATH ?= ${HOME}/go
+gopath = $(shell go env GOPATH)
 
 .PHONY: build install clean check
 
@@ -38,7 +39,11 @@ checkcoverage:
 
 .PHONY: lint
 lint:
-	@golangci-lint run --deadline=10m --tests --disable-all \
+	@if ! $(gopath)/bin/golangci-lint --version &>/dev/null; then \
+		echo "Installing linters..."; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(gopath)/bin v1.22.2; \
+	fi
+	@$(gopath)/bin/golangci-lint run --deadline=10m --tests --disable-all \
 	--enable=misspell \
 	--enable=vet \
 	--enable=ineffassign \

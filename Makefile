@@ -2,7 +2,7 @@ include Makefile.bats
 
 .NOTPARALLEL:
 
-VERSION=6.1.4
+VERSION=6.1.5
 GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 GOPATH ?= ${HOME}/go
 gopath = $(shell go env GOPATH)

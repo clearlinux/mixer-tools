@@ -177,9 +177,8 @@ func (b *Builder) AddRepo(name, url string) error {
 	return nil
 }
 
-// SetURLRepo sets the URL for the repo <name> to <url>. If <name> does not exist it is
-// created.
-func (b *Builder) SetURLRepo(name, url string) error {
+// setRepoVal sets a key/value pair for the specified repo in the DNF config
+func (b *Builder) setRepoVal(repo, key, val string) error {
 	if err := b.NewDNFConfIfNeeded(); err != nil {
 		return err
 	}
@@ -189,46 +188,36 @@ func (b *Builder) SetURLRepo(name, url string) error {
 		return err
 	}
 
-	s, err := DNFConf.GetSection(name)
+	s, err := DNFConf.GetSection(repo)
 	if err != nil {
-		// the section doesn't exist, just add a new one
-		return b.AddRepo(name, url)
-	}
-
-	k, err := s.GetKey("baseurl")
-	if err != nil {
+		// Create new repo when setting baseurl for non-existent repo
+		if key == "baseurl" {
+			return b.AddRepo(repo, val)
+		}
 		return err
 	}
 
-	k.SetValue(url)
-	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
-}
-
-// SetExcludesRepo sets the ecludes for the repo <name> to [pkgs...]
-func (b *Builder) SetExcludesRepo(reponame, pkgs string) error {
-	if err := b.NewDNFConfIfNeeded(); err != nil {
-		return err
-	}
-
-	DNFConf, err := ini.Load(b.Config.Builder.DNFConf)
+	k, err := s.GetKey(key)
 	if err != nil {
-		return err
-	}
-
-	s, err := DNFConf.GetSection(reponame)
-	if err != nil {
-		return err
-	}
-
-	k, err := s.GetKey("excludepkgs")
-	if err != nil {
-		if k, err = DNFConf.Section(reponame).NewKey("excludepkgs", pkgs); err != nil {
+		// Create new key section when it doesn't exist
+		if k, err = DNFConf.Section(repo).NewKey(key, val); err != nil {
 			return err
 		}
 	}
 
-	k.SetValue(pkgs)
+	k.SetValue(val)
 	return DNFConf.SaveTo(b.Config.Builder.DNFConf)
+}
+
+// SetURLRepo sets the URL for the repo <repo> to <url>. If <repo> does not exist it is
+// created.
+func (b *Builder) SetURLRepo(repo, url string) error {
+	return b.setRepoVal(repo, "baseurl", url)
+}
+
+// SetExcludesRepo sets the excludes for the repo <repo> to [pkgs...]
+func (b *Builder) SetExcludesRepo(repo, pkgs string) error {
+	return b.setRepoVal(repo, "excludepkgs", pkgs)
 }
 
 // WriteRepoURLOverrides writes a copy of the DNF conf file

@@ -46,6 +46,10 @@ SUBCOMMANDS
     Add the repo named `name` at the `url` url. In addition to the global
     options ``mixer repo add`` takes the following options.
 
+    - ``--priority``
+
+      Repo priority between 1 and 99, where 1 is highest. This flag defaults to 1.
+
 ``init``
 
     Initialize the DNF configuration file with the default `Clear` repository

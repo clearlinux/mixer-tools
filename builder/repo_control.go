@@ -33,7 +33,7 @@ import (
 )
 
 type dnfRepoConf struct {
-	RepoName, RepoURL string
+	RepoName, RepoURL, RepoPriority string
 }
 
 type repoInfo struct {
@@ -49,7 +49,7 @@ failovermethod=priority
 baseurl={{.RepoURL}}
 enabled=1
 gpgcheck=0
-priority=1
+priority={{.RepoPriority}}
 `
 
 // If Base == true, template will include the [main] and [clear] sections.
@@ -134,13 +134,14 @@ func (b *Builder) NewDNFConfIfNeeded() error {
 }
 
 // AddRepo adds and enables a repo configuration named <name> pointing at
-// URL <url>. It calls b.NewDNFConfIfNeeded() to create the DNF config if it
-// does not exist and performs a check to see if the repo passed has already
-// been configured.
-func (b *Builder) AddRepo(name, url string) error {
+// URL <url> with priority <priority>. It calls b.NewDNFConfIfNeeded() to
+// create the DNF config if it does not exist and performs a check to see
+// if the repo passed has already been configured.
+func (b *Builder) AddRepo(name, url, priority string) error {
 	repo := dnfRepoConf{
-		RepoName: name,
-		RepoURL:  url,
+		RepoName:     name,
+		RepoURL:      url,
+		RepoPriority: priority,
 	}
 
 	if err := b.NewDNFConfIfNeeded(); err != nil {
@@ -193,7 +194,7 @@ func (b *Builder) setRepoVal(repo, key, val string) error {
 	if err != nil {
 		// Create new repo when setting baseurl for non-existent repo
 		if key == "baseurl" {
-			return b.AddRepo(repo, val)
+			return b.AddRepo(repo, val, "1")
 		}
 		return err
 	}
@@ -353,7 +354,13 @@ func (b *Builder) ListRepos() error {
 			pURL.Scheme = "file"
 		}
 
-		fmt.Printf("%s\t%s\n", name, pURL.String())
+		priority := s.Key("priority").Value()
+		if priority == "" {
+			// When the priority field is omitted, the DNF default is 99.
+			priority = "99"
+		}
+
+		fmt.Printf("%s\t%s\t%s\n", name, priority, pURL.String())
 
 		repo.urlScheme = pURL.Scheme
 		repo.url = pURL.String()

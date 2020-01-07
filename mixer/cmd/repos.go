@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/pkg/errors"
 
 	"github.com/spf13/cobra"
 )
@@ -106,6 +107,8 @@ func init() {
 	}
 
 	RootCmd.AddCommand(repoCmd)
+
+	addRepoCmd.Flags().Uint32Var(&repoAddFlags.priority, "priority", 1, "Repo priority between 1 and 99, where 1 is highest")
 }
 
 func runExcludesRepo(cmd *cobra.Command, args []string) {
@@ -134,6 +137,13 @@ func runPriorityRepo(cmd *cobra.Command, args []string) {
 	fmt.Printf("Setting repo %s with priority %s\n", args[0], args[1])
 }
 
+// repo add command ('mixer repo add')
+type repoAddCmdFlags struct {
+	priority uint32
+}
+
+var repoAddFlags repoAddCmdFlags
+
 func runAddRepo(cmd *cobra.Command, args []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
@@ -146,11 +156,16 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if u.Scheme == "" {
 		u.Scheme = "file"
 	}
-	err = b.AddRepo(args[0], u.String())
+
+	if repoAddFlags.priority < 1 || repoAddFlags.priority > 99 {
+		fail(errors.Errorf("repo priority %d must be between 1 and 99", repoAddFlags.priority))
+	}
+
+	err = b.AddRepo(args[0], u.String(), fmt.Sprint(repoAddFlags.priority))
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Adding repo %s with url %s \n", args[0], u.String())
+	fmt.Printf("Adding repo %s with url %s and priority %d\n", args[0], u.String(), repoAddFlags.priority)
 }
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {

@@ -119,7 +119,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	err = b.AddRepo(args[0], args[1])
+	err = b.AddRepo(args[0], args[1], "1")
 	if err != nil {
 		fail(err)
 	}

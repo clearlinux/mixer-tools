@@ -15,7 +15,6 @@
 package builder
 
 import (
-	"bufio"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -204,44 +203,23 @@ func (b *Builder) RemoveBundlesGroupINI(bundles []string) error {
 	return nil
 }
 
-// ModifyBundles goes through the bundle directory and performs an action when it finds
+// ModifyBundles goes through the mix bundle list and performs an action when it finds
 // a Deprecated bundle
 func (b *Builder) ModifyBundles(action func([]string) error) error {
-	path := b.Config.Mixer.LocalBundleDir
-	files, err := ioutil.ReadDir(path)
+	set, err := b.getMixBundlesListAsSet()
 	if err != nil {
 		return err
 	}
 
-	var scanner *bufio.Scanner
-	var filesGroup []string
-	re := regexp.MustCompile(`#\s\[STATUS\]:\s*Deprecated.*`)
-	for _, file := range files {
-		fileToScan := filepath.Join(path, file.Name())
-		f, err := os.Open(fileToScan)
-		if err != nil {
-			return err
+	var deprecatedBundles []string
+	for _, bundle := range set {
+		if bundle.Header.Status == "Deprecated" {
+			fmt.Println("Found deprecated bundle: " + bundle.Name)
+			deprecatedBundles = append(deprecatedBundles, bundle.Name)
 		}
-
-		// Scan the files and find which bundle definitions are marked deprecated
-		scanner = bufio.NewScanner(f)
-		var str string
-		for scanner.Scan() {
-			str = scanner.Text()
-			// Don't scan past header, stop once we have no more # comments
-			if str[0] != '#' {
-				break
-			}
-			if !re.Match([]byte(str)) {
-				continue
-			}
-			fmt.Println("Found deprecated bundle: " + fileToScan)
-			filesGroup = append(filesGroup, file.Name())
-		}
-		_ = f.Close()
 	}
-	// Call the callback function we need on the file(s) we scanned
-	return action(filesGroup)
+	// Call the callback function we need on the deprecated bundles
+	return action(deprecatedBundles)
 }
 
 // PrintVersions prints the current mix and upstream versions, and the

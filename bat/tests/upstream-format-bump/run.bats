@@ -8,15 +8,26 @@ setup() {
 }
 
 @test "Perform format bump builds to cross upstream format bump" {
-  mixer-init-stripped-down 25740 10
+  # The kernel-container bundle is deleted in the format bump from 27 to 28
+  # and is used to test upstream bundle deletion. Version 29690 is in format
+  # 27 and version 29800 is in format 28.
+  mixer-init-stripped-down 29690 10
   format=$(sed -n 's/[ ]*FORMAT[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state)
+
+  # Add bundle deleted by upstream
+  mixer-bundle-add kernel-container
+
+  # Create local bundle to be deleted
+  create-empty-local-bundle "local-deleted"
+  sed -i "s/\(# \[STATUS\]:\).*/\1 Deprecated/" local-bundles/local-deleted
+  mixer-bundle-add "local-deleted"
 
   # Create initial version in the old format
   mixer-build-bundles > $LOGDIR/build_bundles.log
 
   mixer-build-update > $LOGDIR/build_update.log
 
-  run mixer-versions-update 20 26000
+  run mixer-versions-update 20 29800
   # Updating versions should have output this as part of the error
   [[ "$output" =~ "mixer build upstream-format" ]]
 
@@ -38,6 +49,22 @@ setup() {
   #check LAST_VER and PREVIOUS_MIX_VERSION match
   test $(< update/image/LAST_VER) -eq 30
   test $(sed -n 's/[ ]*PREVIOUS_MIX_VERSION[ ="]*\([0-9]\+\)[ "]*/\1/p' mixer.state) -eq 30
+
+  # check deleted upstream/local bundles delete tracking file in +10
+  grep -P "20\tkernel-container" update/www/20/Manifest.MoM
+  grep -P "20\tlocal-deleted" update/www/20/Manifest.MoM
+  grep -P "00000000000\t20\t/usr/share/clear/bundles/kernel-container" update/www/20/Manifest.kernel-container
+  grep -P "00000000000\t20\t/usr/share/clear/bundles/local-deleted" update/www/20/Manifest.local-deleted
+
+  # check deleted upstream/local bundle manifest deletions in +20
+  grep -v "kernel-container" update/www/30/Manifest.MoM
+  grep -v "local-deleted" update/www/30/Manifest.MoM
+  test ! -f update/www/30/Manifest.kernel-container
+  test ! -f update/www/30/Manifest.local-deleted
+
+  # check deleted bundles no longer tracked by mix
+  grep -v "kernel-container" mixbundles
+  grep -v "local-deleted" mixbundles
 
 }
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

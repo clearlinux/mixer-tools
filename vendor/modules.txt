@@ -2,10 +2,12 @@
 github.com/BurntSushi/toml
 # github.com/go-ini/ini v1.42.0
 github.com/go-ini/ini
-# github.com/olekukonko/tablewriter v0.0.4
-github.com/olekukonko/tablewriter
 # github.com/inconshreveable/mousetrap v1.0.0
 github.com/inconshreveable/mousetrap
+# github.com/mattn/go-runewidth v0.0.7
+github.com/mattn/go-runewidth
+# github.com/olekukonko/tablewriter v0.0.4
+github.com/olekukonko/tablewriter
 # github.com/pkg/errors v0.8.1
 github.com/pkg/errors
 # github.com/spf13/cobra v0.0.5

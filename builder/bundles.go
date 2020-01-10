@@ -265,10 +265,20 @@ func parseNoopInstall(installOut string) ([]packageMetadata, error) {
 	parts := strings.Split(installOut, "Installing:\n")
 	if len(parts) < 2 {
 		// If there is no such section, e.g. dnf fails because there's
-		// no matching package (so no "Installing:"), return nil. Real
-		// failure will happen later when doing the actual install.
-
-		return nil, fmt.Errorf("unable to resolve package")
+		// no matching package (so no "Installing:"), return error with
+		// list of packages not found.
+		var pkgs string
+		if len(parts) == 1 {
+			parts = strings.Split(parts[0], "No match for argument:")
+			parts = parts[1:]
+			for i, v := range parts {
+				pkgs = pkgs + strings.TrimSpace(v)
+				if i != len(parts)-1 {
+					pkgs = pkgs + ", "
+				}
+			}
+		}
+		return nil, fmt.Errorf("unable to resolve package(s): %s", pkgs)
 	}
 	pkgList := strings.Split(parts[1], "\nTransaction Summary")[0]
 

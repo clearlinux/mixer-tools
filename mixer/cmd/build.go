@@ -140,6 +140,10 @@ var buildBundlesCmd = &cobra.Command{
 	Short:   "Build the bundles for your mix",
 	Long:    `Build the bundles for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -158,6 +162,10 @@ var buildUpstreamFormatCmd = &cobra.Command{
 	Long:   `Use to create the necessary builds to cross an upstream format`,
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -226,6 +234,10 @@ var buildFormatBumpCmd = &cobra.Command{
 	Long:   `Used to create a downstream format bump`,
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		if buildFlags.newFormat == "" {
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
@@ -258,6 +270,10 @@ var buildFormatOldCmd = &cobra.Command{
 	Short: "Build the +10 version in the old format for the format bump",
 	Long:  `Build the +10 version in the old format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		if buildFlags.newFormat == "" {
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
@@ -365,6 +381,10 @@ var buildFormatNewCmd = &cobra.Command{
 	Short: "Build the +20 version in the new format for the format bump",
 	Long:  `Build the +20 version in the new format for the format bump`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		if buildFlags.newFormat == "" {
 			fail(errors.New("Please supply the next format version with --new-format"))
 		}
@@ -437,6 +457,10 @@ var buildUpdateCmd = &cobra.Command{
 	Short: "Build the update content for your mix",
 	Long:  `Build the update content for your mix`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -475,6 +499,10 @@ var buildAllCmd = &cobra.Command{
 	Short: "Build all content for mix with default options",
 	Long:  `Build all content for mix with default options`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -524,6 +552,10 @@ var buildValidateCmd = &cobra.Command{
 	Short: "Validate manifests correctly generated between two versions",
 	Long:  `Validate manifests correctly generated between two versions`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -554,6 +586,10 @@ var buildImageCmd = &cobra.Command{
 	Short: "Build an image from the mix content",
 	Long:  `Build an image from the mix content`,
 	Run: func(cmd *cobra.Command, args []string) {
+		if err := checkRoot(); err != nil {
+			fail(err)
+		}
+
 		b, err := builder.NewFromConfig(configFile)
 		if err != nil {
 			fail(err)
@@ -637,6 +673,10 @@ var buildDeltaManifestsFlags struct {
 }
 
 func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
+	if err := checkRoot(); err != nil {
+		fail(err)
+	}
+
 	fromChanged := cmd.Flags().Changed("from")
 	prevChanged := cmd.Flags().Changed("previous-versions")
 	if fromChanged == prevChanged {
@@ -660,6 +700,10 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 }
 
 func runBuildDeltaManifests(cmd *cobra.Command, args []string) error {
+	if err := checkRoot(); err != nil {
+		fail(err)
+	}
+
 	fromChanged := cmd.Flags().Changed("from")
 	prevChanged := cmd.Flags().Changed("previous-versions")
 	if fromChanged == prevChanged {

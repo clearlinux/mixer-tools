@@ -187,8 +187,9 @@ func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packa
 			// Resolve files for this bundle, passing it the map of repos to packages
 			r, ok := bundleRepoPkgs.Load(bundle.Name)
 			if !ok {
-				fmt.Println("couldn't find %s bundle", bundle.Name)
-				errorCh <- fmt.Errorf("couldn't find %s bundle", bundle.Name)
+				errMsg := fmt.Sprintf("couldn't find %s bundle\n", bundle.Name)
+				fmt.Println(errMsg)
+				errorCh <- fmt.Errorf(errMsg)
 				return
 			}
 			e := resolveFilesForBundle(bundle, r.(repoPkgMap), packagerCmd)

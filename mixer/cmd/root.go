@@ -193,6 +193,13 @@ func hasMarker(cmd *cobra.Command, marker string) bool {
 	return ok
 }
 
+func checkRoot() error {
+	if uid := os.Geteuid(); uid != 0 {
+		return errors.Errorf("This command requires root (uid=%d)\n", uid)
+	}
+	return nil
+}
+
 func fail(err error) {
 	if rootCmdFlags.cpuProfile != "" {
 		pprof.StopCPUProfile()

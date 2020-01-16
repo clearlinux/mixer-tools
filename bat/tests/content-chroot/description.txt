@@ -1,0 +1,3 @@
+content-chroot
+====================
+This test creates a mix that uses a content bundle chroot to generate a manifest.

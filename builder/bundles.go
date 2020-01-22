@@ -420,12 +420,9 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 					rpmName := pkg.name + "-" + pkg.version + "." + pkg.arch + ".rpm"
 					bundle.AllPackages[pkg.name] = true
 					bundle.AllRpms[rpmName] = pkg
-
 					// to find the pkg Metadata of filesystem rpm, as filesystem needs to be extracted first
-					if bundle.Name == "os-core" {
-						if pkg.name == "filesystem" {
-							fileSystemInfo = pkg
-						}
+					if pkg.name == "filesystem" && fileSystemInfo == (packageMetadata{}) {
+						fileSystemInfo = pkg
 					}
 				}
 			}
@@ -535,8 +532,8 @@ func buildOsCore(b *Builder, packagerCmd []string, chrootDir, version string) er
 		return err
 	}
 
-	if err := fixOSRelease(b, filepath.Join(chrootDir, "usr/lib/os-release"), version); err != nil {
-		return errors.Wrap(err, "couldn't fix os-release file")
+	if err := updateOSReleaseFile(b, filepath.Join(chrootDir, "usr/lib/os-release"), version, b.Config.Swupd.ContentURL); err != nil {
+		return errors.Wrap(err, "couldn't update os-release file")
 	}
 
 	if err := createVersionsFile(filepath.Dir(chrootDir), packagerCmd); err != nil {
@@ -813,8 +810,10 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 	i := 0
 	rpmMap = make(map[string]bool)
 
-	if err := installFilesystem(fullDir, packagerCmd, downloadRetries, b.repos); err != nil {
-		return err
+	if fileSystemInfo != (packageMetadata{}) {
+		if err := installFilesystem(fullDir, packagerCmd, downloadRetries, b.repos); err != nil {
+			return err
+		}
 	}
 
 	for _, bundle := range *set {
@@ -1123,14 +1122,20 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	return w.Flush()
 }
 
-func fixOSRelease(b *Builder, filename, version string) error {
-
+func updateOSReleaseFile(b *Builder, filename, version string, homeURL string) error {
+	fmt.Println("... updating os-release file")
 	//Replace the default os-release file if customized os-release file found
 	var err error
 	var f *os.File
 	if b.Config.Mixer.OSReleasePath != "" {
 		f, err = os.Open(b.Config.Mixer.OSReleasePath)
 	} else {
+		if _, err = os.Stat(filename); os.IsNotExist(err) {
+			return createOSReleaseFile(filename, homeURL, version)
+		}
+		if err != nil {
+			return err
+		}
 		f, err = os.Open(filename)
 	}
 
@@ -1140,7 +1145,6 @@ func fixOSRelease(b *Builder, filename, version string) error {
 	defer func() {
 		_ = f.Close()
 	}()
-
 	var newBuf bytes.Buffer
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
@@ -1180,4 +1184,68 @@ func getClosestAncestorOwner(path string) (int, int, error) {
 	uid := int(fi.Sys().(*syscall.Stat_t).Uid)
 	gid := int(fi.Sys().(*syscall.Stat_t).Gid)
 	return uid, gid, nil
+}
+
+func createOSReleaseFile(filename string, homeURL string, version string) error {
+	fmt.Println("... creating os-release file")
+
+	var f *os.File
+	err := os.MkdirAll(filepath.Dir(filename), 0655)
+	if err != nil {
+		return err
+	}
+	f, err = os.Create(filename)
+	if err != nil {
+		return err
+	}
+
+	err = f.Chmod(0644)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintln(f, "NAME="+"\""+"Clear Linux OS"+"\"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "ID="+"clear-linux-os")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "ID_LIKE="+"clear-linux-os")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "VERSION_ID="+version)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "PRETTY_NAME="+"\""+"Clear Linux OS"+"\"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "ANSI_COLOR="+"\""+"1;35"+"\"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "HOME_URL="+"\""+homeURL+"\"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "SUPPORT_URL="+"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "BUG_REPORT_URL="+"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "PRIVACY_POLICY_URL="+"")
+	if err != nil {
+		return err
+	}
+
+	err = f.Close()
+
+	return err
 }

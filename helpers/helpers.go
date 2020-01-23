@@ -195,17 +195,35 @@ func UnpackFile(file string, dest string) error {
 }
 
 // CopyFile copies a file, overwriting the destination if it exists.
-func CopyFile(dest string, src string) error {
-	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_TRUNC)
+func CopyFile(dest, src string) error {
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_TRUNC, true, true, false)
 }
 
 // CopyFileNoOverwrite copies a file only if the destination file does not exist.
-func CopyFileNoOverwrite(dest string, src string) error {
-	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_EXCL)
+func CopyFileNoOverwrite(dest, src string) error {
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_EXCL, true, true, false)
+}
+
+// CopyFileWithOptions copies a file, overwriting the destination if it exist and allows
+// options to be set for following links, syncing to disk, or preserving file permissions.
+func CopyFileWithOptions(dest, src string, resolveLinks, sync, useSrcPerms bool) error {
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_TRUNC, resolveLinks, sync, useSrcPerms)
 }
 
 // copyFileWithFlags General purpose copy file function
-func copyFileWithFlags(dest string, src string, flags int) error {
+func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, useSrcPerms bool) error {
+	srcInfo, err := os.Lstat(src)
+	if err != nil {
+		return err
+	}
+	if !resolveLinks && (srcInfo.Mode()&os.ModeSymlink) == os.ModeSymlink {
+		srcLink, err := os.Readlink(src)
+		if err != nil {
+			return err
+		}
+		return os.Symlink(srcLink, dest)
+	}
+
 	source, err := os.Open(src)
 	if err != nil {
 		return err
@@ -214,7 +232,14 @@ func copyFileWithFlags(dest string, src string, flags int) error {
 		_ = source.Close()
 	}()
 
-	destination, err := os.OpenFile(dest, flags, 0666)
+	var perms os.FileMode
+	if useSrcPerms {
+		perms = srcInfo.Mode()
+	} else {
+		perms = 0666
+	}
+
+	destination, err := os.OpenFile(dest, flags, perms)
 	if err != nil {
 		return err
 	}
@@ -227,9 +252,11 @@ func copyFileWithFlags(dest string, src string, flags int) error {
 		return err
 	}
 
-	err = destination.Sync()
-	if err != nil {
-		return err
+	if sync {
+		err = destination.Sync()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

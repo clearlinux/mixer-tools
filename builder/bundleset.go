@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -31,7 +32,8 @@ type bundle struct {
 	Files map[string]bool
 
 	/* hidden property, not to be included in file usr/share/clear/allbundles */
-	AllRpms map[string]packageMetadata `json:"-"`
+	AllRpms        map[string]packageMetadata `json:"-"`
+	ContentChroots map[string]bool            `json:"-"`
 }
 
 type bundleSet map[string]*bundle
@@ -308,6 +310,8 @@ func parseBundle(contents []byte) (*bundle, error) {
 	var duplicate bool
 	var includes, packages, optional []string
 
+	b.ContentChroots = make(map[string]bool)
+
 	line := 0
 	for scanner.Scan() {
 		line++
@@ -355,6 +359,21 @@ func parseBundle(contents []byte) (*bundle, error) {
 				return nil, fmt.Errorf("Invalid bundle name %q in line %d", text, line)
 			}
 			optional = append(optional, text)
+		} else if strings.HasPrefix(text, "content(") {
+			if !strings.HasSuffix(text, ")") {
+				return nil, fmt.Errorf("Missing end parenthesis in line %d: %q", line, text)
+			}
+			text = text[8 : len(text)-1]
+
+			// Remove unnecessary trailing slashes
+			for len(text) > 1 && strings.HasSuffix(text, "/") {
+				text = strings.TrimSuffix(text, "/")
+			}
+
+			if _, err := os.Stat(text); err != nil {
+				return nil, fmt.Errorf("Invalid content path %q in line %d", text, line)
+			}
+			b.ContentChroots[text] = true
 		} else {
 			if !validPackageNameRegex.MatchString(text) {
 				return nil, fmt.Errorf("Invalid package name %q in line %d", text, line)

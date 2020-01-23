@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/swupd"
 	"github.com/pkg/errors"
 )
 
@@ -839,6 +840,79 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 		}
 	}
 
+	// Resolve bundle content chroots against the full chroot. New files are copied
+	// to the full chroot and the bundle file lists are updated to contain the files
+	// within the chroot.
+	return addBundleContentChroots(set, fullDir)
+}
+
+// addBundleContentChroots resolves each bundle's content choots against the full chroot
+// and updates the bundle file lists.
+func addBundleContentChroots(set *bundleSet, fullDir string) error {
+	// Resolve bundle content chroots against the full chroot. Content chroot files
+	// that do not conflict with the full chroot are copied into the full chroot and
+	// added to the corresponding bundle's bundle-info file. Files that conflict with
+	// the full chroot will generate an error.
+	for _, bundle := range *set {
+		for chrootPath := range bundle.ContentChroots {
+			if _, err := os.Stat(chrootPath); err != nil {
+				return err
+			}
+
+			err := filepath.Walk(chrootPath, func(path string, fi os.FileInfo, err error) error {
+				if err != nil {
+					return err
+				}
+
+				filePath := strings.TrimPrefix(path, chrootPath)
+				fullChrootFile := filepath.Join(fullDir, filePath)
+
+				// Skip content chroot directory
+				if filePath == "" {
+					return nil
+				}
+
+				// Add file to bundle-info file list
+				bundle.Files[filePath] = true
+
+				// When the content chroot file exists in the full chroot verify that they
+				// are the same.
+				if fullInfo, err := os.Stat(fullChrootFile); err == nil {
+					if fullInfo.IsDir() && fi.IsDir() {
+						if fullInfo.Mode().Perm() != fi.Mode().Perm() {
+							return errors.Errorf("Directory permission mismatch: %s, %s", fullChrootFile, path)
+						}
+						return nil
+					}
+
+					h1, err := swupd.Hashcalc(fullChrootFile)
+					if err != nil {
+						return err
+					}
+					h2, err := swupd.Hashcalc(path)
+					if err != nil {
+						return err
+					}
+					if !swupd.HashEquals(h1, h2) {
+						return errors.Errorf("Chroot File conflict: %s, %s", fullChrootFile, path)
+					}
+					return nil
+				}
+
+				if fi.IsDir() {
+					return os.Mkdir(fullChrootFile, fi.Mode().Perm())
+				}
+
+				// Do not resolve symlinks so that the links can be copied, do not
+				// sync to disk which significantly improves I/O performance, and
+				// use the source file's permissions for the target.
+				return helpers.CopyFileWithOptions(fullChrootFile, path, false, false, true)
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }
 
@@ -987,17 +1061,17 @@ src=%s
 	addOsCoreSpecialFiles(osCore)
 	addUpdateBundleSpecialFiles(b, updateBundle)
 
+	// install all bundles in the set (including os-core) to the full chroot
+	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version, downloadRetries, numWorkers)
+	if err != nil {
+		return err
+	}
+
 	for _, bundle := range set {
 		err = writeBundleInfo(bundle, filepath.Join(buildVersionDir, bundle.Name+"-info"))
 		if err != nil {
 			return err
 		}
-	}
-
-	// install all bundles in the set (including os-core) to the full chroot
-	err = buildFullChroot(b, &set, packagerCmd, buildVersionDir, version, downloadRetries, numWorkers)
-	if err != nil {
-		return err
 	}
 
 	// now that all dnf/yum/rpm operations have completed

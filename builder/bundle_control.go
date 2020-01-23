@@ -748,8 +748,10 @@ const bundleTemplateFormat = `# [TITLE]: %s
 # [CAPABILITIES]:
 # [MAINTAINER]: 
 # 
-# List bundles one per line. Includes have format: include(bundle)
-# also-adds have format: also-add(bundle)
+# List packages one per line.
+# includes have format:        include(bundle)
+# also-adds have format:       also-add(bundle)
+# content chroots have format: content(path) 
 `
 
 func createBundleFile(bundle string, path string) error {

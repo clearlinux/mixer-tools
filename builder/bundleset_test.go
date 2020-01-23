@@ -13,16 +13,29 @@ import (
 )
 
 func TestParseBundle(t *testing.T) {
+	dir1, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir1) }()
+
+	dir2, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir2) }()
+
 	tests := []struct {
 		Contents         []byte
 		ExpectedHeader   swupd.BundleHeader
 		ExpectedIncludes []string
 		ExpectedOptional []string
 		ExpectedPackages map[string]bool
+		ExpectedChroots  map[string]bool
 		ShouldFail       bool
 	}{
 		{
-			Contents: []byte(`# Simple fake bundle
+			Contents: []byte(fmt.Sprintf(`# Simple fake bundle
 # [TITLE]: fake
 # [DESCRIPTION]: a description
 # [STATUS]: a status
@@ -32,9 +45,11 @@ include(a)
 include(b)
 also-add(c)
 also-add(d)
+content(%s)
+content(%s)
 pkg1     # Comment
 pkg2
-`),
+`, dir1, dir2)),
 			ExpectedHeader: swupd.BundleHeader{
 				Title:        "fake",
 				Description:  "a description",
@@ -45,9 +60,10 @@ pkg2
 			ExpectedIncludes: []string{"a", "b"},
 			ExpectedOptional: []string{"c", "d"},
 			ExpectedPackages: map[string]bool{"pkg1": true, "pkg2": true},
+			ExpectedChroots:  map[string]bool{dir1: true, dir2: true},
 		},
 		{
-			Contents: []byte(`# Bundle with empty header values
+			Contents: []byte(fmt.Sprintf(`# Bundle with empty header values
 # [TITLE]: fake
 # [DESCRIPTION]: a description
 # [STATUS]: 
@@ -55,8 +71,9 @@ pkg2
 # [MAINTAINER]: 
 include(a)
 also-add(b)
+content(%s)
 pkg1
-`),
+`, dir1)),
 			ExpectedHeader: swupd.BundleHeader{
 				Title:       "fake",
 				Description: "a description",
@@ -64,6 +81,7 @@ pkg1
 			ExpectedIncludes: []string{"a"},
 			ExpectedOptional: []string{"b"},
 			ExpectedPackages: map[string]bool{"pkg1": true},
+			ExpectedChroots:  map[string]bool{dir1: true},
 		},
 		{
 			Contents: []byte(`# Bundle with tricky comments
@@ -81,6 +99,28 @@ pkg1 # [TITLE]: wrongtitle
 			},
 			ExpectedIncludes: []string{"a"},
 			ExpectedPackages: map[string]bool{"pkg1": true},
+			ExpectedChroots:  map[string]bool{},
+		},
+		{
+			Contents: []byte(fmt.Sprintf(`# Duplicate content chroots and trailing /s
+# [TITLE]: fake
+# [DESCRIPTION]: a description
+# [STATUS]: a status
+# [CAPABILITIES]: the capabilities
+# [MAINTAINER]: the maintainer
+content(%s/)
+content(%s)
+content(%s///)
+`, dir1, dir1, dir2)),
+			ExpectedHeader: swupd.BundleHeader{
+				Title:        "fake",
+				Description:  "a description",
+				Status:       "a status",
+				Capabilities: "the capabilities",
+				Maintainer:   "the maintainer",
+			},
+			ExpectedPackages: map[string]bool{},
+			ExpectedChroots:  map[string]bool{dir1: true, dir2: true},
 		},
 
 		// Error cases.
@@ -93,6 +133,11 @@ pkg1 # [TITLE]: wrongtitle
 		{Contents: []byte(`Also-add(`), ShouldFail: true},
 		{Contents: []byte(`also-add())`), ShouldFail: true},
 		{Contents: []byte(`also-add(abc))`), ShouldFail: true},
+		{Contents: []byte(`content(`), ShouldFail: true},
+		{Contents: []byte(`Content(`), ShouldFail: true},
+		{Contents: []byte(`content())`), ShouldFail: true},
+		{Contents: []byte(fmt.Sprintf(`content(%s))`, dir1)), ShouldFail: true},
+		{Contents: []byte(fmt.Sprintf(`content(%s/invalidPath)`, dir1)), ShouldFail: true},
 	}
 
 	for _, tt := range tests {
@@ -125,31 +170,51 @@ pkg1 # [TITLE]: wrongtitle
 		if !reflect.DeepEqual(b.DirectPackages, tt.ExpectedPackages) {
 			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%v", tt.Contents, len(b.DirectPackages), b.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
+
+		if !reflect.DeepEqual(b.ContentChroots, tt.ExpectedChroots) {
+			t.Errorf("got wrong content chroot when parsing bundle\nCONTENTS:\n%s\nPARSED CHROOTS (%d):\n%v\nEXPECTED CHROOTS (%d):\n%v", tt.Contents, len(b.ContentChroots), b.ContentChroots, len(tt.ExpectedChroots), tt.ExpectedChroots)
+		}
 	}
 }
 
 func TestParseBundleFile(t *testing.T) {
+	dir1, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir1) }()
+
+	dir2, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir2) }()
+
 	tests := []struct {
 		Filename         string
 		Contents         []byte
 		ExpectedIncludes []string
 		ExpectedOptional []string
 		ExpectedPackages map[string]bool
+		ExpectedChroots  map[string]bool
 		ShouldFail       bool
 	}{
 		{
 			Filename: "simple-bundle",
-			Contents: []byte(`# Simple fake bundle
+			Contents: []byte(fmt.Sprintf(`# Simple fake bundle
 include(a)
 include(b)
 also-add(c)
 also-add(d)
+content(%s)
+content(%s)
 pkg1     # Comment
 pkg2
-`),
+`, dir1, dir2)),
 			ExpectedIncludes: []string{"a", "b"},
 			ExpectedOptional: []string{"c", "d"},
 			ExpectedPackages: map[string]bool{"pkg1": true, "pkg2": true},
+			ExpectedChroots:  map[string]bool{dir1: true, dir2: true},
 		},
 
 		// Bundle contents error (catching parseBundle's error)
@@ -196,17 +261,33 @@ pkg2
 		if !reflect.DeepEqual(bundle.DirectPackages, tt.ExpectedPackages) {
 			t.Errorf("got wrong packages when parsing bundle\nCONTENTS:\n%s\nPARSED PACKAGES (%d):\n%v\nEXPECTED PACKAGES (%d):\n%v", tt.Contents, len(bundle.DirectPackages), bundle.DirectPackages, len(tt.ExpectedPackages), tt.ExpectedPackages)
 		}
+
+		if !reflect.DeepEqual(bundle.ContentChroots, tt.ExpectedChroots) {
+			t.Errorf("got wrong content chroot when parsing bundle\nCONTENTS:\n%s\nPARSED CHROOTS (%d):\n%v\nEXPECTED CHROOTS (%d):\n%v", tt.Contents, len(bundle.ContentChroots), bundle.ContentChroots, len(tt.ExpectedChroots), tt.ExpectedChroots)
+		}
 	}
 }
 
 func TestValidateBundle(t *testing.T) {
+	dir1, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir1) }()
+
+	dir2, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir2) }()
+
 	tests := []struct {
 		Contents       []byte
 		ExpectedErrors []string
 		ShouldFail     bool
 	}{
 		{
-			Contents: []byte(`# Simple fake bundle
+			Contents: []byte(fmt.Sprintf(`# Simple fake bundle
 # [TITLE]: fake
 # [DESCRIPTION]: a description
 # [STATUS]: a status
@@ -216,9 +297,11 @@ include(a)
 include(b)
 also-add(c)
 also-add(d)
+content(%s)
+content(%s)
 pkg1     # Comment
 pkg2
-`),
+`, dir1, dir2)),
 		},
 
 		// Bundle header errors
@@ -265,6 +348,18 @@ pkg2
 }
 
 func TestValidateBundleFile(t *testing.T) {
+	dir1, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir1) }()
+
+	dir2, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatalf("could not create valid testdir")
+	}
+	defer func() { _ = os.RemoveAll(dir2) }()
+
 	tests := []struct {
 		Filename       string
 		Contents       []byte
@@ -274,7 +369,7 @@ func TestValidateBundleFile(t *testing.T) {
 	}{
 		{
 			Filename: "simple-bundle",
-			Contents: []byte(`# Simple fake bundle
+			Contents: []byte(fmt.Sprintf(`# Simple fake bundle
 # [TITLE]: simple-bundle
 # [DESCRIPTION]: a description
 # [STATUS]: a status
@@ -284,9 +379,11 @@ include(a)
 include(b)
 also-add(c)
 also-add(d)
+content(%s)
+content(%s)
 pkg1     # Comment
 pkg2
-`),
+`, dir1, dir2)),
 			Level: StrictValidation,
 		},
 		// Bundle filename header Title missmatch with basic validatoin
@@ -303,6 +400,7 @@ pkg2
 		// Bundle contents error (catching errors passed up from parseBundle)
 		{Filename: "b", Contents: []byte(`include(`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
 		{Filename: "c", Contents: []byte(`also-add(a`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
+		{Filename: "d", Contents: []byte(`content(a`), Level: BasicValidation, ExpectedErrors: []string{"Missing end parenthesis in line"}, ShouldFail: true},
 	}
 
 	testDir, err := ioutil.TempDir("", "bundleset-test-")

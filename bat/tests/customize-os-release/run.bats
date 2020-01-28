@@ -19,13 +19,15 @@ setup() {
   mixer-build-bundles > $LOGDIR/build_bundles.log
 
   #Compare the diff between customized os-release file and output of mixer build
-  #bundle. The only difference should be VERSION_ID 
+  #bundle. The only difference should be VERSION_ID and BUILD_ID
   run bash -c "diff files/my-os-release update/image/10/full/usr/lib/os-release | wc -l "
-  [ "$output" -eq  4 ]
+  [ "$output" -eq  8 ]
 
   run bash -c "diff files/my-os-release update/image/10/full/usr/lib/os-release"
   [[ ${lines[1]} =~ "VERSION_ID" ]]
   [[ ${lines[3]} =~ "VERSION_ID" ]]
+  [[ ${lines[5]} =~ "BUILD_ID" ]]
+  [[ ${lines[7]} =~ "BUILD_ID" ]]
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

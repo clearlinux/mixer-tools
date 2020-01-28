@@ -532,7 +532,7 @@ func buildOsCore(b *Builder, packagerCmd []string, chrootDir, version string) er
 		return err
 	}
 
-	if err := updateOSReleaseFile(b, filepath.Join(chrootDir, "usr/lib/os-release"), version, b.Config.Swupd.ContentURL); err != nil {
+	if err := updateOSReleaseFile(b, filepath.Join(chrootDir, "usr/lib/os-release"), version, b.Config.Swupd.ContentURL, b.UpstreamVer); err != nil {
 		return errors.Wrap(err, "couldn't update os-release file")
 	}
 
@@ -1122,8 +1122,7 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	return w.Flush()
 }
 
-func updateOSReleaseFile(b *Builder, filename, version string, homeURL string) error {
-	fmt.Println("... updating os-release file")
+func updateOSReleaseFile(b *Builder, filename, version string, homeURL string, upstreamVer string) error {
 	//Replace the default os-release file if customized os-release file found
 	var err error
 	var f *os.File
@@ -1131,7 +1130,7 @@ func updateOSReleaseFile(b *Builder, filename, version string, homeURL string) e
 		f, err = os.Open(b.Config.Mixer.OSReleasePath)
 	} else {
 		if _, err = os.Stat(filename); os.IsNotExist(err) {
-			return createOSReleaseFile(filename, homeURL, version)
+			return createOSReleaseFile(filename, homeURL, version, upstreamVer)
 		}
 		if err != nil {
 			return err
@@ -1145,14 +1144,28 @@ func updateOSReleaseFile(b *Builder, filename, version string, homeURL string) e
 	defer func() {
 		_ = f.Close()
 	}()
+	fmt.Println("... updating os-release file")
 	var newBuf bytes.Buffer
+	buildIDFlag := true
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
 		text := scanner.Text()
 		if strings.HasPrefix(text, "VERSION_ID=") {
 			text = "VERSION_ID=" + version
+		} else if strings.HasPrefix(text, "BUILD_ID=") {
+			text = "BUILD_ID=" + upstreamVer
+			buildIDFlag = false
 		}
-		_, _ = fmt.Fprintln(&newBuf, text)
+		_, err = fmt.Fprintln(&newBuf, text)
+		if err != nil {
+			return err
+		}
+	}
+	if buildIDFlag {
+		_, err = fmt.Fprintln(&newBuf, "BUILD_ID="+upstreamVer)
+		if err != nil {
+			return err
+		}
 	}
 
 	err = scanner.Err()
@@ -1186,7 +1199,7 @@ func getClosestAncestorOwner(path string) (int, int, error) {
 	return uid, gid, nil
 }
 
-func createOSReleaseFile(filename string, homeURL string, version string) error {
+func createOSReleaseFile(filename string, homeURL string, version string, upstreamVer string) error {
 	fmt.Println("... creating os-release file")
 
 	var f *os.File
@@ -1241,6 +1254,10 @@ func createOSReleaseFile(filename string, homeURL string, version string) error 
 		return err
 	}
 	_, err = fmt.Fprintln(f, "PRIVACY_POLICY_URL="+"")
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(f, "BUILD_ID="+upstreamVer)
 	if err != nil {
 		return err
 	}

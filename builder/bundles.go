@@ -1126,7 +1126,12 @@ func updateOSReleaseFile(b *Builder, filename, version string, homeURL string, u
 	//Replace the default os-release file if customized os-release file found
 	var err error
 	var f *os.File
+
 	if b.Config.Mixer.OSReleasePath != "" {
+		err = os.MkdirAll(filepath.Dir(filename), 0655)
+		if err != nil {
+			return err
+		}
 		f, err = os.Open(b.Config.Mixer.OSReleasePath)
 	} else {
 		if _, err = os.Stat(filename); os.IsNotExist(err) {
@@ -1145,6 +1150,7 @@ func updateOSReleaseFile(b *Builder, filename, version string, homeURL string, u
 		_ = f.Close()
 	}()
 	fmt.Println("... updating os-release file")
+
 	var newBuf bytes.Buffer
 	buildIDFlag := true
 	scanner := bufio.NewScanner(f)

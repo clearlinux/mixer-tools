@@ -7,14 +7,20 @@ setup() {
   global_setup
 }
 
-@test "Perform build with --clean flag" {
+@test "Verify mixer builds clean the workspace" {
   mixer-init-stripped-down 25740 10
   mixer-build-all
   mixer-mixversion-update 20
   mixer-build-all
 
-  # Rebuild v20 with --clean
-  run sudo mixer build all --clean
+  # Rebuild v20
+  run sudo mixer build bundles
+  [[ $status -eq 0 ]]
+
+  # Check v20 output directory cleaned
+  [[ ! -d "$BATS_TEST_DIRNAME"/update/www/20 ]]
+
+  run sudo mixer build update
   [[ $status -eq 0 ]]
 
   mom="$BATS_TEST_DIRNAME"/update/www/20/Manifest.MoM
@@ -30,7 +36,7 @@ setup() {
   # LAST_VER which will lead to an incorrectly generated manifest.
   sed -i "/PREVIOUS_MIX_VERSION/d" mixer.state
 
-  run sudo mixer build all --clean
+  run sudo mixer build all
   [[ $status -eq 0 ]]
 
   # Verify that previous is incorrect

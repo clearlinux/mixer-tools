@@ -40,7 +40,6 @@ type buildCmdFlags struct {
 	newFormat       string
 	increment       bool
 	minVersion      int
-	clean           bool
 	noSigning       bool
 	downloadRetries int
 	noPublish       bool
@@ -108,7 +107,7 @@ var buildCmd = &cobra.Command{
 	},
 }
 
-func buildBundles(builder *builder.Builder, signflag, cleanFlag bool, downloadRetries int) error {
+func buildBundles(builder *builder.Builder, signflag bool, downloadRetries int) error {
 	if downloadRetries < 0 {
 		return errors.New("Please supply value >= 0 for --retries")
 	}
@@ -121,12 +120,12 @@ func buildBundles(builder *builder.Builder, signflag, cleanFlag bool, downloadRe
 		}
 		template := helpers.CreateCertTemplate()
 
-		err = builder.BuildBundles(template, privkey, signflag, cleanFlag, downloadRetries)
+		err = builder.BuildBundles(template, privkey, signflag, downloadRetries)
 		if err != nil {
 			return errors.Wrap(err, "Error building bundles")
 		}
 	} else {
-		err := builder.BuildBundles(nil, nil, true, cleanFlag, downloadRetries)
+		err := builder.BuildBundles(nil, nil, true, downloadRetries)
 		if err != nil {
 			return errors.Wrap(err, "Error building bundles")
 		}
@@ -149,7 +148,7 @@ var buildBundlesCmd = &cobra.Command{
 			fail(err)
 		}
 		setWorkers(b)
-		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries)
+		err = buildBundles(b, buildFlags.noSigning, buildFlags.downloadRetries)
 		if err != nil {
 			fail(err)
 		}
@@ -321,7 +320,7 @@ var buildFormatOldCmd = &cobra.Command{
 
 		// Build bundles normally. At this point the bundles to be deleted should still
 		// be part of the mixbundles list and the groups.ini
-		if err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries); err != nil {
+		if err = buildBundles(b, buildFlags.noSigning, buildFlags.downloadRetries); err != nil {
 			fail(err)
 		}
 
@@ -515,7 +514,7 @@ var buildAllCmd = &cobra.Command{
 				failf("Couldn't add the RPMs: %s", err)
 			}
 		}
-		err = buildBundles(b, buildFlags.noSigning, buildFlags.clean, buildFlags.downloadRetries)
+		err = buildBundles(b, buildFlags.noSigning, buildFlags.downloadRetries)
 		if err != nil {
 			failf("Couldn't build bundles: %s", err)
 		}
@@ -787,12 +786,17 @@ func init() {
 
 	RootCmd.AddCommand(buildCmd)
 
-	buildAllCmd.Flags().BoolVar(&buildFlags.clean, "clean", false, "Wipe the /image and /www dirs if they exist")
+	unusedBoolFlag := false
 
-	buildBundlesCmd.Flags().BoolVar(&buildFlags.clean, "clean", false, "Wipe the /image and /www dirs if they exist")
+	buildAllCmd.Flags().BoolVar(&unusedBoolFlag, "clean", false, "")
+	_ = buildAllCmd.Flags().MarkHidden("clean")
+	_ = buildAllCmd.Flags().MarkDeprecated("clean", "The workspace is always cleaned when building bundles, this flag is no longer used")
+
+	buildBundlesCmd.Flags().BoolVar(&unusedBoolFlag, "clean", false, "")
+	_ = buildBundlesCmd.Flags().MarkHidden("clean")
+	_ = buildBundlesCmd.Flags().MarkDeprecated("clean", "The workspace is always cleaned when building bundles, this flag is no longer used")
 	buildBundlesCmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate to sign the Manifest.MoM")
 
-	unusedBoolFlag := false
 	buildBundlesCmd.Flags().BoolVar(&unusedBoolFlag, "new-chroots", false, "")
 	_ = buildBundlesCmd.Flags().MarkHidden("new-chroots")
 	_ = buildBundlesCmd.Flags().MarkDeprecated("new-chroots", "new functionality is now the standard behavior, this flag is obsolete and no longer used")

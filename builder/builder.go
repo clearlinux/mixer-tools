@@ -23,6 +23,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -233,7 +234,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 // DNF configuration file, then resolving all files for each bundle using dnf
 // resolve and no-op installs. One full chroot is created from this step with
 // the file contents of all bundles.
-func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag, clean bool, downloadRetries int) error {
+func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateKey, signflag bool, downloadRetries int) error {
 	// Fetch upstream bundle files if needed
 	if err := b.getUpstreamBundles(); err != nil {
 		return err
@@ -266,16 +267,25 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 		}
 	}
 
-	if _, err := os.Stat(b.Config.Builder.ServerStateDir + "/image/" + b.MixVer); err == nil && clean {
-		fmt.Printf("* Wiping away previous version %s...\n", b.MixVer)
-		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/www/" + b.MixVer)
-		if err != nil {
+	// Clean existing image and output directories
+	mixImageDir := path.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer)
+	if _, err := os.Stat(mixImageDir); err == nil {
+		fmt.Printf("* Wiping away existing image directory for version %s...\n", b.MixVer)
+		if err = os.RemoveAll(mixImageDir); err != nil {
 			return err
 		}
-		err = os.RemoveAll(b.Config.Builder.ServerStateDir + "/image/" + b.MixVer)
-		if err != nil {
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
+	mixOutputDir := path.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer)
+	if _, err := os.Stat(mixOutputDir); err == nil {
+		fmt.Printf("* Wiping away existing output directory for version %s...\n", b.MixVer)
+		if err = os.RemoveAll(mixOutputDir); err != nil {
 			return err
 		}
+	} else if !os.IsNotExist(err) {
+		return err
 	}
 
 	// Generate the certificate needed for signing verification if it does not exist

@@ -77,6 +77,10 @@ SUBCOMMANDS
 
       Add the bundle(s) to your mix after editing.
 
+    - ``--local``
+
+      Skip upstream check and create empty local bundle(s).
+
     - ``-c, --config {path}``
 
       Optionally tell ``mixer`` to use the configuration file at `path`. Uses

@@ -158,6 +158,7 @@ type bundleCreateCmdFlags struct {
 	copyOnly bool
 	add      bool
 	git      bool
+	local    bool
 }
 
 var bundleCreateFlags bundleCreateCmdFlags
@@ -170,8 +171,9 @@ var bundleCreateCmd = &cobra.Command{
 local-bundles, and then in upstream-bundles. If the bundle is only found upstream, the bundle file will be copied to
 your local-bundles directory. If the bundle is not found anywhere, a blank template will be created with the correct name.
 
-Passing '--add' will also add the bundle(s) to your mix. Please note that
-bundles are added after all bundles are created, and thus will not be added if
+Passing '--local' will skip the upstream check and create a new empty local bundle if it does not already exist.
+Passing '--add' will also add the bundle(s) to your mix.
+Please note that bundles are added after all bundles are created, and thus will not be added if
 any errors are encountered earlier on.`,
 	Args: cobra.MinimumNArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -180,7 +182,7 @@ any errors are encountered earlier on.`,
 			fail(err)
 		}
 
-		err = b.CreateBundles(args, bundleCreateFlags.add, bundleCreateFlags.git)
+		err = b.CreateBundles(args, bundleCreateFlags.add, bundleCreateFlags.git, bundleCreateFlags.local)
 		if err != nil {
 			fail(err)
 		}
@@ -273,6 +275,7 @@ func init() {
 
 	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.add, "add", false, "Add the bundle(s) to your mix")
 	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.git, "git", false, "Automatically apply new git commit")
+	bundleCreateCmd.Flags().BoolVar(&bundleCreateFlags.local, "local", false, "Skip upstream check and create empty local bundle(s)")
 
 	bundleValidateCmd.Flags().BoolVar(&bundleValidateFlags.allLocal, "all-local", false, "Validate all local bundles")
 	bundleValidateCmd.Flags().BoolVar(&bundleValidateFlags.strict, "strict", false, "Strict validation (see usage)")

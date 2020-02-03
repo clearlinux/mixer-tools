@@ -83,10 +83,10 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 
 				if len(info.Warnings) > 0 {
 					for _, w := range info.Warnings {
-						fmt.Printf("    WARNING: %s\n", w)
+						fmt.Fprintf(os.Stderr, "    WARNING: Bundle %s: %s\n", b.Name, w)
 					}
-					fmt.Println()
 				}
+				report := fmt.Sprintf("  Finished delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
 				if printReport {
 					max := 0
 					for _, e := range info.Entries {
@@ -94,14 +94,15 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 							max = len(e.File.Name)
 						}
 					}
-					fmt.Println("    Pack report:")
+					report += "    Pack report:\n"
 					for _, e := range info.Entries {
-						fmt.Printf("      %-*s %s (%s)\n", max, e.File.Name, e.State, e.Reason)
+						report += fmt.Sprintf("      %-*s %s (%s)\n", max, e.File.Name, e.State, e.Reason)
 					}
-					fmt.Println()
+					report += "\n"
 				}
-				fmt.Printf("    Fullfiles in pack: %d\n", info.FullfileCount)
-				fmt.Printf("    Deltas in pack: %d\n", info.DeltaCount)
+				report += fmt.Sprintf("    Fullfiles in pack: %d\n", info.FullfileCount)
+				report += fmt.Sprintf("    Deltas in pack: %d\n", info.DeltaCount)
+				fmt.Printf(report + "\n")
 			}
 		}()
 	}

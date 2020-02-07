@@ -102,7 +102,7 @@ func mergeMoMs(mixWS string, mixVer, lastVer int) error {
 		}
 		// remove overlapping bundle names including os-core
 		excludeName(upstreamMoM, mixerMoM.Files[i].Name)
-		mixerMoM.Files[i].Rename = swupd.MixManifest
+		mixerMoM.Files[i].Misc = swupd.MiscMixManifest
 		upstreamMoM.Files = append(upstreamMoM.Files, mixerMoM.Files[i])
 	}
 

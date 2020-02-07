@@ -183,7 +183,7 @@ func TestReadManifestFileEntry(t *testing.T) {
 		}
 
 		for _, f := range m.Files {
-			if f.Type == 0 || f.Status == 0 || f.Modifier == 0 || f.Rename == RenameUnset {
+			if f.Type == 0 || f.Status == 0 || f.Modifier == 0 || f.Misc == MiscUnset {
 				t.Error("failed to set flag from manifest line")
 			}
 		}

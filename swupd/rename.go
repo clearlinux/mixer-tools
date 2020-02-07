@@ -97,8 +97,8 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 func linkRenamePair(renameTo, renameFrom *File) {
 	renameTo.DeltaPeer = renameFrom
 	renameFrom.DeltaPeer = renameTo
-	renameTo.Rename = RenameSet
-	renameFrom.Rename = RenameSet
+	renameTo.Misc = MiscRename
+	renameFrom.Misc = MiscRename
 }
 
 // trimRenamed returns an slice which has had files with DeltaPeers purged

@@ -41,6 +41,15 @@ func (m *Manifest) createFileRecord(rootPath, path, removePrefix string, fi os.F
 		return nil
 	}
 
+	if flag, ok := m.BundleInfo.Files[path]; ok {
+		if flag == true {
+			// set Misc flag
+			if file.Misc, err = miscFromFlag('x'); err != nil {
+				return err
+			}
+		}
+	}
+
 	m.AppendFile(file)
 
 	return nil

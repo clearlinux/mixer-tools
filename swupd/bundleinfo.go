@@ -50,7 +50,7 @@ func (m *Manifest) GetBundleInfo(stateDir, path string) error {
 	var err error
 	if _, err = os.Stat(path); os.IsNotExist(err) {
 		basePath := filepath.Dir(path)
-		err = m.getBundleInfoFromChroot(filepath.Join(filepath.Dir(path), m.Name))
+		err = m.getBundleInfoFromChroot(filepath.Join(basePath, m.Name))
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,12 @@ func (m *Manifest) GetBundleInfo(stateDir, path string) error {
 			if !strings.HasPrefix(f, "/") {
 				return fmt.Errorf("invalid extra file %s in %s, must start with '/'", f, extraFilesPath)
 			}
-			m.BundleInfo.Files[f] = true
+
+			// NOTE: The export flag is always set to false here and builder.isExportable() is intentionally not called.
+			// This is done to avoid dependency of 'build update' to any steps/artifacts prior to 'build bundles'.
+			// Ideally, 'build update' should work from the output of 'build bundles' and should not use artifacts
+			// like bundle definitions directly.
+			m.BundleInfo.Files[f] = false
 		}
 	}
 
@@ -108,7 +113,13 @@ func (m *Manifest) getBundleInfoFromChroot(rootPath string) error {
 
 	err := filepath.Walk(rootPath, func(path string, fi os.FileInfo, err error) error {
 		fname := strings.TrimPrefix(path, rootPath)
-		m.BundleInfo.Files[fname] = true
+
+		// NOTE: The export flag is always set to false here and builder.isExportable() is intentionally not called.
+		// This is done to avoid dependency of 'build update' to any steps/artifacts prior to 'build bundles'.
+		// Ideally, 'build update' should work from the output of 'build bundles' and should not use artifacts
+		// like bundle definitions directly.
+		m.BundleInfo.Files[fname] = false
+
 		return nil
 	})
 

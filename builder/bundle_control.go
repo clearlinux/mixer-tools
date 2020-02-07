@@ -749,9 +749,10 @@ const bundleTemplateFormat = `# [TITLE]: %s
 # [MAINTAINER]: 
 # 
 # List packages one per line.
-# includes have format:        include(bundle)
-# also-adds have format:       also-add(bundle)
-# content chroots have format: content(path) 
+# includes have format:            include(bundle)
+# also-adds have format:           also-add(bundle)
+# content chroots have format:     content(path)
+# un-exportable files have format: un-export(path)
 `
 
 func createBundleFile(bundle string, path string) error {

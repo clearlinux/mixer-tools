@@ -90,6 +90,7 @@ const (
 	MiscUnset       MiscFlag = iota
 	MiscRename               // deprecated
 	MiscMixManifest          // indicates manifest from mixer integrated swupd-client so that swupd-client can hardlink instead of curling
+	MiscExportFile           // indicates file that can be exported in swupd-client
 )
 
 // File represents an entry in a manifest
@@ -201,6 +202,8 @@ func miscFromFlag(flag byte) (MiscFlag, error) {
 		return MiscUnset, nil
 	case 'm':
 		return MiscMixManifest, nil
+	case 'x':
+		return MiscExportFile, nil
 	default:
 		return MiscUnset, fmt.Errorf("invalid file rename flag: %v", flag)
 	}
@@ -241,11 +244,12 @@ func (f *File) GetFlagString() (string, error) {
 		return "", fmt.Errorf("no flags are set on file %s", f.Name)
 	}
 
-	// only write a '.' or 'm' to a manifest
 	// the 'r' flag is deprecated
 	miscByte := byte('.')
 	if f.Misc == MiscMixManifest {
 		miscByte = 'm'
+	} else if f.Misc == MiscExportFile {
+		miscByte = 'x'
 	}
 
 	flagBytes := []byte{

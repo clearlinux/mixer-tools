@@ -34,6 +34,7 @@ type bundle struct {
 	/* hidden property, not to be included in file usr/share/clear/allbundles */
 	AllRpms        map[string]packageMetadata `json:"-"`
 	ContentChroots map[string]bool            `json:"-"`
+	UnExport       map[string]bool            `json:"-"`
 }
 
 type bundleSet map[string]*bundle
@@ -311,6 +312,7 @@ func parseBundle(contents []byte) (*bundle, error) {
 	var includes, packages, optional []string
 
 	b.ContentChroots = make(map[string]bool)
+	b.UnExport = make(map[string]bool)
 
 	line := 0
 	for scanner.Scan() {
@@ -374,6 +376,12 @@ func parseBundle(contents []byte) (*bundle, error) {
 				return nil, fmt.Errorf("Invalid content path %q in line %d", text, line)
 			}
 			b.ContentChroots[text] = true
+		} else if strings.HasPrefix(text, "un-export(") {
+			if !strings.HasSuffix(text, ")") {
+				return nil, fmt.Errorf("Missing end parenthesis in line %d: %q", line, text)
+			}
+			text = text[10 : len(text)-1]
+			b.UnExport[text] = true
 		} else {
 			if !validPackageNameRegex.MatchString(text) {
 				return nil, fmt.Errorf("Invalid package name %q in line %d", text, line)

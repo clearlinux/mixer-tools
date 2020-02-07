@@ -38,6 +38,13 @@ var bannedPaths = [...]string{
 	"/tmp/",
 }
 
+// Default exportable paths
+var exportablePaths = [...]string{
+	"/bin/",
+	"/usr/bin/",
+	"/usr/local/bin/",
+}
+
 const extractRetries = 5
 
 func isBannedPath(path string) bool {
@@ -47,6 +54,20 @@ func isBannedPath(path string) bool {
 
 	for _, p := range bannedPaths {
 		if strings.HasPrefix(path, p) {
+			return true
+		}
+	}
+	return false
+}
+
+func isExportable(path string, unExport map[string]bool) bool {
+	// if the user has specified the file to be un-exportable, then return false
+	if unExport[path] {
+		return false
+	}
+
+	for _, p := range exportablePaths {
+		if strings.HasPrefix(path, p) { // if the file is in one of the default exportable paths, then return true
 			return true
 		}
 	}
@@ -97,7 +118,7 @@ func resolveFileName(path string) string {
 	return path
 }
 
-func addFileAndPath(destination map[string]bool, absPathsToFiles ...string) {
+func addFileAndPath(destination, unExport map[string]bool, absPathsToFiles ...string) {
 	for _, file := range absPathsToFiles {
 		if isBannedPath(file) {
 			continue
@@ -111,9 +132,10 @@ func addFileAndPath(destination map[string]bool, absPathsToFiles ...string) {
 				continue
 			}
 			path = filepath.Join(path, part)
-			destination[path] = true
+			destination[path] = isExportable(path, unExport)
 		}
-		destination[file] = true
+
+		destination[file] = isExportable(file, unExport)
 	}
 }
 
@@ -124,7 +146,7 @@ func addOsCoreSpecialFiles(bundle *bundle) {
 		"/usr/share/clear/versionstamp",
 	}
 
-	addFileAndPath(bundle.Files, filesToAdd...)
+	addFileAndPath(bundle.Files, bundle.UnExport, filesToAdd...)
 }
 
 func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
@@ -138,7 +160,7 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 		filesToAdd = append(filesToAdd, "/usr/share/clear/update-ca/Swupd_Root.pem")
 	}
 
-	addFileAndPath(bundle.Files, filesToAdd...)
+	addFileAndPath(bundle.Files, bundle.UnExport, filesToAdd...)
 }
 
 // repoPkgMap is a map of repo names to the package metadata they provide
@@ -158,12 +180,12 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 		}
 		for _, f := range strings.Split(outBuf.String(), "\n") {
 			if len(f) > 0 {
-				addFileAndPath(bundle.Files, resolveFileName(f))
+				addFileAndPath(bundle.Files, bundle.UnExport, resolveFileName(f))
 			}
 		}
 	}
 
-	addFileAndPath(bundle.Files, fmt.Sprintf("/usr/share/clear/bundles/%s", bundle.Name))
+	addFileAndPath(bundle.Files, bundle.UnExport, fmt.Sprintf("/usr/share/clear/bundles/%s", bundle.Name))
 	fmt.Printf("Bundle %s\t%d files\n", bundle.Name, len(bundle.Files))
 	return nil
 }
@@ -873,7 +895,7 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 				}
 
 				// Add file to bundle-info file list
-				bundle.Files[filePath] = true
+				bundle.Files[filePath] = isExportable(filePath, bundle.UnExport)
 
 				// When the content chroot file exists in the full chroot verify that they
 				// are the same.

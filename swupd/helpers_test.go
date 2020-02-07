@@ -454,7 +454,7 @@ func (fs *testFileSystem) addToBundleInfo(version uint32, bundle, file string) {
 		fs.t.Fatal(err)
 	}
 
-	bi.Files[file] = true
+	bi.Files[file] = false
 
 	b, err := json.Marshal(&bi)
 	if err != nil {

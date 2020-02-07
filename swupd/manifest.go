@@ -389,7 +389,7 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 				nx++
 				continue
 			}
-			if nf.Hash == of.Hash && of.Version >= minVersion {
+			if nf.Hash == of.Hash && of.Version >= minVersion && nf.Misc == of.Misc {
 				// same contents, version doesn't change.
 				nf.Version = of.Version
 			} else {
@@ -650,7 +650,7 @@ func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
 		for f := range m.BundleInfo.Files {
 			isIncluded := false
 			for _, inc := range includes {
-				if inc.BundleInfo.Files[f] {
+				if _, ok := inc.BundleInfo.Files[f]; ok {
 					isIncluded = true
 					break
 				}

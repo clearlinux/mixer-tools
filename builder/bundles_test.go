@@ -84,12 +84,12 @@ func TestAddContentChroots(t *testing.T) {
 			expectedSet: &bundleSet{
 				"bundle1": &bundle{
 					Files: map[string]bool{
-						"/usr": true, "/usr/unique": true, "/file": true, "/uniqueFile": true,
-						"/fileLink": true, "/dirLink": true, "/usr/unique2": true,
+						"/usr": false, "/usr/unique": false, "/file": false, "/uniqueFile": false,
+						"/fileLink": false, "/dirLink": false, "/usr/unique2": false,
 					},
 				},
 				"bundle2": &bundle{
-					Files: map[string]bool{"/usr": true, "/usr/unique3": true},
+					Files: map[string]bool{"/usr": false, "/usr/unique3": false},
 				},
 			},
 			shouldFail: false,

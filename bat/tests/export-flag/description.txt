@@ -1,0 +1,4 @@
+export-flag
+====================
+This test simulates the usage of un-export() keyword in a bundle definition file and validates the manifests for correct
+setting of the export flag 'x'.

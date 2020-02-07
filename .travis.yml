@@ -17,6 +17,7 @@ env:
 #    - TEST_DIR=build-validate
     - TEST_DIR=bundle-commands
     - TEST_DIR=clean-rebuild
+    - TEST_DIR=content-chroot
     - TEST_DIR=config-conversion
     - TEST_DIR=contentsize-check
 #    - TEST_DIR=create-mix-bump-version-add-remove-bundles
@@ -25,6 +26,7 @@ env:
     - TEST_DIR=create-mix-with-upstream-bundles
     - TEST_DIR=customize-os-release
     - TEST_DIR=clr-installer-config
+    - TEST_DIR=export-flag
     - TEST_DIR=manual-format-bump-flow
     - TEST_DIR=manual-upstream-format-bump-flow
     - TEST_DIR=mixin-repo-commands

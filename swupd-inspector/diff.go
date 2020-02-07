@@ -194,13 +194,13 @@ func runDiff(cacheDir string, flags *diffFlags, urlA, urlB string) {
 				if flagString(a) != flagString(b) {
 					fmt.Printf("%s-%s %s%s\n", RED, flagString(a), a.Name, RESET)
 					fmt.Printf("%s+%s %s%s\n", GREEN, flagString(b), b.Name, RESET)
-				} else if a.Rename != b.Rename || a.Hash != b.Hash || (flags.strict && a.Version != b.Version) {
+				} else if a.Misc != b.Misc || a.Hash != b.Hash || (flags.strict && a.Version != b.Version) {
 					fmt.Printf(" %s %s", flagString(a), a.Name)
 					if flags.strict && a.Version != b.Version {
 						fmt.Printf(" (VERSION: %s-%d%s / %s+%d%s)", RED, a.Version, RESET, GREEN, b.Version, RESET)
 					}
-					if a.Rename != b.Rename {
-						fmt.Printf(" (RENAME: %s-%d%s / %s+%d%s)", RED, a.Rename, RESET, GREEN, b.Rename, RESET)
+					if a.Misc != b.Misc {
+						fmt.Printf(" (RENAME: %s-%d%s / %s+%d%s)", RED, a.Misc, RESET, GREEN, b.Misc, RESET)
 					}
 					if a.Hash != b.Hash {
 						fmt.Printf(" (HASH: %s-%s%s / %s+%s%s)", RED, a.Hash.String()[:7], RESET, GREEN, b.Hash.String()[:7], RESET)

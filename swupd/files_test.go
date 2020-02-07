@@ -119,25 +119,25 @@ func TestModifierFromFlag(t *testing.T) {
 	})
 }
 
-func TestRenameFromFlag(t *testing.T) {
+func TestMiscFromFlag(t *testing.T) {
 	testCases := []struct {
 		flag     byte
-		expected RenameFlag
+		expected MiscFlag
 	}{
-		{'r', RenameSet},
-		{'.', RenameUnset},
+		{'r', MiscRename},
+		{'.', MiscUnset},
 	}
 
 	for _, tc := range testCases {
 		t.Run(string(tc.flag), func(t *testing.T) {
 			f := File{}
 			var err error
-			if f.Rename, err = renameFromFlag(tc.flag); err != nil {
+			if f.Misc, err = miscFromFlag(tc.flag); err != nil {
 				t.Errorf("failed to set %v rename flag on file", tc.flag)
 			}
 
-			if f.Rename != tc.expected {
-				t.Errorf("file rename was set to %v from %v flag", f.Rename, tc.flag)
+			if f.Misc != tc.expected {
+				t.Errorf("file rename was set to %v from %v flag", f.Misc, tc.flag)
 			}
 		})
 	}
@@ -146,11 +146,11 @@ func TestRenameFromFlag(t *testing.T) {
 	t.Run("' '", func(t *testing.T) {
 		f := File{}
 		var err error
-		if f.Rename, err = renameFromFlag(' '); err == nil {
-			t.Error("setRenameFromFlag did not fail with invalid input")
+		if f.Misc, err = miscFromFlag(' '); err == nil {
+			t.Error("setMiscFromFlag did not fail with invalid input")
 		}
 
-		if f.Rename != RenameUnset {
+		if f.Misc != MiscUnset {
 			t.Error("file rename was set to true from invalid flag")
 		}
 	})

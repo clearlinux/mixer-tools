@@ -82,17 +82,14 @@ var modifierBytes = map[ModifierFlag]byte{
 	ModifierBoot:   'b',
 }
 
-// RenameFlag describes the third position in the flag string
-// and was used to represent a rename flag (deprecated) and is
-// now used to represent a mixer-generated manifest to be merged
-// with an upstream manifest via client-side mixer integration
-type RenameFlag uint8
+// MiscFlag is a placeholder for additional flags that can be used by swupd-client.
+type MiscFlag uint8
 
-// Valid values for RenameFlag
+// Valid values for MiscFlag
 const (
-	RenameUnset RenameFlag = iota
-	RenameSet
-	MixManifest
+	MiscUnset       MiscFlag = iota
+	MiscRename               // deprecated
+	MiscMixManifest          // indicates manifest from mixer integrated swupd-client so that swupd-client can hardlink instead of curling
 )
 
 // File represents an entry in a manifest
@@ -105,11 +102,7 @@ type File struct {
 	Type     TypeFlag
 	Status   StatusFlag
 	Modifier ModifierFlag
-	Rename   RenameFlag
-
-	// renames
-	RenameScore uint16
-	RenamePeer  *File
+	Misc     MiscFlag
 
 	Info      os.FileInfo
 	DeltaPeer *File
@@ -199,18 +192,17 @@ func modifierFromFlag(flag byte) (ModifierFlag, error) {
 	}
 }
 
-// setRenameFromFlag set rename flag from flag byte
-func renameFromFlag(flag byte) (RenameFlag, error) {
+// miscFromFlag return misc flag from flag byte
+func miscFromFlag(flag byte) (MiscFlag, error) {
 	switch flag {
 	case 'r':
-		return RenameSet, nil
+		return MiscRename, nil
 	case '.':
-		return RenameUnset, nil
+		return MiscUnset, nil
 	case 'm':
-		// this is a special flag used by mixer-integration client-side
-		return MixManifest, nil
+		return MiscMixManifest, nil
 	default:
-		return RenameUnset, fmt.Errorf("invalid file rename flag: %v", flag)
+		return MiscUnset, fmt.Errorf("invalid file rename flag: %v", flag)
 	}
 }
 
@@ -233,8 +225,8 @@ func (f *File) setFlags(flags string) error {
 	if f.Modifier, err = modifierFromFlag(flags[2]); err != nil {
 		return err
 	}
-	// set rename flag
-	if f.Rename, err = renameFromFlag(flags[3]); err != nil {
+	// set misc
+	if f.Misc, err = miscFromFlag(flags[3]); err != nil {
 		return err
 	}
 
@@ -251,16 +243,16 @@ func (f *File) GetFlagString() (string, error) {
 
 	// only write a '.' or 'm' to a manifest
 	// the 'r' flag is deprecated
-	renameByte := byte('.')
-	if f.Rename == MixManifest {
-		renameByte = 'm'
+	miscByte := byte('.')
+	if f.Misc == MiscMixManifest {
+		miscByte = 'm'
 	}
 
 	flagBytes := []byte{
 		typeBytes[f.Type],
 		statusBytes[f.Status],
 		modifierBytes[f.Modifier],
-		renameByte,
+		miscByte,
 	}
 
 	return string(flagBytes), nil

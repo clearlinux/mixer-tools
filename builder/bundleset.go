@@ -408,14 +408,3 @@ func parseBundle(contents []byte) (*bundle, error) {
 
 	return &b, nil
 }
-
-func isEmptyBundle(bundle *bundle) bool {
-	if len(bundle.DirectIncludes) == 0 &&
-		len(bundle.OptionalIncludes) == 0 &&
-		len(bundle.DirectPackages) == 0 &&
-		len(bundle.AllPackages) == 0 &&
-		len(bundle.Files) == 0 {
-		return true
-	}
-	return false
-}

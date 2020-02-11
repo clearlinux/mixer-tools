@@ -409,7 +409,7 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 			// fail in the actual install to the full chroot.
 			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 			rpm, e := repoPkgFromNoopInstall(outBuf.String())
-			if !isEmptyBundle(bundle) && e != nil {
+			if len(bundle.AllPackages) != 0 && e != nil {
 				e = errors.Wrapf(e, bundle.Name)
 				fmt.Println(e)
 				errorCh <- e

@@ -482,7 +482,7 @@ func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool
 
 		if local {
 			if _, err := os.Stat(filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)); err == nil {
-				fmt.Printf("Removing bundle file for %q from local-bundles\n", bundle)
+				fmt.Printf("Removing bundle %q from local-bundles\n", bundle)
 				if err := os.Remove(filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)); err != nil {
 					return errors.Wrapf(err, "Cannot remove bundle file for %q from local-bundles", bundle)
 				}
@@ -800,7 +800,7 @@ func (b *Builder) CreateBundles(bundles []string, add bool, git bool, local bool
 				}
 			}
 		}
-		fmt.Printf("Created bundle %q in %q\n", bundle, b.Config.Mixer.LocalBundleDir)
+		fmt.Printf("Creating bundle %q at %q\n", bundle, localPath)
 	}
 
 	if add {

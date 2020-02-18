@@ -779,11 +779,6 @@ var rpmMap map[string]bool
 var dnfDownloadDir string
 
 func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVersionDir, version string, downloadRetries int, numWorkers int) error {
-	fmt.Println("Cleaning DNF cache before full install")
-	if err := clearDNFCache(packagerCmd); err != nil {
-		return err
-	}
-
 	dnfDownloadDir = filepath.Join(buildVersionDir, "downloadedRpms")
 	err := os.MkdirAll(dnfDownloadDir, 0755)
 	if err != nil {
@@ -1029,6 +1024,12 @@ src=%s
 	}
 
 	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))
+
+	// Existing DNF cache content can cause incorrect queries with stale results
+	fmt.Println("Cleaning DNF cache")
+	if err := clearDNFCache(packagerCmd); err != nil {
+		return err
+	}
 
 	numWorkers := b.NumBundleWorkers
 	emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")

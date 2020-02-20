@@ -161,6 +161,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 	Long:   `Use to create the necessary builds to cross an upstream format`,
 	Hidden: true,
 	Run: func(cmd *cobra.Command, args []string) {
+		var err error
 		if err := checkRoot(); err != nil {
 			fail(err)
 		}
@@ -171,18 +172,18 @@ var buildUpstreamFormatCmd = &cobra.Command{
 		}
 
 		// check if --new-format flag is set, if not set it to prevFormat +1
+		var newFormat int
 		if buildFlags.newFormat == "" {
-			newFormat, err := strconv.Atoi(b.State.Mix.Format)
+			newFormat, err = strconv.Atoi(b.State.Mix.Format)
 			if err != nil {
 				fail(err)
 			}
 			newFormat = newFormat + 1
-			buildFlags.newFormat = strconv.Itoa(newFormat)
-		}
-
-		_, err = strconv.Atoi(buildFlags.newFormat)
-		if err != nil {
-			fail(errors.New("Please supply a valid format version with --new-format"))
+		} else {
+			newFormat, err = strconv.Atoi(buildFlags.newFormat)
+			if err != nil {
+				fail(errors.New("Please supply a valid format version with --new-format"))
+			}
 		}
 
 		// Don't print any more warnings about being behind formats when we loop
@@ -190,7 +191,9 @@ var buildUpstreamFormatCmd = &cobra.Command{
 		bumpNeeded := true
 
 		for bumpNeeded {
-			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s  --retries %d", buildFlags.newFormat, buildFlags.downloadRetries)
+			newFormatStr := strconv.Itoa(newFormat)
+
+			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s  --retries %d", newFormatStr, buildFlags.downloadRetries)
 			cmdToRun := strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
@@ -202,11 +205,17 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			if err = ioutil.WriteFile(vFile, []byte(b.UpstreamVer), 0644); err != nil {
 				fail(err)
 			}
-			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", buildFlags.newFormat)
+			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", newFormatStr)
 			cmdToRun = strings.Split(cmdStr, " ")
 			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
 			}
+
+			// Reload the updated mixer state
+			if err := b.State.Load(b.Config); err != nil {
+				fail(err)
+			}
+
 			// Set the upstream version back to what the user originally tried to build
 			if err = b.UnstageMixFromBump(); err != nil {
 				fail(err)
@@ -214,6 +223,11 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			bumpNeeded, err = b.CheckBumpNeeded(silent)
 			if err != nil {
 				fail(err)
+			}
+
+			// Increment format when crossing multiple upstream formats
+			if bumpNeeded {
+				newFormat = newFormat + 1
 			}
 		}
 		newFormatVer, err := strconv.Atoi(b.MixVer)

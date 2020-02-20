@@ -138,7 +138,16 @@ func (b *Builder) stageMixForBump() error {
 	}
 
 	// Set current upstreamversion to latest
-	return ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(latest), 10)), 0644)
+	err = ioutil.WriteFile(vFile, []byte(strconv.FormatUint(uint64(latest), 10)), 0644)
+	if err != nil {
+		return err
+	}
+
+	// Load updated upstreamversion
+	if err = b.ReadVersions(); err != nil {
+		return err
+	}
+	return b.getUpstreamBundles()
 }
 
 // UnstageMixFromBump resets the upstreamversion file from the temporary ".bump"
@@ -155,6 +164,15 @@ func (b *Builder) UnstageMixFromBump() error {
 
 	// Copy upstreamversion.bump to upstreamversion
 	if err := helpers.CopyFile(vFile, vBFile); err != nil {
+		return err
+	}
+
+	// Load updated upstreamversion
+	if err := b.ReadVersions(); err != nil {
+		return err
+	}
+
+	if err := b.getUpstreamBundles(); err != nil {
 		return err
 	}
 

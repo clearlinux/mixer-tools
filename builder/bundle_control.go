@@ -279,6 +279,12 @@ func (b *Builder) getFullBundleSet(bundles bundleSet) (bundleSet, error) {
 	recurseBundleSet = func(bundles []string) error {
 		for _, bName := range bundles {
 			if _, exists := set[bName]; !exists {
+				// validate names of included bundles
+				err := validateBundleName(bName)
+				if err != nil {
+					return err
+				}
+
 				bundle, err := b.getBundleFromName(bName)
 				if err != nil {
 					return err
@@ -329,9 +335,8 @@ func populateSetFromPackages(source *map[string]bool, dest bundleSet, filename s
 	return nil
 }
 
-// getFullMixBundleSet returns the full set of mix bundle objects. It is a
-// convenience function that is equivalent to calling getFullBundleSet on the
-// results of getMixBundlesListAsSet.
+// getFullMixBundleSet returns the full set of mix bundle objects and updates
+// the mix bundle list.
 func (b *Builder) getFullMixBundleSet() (bundleSet, error) {
 	bundles, err := b.getMixBundlesListAsSet()
 	if err != nil {
@@ -341,16 +346,11 @@ func (b *Builder) getFullMixBundleSet() (bundleSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Add the included and optional included bundles to the mix
-	for _, bundle := range set {
-		err := b.AddBundles(bundle.DirectIncludes, false, false, false)
-		if err != nil {
-			return nil, err
-		}
-		err = b.AddBundles(bundle.OptionalIncludes, false, false, false)
-		if err != nil {
-			return nil, err
-		}
+
+	// Write final mix bundle list back to file
+	err = b.writeMixBundleList(set)
+	if err != nil {
+		return nil, err
 	}
 	return set, nil
 }

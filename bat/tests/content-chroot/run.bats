@@ -11,13 +11,20 @@ setup() {
   customDir="$BATS_TEST_DIRNAME"/custom-content
   fullChroot=update/image/10/full
 
-  # Create custom content chroot with directories, a file, and symlinks
+  # Create custom content chroot with directories, a file, and symlinks.
+  # Non-root ownership and non-default permissions are also tested.
   mkdir -p "$customDir"/usr/bin
+  sudo chown root:root "$customDir"/usr
+  sudo chown root:root "$customDir"/usr/bin
   mkdir -m 744  "$customDir"/dirPerm
-  touch "$customDir"/usr/bin/foo
-  chmod 744 "$customDir"/usr/bin/foo
+  chown 1000:1000 "$customDir"/dirPerm
+  sudo touch "$customDir"/usr/bin/foo
+  sudo chmod 744 "$customDir"/usr/bin/foo
+  sudo chown 1000:1000 "$customDir"/usr/bin/foo
   ln -s usr "$customDir"/dirLink
+  chown -h 1000:1000 "$customDir"/dirLink
   ln -s usr/bin/foo "$customDir"/fileLink
+  chown -h 1000:1000 "$customDir"/fileLink
 
   mixer-init-stripped-down "$CLRVER" 10
 
@@ -26,6 +33,11 @@ setup() {
   add-package-to-local-bundle "bsdiff" "bundle1"
   echo "content(custom-content)" >> "$LOCAL_BUNDLE_DIR"/bundle1
   mixer-bundle-add "bundle1"
+
+  # Create bundle with identical content chroot
+  create-empty-local-bundle "bundle2"
+  echo "content(custom-content)" >> "$LOCAL_BUNDLE_DIR"/bundle2
+  mixer-bundle-add "bundle2"
 
   mixer-build-bundles > "$LOGDIR"/build_bundles.log
   mixer-build-update > "$LOGDIR"/build_update.log
@@ -39,14 +51,22 @@ setup() {
   dirLink2=$(readlink $fullChroot/dirLink)
   [[ "$dirLink1" = "$dirLink2" ]]
 
-  # Check expected permissions copied to full chroot
-  filePerm1=$(stat -c '%A' $customDir/usr/bin/foo)
-  filePerm2=$(stat -c '%A' $fullChroot/usr/bin/foo)
-  [[ "$filePerm1" = "$filePerm2" ]]
+  # Check expected permissions and ownership copied to full chroot
+  fileLinkStat1=$(stat -c '%A:%U:%G' $customDir/fileLink)
+  fileLinkStat2=$(stat -c '%A:%U:%G' $fullChroot/fileLink)
+  [[ "$fileLinkStat1" = "$fileLinkStat2" ]]
 
-  dirPerm1=$(stat -c '%A' $customDir/dirPerm)
-  dirPerm2=$(stat -c '%A' $fullChroot/dirPerm)
-  [[ "$dirPerm1" = "$dirPerm2" ]]
+  dirLinkStat1=$(stat -c '%A:%U:%G' $customDir/dirLink)
+  dirLinkStat2=$(stat -c '%A:%U:%G' $fullChroot/dirLink)
+  [[ "$dirLinkStat1" = "$dirLinkStat2" ]]
+
+  fileStat1=$(stat -c '%A:%U:%G' $customDir/usr/bin/foo)
+  fileStat2=$(stat -c '%A:%U:%G' $fullChroot/usr/bin/foo)
+  [[ "$fileStat1" = "$fileStat2" ]]
+
+  dirStat1=$(stat -c '%A:%U:%G' $customDir/dirPerm)
+  dirStat2=$(stat -c '%A:%U:%G' $fullChroot/dirPerm)
+  [[ "$dirStat1" = "$dirStat2" ]]
 
   # Verify that manifest contains the content chroot files and the
   # bsdiff executable
@@ -55,6 +75,11 @@ setup() {
   grep -P "\t10\t/usr/bin/bsdiff" update/www/10/Manifest.bundle1
   grep -P "L...\t.*\t10\t/fileLink" update/www/10/Manifest.bundle1
   grep -P "L...\t.*\t10\t/dirLink" update/www/10/Manifest.bundle1
+
+  grep -P "\t10\t/usr/bin/foo" update/www/10/Manifest.bundle2
+  grep -P "\t10\t/dirPerm" update/www/10/Manifest.bundle2
+  grep -P "L...\t.*\t10\t/fileLink" update/www/10/Manifest.bundle2
+  grep -P "L...\t.*\t10\t/dirLink" update/www/10/Manifest.bundle2
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

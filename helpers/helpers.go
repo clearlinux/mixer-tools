@@ -35,6 +35,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkg/errors"
@@ -205,13 +206,13 @@ func CopyFileNoOverwrite(dest, src string) error {
 }
 
 // CopyFileWithOptions copies a file, overwriting the destination if it exist and allows
-// options to be set for following links, syncing to disk, or preserving file permissions.
-func CopyFileWithOptions(dest, src string, resolveLinks, sync, useSrcPerms bool) error {
-	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_TRUNC, resolveLinks, sync, useSrcPerms)
+// options to be set for following links, syncing to disk, or preserving file permissions/ownership.
+func CopyFileWithOptions(dest, src string, resolveLinks, sync, preserveSrc bool) error {
+	return copyFileWithFlags(dest, src, os.O_RDWR|os.O_CREATE|os.O_TRUNC, resolveLinks, sync, preserveSrc)
 }
 
 // copyFileWithFlags General purpose copy file function
-func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, useSrcPerms bool) error {
+func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, preserveSrc bool) error {
 	srcInfo, err := os.Lstat(src)
 	if err != nil {
 		return err
@@ -221,7 +222,22 @@ func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, useSrcPe
 		if err != nil {
 			return err
 		}
-		return os.Symlink(srcLink, dest)
+		if err = os.Symlink(srcLink, dest); err != nil {
+			return err
+		}
+
+		if preserveSrc {
+			srcStat, ok := srcInfo.Sys().(*syscall.Stat_t)
+			if !ok {
+				return errors.Errorf("Cannot get file ownership: %s", src)
+			}
+
+			err = os.Lchown(dest, int(srcStat.Uid), int(srcStat.Gid))
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	}
 
 	source, err := os.Open(src)
@@ -233,7 +249,7 @@ func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, useSrcPe
 	}()
 
 	var perms os.FileMode
-	if useSrcPerms {
+	if preserveSrc {
 		perms = srcInfo.Mode()
 	} else {
 		perms = 0666
@@ -250,6 +266,18 @@ func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, useSrcPe
 	_, err = io.Copy(destination, source)
 	if err != nil {
 		return err
+	}
+
+	if preserveSrc {
+		srcStat, ok := srcInfo.Sys().(*syscall.Stat_t)
+		if !ok {
+			return errors.Errorf("Cannot get file ownership: %s", src)
+		}
+
+		err = os.Chown(dest, int(srcStat.Uid), int(srcStat.Gid))
+		if err != nil {
+			return err
+		}
 	}
 
 	if sync {

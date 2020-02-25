@@ -899,6 +899,19 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 						if fullInfo.Mode().Perm() != fi.Mode().Perm() {
 							return errors.Errorf("Directory permission mismatch: %s, %s", fullChrootFile, path)
 						}
+
+						srcDir, ok := fi.Sys().(*syscall.Stat_t)
+						if !ok {
+							return errors.Errorf("Cannot get directory ownership: %s", path)
+						}
+						targDir, ok := fullInfo.Sys().(*syscall.Stat_t)
+						if !ok {
+							return errors.Errorf("Cannot get directory ownership: %s", fullChrootFile)
+						}
+						if srcDir.Uid != targDir.Uid || srcDir.Gid != targDir.Gid {
+							return errors.Errorf("Directory ownership mismatch: %s, %s", fullChrootFile, path)
+						}
+
 						return nil
 					}
 
@@ -917,7 +930,15 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 				}
 
 				if fi.IsDir() {
-					return os.Mkdir(fullChrootFile, fi.Mode().Perm())
+					if err = os.Mkdir(fullChrootFile, fi.Mode().Perm()); err != nil {
+						return err
+					}
+
+					dirStat, ok := fi.Sys().(*syscall.Stat_t)
+					if !ok {
+						return errors.Errorf("Cannot get directory ownership: %s", path)
+					}
+					return os.Chown(fullChrootFile, int(dirStat.Uid), int(dirStat.Gid))
 				}
 
 				// Do not resolve symlinks so that the links can be copied, do not

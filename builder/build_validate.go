@@ -327,19 +327,11 @@ func (b *Builder) mcaPkgInfo(manifests []*swupd.Manifest, version, downloadRetri
 		}
 	}
 
-	emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		_ = os.RemoveAll(emptyDir)
-	}()
-
 	// TODO: resolvePackages is a bottleneck that could be removed by updating the bundleinfo files
 	// to contain resolved packages and associate them with their repo, version, and arch.
 
 	// Resolve the package dependencies and collect the repo, version, and arch for each package
-	repoPkgs, err := resolvePackages(b.NumBundleWorkers, set, packagerCmd, emptyDir)
+	repoPkgs, err := resolvePackagesValidation(b.NumBundleWorkers, set, packagerCmd)
 	if err != nil {
 		return nil, err
 	}

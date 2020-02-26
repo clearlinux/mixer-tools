@@ -190,75 +190,6 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 	return nil
 }
 
-func resolveFiles(numWorkers int, set bundleSet, bundleRepoPkgs *sync.Map, packagerCmd []string) error {
-	var err error
-	var wg sync.WaitGroup
-	fmt.Printf("Resolving files using %d workers\n", numWorkers)
-	wg.Add(numWorkers)
-	bundleCh := make(chan *bundle)
-	// buffer errorCh so it always has space
-	// only one error can be returned to this channel per worker so
-	// buffering to numWorkers will make sure we always have space for the
-	// errors.
-	errorCh := make(chan error, numWorkers)
-	defer close(errorCh)
-
-	fileWorker := func() {
-		defer wg.Done()
-		for bundle := range bundleCh {
-			fmt.Printf("processing %s\n", bundle.Name)
-			// Resolve files for this bundle, passing it the map of repos to packages
-			r, ok := bundleRepoPkgs.Load(bundle.Name)
-			if !ok {
-				errMsg := fmt.Sprintf("couldn't find %s bundle\n", bundle.Name)
-				fmt.Println(errMsg)
-				errorCh <- fmt.Errorf(errMsg)
-				return
-			}
-			e := resolveFilesForBundle(bundle, r.(repoPkgMap), packagerCmd)
-			if e != nil {
-				// break on the first error we get
-				// causes wg.Done to be called and the worker to exit
-				// the break is important so we don't overflow the errorCh
-				fmt.Println(e.Error())
-				errorCh <- e
-				return
-			}
-		}
-	}
-
-	// kick off the fileworkers
-	for i := 0; i < numWorkers; i++ {
-		go fileWorker()
-	}
-
-	for _, bundle := range set {
-		select {
-		case bundleCh <- bundle:
-		case err = <-errorCh:
-			// break as soon as there is a failure.
-			break
-		}
-		if err != nil {
-			break
-		}
-	}
-	close(bundleCh)
-	wg.Wait()
-
-	if err != nil {
-		return err
-	}
-
-	// an error could happen after all the workers are spawned so check again for an
-	// error after wg.Wait() completes.
-	if len(errorCh) > 0 {
-		return <-errorCh
-	}
-
-	return err
-}
-
 // NO-OP INSTALL OUTPUT EXAMPLE
 // Truncated at 80 characters to make it more readable, but the full output is a
 // five-column list of Package, Arch, Version, Repository, and Size.
@@ -399,7 +330,10 @@ func queryRpmFullPath(packageCmd []string, pkgName string, repo string, repos ma
 
 var fileSystemInfo packageMetadata
 
-func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyDir string) (*sync.Map, error) {
+// resolvePackagesWithOptions updates set with resolved packages for each bundle. When validationResolve is set,
+// files are not resolved and the bundleRepoPkgs map is populated. Otherwise, files are resolved and the bundleRepoPkgs
+// map is not populated.
+func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []string, validationResolve bool) (*sync.Map, error) {
 	var err error
 	var wg sync.WaitGroup
 	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
@@ -412,6 +346,15 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 
 	packageWorker := func() {
 		defer wg.Done()
+		emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")
+		if err != nil {
+			errorCh <- err
+			return
+		}
+		defer func() {
+			_ = os.RemoveAll(emptyDir)
+		}()
+
 		for bundle := range bundleCh {
 			fmt.Printf("processing %s\n", bundle.Name)
 			queryString := merge(
@@ -450,9 +393,18 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 				}
 			}
 
-			bundleRepoPkgs.Store(bundle.Name, rpm)
-
-			fmt.Printf("... done with %s\n", bundle.Name)
+			// When resolving packages to validate the build output, populate the bundleRepoPkgs map for later processing
+			// and skip file resolution
+			if validationResolve {
+				bundleRepoPkgs.Store(bundle.Name, rpm)
+				fmt.Printf("... done with %s\n", bundle.Name)
+			} else {
+				e = resolveFilesForBundle(bundle, rpm, packagerCmd)
+				if e != nil {
+					errorCh <- e
+					return
+				}
+			}
 		}
 	}
 	for i := 0; i < numWorkers; i++ {
@@ -483,6 +435,19 @@ func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string, emptyD
 	}
 
 	return &bundleRepoPkgs, err
+}
+
+// resolvePackages resolves packages and files for each bundle without populating the map
+// of bundles to a map of repos to a list of packageMetadata.
+func resolvePackages(numWorkers int, set bundleSet, packagerCmd []string) error {
+	_, err := resolvePackagesWithOptions(numWorkers, set, packagerCmd, false)
+	return err
+}
+
+// resolvePackagesValidation resolves packages and returns a map of bundles to a map of repos to
+// a list of packageMetadata which is used during build validation.
+func resolvePackagesValidation(numWorkers int, set bundleSet, packagerCmd []string) (*sync.Map, error) {
+	return resolvePackagesWithOptions(numWorkers, set, packagerCmd, true)
 }
 
 func installFilesystem(chrootDir string, packagerCmd []string, downloadRetries int, repos map[string]repoInfo) error {
@@ -1091,21 +1056,8 @@ src=%s
 	}
 
 	numWorkers := b.NumBundleWorkers
-	emptyDir, err := ioutil.TempDir("", "MixerEmptyDirForNoopInstall")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = os.RemoveAll(emptyDir)
-	}()
 
-	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packageMetadata
-	bundleRepoPkgs, err := resolvePackages(numWorkers, set, packagerCmd, emptyDir)
-	if err != nil {
-		return err
-	}
-
-	err = resolveFiles(numWorkers, set, bundleRepoPkgs, packagerCmd)
+	err = resolvePackages(numWorkers, set, packagerCmd)
 	if err != nil {
 		return err
 	}

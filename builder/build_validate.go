@@ -126,6 +126,10 @@ func (b *Builder) CheckManifestCorrectness(fromVer, toVer, downloadRetries, tabl
 		os.Stdout = stdOut
 	}()
 
+	if err := b.NewDNFConfIfNeeded(); err != nil {
+		return err
+	}
+
 	// Load initial repo map
 	if err := b.ListRepos(); err != nil {
 		return err

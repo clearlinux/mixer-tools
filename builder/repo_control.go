@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -128,6 +129,17 @@ func (b *Builder) NewDNFConfIfNeeded() error {
 
 		if err = t.Execute(f, conf); err != nil {
 			return errors.Wrapf(err, "Failed to write to dnf file: %s", b.Config.Builder.DNFConf)
+		}
+	}
+
+	if b.Config.Mixer.LocalRepoDir != "" {
+		localRepo := path.Join(b.Config.Mixer.LocalRepoDir, "repodata")
+		if _, err := os.Stat(localRepo); os.IsNotExist(err) {
+			if err = b.createLocalRepo(); err != nil {
+				return err
+			}
+		} else if err != nil {
+			return err
 		}
 	}
 	return nil
@@ -412,13 +424,7 @@ func (b *Builder) AddRPMList(rpms []string) error {
 			}
 		}
 	}
-
-	cmd := exec.Command("createrepo_c", ".")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Dir = b.Config.Mixer.LocalRepoDir
-
-	return cmd.Run()
+	return b.createLocalRepo()
 }
 
 // checkRPM returns nil if path contains a valid RPM file.
@@ -432,4 +438,16 @@ func checkRPM(path string) error {
 		return errors.Errorf("file is not a RPM: %s", string(output))
 	}
 	return nil
+}
+
+func (b *Builder) createLocalRepo() error {
+	if _, err := os.Stat(b.Config.Mixer.LocalRepoDir); err != nil {
+		return err
+	}
+	cmd := exec.Command("createrepo_c", ".")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Dir = b.Config.Mixer.LocalRepoDir
+
+	return cmd.Run()
 }

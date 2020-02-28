@@ -248,14 +248,7 @@ func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, preserve
 		_ = source.Close()
 	}()
 
-	var perms os.FileMode
-	if preserveSrc {
-		perms = srcInfo.Mode()
-	} else {
-		perms = 0666
-	}
-
-	destination, err := os.OpenFile(dest, flags, perms)
+	destination, err := os.OpenFile(dest, flags, 0666)
 	if err != nil {
 		return err
 	}
@@ -275,6 +268,14 @@ func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, preserve
 		}
 
 		err = os.Chown(dest, int(srcStat.Uid), int(srcStat.Gid))
+		if err != nil {
+			return err
+		}
+
+		// umask prevents setting the permissions correctly when creating the target file, so
+		// the permissions are set after the file is created. Also file permissions must be set
+		// after chown so that setuid and setgid permissions are set correctly.
+		err = os.Chmod(dest, srcInfo.Mode())
 		if err != nil {
 			return err
 		}

@@ -16,15 +16,21 @@ setup() {
   mkdir -p "$customDir"/usr/bin
   sudo chown root:root "$customDir"/usr
   sudo chown root:root "$customDir"/usr/bin
-  mkdir -m 744  "$customDir"/dirPerm
+  mkdir -m 777  "$customDir"/dirPerm
   chown 1000:1000 "$customDir"/dirPerm
   sudo touch "$customDir"/usr/bin/foo
-  sudo chmod 744 "$customDir"/usr/bin/foo
+  sudo chmod 777 "$customDir"/usr/bin/foo
   sudo chown 1000:1000 "$customDir"/usr/bin/foo
   ln -s usr "$customDir"/dirLink
   chown -h 1000:1000 "$customDir"/dirLink
   ln -s usr/bin/foo "$customDir"/fileLink
   chown -h 1000:1000 "$customDir"/fileLink
+
+  # Create a file/dir with setuid, setgid, and sticky perms
+  touch "$customDir"/specialPermsFile
+  chmod 7777 "$customDir"/specialPermsFile
+  mkdir "$customDir"/specialPermsDir
+  chmod 7777 "$customDir"/specialPermsDir
 
   mixer-init-stripped-down "$CLRVER" 10
 
@@ -52,32 +58,31 @@ setup() {
   [[ "$dirLink1" = "$dirLink2" ]]
 
   # Check expected permissions and ownership copied to full chroot
-  fileLinkStat1=$(stat -c '%A:%U:%G' $customDir/fileLink)
-  fileLinkStat2=$(stat -c '%A:%U:%G' $fullChroot/fileLink)
-  [[ "$fileLinkStat1" = "$fileLinkStat2" ]]
+  statList1=("$customDir/fileLink" "$customDir/dirLink" "$customDir/usr/bin/foo"
+    "$customDir/dirPerm" "$customDir/specialPermsFile" "$customDir/specialPermsDir")
+  statList2=("$fullChroot/fileLink" "$fullChroot/dirLink" "$fullChroot/usr/bin/foo"
+    "$fullChroot/dirPerm" "$fullChroot/specialPermsFile" "$fullChroot/specialPermsDir")
 
-  dirLinkStat1=$(stat -c '%A:%U:%G' $customDir/dirLink)
-  dirLinkStat2=$(stat -c '%A:%U:%G' $fullChroot/dirLink)
-  [[ "$dirLinkStat1" = "$dirLinkStat2" ]]
-
-  fileStat1=$(stat -c '%A:%U:%G' $customDir/usr/bin/foo)
-  fileStat2=$(stat -c '%A:%U:%G' $fullChroot/usr/bin/foo)
-  [[ "$fileStat1" = "$fileStat2" ]]
-
-  dirStat1=$(stat -c '%A:%U:%G' $customDir/dirPerm)
-  dirStat2=$(stat -c '%A:%U:%G' $fullChroot/dirPerm)
-  [[ "$dirStat1" = "$dirStat2" ]]
+  for ((i=0;i<${#statList1[@]};i++)); do
+    filePerms1=$(stat -c '%A:%U:%G' "${statList1[i]}")
+    filePerms2=$(stat -c '%A:%U:%G' "${statList2[i]}")
+    [[ "$filePerms1" = "$filePerms2" ]]
+  done
 
   # Verify that manifest contains the content chroot files and the
   # bsdiff executable
   grep -P "\t10\t/usr/bin/foo" update/www/10/Manifest.bundle1
   grep -P "\t10\t/dirPerm" update/www/10/Manifest.bundle1
+  grep -P "\t10\t/specialPermsFile" update/www/10/Manifest.bundle1
+  grep -P "\t10\t/specialPermsDir" update/www/10/Manifest.bundle1
   grep -P "\t10\t/usr/bin/bsdiff" update/www/10/Manifest.bundle1
   grep -P "L...\t.*\t10\t/fileLink" update/www/10/Manifest.bundle1
   grep -P "L...\t.*\t10\t/dirLink" update/www/10/Manifest.bundle1
 
   grep -P "\t10\t/usr/bin/foo" update/www/10/Manifest.bundle2
   grep -P "\t10\t/dirPerm" update/www/10/Manifest.bundle2
+  grep -P "\t10\t/specialPermsFile" update/www/10/Manifest.bundle1
+  grep -P "\t10\t/specialPermsDir" update/www/10/Manifest.bundle1
   grep -P "L...\t.*\t10\t/fileLink" update/www/10/Manifest.bundle2
   grep -P "L...\t.*\t10\t/dirLink" update/www/10/Manifest.bundle2
 }

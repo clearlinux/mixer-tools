@@ -896,7 +896,7 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 				// are the same.
 				if fullInfo, err := os.Stat(fullChrootFile); err == nil {
 					if fullInfo.IsDir() && fi.IsDir() {
-						if fullInfo.Mode().Perm() != fi.Mode().Perm() {
+						if fullInfo.Mode() != fi.Mode() {
 							return errors.Errorf("Directory permission mismatch: %s, %s", fullChrootFile, path)
 						}
 
@@ -930,7 +930,7 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 				}
 
 				if fi.IsDir() {
-					if err = os.Mkdir(fullChrootFile, fi.Mode().Perm()); err != nil {
+					if err = os.Mkdir(fullChrootFile, fi.Mode()); err != nil {
 						return err
 					}
 
@@ -938,7 +938,14 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 					if !ok {
 						return errors.Errorf("Cannot get directory ownership: %s", path)
 					}
-					return os.Chown(fullChrootFile, int(dirStat.Uid), int(dirStat.Gid))
+					err = os.Chown(fullChrootFile, int(dirStat.Uid), int(dirStat.Gid))
+					if err != nil {
+						return err
+					}
+
+					// umask prevents setting the permissions correctly when creating the target directory,
+					// so the permissions are set after the directory is created.
+					return os.Chmod(fullChrootFile, fi.Mode())
 				}
 
 				// Do not resolve symlinks so that the links can be copied, do not

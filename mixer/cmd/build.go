@@ -30,7 +30,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const bumpMarker = "format-bump"
+const skipBumpCheck = "skip-format-bump"
 
 // Sets the default number of RPM download retries
 const retriesDefault = 3
@@ -98,8 +98,8 @@ var buildCmd = &cobra.Command{
 			return err
 		}
 
-		// Skip format bump check for format-bump commands
-		if hasMarker(cmd, bumpMarker) {
+		// Skip format bump check for format-bump commands and MCA
+		if hasMarker(cmd, skipBumpCheck) {
 			return nil
 		}
 
@@ -767,11 +767,12 @@ func init() {
 	}
 
 	for _, cmd := range bumpCmds {
-		addMarker(cmd, bumpMarker)
+		addMarker(cmd, skipBumpCheck)
 		buildFormatBumpCmd.AddCommand(cmd)
 	}
 
-	addMarker(buildUpstreamFormatCmd, bumpMarker)
+	addMarker(buildUpstreamFormatCmd, skipBumpCheck)
+	addMarker(buildValidateCmd, skipBumpCheck)
 
 	buildFormatBumpCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")
 	buildFormatOldCmd.Flags().StringVar(&buildFlags.newFormat, "new-format", "", "Supply the next format version to build mixes in")

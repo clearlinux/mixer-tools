@@ -759,13 +759,7 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 		return <-errorCh
 	}
 
-	bundleDir := filepath.Join(baseDir, "usr/share/clear/bundles")
-	err = os.MkdirAll(filepath.Join(bundleDir), 0755)
-	if err != nil {
-		return err
-	}
-
-	return ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644)
+	return nil
 }
 
 func clearDNFCache(packagerCmd []string) error {
@@ -841,26 +835,41 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 		if err := installBundleToFull(packagerCmd, fullDir, bundle, downloadRetries, numWorkers, b.repos); err != nil {
 			return err
 		}
-		// special handling for os-core
-		if bundle.Name == "os-core" {
-			fmt.Println("... building special os-core content")
-			if err := buildOsCore(b, packagerCmd, fullDir, version); err != nil {
-				return err
-			}
-		}
-		// special handling for update bundle
-		if bundle.Name == b.Config.Swupd.Bundle {
-			fmt.Printf("... Adding swupd default values to %s bundle\n", bundle.Name)
-			if err := genUpdateBundleSpecialFiles(fullDir, b); err != nil {
-				return err
-			}
-		}
 	}
 
 	// Resolve bundle content chroots against the full chroot. New files are copied
 	// to the full chroot and the bundle file lists are updated to contain the files
 	// within the chroot.
-	return addBundleContentChroots(set, fullDir)
+	if err = addBundleContentChroots(set, fullDir); err != nil {
+		return err
+	}
+
+	return installSpecialFilesToFull(b, packagerCmd, set, fullDir, version)
+}
+
+// installSpecialFilesToFull installs the bundle tracking files and installs special case files for the
+// os-core and update bundles.
+func installSpecialFilesToFull(b *Builder, packagerCmd []string, set *bundleSet, fullDir, version string) error {
+	// bundle tracking files
+	bundleDir := filepath.Join(fullDir, "usr/share/clear/bundles")
+	if err := os.MkdirAll(bundleDir, 0755); err != nil {
+		return err
+	}
+	for _, bundle := range *set {
+		if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644); err != nil {
+			return err
+		}
+	}
+
+	// special handling for os-core
+	fmt.Println("... building special os-core content")
+	if err := buildOsCore(b, packagerCmd, fullDir, version); err != nil {
+		return err
+	}
+
+	// special handling for update bundle
+	fmt.Printf("... Adding swupd default values to %s bundle\n", b.Config.Swupd.Bundle)
+	return genUpdateBundleSpecialFiles(fullDir, b)
 }
 
 // addBundleContentChroots resolves each bundle's content choots against the full chroot

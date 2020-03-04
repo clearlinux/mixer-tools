@@ -894,7 +894,7 @@ func addBundleContentChroots(set *bundleSet, fullDir string) error {
 
 				// When the content chroot file exists in the full chroot verify that they
 				// are the same.
-				if fullInfo, err := os.Stat(fullChrootFile); err == nil {
+				if fullInfo, err := os.Lstat(fullChrootFile); err == nil {
 					if fullInfo.IsDir() && fi.IsDir() {
 						if fullInfo.Mode() != fi.Mode() {
 							return errors.Errorf("Directory permission mismatch: %s, %s", fullChrootFile, path)

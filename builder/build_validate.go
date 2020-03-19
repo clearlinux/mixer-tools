@@ -250,7 +250,11 @@ func (b *Builder) mcaManInfo(version int) ([]*swupd.Manifest, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		// skip bundle if bundleInfo is empty for that bundle Manifest, it indicates the bundle is deleted and should
+		// not be added to Manifests list
+		if manifest.BundleInfo.Name == "" {
+			continue
+		}
 		manifests = append(manifests, manifest)
 	}
 

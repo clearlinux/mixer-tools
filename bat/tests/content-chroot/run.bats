@@ -17,14 +17,14 @@ setup() {
   sudo chown root:root "$customDir"/usr
   sudo chown root:root "$customDir"/usr/bin
   mkdir -m 777  "$customDir"/dirPerm
-  chown 1000:1000 "$customDir"/dirPerm
+  sudo chown 1000:1000 "$customDir"/dirPerm
   sudo touch "$customDir"/usr/bin/foo
   sudo chmod 777 "$customDir"/usr/bin/foo
   sudo chown 1000:1000 "$customDir"/usr/bin/foo
   ln -s usr "$customDir"/dirLink
-  chown -h 1000:1000 "$customDir"/dirLink
+  sudo chown -h 1000:1000 "$customDir"/dirLink
   ln -s usr/bin/foo "$customDir"/fileLink
-  chown -h 1000:1000 "$customDir"/fileLink
+  sudo chown -h 1000:1000 "$customDir"/fileLink
 
   # Create a file/dir with setuid, setgid, and sticky perms
   touch "$customDir"/specialPermsFile

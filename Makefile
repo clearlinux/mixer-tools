@@ -78,7 +78,8 @@ MANPAGES = \
 	docs/mixer.init.1 \
 	docs/mixer.repo.1 \
 	docs/mixer.versions.1 \
-	docs/mixin.1
+	docs/mixin.1 \
+	docs/mixer.reset.1
 
 man: $(MANPAGES)
 

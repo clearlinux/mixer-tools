@@ -243,7 +243,11 @@ func parseNoopInstall(installOut string) ([]packageMetadata, error) {
 				}
 			}
 		}
-		return nil, fmt.Errorf("unable to resolve package(s): %s", pkgs)
+		if len(pkgs) > 0 {
+			return nil, fmt.Errorf("unable to resolve package(s): %s", pkgs)
+		} else {
+			return nil, fmt.Errorf("dnf error occurred")
+		}
 	}
 	pkgList := strings.Split(parts[1], "\nTransaction Summary")[0]
 
@@ -367,16 +371,19 @@ func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []str
 				queryString = append(queryString, p)
 			}
 			bundle.AllRpms = make(map[string]packageMetadata)
-			// ignore error from the --assumeno install. It is an error every time because
-			// --assumeno forces the install command to "abort" and return a non-zero exit
-			// status. This exit status is 1, which is the same as any other dnf install
-			// error. Fortunately if this is a different error than we expect, it should
-			// fail in the actual install to the full chroot.
-			outBuf, _ := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
+			// Ignore error from the --assumeno install, but save the output for later
+			// printing, in case the output indicates an error. An error is returned every
+			// time because --assumeno forces the command to "abort" and return a non-zero
+			// exit status. This exit status is 1, which is the same as any other dnf install
+			// error. Fortunately if this is a different error than we expect, it should fail
+			// in the actual install to the full chroot.
+			outBuf, errStr := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 			rpm, e := repoPkgFromNoopInstall(outBuf.String())
 			if len(bundle.AllPackages) != 0 && e != nil {
 				e = errors.Wrapf(e, bundle.Name)
 				fmt.Println(e)
+				fmt.Println("error details:")
+				fmt.Println(errStr)
 				errorCh <- e
 				return
 			}

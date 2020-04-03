@@ -245,9 +245,8 @@ func parseNoopInstall(installOut string) ([]packageMetadata, error) {
 		}
 		if len(pkgs) > 0 {
 			return nil, fmt.Errorf("unable to resolve package(s): %s", pkgs)
-		} else {
-			return nil, fmt.Errorf("dnf error occurred")
 		}
+		return nil, fmt.Errorf("dnf error occurred")
 	}
 	pkgList := strings.Split(parts[1], "\nTransaction Summary")[0]
 

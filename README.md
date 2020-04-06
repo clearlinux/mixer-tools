@@ -1,5 +1,5 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/clearlinux/mixer-tools)](https://goreportcard.com/report/github.com/clearlinux/mixer-tools)
-![mixer-tools CI](https://github.com/reaganlo/mixer-tools/workflows/mixer-tools%20CI/badge.svg)
+[![mixer-tools CI](https://github.com/clearlinux/mixer-tools/workflows/mixer-tools%20CI/badge.svg)](https://github.com/clearlinux/mixer-tools/actions?query=workflow%3A%22mixer-tools+CI%22)
 
 This project contains tooling for using the software update mixer.
 

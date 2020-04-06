@@ -1,3 +1,0 @@
-mixin-repo-commands
-=====================
-This test validates various repo commands for mixin

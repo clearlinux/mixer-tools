@@ -316,19 +316,6 @@ jobs:
         with:
           runfunc: run_battest
 
-  mixin-repo-commands:
-    needs: pre-check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v1
-      - name: Run bat test
-        uses: ./
-        env: 
-          TEST_DIR: mixin-repo-commands
-        with:
-          runfunc: run_battest
-
 #  build-validate:
 #    needs: pre-check
 #    runs-on: ubuntu-latest

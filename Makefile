@@ -13,7 +13,6 @@ gopath = $(shell go env GOPATH)
 
 build:
 	go install -mod=vendor -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
-	go install -mod=vendor ${GO_PACKAGE_PREFIX}/mixin
 	go install -mod=vendor ${GO_PACKAGE_PREFIX}/swupd-extract
 	go install -mod=vendor ${GO_PACKAGE_PREFIX}/swupd-inspector
 	go install -mod=vendor ${GO_PACKAGE_PREFIX}/mixer-completion
@@ -21,7 +20,6 @@ build:
 install: build
 	test -d $(DESTDIR)/usr/bin || install -D -d -m 00755 $(DESTDIR)/usr/bin;
 	install -m 00755 $(GOPATH)/bin/mixer $(DESTDIR)/usr/bin/.
-	install -m 00755 $(GOPATH)/bin/mixin $(DESTDIR)/usr/bin/.
 	install -m 00755 $(GOPATH)/bin/swupd-extract $(DESTDIR)/usr/bin/.
 	install -m 00755 $(GOPATH)/bin/swupd-inspector $(DESTDIR)/usr/bin/.
 	$(GOPATH)/bin/mixer-completion bash --path $(DESTDIR)/usr/share/bash-completion/completions/mixer
@@ -78,7 +76,6 @@ MANPAGES = \
 	docs/mixer.init.1 \
 	docs/mixer.repo.1 \
 	docs/mixer.versions.1 \
-	docs/mixin.1
 
 man: $(MANPAGES)
 

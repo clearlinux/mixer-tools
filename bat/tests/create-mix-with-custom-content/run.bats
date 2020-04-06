@@ -30,7 +30,7 @@ setup() {
 
   # download the helloworld rpm, rename it to a non-autospec convention and place it within the repo sub directory
   curl --retry 4 --retry-delay 10 --fail --silent --show-error --location --remote-name https://download.clearlinux.org/current/x86_64/os/Packages/helloworld-4-148.x86_64.rpm
-  mv helloworld-bin-4-147.x86_64.rpm $BATS_TEST_DIRNAME/custom-yum/sub-dir/foo.rpm
+  mv helloworld-4-148.x86_64.rpm $BATS_TEST_DIRNAME/custom-yum/sub-dir/foo.rpm
 
   # create the repo
   createrepo_c $BATS_TEST_DIRNAME/custom-yum/

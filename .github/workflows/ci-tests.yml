@@ -1,0 +1,343 @@
+# Create a job for each new bat test
+# Set the test directory name as the job id (E.g. build-all-delta-packs)
+# Set the test directory name as the env variable TEST_DIR (E.g. build-all-delta-packs)
+
+name: mixer-tools CI
+
+on: [push, pull_request]
+
+jobs:
+  pre-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run linter and unit tests
+        uses: ./
+        with:
+          runfunc: run_precheck
+
+  build-all-delta-packs:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: build-all-delta-packs
+        with:
+          runfunc: run_battest
+
+  build-delta-manifests:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: build-delta-manifests
+        with:
+          runfunc: run_battest
+
+  build-multiple-delta-packs:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: build-multiple-delta-packs
+        with:
+          runfunc: run_battest
+
+  bundle-commands:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: bundle-commands
+        with:
+          runfunc: run_battest
+
+  clean-rebuild:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: clean-rebuild
+        with:
+          runfunc: run_battest
+
+  content-chroot:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: content-chroot
+        with:
+          runfunc: run_battest
+
+  config-conversion:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: config-conversion
+        with:
+          runfunc: run_battest
+
+  contentsize-check:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: contentsize-check
+        with:
+          runfunc: run_battest
+
+  update-mix-add-remove-bundles:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: update-mix-add-remove-bundles
+        with:
+          runfunc: run_battest
+
+  create-mix-with-blended-content:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: create-mix-with-blended-content
+        with:
+          runfunc: run_battest
+
+  create-mix-with-custom-content:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: create-mix-with-custom-content
+        with:
+          runfunc: run_battest
+
+  customize-os-release:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: customize-os-release
+        with:
+          runfunc: run_battest
+
+  clr-installer-config:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: clr-installer-config
+        with:
+          runfunc: run_battest
+
+  export-flag:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: export-flag
+        with:
+          runfunc: run_battest
+
+  manual-format-bump-flow:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: manual-format-bump-flow
+        with:
+          runfunc: run_battest
+
+  manual-upstream-format-bump-flow:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: manual-upstream-format-bump-flow
+        with:
+          runfunc: run_battest
+
+  no-delta-manifests-over-format-bump:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: no-delta-manifests-over-format-bump
+        with:
+          runfunc: run_battest
+
+  no-delta-packs-over-format-bump:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: no-delta-packs-over-format-bump
+        with:
+          runfunc: run_battest
+
+  no-state-variables-in-full:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: no-state-variables-in-full
+        with:
+          runfunc: run_battest
+
+  state-conversion:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: state-conversion
+        with:
+          runfunc: run_battest
+
+  test-format-bump:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: test-format-bump
+        with:
+          runfunc: run_battest
+
+  upstream-format-bump:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: upstream-format-bump
+        with:
+          runfunc: run_battest
+
+  update-mixver-offline:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: update-mixver-offline
+        with:
+          runfunc: run_battest
+
+  mixin-repo-commands:
+    needs: pre-check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v1
+      - name: Run bat test
+        uses: ./
+        env: 
+          TEST_DIR: mixin-repo-commands
+        with:
+          runfunc: run_battest
+
+#  build-validate:
+#    needs: pre-check
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v1
+#      - name: Run bat test
+#        uses: ./
+#        env:
+#          TEST_DIR: build-validate
+#        with:
+#          runfunc: run_battest

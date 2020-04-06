@@ -1,0 +1,11 @@
+name: 'mixer-tools CI Docker image'
+description: 'Build and run tests in mixer-tools CI Docker image'
+inputs:
+  runfunc:
+    description: 'Function to run'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  env:
+   GOCACHE: /tmp/gocache # change default cache to avoid permission issues

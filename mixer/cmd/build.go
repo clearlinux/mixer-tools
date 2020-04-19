@@ -42,7 +42,6 @@ type buildCmdFlags struct {
 	minVersion      int
 	noSigning       bool
 	downloadRetries int
-	noPublish       bool
 	template        string
 	skipFullfiles   bool
 	skipPacks       bool
@@ -364,7 +363,6 @@ var buildFormatOldCmd = &cobra.Command{
 		params := builder.UpdateParameters{
 			MinVersion:    buildFlags.minVersion,
 			Format:        b.State.Mix.Format,
-			Publish:       !buildFlags.noPublish,
 			SkipSigning:   buildFlags.noSigning,
 			SkipFullfiles: buildFlags.skipFullfiles,
 			SkipPacks:     buildFlags.skipPacks,
@@ -442,7 +440,6 @@ var buildFormatNewCmd = &cobra.Command{
 		params := builder.UpdateParameters{
 			MinVersion:    minver,
 			Format:        buildFlags.newFormat,
-			Publish:       !buildFlags.noPublish,
 			SkipSigning:   buildFlags.noSigning,
 			SkipFullfiles: buildFlags.skipFullfiles,
 			SkipPacks:     buildFlags.skipPacks,
@@ -482,7 +479,6 @@ var buildUpdateCmd = &cobra.Command{
 		params := builder.UpdateParameters{
 			MinVersion:    buildFlags.minVersion,
 			Format:        buildFlags.format,
-			Publish:       !buildFlags.noPublish,
 			SkipSigning:   buildFlags.noSigning,
 			SkipFullfiles: buildFlags.skipFullfiles,
 			SkipPacks:     buildFlags.skipPacks,
@@ -535,7 +531,6 @@ var buildAllCmd = &cobra.Command{
 		params := builder.UpdateParameters{
 			MinVersion:    buildFlags.minVersion,
 			Format:        buildFlags.format,
-			Publish:       !buildFlags.noPublish,
 			SkipSigning:   buildFlags.noSigning,
 			SkipFullfiles: buildFlags.skipFullfiles,
 			SkipPacks:     buildFlags.skipPacks,
@@ -744,7 +739,6 @@ func setUpdateFlags(cmd *cobra.Command) {
 	cmd.Flags().BoolVar(&buildFlags.increment, "increment", false, "Automatically increment the mixversion post build")
 	cmd.Flags().IntVar(&buildFlags.minVersion, "min-version", 0, "Supply minversion to build update with")
 	cmd.Flags().BoolVar(&buildFlags.noSigning, "no-signing", false, "Do not generate a certificate and do not sign the Manifest.MoM")
-	cmd.Flags().BoolVar(&buildFlags.noPublish, "no-publish", false, "Do not update the latest version after update")
 	cmd.Flags().BoolVar(&buildFlags.skipFullfiles, "skip-fullfiles", false, "Do not generate fullfiles")
 	cmd.Flags().BoolVar(&buildFlags.skipPacks, "skip-packs", false, "Do not generate zero packs")
 

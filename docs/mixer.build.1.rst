@@ -92,12 +92,6 @@ SUBCOMMANDS
       version. ``mixer`` will not use any OS content from a version older than
       the min-version passed here.
 
-    - ``--no-publish``
-
-      Do not update the LAST_VER file after the update. Any ``swupd`` client
-      configured to update from the mix will not be made aware of the new mix
-      version and will therefore not attempt an update.
-
    - ``--no-signing``
 
      Do not generate a certificate and do not sign the Manifest.MoM
@@ -252,12 +246,6 @@ SUBCOMMANDS
       tells ``mixer`` to regenerate all mix content starting from a certain
       version. ``mixer`` will not use any OS content from a version older than
       the min-version passed here.
-
-    - ``--no-publish``
-
-      Do not update the LAST_VER file after the update. Any ``swupd`` client
-      configured to update from the mix will not be made aware of the new mix
-      version and will therefore not attempt an update.
 
    - ``--no-signing``
 

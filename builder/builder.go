@@ -76,8 +76,6 @@ type UpdateParameters struct {
 	MinVersion int
 	// Format version used in this update
 	Format string
-	// Update latest format version and image version files to current mix
-	Publish bool
 	// Skip signing Manifest.MoM
 	SkipSigning bool
 	// Skip fullfiles generation
@@ -370,11 +368,6 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 		if err != nil {
 			return errors.Wrapf(err, "couldn't write upstreamver file")
 		}
-	}
-
-	// Publish. Update the latest version file in various locations.
-	if !params.Publish {
-		return nil
 	}
 
 	fmt.Printf("Setting latest version to %s\n", b.MixVer)

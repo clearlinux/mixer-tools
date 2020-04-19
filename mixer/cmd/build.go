@@ -25,8 +25,9 @@ import (
 
 	"github.com/clearlinux/mixer-tools/builder"
 	"github.com/clearlinux/mixer-tools/helpers"
-	"github.com/pkg/errors"
+	"github.com/clearlinux/mixer-tools/log"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -112,7 +113,7 @@ func buildBundles(builder *builder.Builder, signflag bool, downloadRetries int) 
 	}
 	// Create the signing and validation key/cert
 	if _, err := os.Stat(builder.Config.Builder.Cert); os.IsNotExist(err) {
-		fmt.Println("Generating certificate for signature validation...")
+		log.Info(log.Mixer, "Generating certificate for signature validation...")
 		privkey, err := helpers.CreateKeyPair()
 		if err != nil {
 			return errors.Wrap(err, "Error generating OpenSSL keypair")
@@ -194,7 +195,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 
 			cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s  --retries %d", newFormatStr, buildFlags.downloadRetries)
 			cmdToRun := strings.Split(cmdStr, " ")
-			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
+			if err = helpers.RunCommand(log.Mixer, cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
 			}
 
@@ -206,7 +207,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 			}
 			cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", newFormatStr)
 			cmdToRun = strings.Split(cmdStr, " ")
-			if err = helpers.RunCommand(cmdToRun[0], cmdToRun[1:]...); err != nil {
+			if err = helpers.RunCommand(log.Mixer, cmdToRun[0], cmdToRun[1:]...); err != nil {
 				fail(err)
 			}
 
@@ -260,12 +261,12 @@ var buildFormatBumpCmd = &cobra.Command{
 
 		cmdStr := fmt.Sprintf("mixer build format-bump old --new-format %s --retries %d", buildFlags.newFormat, buildFlags.downloadRetries)
 		cmdToRun := strings.Split(cmdStr, " ")
-		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
+		if output, err := helpers.RunCommandOutputEnv(log.Mixer, cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
 		}
 		cmdStr = fmt.Sprintf("mixer build format-bump new --new-format %s", buildFlags.newFormat)
 		cmdToRun = strings.Split(cmdStr, " ")
-		if output, err := helpers.RunCommandOutputEnv(cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
+		if output, err := helpers.RunCommandOutputEnv(log.Mixer, cmdToRun[0], cmdToRun[1:], []string{}); err != nil {
 			failf("%s: %s", output, err)
 		}
 	},
@@ -351,9 +352,9 @@ var buildFormatOldCmd = &cobra.Command{
 		}
 		source := filepath.Join(b.Config.Builder.ServerStateDir, "image", strconv.Itoa(newFormatVer))
 		dest := filepath.Join(b.Config.Builder.ServerStateDir, "image", strconv.Itoa(oldFormatVer))
-		fmt.Println(" Copying +20 bundles to +10 bundles")
-		if err = helpers.RunCommandSilent("cp", "-al", source, dest); err != nil {
-			failf("Failed to copy +10 bundles to +20: %s\n", err)
+		log.Info(log.Mixer, " Copying +20 bundles to +10 bundles")
+		if err = helpers.RunCommandSilent(log.Mixer, "cp", "-al", source, dest); err != nil {
+			failf("Failed to copy +10 bundles to +20: %s", err)
 		}
 
 		// Set the format back to old for the actual build update
@@ -573,12 +574,12 @@ var buildValidateCmd = &cobra.Command{
 		tableWidth := buildFlags.tableWidth
 		if tableWidth == 0 {
 			if tableWidth, err = builder.TerminalWidth(); err != nil {
-				fmt.Fprintf(os.Stderr, "Cannot determine default MCA statistics table width, disabling")
+				log.Error(log.Mixer, "Cannot determine default MCA statistics table width, disabling")
 				tableWidth = -1
 			}
 		}
 		if tableWidth >= 0 && tableWidth < builder.MinMcaTableWidth {
-			fmt.Fprintf(os.Stderr, "MCA statistics table width less than minimum: %d, disabling\n", builder.MinMcaTableWidth)
+			log.Error(log.Mixer, "MCA statistics table width less than minimum: %d, disabling", builder.MinMcaTableWidth)
 			tableWidth = -1
 		}
 

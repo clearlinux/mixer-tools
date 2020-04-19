@@ -3,17 +3,17 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"strconv"
 
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/clearlinux/mixer-tools/swupd"
 )
 
 func usage() {
-	log.Printf(`Create pack files using a swupd state directory
+	log.Info(log.Mixer, `Create pack files using a swupd state directory
 
 Usage:
   create-pack [FLAGS] STATEDIR FROM_VERSION TO_VERSION BUNDLE
@@ -27,12 +27,12 @@ Flags:
 }
 
 func main() {
-	log.SetFlags(0)
-
 	cpuProfile := flag.String("cpuprofile", "", "write CPU profile to a file")
 	useChroot := flag.Bool("chroot", false, "use chroot to speed up pack generation")
 	allBundles := flag.Bool("all", false, "create packs for all bundles new in TO version")
 	force := flag.Bool("f", false, "rewrite packs that already exist")
+	logFile := flag.String("log", "", "write logs to a file")
+	logLevel := flag.Int("log-level", 4, "set the log level between 1-5")
 	flag.Usage = usage
 
 	flag.Parse()
@@ -43,15 +43,26 @@ func main() {
 	if *cpuProfile != "" {
 		f, err := os.Create(*cpuProfile)
 		if err != nil {
-			log.Fatalf("couldn't create file for CPU profile: %s", err)
+			log.Error(log.Mixer, "couldn't create file for CPU profile: %s", err)
+			os.Exit(1)
 		}
 		err = pprof.StartCPUProfile(f)
 		if err != nil {
-			log.Fatal(err)
+			log.Error(log.Mixer, err.Error())
+			os.Exit(1)
 		}
 		defer pprof.StopCPUProfile()
 	}
-
+	if *logFile != "" {
+		// Configure logger
+		_, err := log.SetOutputFilename(*logFile)
+		if err != nil {
+			fmt.Printf("WARNING: couldn't create file for log: %s", err)
+		} else {
+			log.SetLogLevel(*logLevel)
+		}
+		defer log.CloseLogHandler()
+	}
 	stateDir := flag.Arg(0)
 
 	fromVersion := flag.Arg(1)
@@ -61,14 +72,16 @@ func main() {
 	toVersionUint := parseUint32(toVersion)
 
 	if fromVersionUint >= toVersionUint {
-		log.Fatalf("couldn't create pack: FROM_VERSION (%d) must be smaller than TO_VERSION (%d)", fromVersionUint, toVersionUint)
+		log.Error(log.Mixer, "couldn't create pack: FROM_VERSION (%d) must be smaller than TO_VERSION (%d)", fromVersionUint, toVersionUint)
+		os.Exit(1)
 	}
 
 	chrootDir := ""
 	if *useChroot {
 		chrootDir = filepath.Join(stateDir, "image")
 		if _, err := os.Stat(chrootDir); err != nil {
-			log.Fatalf("couldn't access the full chroot: %s", err)
+			log.Error(log.Mixer, "couldn't access the full chroot: %s", err)
+			os.Exit(1)
 		}
 	}
 
@@ -78,7 +91,8 @@ func main() {
 		toDir := filepath.Join(stateDir, "www", toVersion)
 		toMoM, err := swupd.ParseManifestFile(filepath.Join(toDir, "Manifest.MoM"))
 		if err != nil {
-			log.Fatalf("couldn't read MoM of TO_VERSION (%s): %s", toVersion, err)
+			log.Error(log.Mixer, "couldn't read MoM of TO_VERSION (%s): %s", toVersion, err)
+			os.Exit(1)
 		}
 
 		var fromMoM *swupd.Manifest
@@ -86,19 +100,22 @@ func main() {
 			fromDir := filepath.Join(stateDir, "www", fromVersion)
 			fromMoM, err = swupd.ParseManifestFile(filepath.Join(fromDir, "Manifest.MoM"))
 			if err != nil {
-				log.Fatalf("couldn't read MoM of FROM_VERSION (%s): %s", fromVersion, err)
+				log.Error(log.Mixer, "couldn't read MoM of FROM_VERSION (%s): %s", fromVersion, err)
+				os.Exit(1)
 			}
 		}
 
 		bundles, err = swupd.FindBundlesToPack(fromMoM, toMoM)
 		if err != nil {
-			log.Fatalf("couldn't find the bundles to pack: %s", err)
+			log.Error(log.Mixer, "couldn't find the bundles to pack: %s", err)
+			os.Exit(1)
 		}
 	} else {
 		// If we are handling a single bundle, its name is taken directly from the command line.
 		name := flag.Arg(3)
 		if name == "full" || name == "MoM" || name == "" {
-			log.Fatalf("invalid bundle name %q", name)
+			log.Error(log.Mixer, "invalid bundle name %q", name)
+			os.Exit(1)
 		}
 		bundle := &swupd.BundleToPack{
 			Name:        name,
@@ -114,37 +131,39 @@ func main() {
 		if !*force {
 			_, err := os.Lstat(filepath.Join(stateDir, "www", fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion)))
 			if err == nil {
-				fmt.Printf("Pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+				log.Info(log.Mixer, "Pack already exists for %s from %d to %d", b.Name, b.FromVersion, b.ToVersion)
 				continue
 			}
 			if !os.IsNotExist(err) {
-				log.Fatal(err)
+				log.Error(log.Mixer, err.Error())
+				os.Exit(1)
 			}
 		}
 
-		fmt.Printf("Packing %s from %d to %d...\n", b.Name, b.FromVersion, b.ToVersion)
+		log.Info(log.Mixer, "Packing %s from %d to %d...", b.Name, b.FromVersion, b.ToVersion)
 
 		info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, filepath.Join(stateDir, "www"), chrootDir)
 		if err != nil {
-			log.Fatal(err)
+			log.Error(log.Mixer, err.Error())
+			os.Exit(1)
 		}
 
 		if len(info.Warnings) > 0 {
-			log.Println("Warnings during pack:")
+			log.Warning(log.Mixer, "Warnings during pack:")
 			for _, w := range info.Warnings {
-				log.Printf("  %s\n", w)
+				log.Info(log.Mixer, "  %s", w)
 			}
-			log.Println()
 		}
-		fmt.Printf("  Fullfiles in pack: %d\n", info.FullfileCount)
-		fmt.Printf("  Deltas in pack: %d\n", info.DeltaCount)
+		log.Info(log.Mixer, "  Fullfiles in pack: %d", info.FullfileCount)
+		log.Info(log.Mixer, "  Deltas in pack: %d", info.DeltaCount)
 	}
 }
 
 func parseUint32(s string) uint32 {
 	parsed, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
-		log.Fatalf("error parsing value %q: %s", s, err)
+		log.Error(log.Mixer, "error parsing value %q: %s", s, err)
+		os.Exit(1)
 	}
 	return uint32(parsed)
 }

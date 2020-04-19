@@ -16,7 +16,6 @@ package swupd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -24,6 +23,7 @@ import (
 	"syscall"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/pkg/errors"
 )
 
@@ -51,7 +51,7 @@ type Delta struct {
 // supplied manifest. Returns a list of deltas (which contains information about
 // individual delta errors). Returns error (and no deltas) if it can't assemble the delta
 // list. If number of workers is zero or less, 1 worker is used.
-func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int, bsdiffLog *log.Logger) ([]Delta, error) {
+func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWorkers int) ([]Delta, error) {
 	var c config
 
 	c, err := getConfig(statedir)
@@ -69,22 +69,10 @@ func CreateDeltasForManifest(manifest, statedir string, from, to uint32, numWork
 		return nil, err
 	}
 
-	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers, bsdiffLog)
+	return createDeltasFromManifests(&c, oldManifest, newManifest, numWorkers)
 }
 
-// CreateBsdiffLogger creates a logger for the bsdiff_errors.log file at the directory
-// specified by stateDir.
-func CreateBsdiffLogger(stateDir string) (*log.Logger, *os.File, error) {
-	logFile, err := os.OpenFile(filepath.Join(stateDir, "bsdiff_errors.log"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "Cannot create log file for delta creation")
-	}
-	bsdiffLog := log.New(logFile, "DELTA: ", log.Lshortfile)
-
-	return bsdiffLog, logFile, nil
-}
-
-func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int, bsdiffLog *log.Logger) ([]Delta, error) {
+func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, numWorkers int) ([]Delta, error) {
 	deltas, err := findDeltas(c, oldManifest, newManifest)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to create deltas list %s", newManifest.Name)
@@ -106,7 +94,7 @@ func createDeltasFromManifests(c *config, oldManifest, newManifest *Manifest, nu
 		go func() {
 			defer wg.Done()
 			for delta := range deltaQueue {
-				delta.Error = createFileDelta(c, delta, bsdiffLog)
+				delta.Error = createFileDelta(c, delta)
 			}
 		}()
 	}
@@ -133,15 +121,6 @@ func CreateManifestDeltas(statedir string, fromManifest, toManifest *Manifest, n
 	if err != nil {
 		return nil, err
 	}
-
-	bsdiffLog, logFile, err := CreateBsdiffLogger(c.stateDir)
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot create log file for delta creation")
-	}
-
-	defer func() {
-		_ = logFile.Close()
-	}()
 
 	toManifest.sortFilesName()
 	fromManifest.sortFilesName()
@@ -204,7 +183,7 @@ func CreateManifestDeltas(statedir string, fromManifest, toManifest *Manifest, n
 		go func() {
 			defer wg.Done()
 			for delta := range deltaQueue {
-				delta.Error = createManifestDelta(&c, delta, bsdiffLog)
+				delta.Error = createManifestDelta(&c, delta)
 			}
 		}()
 	}
@@ -246,21 +225,21 @@ func deltaTooLarge(c *config, delta *Delta, newPath string) bool {
 	return deltaSize >= fcSize
 }
 
-func createFileDelta(c *config, delta *Delta, bsdiffLog *log.Logger) error {
+func createFileDelta(c *config, delta *Delta) error {
 	oldPath := filepath.Join(c.imageBase, fmt.Sprint(delta.from.Version), "full", delta.from.Name)
 	newPath := filepath.Join(c.imageBase, fmt.Sprint(delta.to.Version), "full", delta.to.Name)
 
-	return createDelta(c, oldPath, newPath, delta, bsdiffLog)
+	return createDelta(c, oldPath, newPath, delta)
 }
 
-func createManifestDelta(c *config, delta *Delta, bsdiffLog *log.Logger) error {
+func createManifestDelta(c *config, delta *Delta) error {
 	oldPath := filepath.Join(c.stateDir, "www", fmt.Sprint(delta.from.Version), "Manifest."+delta.from.Name)
 	newPath := filepath.Join(c.stateDir, "www", fmt.Sprint(delta.to.Version), "Manifest."+delta.to.Name)
 
-	return createDelta(c, oldPath, newPath, delta, bsdiffLog)
+	return createDelta(c, oldPath, newPath, delta)
 }
 
-func createDelta(c *config, oldPath, newPath string, delta *Delta, bsdiffLog *log.Logger) error {
+func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 	if _, err := os.Stat(delta.Path); err == nil {
 		// Skip existing deltas. Not verifying since client is resilient about that.
 		return nil
@@ -270,39 +249,39 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta, bsdiffLog *lo
 	// The majority of all delta creations take significantly less than 8
 	// minutes; the deltas that take longer usually indicate that old/new
 	// files are large or very difficult to diff.
-	if err := helpers.RunCommandTimeout(480, "bsdiff", oldPath, newPath, delta.Path); err != nil {
+	if err := helpers.RunCommandTimeout(log.BsDiff, 480, "bsdiff", oldPath, newPath, delta.Path); err != nil {
 		_ = os.Remove(delta.Path)
 		if exitErr, ok := errors.Cause(err).(*exec.ExitError); ok {
 			// bsdiff returns 1 that stands for "FULLDL", i.e. it decided that
 			// a delta is not worth. Give a better error message for that case.
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
 				if status.ExitStatus() == 1 {
-					return fmt.Errorf("bsdiff returned FULLDL, not using delta %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
+					err = fmt.Errorf("bsdiff returned FULLDL, not using delta %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
+					log.Warning(log.BsDiff, err.Error())
+					return err
 				}
 			}
 		}
 		errStr := fmt.Sprintf("Failed to create delta for %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
-		bsdiffLog.SetPrefix("BSDIFF: ")
-		bsdiffLog.Println(errStr)
-		return errors.Wrap(err, errStr)
+		err = errors.Wrap(err, errStr)
+		log.Warning(log.BsDiff, err.Error())
+		return err
 	}
 
 	// Check that delta is smaller than compressed full file
 	if deltaTooLarge(c, delta, newPath) {
 		_ = os.Remove(delta.Path)
-
 		errStr := fmt.Sprintf("Delta file larger than compressed full file %s (%d-%s) -> %s", delta.to.Name, delta.to.Version, delta.to.Hash, newPath)
-		bsdiffLog.SetPrefix("LARGER-DELTA: ")
-		bsdiffLog.Println(errStr)
+		log.Warning(log.BsDiff, "LARGER-DELTA: "+errStr)
 		return errors.New(errStr)
 	}
 
 	// Check that the delta actually applies correctly.
 	testPath := delta.Path + ".testnewfile"
-	if err := helpers.RunCommandSilent("bspatch", oldPath, testPath, delta.Path); err != nil {
+	if err := helpers.RunCommandSilent(log.BsDiff, "bspatch", oldPath, testPath, delta.Path); err != nil {
+		log.Debug(log.BsDiff, err.Error())
 		errStr := fmt.Sprintf("Failed to apply delta %s", delta.Path)
-		bsdiffLog.SetPrefix("BSPATCH: ")
-		bsdiffLog.Println(errStr)
+		log.Warning(log.BsDiff, "BSPATCH: "+errStr)
 		return errors.Wrapf(err, errStr)
 	}
 	defer func() {
@@ -312,13 +291,16 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta, bsdiffLog *lo
 	testHash, err := Hashcalc(testPath)
 	if err != nil {
 		_ = os.Remove(delta.Path)
-		return errors.Wrap(err, "Failed to calculate hash for test file created applying delta")
+		err = errors.Wrap(err, "Failed to calculate hash for test file created applying delta")
+		log.Warning(log.BsDiff, err.Error())
+		return err
 	}
 	if testHash != delta.to.Hash {
 		_ = os.Remove(delta.Path)
-		return errors.Wrapf(err, "Delta mismatch: %s -> %s via delta: %s", oldPath, newPath, delta.Path)
+		err = errors.Errorf("Delta mismatch: %s -> %s via delta: %s", oldPath, newPath, delta.Path)
+		log.Warning(log.BsDiff, err.Error())
+		return err
 	}
-
 	return nil
 }
 

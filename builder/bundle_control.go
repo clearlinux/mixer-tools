@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"sort"
@@ -26,6 +25,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/pkg/errors"
 )
 
@@ -72,7 +72,7 @@ func (b *Builder) getUpstreamBundles() error {
 	// Download the upstream bundles
 	tmpTarFile := filepath.Join(upstreamBundlesBaseDir, b.UpstreamVer+".tar.gz")
 	URL := b.Config.Swupd.UpstreamBundlesURL + b.UpstreamVer + ".tar.gz"
-	fmt.Printf("Fetching upstream bundles from %s\n", URL)
+	log.Info(log.Mixer, "Fetching upstream bundles from %s", URL)
 	if err := helpers.DownloadFile(URL, tmpTarFile); err != nil {
 		return errors.Wrapf(err, "Failed to download bundles for upstream version %s", b.UpstreamVer)
 	}
@@ -373,23 +373,23 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 	// Add the ones passed in to the set
 	for _, bName := range bundles {
 		if _, exists := set[bName]; exists {
-			fmt.Printf("Bundle %q already in mix; skipping\n", bName)
+			log.Info(log.Mixer, "Bundle %q already in mix; skipping", bName)
 			continue
 		}
 
 		bundle, err := b.getBundleFromName(bName)
 		if err != nil {
-			log.Println("Warning: " + err.Error() + "; skipping")
+			log.Warning(log.Mixer, err.Error()+"; skipping")
 			continue
 		}
 		if err = validateBundleName(bName); err != nil {
-			log.Println("Warning: " + err.Error() + "; skipping")
+			log.Warning(log.Mixer, err.Error()+"; skipping")
 			continue
 		}
 		if b.isLocalBundle(bundle.Filename) {
-			fmt.Printf("Adding bundle %q from local bundles\n", bName)
+			log.Info(log.Mixer, "Adding bundle %q from local bundles", bName)
 		} else {
-			fmt.Printf("Adding bundle %q from upstream bundles\n", bName)
+			log.Info(log.Mixer, "Adding bundle %q from upstream bundles", bName)
 		}
 		set[bName] = bundle
 	}
@@ -408,12 +408,12 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 		for _, bundle := range localSet {
 			if _, exists := set[bundle.Name]; exists {
-				fmt.Printf("Bundle %q already in mix; skipping\n", bundle.Name)
+				log.Info(log.Mixer, "Bundle %q already in mix; skipping", bundle.Name)
 				continue
 			}
 
 			set[bundle.Name] = bundle
-			fmt.Printf("Adding bundle %q from local bundles\n", bundle.Name)
+			log.Info(log.Mixer, "Adding bundle %q from local bundles", bundle.Name)
 		}
 	}
 
@@ -432,12 +432,12 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 
 		for _, bundle := range upstreamSet {
 			if _, exists := set[bundle.Name]; exists {
-				fmt.Printf("Bundle %q already in mix; skipping\n", bundle.Name)
+				log.Info(log.Mixer, "Bundle %q already in mix; skipping", bundle.Name)
 				continue
 			}
 
 			set[bundle.Name] = bundle
-			fmt.Printf("Adding bundle %q from upstream bundles\n", bundle.Name)
+			log.Info(log.Mixer, "Adding bundle %q from upstream bundles", bundle.Name)
 		}
 	}
 
@@ -447,7 +447,7 @@ func (b *Builder) AddBundles(bundles []string, allLocal bool, allUpstream bool, 
 	}
 
 	if git {
-		fmt.Println("Adding git commit")
+		log.Info(log.Mixer, "Adding git commit")
 		if err := helpers.Git("add", "."); err != nil {
 			return err
 		}
@@ -482,7 +482,7 @@ func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool
 
 		if local {
 			if _, err := os.Stat(filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)); err == nil {
-				fmt.Printf("Removing bundle %q from local-bundles\n", bundle)
+				log.Info(log.Mixer, "Removing bundle %q from local-bundles", bundle)
 				if err := os.Remove(filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)); err != nil {
 					return errors.Wrapf(err, "Cannot remove bundle file for %q from local-bundles", bundle)
 				}
@@ -490,22 +490,22 @@ func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool
 				if !mix && inMix {
 					// Check if bundle is still available upstream
 					if _, err := b.getBundlePath(bundle); err != nil {
-						fmt.Printf("Warning: Invalid bundle left in mix: %q\n", bundle)
+						log.Info(log.Mixer, "Invalid bundle left in mix: %q", bundle)
 					} else {
-						fmt.Printf("Mix bundle %q now points to upstream\n", bundle)
+						log.Info(log.Mixer, "Mix bundle %q now points to upstream", bundle)
 					}
 				}
 			} else {
-				fmt.Printf("Bundle %q not found in local-bundles; skipping\n", bundle)
+				log.Info(log.Mixer, "Bundle %q not found in local-bundles; skipping", bundle)
 			}
 		}
 
 		if mix {
 			if inMix {
-				fmt.Printf("Removing bundle %q from mix\n", bundle)
+				log.Info(log.Mixer, "Removing bundle %q from mix", bundle)
 				delete(set, bundle)
 			} else {
-				fmt.Printf("Bundle %q not found in mix; skipping\n", bundle)
+				log.Info(log.Mixer, "Bundle %q not found in mix; skipping", bundle)
 			}
 		}
 	}
@@ -518,7 +518,7 @@ func (b *Builder) RemoveBundles(bundles []string, mix bool, local bool, git bool
 	}
 
 	if git {
-		fmt.Println("Adding git commit")
+		log.Info(log.Mixer, "Adding git commit")
 		if err := helpers.Git("add", "."); err != nil {
 			return err
 		}
@@ -584,7 +584,7 @@ func (b *Builder) buildTreePrintValue(bundle *bundle, level int, levelEnded []bo
 }
 
 func (b *Builder) bundleTreePrint(set bundleSet, bundle string, level int, levelEnded []bool) {
-	fmt.Println(b.buildTreePrintValue(set[bundle], level, levelEnded))
+	log.Info(log.Mixer, b.buildTreePrintValue(set[bundle], level, levelEnded))
 
 	levelEnded = append(levelEnded, false)
 	last := len(set[bundle].DirectIncludes) - 1
@@ -780,7 +780,7 @@ func (b *Builder) CreateBundles(bundles []string, add bool, git bool, local bool
 		path, _ := b.getBundlePath(bundle)
 		localPath := filepath.Join(b.Config.Mixer.LocalBundleDir, bundle)
 		if _, err = os.Stat(localPath); err == nil {
-			fmt.Printf("Bundle %q already exists at %q; skipping\n", bundle, localPath)
+			log.Info(log.Mixer, "Bundle %q already exists at %q; skipping", bundle, localPath)
 			continue
 		}
 
@@ -801,7 +801,7 @@ func (b *Builder) CreateBundles(bundles []string, add bool, git bool, local bool
 				}
 			}
 		}
-		fmt.Printf("Creating bundle %q at %q\n", bundle, localPath)
+		log.Info(log.Mixer, "Creating bundle %q at %q", bundle, localPath)
 	}
 
 	if add {
@@ -811,7 +811,7 @@ func (b *Builder) CreateBundles(bundles []string, add bool, git bool, local bool
 	}
 
 	if git {
-		fmt.Println("Adding git commit")
+		log.Info(log.Mixer, "Adding git commit")
 		if err := helpers.Git("add", "."); err != nil {
 			return err
 		}

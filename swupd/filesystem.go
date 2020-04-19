@@ -16,11 +16,12 @@ package swupd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/clearlinux/mixer-tools/log"
 )
 
 const illegalChars = ";&|*`/<>\\\"'\a"
@@ -119,7 +120,7 @@ func (m *Manifest) createManifestRecord(rootPath, path string, version uint32, m
 		if strings.Contains(err.Error(), "hash calculation error") {
 			return err
 		}
-		log.Printf("Warning: %s\n", err)
+		log.Warning(log.Mixer, "%s", err)
 	}
 
 	// this is a file to skip
@@ -151,7 +152,7 @@ func (m *Manifest) addFilesFromChroot(rootPath, removePrefix string) error {
 			if strings.Contains(err.Error(), "hash calculation error") {
 				return err
 			}
-			log.Printf("Warning: %s\n", err)
+			log.Warning(log.Mixer, "%s", err.Error())
 		}
 		return nil
 	})

@@ -15,7 +15,7 @@
 package builder
 
 import (
-	"fmt"
+	"github.com/clearlinux/mixer-tools/log"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -229,12 +229,12 @@ func (b *Builder) CheckBumpNeeded(silent bool) (bool, error) {
 		}
 		// Don't print this if we have to loop a bunch of times to catch up on formats
 		if !silent {
-			fmt.Printf("The upstream version for this build (%s) is outside the format range of your last mix "+
+			log.Info(log.Mixer, "The upstream version for this build (%s) is outside the format range of your last mix "+
 				"(format %s, upstream versions %d to %d). This build cannot be done until you complete an "+
 				"upstream format build. Please run the following command to complete the format bump:\nmixer "+
 				"build upstream-format\nOnce this has completed you can re-run this build you are attempting to create.\n"+
 				"* Please note that if you are multiple format bumps behind, mixer will detect you are still behind and "+
-				"re-run the command until the proper format is reached.\n",
+				"re-run the command until the proper format is reached.",
 				b.UpstreamVer, format, first, latest)
 		}
 

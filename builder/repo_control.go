@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -29,6 +28,8 @@ import (
 	"text/template"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/log"
+
 	"github.com/go-ini/ini"
 	"github.com/pkg/errors"
 )
@@ -123,7 +124,6 @@ func (b *Builder) NewDNFConfIfNeeded() error {
 
 		t, err := template.New("dnfConfTemplate").Parse(dnfConfTemplate)
 		if err != nil {
-			log.Println(err)
 			return err
 		}
 
@@ -162,7 +162,6 @@ func (b *Builder) AddRepo(name, url, priority string) error {
 
 	f, err := os.OpenFile(b.Config.Builder.DNFConf, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 
@@ -180,7 +179,6 @@ func (b *Builder) AddRepo(name, url, priority string) error {
 
 	t, err := template.New("dnfConfRepoTemplate").Parse(dnfConfRepoTemplate)
 	if err != nil {
-		log.Println(err)
 		return err
 	}
 
@@ -318,6 +316,7 @@ func (b *Builder) RemoveRepo(name string) error {
 
 	_, err = DNFConf.GetSection(name)
 	if err != nil {
+		log.Debug(log.Mixer, err.Error())
 		return errors.Errorf("unable to remove repo %s, does not exist.", name)
 	}
 
@@ -328,7 +327,7 @@ func (b *Builder) RemoveRepo(name string) error {
 		return err
 	}
 
-	fmt.Printf("Removing repo %s\n", name)
+	log.Info(log.Mixer, "Removing repo %s", name)
 	return nil
 }
 
@@ -372,7 +371,7 @@ func (b *Builder) ListRepos() error {
 			priority = "99"
 		}
 
-		fmt.Printf("%s\t%s\t%s\n", name, priority, pURL.String())
+		log.Info(log.Mixer, "%s\t%s\t%s", name, priority, pURL.String())
 
 		repo.urlScheme = pURL.Scheme
 		repo.url = pURL.String()
@@ -410,12 +409,12 @@ func (b *Builder) AddRPMList(rpms []string) error {
 		}
 		// Remove source RPMs because they should not be added to mixes
 		if strings.HasSuffix(rpm, ".src.rpm") {
-			fmt.Printf("Removing %s because source RPMs are not supported in mixes.\n", rpm)
+			log.Info(log.Mixer, "Removing %s because source RPMs are not supported in mixes.", rpm)
 			if err := os.RemoveAll(filepath.Join(b.Config.Mixer.LocalRPMDir, rpm)); err != nil {
 				return errors.Wrapf(err, "Failed to remove %s, your mix will not generate properly with source RPMs included.", rpm)
 			}
 		}
-		fmt.Printf("Hardlinking %s to repodir\n", rpm)
+		log.Info(log.Mixer, "Hardlinking %s to repodir", rpm)
 		if err := os.Link(localPath, repoPath); err != nil {
 			// Fallback to copying the file if hardlink fails.
 			err = helpers.CopyFile(repoPath, localPath)
@@ -445,9 +444,19 @@ func (b *Builder) createLocalRepo() error {
 		return err
 	}
 	cmd := exec.Command("createrepo_c", ".")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var out bytes.Buffer
+	var errBuf bytes.Buffer
+
+	cmd.Stdout = &out
+	cmd.Stderr = &errBuf
 	cmd.Dir = b.Config.Mixer.LocalRepoDir
 
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		log.Error(log.CreateRepo, errBuf.String()+err.Error())
+		log.Debug(log.CreateRepo, out.String())
+		return fmt.Errorf("createrepo_c failed for directory %s", b.Config.Mixer.LocalRepoDir)
+	}
+	log.Verbose(log.CreateRepo, out.String())
+	return err
 }

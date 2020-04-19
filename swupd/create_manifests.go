@@ -16,12 +16,13 @@ package swupd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
+
+	"github.com/clearlinux/mixer-tools/log"
 )
 
 // UpdateInfo contains the meta information for the current update
@@ -69,7 +70,7 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 
 	mux := &sync.Mutex{}
 	tmpManifests := []*Manifest{}
-	fmt.Println("Generating initial manifests...")
+	log.Info(log.Mixer, "Generating initial manifests...")
 	bundleWorker := func() {
 		defer wg.Done()
 		var err error
@@ -93,7 +94,7 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 				mux.Unlock()
 				continue
 			} else {
-				fmt.Printf("  %s\n", bundleName)
+				log.Info(log.Mixer, "  %s", bundleName)
 				biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
 				if _, err = os.Stat(biPath); os.IsNotExist(err) {
 					err = syncToFull(ui.version, bundle.Name, c.imageBase)
@@ -162,7 +163,7 @@ func readIncludes(tmpManifests []*Manifest, numWorkers int) (*Manifest, error) {
 	defer close(errorChan)
 	var newFull *Manifest
 	// read includes for subtraction processing
-	fmt.Println("Reading bundle includes...")
+	log.Info(log.Mixer, "Reading bundle includes...")
 	bundleWorker := func() {
 		defer wg.Done()
 		var err error
@@ -214,7 +215,7 @@ func readIncludes(tmpManifests []*Manifest, numWorkers int) (*Manifest, error) {
 }
 
 func detectManifestChanges(oldMoM *Manifest, tmpManifests []*Manifest, numWorkers int, ui UpdateInfo, c config) ([]*Manifest, error) {
-	fmt.Println("Detecting manifest changes...")
+	log.Info(log.Mixer, "Detecting manifest changes...")
 
 	newManifests := []*Manifest{}
 	taskCh := make(chan *Manifest)
@@ -315,7 +316,7 @@ func processBundles(ui UpdateInfo, c config, numWorkers int, oldMoM *Manifest) (
 	}
 	// Add manifest file records. Important this is done after all includes
 	// have been read so nested subtraction works.
-	fmt.Println("Adding manifest file records...")
+	log.Info(log.Mixer, "Adding manifest file records...")
 	if err = addAllManifestFiles(tmpManifests, ui, c, numWorkers); err != nil {
 		return nil, err
 	}
@@ -398,8 +399,8 @@ func CreateManifests(version, previous, minVersion uint32, format uint, statedir
 
 	c, err = getConfig(statedir)
 	if err != nil {
-		log.Printf("Warning: Found server.ini, but was unable to read it. " +
-			"Continuing with default configuration\n")
+		log.Warning(log.Mixer, "Found server.ini, but was unable to read it. "+
+			"Continuing with default configuration")
 	}
 
 	if err = initBuildEnv(c); err != nil {
@@ -462,7 +463,7 @@ func CreateManifests(version, previous, minVersion uint32, format uint, statedir
 		newMoM.Header.MinVersion = oldMoM.Header.MinVersion
 	}
 
-	fmt.Println("Writing manifest files...")
+	log.Info(log.Mixer, "Writing manifest files...")
 	newFull, err := newMoM.writeBundleManifests(newManifests, verOutput)
 	if err != nil {
 		return nil, err

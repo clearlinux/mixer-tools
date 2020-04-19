@@ -18,13 +18,12 @@ import (
 	"archive/tar"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
-)
 
-var debugPacks = false
+	"github.com/clearlinux/mixer-tools/log"
+)
 
 // PackState describes whether and how a file was packed.
 type PackState int
@@ -78,7 +77,7 @@ func (state PackState) String() string {
 // CreateAllDeltas builds all of the deltas using the full manifest from one
 // version to the next. This allows better concurrency and the pack creation
 // code can just worry about adding pre-existing files to packs.
-func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, bsdiffLog *log.Logger) error {
+func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int) error {
 	// Don't try to make deltas for zero packs
 	if fromVersion == 0 {
 		return nil
@@ -105,7 +104,7 @@ func CreateAllDeltas(outputDir string, fromVersion, toVersion, numWorkers int, b
 		return err
 	}
 
-	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers, bsdiffLog)
+	_, err = createDeltasFromManifests(&c, fromManifest, toManifest, numWorkers)
 	if err != nil {
 		return err
 	}
@@ -136,9 +135,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 
 	}
 
-	if debugPacks {
-		log.Printf("DEBUG: WritePack for bundle %s from %d to %d", toManifest.Name, fromVersion, toVersion)
-	}
+	log.Debug(log.Mixer, "WritePack for bundle %s from %d to %d", toManifest.Name, fromVersion, toVersion)
 
 	if fromManifest != nil {
 		// TODO: Make WritePack itself take a Config.
@@ -153,17 +150,14 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			return nil, err
 		}
 
-		if debugPacks {
-			log.Printf("DEBUG: %d potential deltas to use in pack", len(deltas))
-		}
+		log.Debug(log.Mixer, "%d potential deltas to use in pack", len(deltas))
+
 	}
 
-	if debugPacks {
-		if chrootDir != "" {
-			log.Printf("DEBUG: using chrootDir=%s for packing", chrootDir)
-		} else {
-			log.Printf("DEBUG: not using chrootDir for packing")
-		}
+	if chrootDir != "" {
+		log.Debug(log.Mixer, "using chrootDir=%s for packing", chrootDir)
+	} else {
+		log.Debug(log.Mixer, "not using chrootDir for packing")
 	}
 
 	info = &PackInfo{
@@ -289,9 +283,7 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		}
 	}
 
-	if debugPacks {
-		log.Printf("DEBUG: pack created with %d fullfiles and %d deltas", info.FullfileCount, info.DeltaCount)
-	}
+	log.Debug(log.Mixer, "pack created with %d fullfiles and %d deltas", info.FullfileCount, info.DeltaCount)
 
 	err = tw.Close()
 	if err != nil {

@@ -19,11 +19,12 @@ import (
 	"bytes"
 	"errors"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/clearlinux/mixer-tools/log"
 
 	"github.com/BurntSushi/toml"
 )
@@ -134,8 +135,8 @@ func (state *MixState) Load(config MixConfig) error {
 	f, err := os.Open(state.filename)
 	if err != nil {
 		// If state does not exists, create a default state
-		log.Println("Warning: Using FORMAT value from " + state.formatSource)
-		log.Println("Warning: Using PREVIOUS_MIX_VERSION default value")
+		log.Warning(log.Mixer, "Using FORMAT value from "+state.formatSource)
+		log.Warning(log.Mixer, "Using PREVIOUS_MIX_VERSION default value")
 		return state.Save()
 	}
 	defer func() {

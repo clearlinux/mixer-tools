@@ -16,14 +16,14 @@ package config
 
 import (
 	"bytes"
-	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/clearlinux/mixer-tools/log"
 
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
@@ -72,6 +72,7 @@ type mixerConf struct {
 	LocalRepoDir   string `required:"false" mount:"true" toml:"LOCAL_REPO_DIR"`
 	LocalRPMDir    string `required:"false" mount:"true" toml:"LOCAL_RPM_DIR"`
 	OSReleasePath  string `required:"false" mount:"true" toml:"OS_RELEASE_PATH"`
+	LogFilePath    string `required:"false" mount:"true" toml:"LOG"`
 }
 
 // LoadDefaults sets sane values for the config properties
@@ -112,6 +113,7 @@ func (config *MixConfig) LoadDefaultsForPath(path string) {
 	config.Mixer.LocalRPMDir = filepath.Join(path, "local-rpms")
 	config.Mixer.LocalRepoDir = filepath.Join(path, "local-yum")
 
+	config.Mixer.LogFilePath = ""
 	config.version = CurrentConfigVersion
 	config.filename = filepath.Join(path, "builder.conf")
 
@@ -283,7 +285,7 @@ func (config *MixConfig) validate() error {
 	}
 
 	if config.hasFormatField {
-		log.Println("Warning: FORMAT value was transferred to mixer.state file")
+		log.Warning(log.Mixer, "FORMAT value was transferred to mixer.state file")
 	}
 
 	return nil
@@ -311,7 +313,7 @@ func (config *MixConfig) Print() error {
 		return err
 	}
 
-	fmt.Println(sb.String())
+	log.Info(log.Mixer, sb.String())
 
 	return nil
 }

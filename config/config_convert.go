@@ -16,12 +16,12 @@ package config
 
 import (
 	"bufio"
-	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+
+	"github.com/clearlinux/mixer-tools/log"
 
 	"github.com/BurntSushi/toml"
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -73,13 +73,13 @@ func (config *MixConfig) parseVersionAndConvert() error {
 		return nil
 	}
 
-	fmt.Printf("Converting config to version %s\n", CurrentConfigVersion)
+	log.Info(log.Mixer, "Converting config to version %s", CurrentConfigVersion)
 
 	if err := helpers.CopyFile(config.filename+".bkp", config.filename); err != nil {
 		return err
 	}
 
-	fmt.Printf("Old config saved as %s\n", config.filename+".bkp")
+	log.Info(log.Mixer, "Old config saved as %s", config.filename+".bkp")
 
 	if !found {
 		return config.convertLegacy()
@@ -225,8 +225,8 @@ func (config *MixConfig) parseLegacy() error {
 			return err
 		}
 		config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
-		log.Printf("Warning: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.\n", config.Mixer.LocalBundleDir)
-		log.Println("Please set this value to the location you want local bundle definition files to be stored.")
+		log.Warning(log.Mixer, "Warning: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.", config.Mixer.LocalBundleDir)
+		log.Info(log.Mixer, "Please set this value to the location you want local bundle definition files to be stored.")
 	}
 
 	return nil

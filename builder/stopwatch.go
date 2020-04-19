@@ -2,8 +2,9 @@ package builder
 
 import (
 	"io"
-	"log"
 	"time"
+
+	"github.com/clearlinux/mixer-tools/log"
 )
 
 // stopWatch keeps track of a sequence of durations. Use Start and Stop to mark the sections, then
@@ -21,19 +22,16 @@ type stopWatchEntry struct {
 }
 
 func (sw *stopWatch) Start(name string) {
-	logger := log.New(sw.w, "", 0)
 	if sw.w != nil {
 		if len(sw.entries) > 0 {
-			logger.Println()
-
 			var d time.Duration
 			for _, e := range sw.entries {
 				d += e.d
 			}
-			logger.Printf("=> %s (%s elapsed since start)\n", name,
+			log.Info(log.Mixer, "=> %s (%s elapsed since start)", name,
 				d.Truncate(time.Millisecond))
 		} else {
-			logger.Printf("=> %s\n", name)
+			log.Info(log.Mixer, "=> %s", name)
 		}
 	}
 	sw.entries = append(sw.entries, stopWatchEntry{name: name})
@@ -55,7 +53,6 @@ func (sw *stopWatch) Stop() {
 }
 
 func (sw *stopWatch) WriteSummary(w io.Writer) {
-	logger := log.New(w, "", 0)
 	if len(sw.entries) == 0 {
 		return
 	}
@@ -66,10 +63,10 @@ func (sw *stopWatch) WriteSummary(w io.Writer) {
 		}
 	}
 	var sum time.Duration
-	logger.Printf("\nTIMINGS\n")
+	log.Info(log.Mixer, "TIMINGS")
 	for _, e := range sw.entries {
-		logger.Printf("  %-*s %s\n", max, e.name, e.d.Truncate(time.Millisecond))
+		log.Info(log.Mixer, "  %-*s %s", max, e.name, e.d.Truncate(time.Millisecond))
 		sum += e.d
 	}
-	logger.Printf("TOTAL: %s\n", sum.Truncate(time.Millisecond))
+	log.Info(log.Mixer, "TOTAL: %s", sum.Truncate(time.Millisecond))
 }

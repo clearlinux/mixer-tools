@@ -27,7 +27,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"math/big"
 	"net/http"
 	"os"
@@ -38,6 +37,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/clearlinux/mixer-tools/log"
+
 	"github.com/pkg/errors"
 )
 
@@ -47,7 +48,7 @@ func CreateCertTemplate() *x509.Certificate {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	serialnumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	if err != nil {
-		log.Println(errors.Wrap(err, "ERROR: Failed to generate serial number"))
+		log.Error(log.Mixer, errors.Wrap(err, "ERROR: Failed to generate serial number").Error())
 	}
 
 	template := x509.Certificate{
@@ -69,7 +70,7 @@ func CreateCertTemplate() *x509.Certificate {
 func CreateKeyPair() (*rsa.PrivateKey, error) {
 	rootKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
-		log.Println(errors.Wrap(err, "ERROR: Failed to generate random key"))
+		log.Error(log.Mixer, errors.Wrap(err, "Failed to generate random key").Error())
 	}
 	return rootKey, nil
 }
@@ -298,43 +299,52 @@ func copyFileWithFlags(dest, src string, flags int, resolveLinks, sync, preserve
 // and need to be escaped or avoided properly.
 func Git(args ...string) error {
 	cmd := exec.Command("git", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	err := cmd.Run()
 	if err != nil {
-		return errors.Wrapf(err, "ERROR: failed to run: git %s", strings.Join(args, " "))
+		log.Error(log.Git, errBuf.String())
+		log.Debug(log.Git, outBuf.String())
+		return errors.Errorf("ERROR: failed to run: git %s", strings.Join(args, " "))
 	}
+	log.Verbose(log.Git, outBuf.String())
 	return nil
 }
 
 // RunCommand runs the given command with args and prints output
-func RunCommand(cmdname string, args ...string) error {
-	return RunCommandInput(nil, cmdname, args...)
+func RunCommand(logType string, cmdname string, args ...string) error {
+	return RunCommandInput(logType, nil, cmdname, args...)
 }
 
 // RunCommandInput runs the given command with args and input from an io.Reader,
 // and prints output
-func RunCommandInput(in io.Reader, cmdname string, args ...string) error {
+func RunCommandInput(logType string, in io.Reader, cmdname string, args ...string) error {
 	cmd := exec.Command(cmdname, args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	cmd.Stdin = in
 	err := cmd.Run()
 	if err != nil {
+		log.Debug(logType, errBuf.String())
+		log.Debug(logType, errBuf.String())
 		return errors.Wrapf(err, "failed to execute %s", strings.Join(cmd.Args, " "))
 	}
-
+	log.Info(logType, outBuf.String())
 	return nil
 }
 
 // RunCommandSilent runs the given command with args and does not print output
-func RunCommandSilent(cmdname string, args ...string) error {
-	_, err := RunCommandOutput(cmdname, args...)
+func RunCommandSilent(logType string, cmdname string, args ...string) error {
+	_, err := RunCommandOutput(logType, cmdname, args...)
 	return err
 }
 
 // RunCommandTimeout runs the given command with timeout + args and does not print command output
-func RunCommandTimeout(timeout int, cmdname string, args ...string) error {
+func RunCommandTimeout(logType string, timeout int, cmdname string, args ...string) error {
 	ctx := context.Background()
 	// 0 means infinite timeout, ONLY set timeouts when value is > 0
 	if timeout > 0 {
@@ -343,28 +353,36 @@ func RunCommandTimeout(timeout int, cmdname string, args ...string) error {
 		defer cancel()
 	}
 	cmd := exec.CommandContext(ctx, cmdname, args...)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
+	var outBuf bytes.Buffer
+	var errBuf bytes.Buffer
+
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
 	err := cmd.Run()
-
-	if ctx.Err() == context.DeadlineExceeded {
-		return errors.Errorf("Command: %s timed out\n", cmdname)
+	if err != nil {
+		log.Debug(logType, errBuf.String())
+		log.Debug(logType, outBuf.String())
 	}
-
+	log.Verbose(logType, outBuf.String())
+	if ctx.Err() == context.DeadlineExceeded {
+		err = errors.Errorf("Command: %s timed out", cmdname)
+		log.Debug(logType, ctx.Err().Error())
+		return err
+	}
 	return err
 }
 
 // RunCommandOutput executes the command with arguments and stores its output in
 // memory. If the command succeeds returns that output, if it fails, return err that
 // contains both the out and err streams from the execution.
-func RunCommandOutput(cmdname string, args ...string) (*bytes.Buffer, error) {
-	return RunCommandOutputEnv(cmdname, args, []string{})
+func RunCommandOutput(logType string, cmdname string, args ...string) (*bytes.Buffer, error) {
+	return RunCommandOutputEnv(logType, cmdname, args, []string{})
 }
 
 // RunCommandOutputEnv executes the command with arguments and environment and stores
 // its output in memory. If the command succeeds returns that output, if it fails,
 // return err that contains both the out and err streams from the execution.
-func RunCommandOutputEnv(cmdname string, args []string, envs []string) (*bytes.Buffer, error) {
+func RunCommandOutputEnv(logType string, cmdname string, args []string, envs []string) (*bytes.Buffer, error) {
 	cmd := exec.Command(cmdname, args...)
 	var outBuf bytes.Buffer
 	var errBuf bytes.Buffer
@@ -374,21 +392,10 @@ func RunCommandOutputEnv(cmdname string, args []string, envs []string) (*bytes.B
 	runError := cmd.Run()
 
 	if runError != nil {
-		var buf bytes.Buffer
-		logger := log.New(&buf, "", log.Ldate|log.Ltime)
-		logger.Printf("failed to execute %s", strings.Join(cmd.Args, " "))
-		if outBuf.Len() > 0 {
-			logger.Printf("\nSTDOUT:\n%s", outBuf.Bytes())
-		}
-		if errBuf.Len() > 0 {
-			logger.Printf("\nSTDERR:\n%s", errBuf.Bytes())
-		}
-		if outBuf.Len() > 0 || errBuf.Len() > 0 {
-			// Finish without a newline to wrap well with the err.
-			logger.Printf("failed to execute")
-		}
-		return &outBuf, errors.Wrap(runError, buf.String())
+		log.Debug(logType, "failed to execute %s", strings.Join(cmd.Args, " "))
+		return &outBuf, errors.Wrap(runError, errBuf.String())
 	}
+	log.Verbose(logType, outBuf.String())
 	return &outBuf, nil
 }
 

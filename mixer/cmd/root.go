@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"runtime/pprof"
@@ -24,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/clearlinux/mixer-tools/builder"
+	"github.com/clearlinux/mixer-tools/log"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -49,6 +49,16 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		if rootCmdFlags.logFile != "" {
+			// Configure logger
+			_, err := log.SetOutputFilename(rootCmdFlags.logFile)
+			if err != nil {
+				fmt.Printf("WARNING: couldn't create file for log: %s\n", err)
+			} else {
+				log.SetLogLevel(rootCmdFlags.logLevel)
+			}
+		}
+
 		// Run dependency check for --check flag
 		if cmd.Parent() == nil { // This is RootCmd.
 			if rootCmdFlags.version {
@@ -61,7 +71,6 @@ var RootCmd = &cobra.Command{
 					return errors.New("ERROR: Missing Dependency")
 				}
 			}
-
 			return nil
 		}
 
@@ -72,6 +81,8 @@ var RootCmd = &cobra.Command{
 		if rootCmdFlags.cpuProfile != "" {
 			pprof.StopCPUProfile()
 		}
+		// close the log file handler
+		log.CloseLogHandler()
 	},
 
 	Run: func(cmd *cobra.Command, args []string) {
@@ -85,6 +96,8 @@ var rootCmdFlags = struct {
 	version    bool
 	check      bool
 	cpuProfile string
+	logFile    string
+	logLevel   int
 }{}
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -96,9 +109,16 @@ func Execute() {
 }
 
 func init() {
+	defaultFile := ""
+	b, err := builder.NewFromConfig(configFile)
+	if err == nil {
+		defaultFile = b.Config.Mixer.LogFilePath
+	}
+
 	RootCmd.PersistentFlags().StringVar(&rootCmdFlags.cpuProfile, "cpu-profile", "", "write CPU profile to a file")
 	_ = RootCmd.PersistentFlags().MarkHidden("cpu-profile")
-
+	RootCmd.PersistentFlags().StringVar(&rootCmdFlags.logFile, "log", defaultFile, "Write logs to a file")
+	RootCmd.PersistentFlags().IntVar(&rootCmdFlags.logLevel, "log-level", 4, "Set the log level between 1-5")
 	// TODO: Remove this once we migrate to new implementation.
 	unusedBoolFlag := false
 	RootCmd.PersistentFlags().BoolVar(&unusedBoolFlag, "new-swupd", false, "")
@@ -163,7 +183,7 @@ func checkAllDeps() bool {
 		}
 	}
 
-	fmt.Println("Programs used by Mixer commands:")
+	log.Info(log.Mixer, "Programs used by Mixer commands:")
 	ok := true
 	for i, dep := range allDeps {
 		if i > 0 && allDeps[i] == allDeps[i-1] {
@@ -172,10 +192,10 @@ func checkAllDeps() bool {
 		}
 		_, err := exec.LookPath(dep)
 		if err != nil {
-			fmt.Printf("  %-*s not found\n", max, dep)
+			log.Info(log.Mixer, "  %-*s not found", max, dep)
 			ok = false
 		} else {
-			fmt.Printf("  %-*s ok\n", max, dep)
+			log.Info(log.Mixer, "  %-*s ok", max, dep)
 		}
 	}
 	return ok
@@ -204,11 +224,13 @@ func fail(err error) {
 	if rootCmdFlags.cpuProfile != "" {
 		pprof.StopCPUProfile()
 	}
-	log.Printf("ERROR: %s\n", err)
+	log.Error(log.Mixer, "%s", err)
+	log.CloseLogHandler()
 	os.Exit(1)
 }
 
 func failf(format string, a ...interface{}) {
-	log.Printf(fmt.Sprintf("ERROR: %s\n", format), a...)
+	log.Error(log.Mixer, fmt.Sprintf("%s", format), a...)
+	log.CloseLogHandler()
 	os.Exit(1)
 }

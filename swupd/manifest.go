@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -28,6 +27,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/clearlinux/mixer-tools/log"
 
 	"github.com/pkg/errors"
 )
@@ -598,7 +599,7 @@ func addAllManifestFiles(manifests []*Manifest, ui UpdateInfo, c config, numWork
 		defer wg.Done()
 		for m := range mCh {
 			if err := m.addManifestFiles(ui, c); err != nil {
-				fmt.Println(err)
+				log.Error(log.Mixer, err.Error())
 				errorChan <- err
 				return
 			}
@@ -682,7 +683,7 @@ func (m *Manifest) addFile(fpath string, c config, version uint32) error {
 	fullPath := filepath.Join(chrootDir, fpath)
 	fi, err := os.Lstat(fullPath)
 	if os.IsNotExist(err) {
-		log.Printf("Warning: Missing file, assuming %%ghost: %s\n", fpath)
+		log.Warning("Missing file, assuming %%ghost: %s", fpath)
 		return nil
 	}
 	if err != nil {
@@ -694,7 +695,7 @@ func (m *Manifest) addFile(fpath string, c config, version uint32) error {
 		if strings.Contains(err.Error(), "hash calculation error") {
 			return err
 		}
-		log.Printf("Warning: %s\n", err)
+		log.Warning(log.Mixer, "%s", err.Error())
 	}
 
 	return nil

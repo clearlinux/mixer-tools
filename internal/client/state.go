@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/clearlinux/mixer-tools/swupd"
 )
 
@@ -80,7 +80,7 @@ func (cs *State) OpenFile(elem ...string) (io.ReadCloser, error) {
 
 	u := cs.baseContent + "/" + joined
 	if cs.Verbose {
-		fmt.Printf("- downloading %s\n", u)
+		log.Info(log.Mixer, "- downloading %s", u)
 	}
 	res, err := http.Get(u)
 	if err != nil {
@@ -202,7 +202,7 @@ func (cs *State) GetFullfile(version, hash string) error {
 
 	hdr, err = tr.Next()
 	if err == nil {
-		log.Printf("Warning: Ignoring unexpected extra content in %s: %s\n", tarredFilename, hdr.Name)
+		log.Warning(log.Mixer, "Ignoring unexpected extra content in %s: %s", tarredFilename, hdr.Name)
 	}
 
 	return nil
@@ -269,7 +269,7 @@ func (cs *State) GetZeroPack(version, name string) error {
 
 func (cs *State) download(u, path string) error {
 	if cs.Verbose {
-		fmt.Printf("- downloading %s\n", u)
+		log.Info(log.Mixer, "- downloading %s", u)
 	}
 	return Download(u, path)
 }
@@ -331,9 +331,9 @@ func (cs *State) extractFullfile(hdr *tar.Header, r io.Reader) error {
 				return nil
 			}
 		} else if herr != nil {
-			log.Printf("Warning: Couldn't calculate hash for existing file %s, removing to extract it again\n", filename)
+			log.Warning(log.Mixer, "Couldn't calculate hash for existing file %s, removing to extract it again", filename)
 		} else {
-			log.Printf("Warning: Existing file %s has invalid hash %s, removing to extract it again\n", filename, hash)
+			log.Warning(log.Mixer, "Existing file %s has invalid hash %s, removing to extract it again", filename, hash)
 		}
 		err = os.Remove(filename)
 		if err != nil {

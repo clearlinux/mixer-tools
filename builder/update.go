@@ -18,6 +18,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"fmt"
+	"github.com/clearlinux/mixer-tools/log"
 	"io"
 	"io/ioutil"
 	"os"
@@ -57,15 +58,15 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	if err != nil {
 		return errors.Wrapf(err, "failed to create update metadata")
 	}
-	fmt.Printf("MoM version %d\n", mom.Header.Version)
+	log.Info(log.Mixer, "MoM version %d", mom.Header.Version)
 	for _, f := range mom.Files {
-		fmt.Printf("- %-20s %d\n", f.Name, f.Version)
+		log.Info(log.Mixer, "- %-20s %d", f.Name, f.Version)
 	}
 
 	// sign the Manifest.MoM file in place based on the Mix
 	// version read from builder.conf.
 	if !params.SkipSigning {
-		fmt.Println("Signing manifest.")
+		log.Info(log.Mixer, "Signing manifest.")
 		err = b.signFile(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "Manifest.MoM"))
 		if err != nil {
 			return err
@@ -74,7 +75,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 
 	outputDir := filepath.Join(b.Config.Builder.ServerStateDir, "www")
 	thisVersionDir := filepath.Join(outputDir, fmt.Sprint(b.MixVerUint32))
-	fmt.Println("Compressing Manifest.MoM")
+	log.Info(log.Mixer, "Compressing Manifest.MoM")
 	momF := filepath.Join(thisVersionDir, "Manifest.MoM")
 	if params.SkipSigning {
 		err = createCompressedArchive(momF+".tar", momF)
@@ -92,15 +93,15 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	errorChan := make(chan error, b.NumBundleWorkers)
 	defer close(errorChan)
 
-	fmt.Println("Compressing bundle manifests")
+	log.Info(log.Mixer, "Compressing bundle manifests")
 	compWorker := func() {
 		defer wg.Done()
 		for bundle := range bundleChan {
-			fmt.Printf("  %s\n", bundle.Name)
+			log.Info(log.Mixer, "  %s", bundle.Name)
 			f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
 			err := createCompressedArchive(f+".tar", f)
 			if err != nil {
-				fmt.Println(err.Error())
+				log.Error(log.Mixer, err.Error())
 				errorChan <- err
 				return
 			}
@@ -133,7 +134,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	}
 
 	// Now tar the full manifest, since it doesn't show up in the MoM
-	fmt.Println("  full")
+	log.Info(log.Mixer, "  full")
 	f := filepath.Join(thisVersionDir, "Manifest.full")
 	err = createCompressedArchive(f+".tar", f)
 	if err != nil {
@@ -145,7 +146,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 
 	if !params.SkipFullfiles {
 		timer.Start("CREATE FULLFILES")
-		fmt.Printf("Using %d workers\n", b.NumFullfileWorkers)
+		log.Info(log.Mixer, "Using %d workers", b.NumFullfileWorkers)
 		fullfilesDir := filepath.Join(outputDir, b.MixVer, "files")
 		fullChrootDir := filepath.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer, "full")
 		var info *swupd.FullfilesInfo
@@ -156,18 +157,18 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 		// Print summary of fullfile generation.
 		{
 			total := info.Skipped + info.NotCompressed
-			fmt.Printf("- Already created: %d\n", info.Skipped)
-			fmt.Printf("- Not compressed:  %d\n", info.NotCompressed)
-			fmt.Printf("- Compressed\n")
+			log.Info(log.Mixer, "- Already created: %d", info.Skipped)
+			log.Info(log.Mixer, "- Not compressed:  %d", info.NotCompressed)
+			log.Info(log.Mixer, "- Compressed")
 			for k, v := range info.CompressedCounts {
 				total += v
-				fmt.Printf("  - %-20s %d\n", k, v)
+				log.Info(log.Mixer, "  - %-20s %d", k, v)
 			}
-			fmt.Printf("Total fullfiles: %d\n", total)
+			log.Info(log.Mixer, "Total fullfiles: %d", total)
 		}
 		timer.Stop()
 	} else {
-		fmt.Println("\n=> CREATE FULLFILES - skipped")
+		log.Info(log.Mixer, "=> CREATE FULLFILES - skipped")
 	}
 
 	if !params.SkipPacks {
@@ -175,7 +176,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 			return err
 		}
 	} else {
-		fmt.Println("\n=> CREATE ZERO PACKS - skipped")
+		log.Info(log.Mixer, "=> CREATE ZERO PACKS - skipped")
 	}
 
 	return nil
@@ -183,7 +184,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 
 func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, outputDir string) error {
 	timer.Start("CREATE ZERO PACKS")
-	fmt.Printf("Using %d workers\n", b.NumDeltaWorkers)
+	log.Info(log.Mixer, "Using %d workers", b.NumDeltaWorkers)
 
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
 	bundleChan := make(chan *swupd.File)
@@ -201,34 +202,33 @@ func (b *Builder) createZeroPack(timer *stopWatch, bundles []*swupd.File, output
 			packPath := filepath.Join(outputDir, version, swupd.GetPackFilename(name, 0))
 			_, zErr := os.Lstat(packPath)
 			if zErr == nil {
-				fmt.Printf("Zero pack %s already exists for version %s\n", name, version)
+				log.Info(log.Mixer, "Zero pack %s already exists for version %s", name, version)
 				continue
 			}
 			if !os.IsNotExist(zErr) {
 				zErr = errors.Wrapf(zErr, "couldn't access existing pack file %s", packPath)
-				fmt.Println(zErr)
+				log.Info(log.Mixer, zErr.Error())
 				errorChan <- zErr
 				return
 			}
 
-			fmt.Printf("Creating zero pack %s for version %s\n", name, version)
+			log.Info(log.Mixer, "Creating zero pack %s for version %s", name, version)
 			var info *swupd.PackInfo
 			info, zErr = swupd.CreatePack(name, 0, bundle.Version, outputDir, bundleDir)
 			if zErr != nil {
 				zErr = errors.Wrapf(zErr, "couldn't make pack %s for version %s", name, version)
-				fmt.Println(zErr)
+				log.Error(log.Mixer, zErr.Error())
 				errorChan <- zErr
 				return
 			}
 			if len(info.Warnings) > 0 {
-				fmt.Println("Warnings during pack:")
+				log.Info(log.Mixer, "Warnings during pack:")
 				for _, w := range info.Warnings {
-					fmt.Printf("  %s\n", w)
+					log.Info(log.Mixer, "  %s", w)
 				}
-				fmt.Println()
 			}
-			fmt.Printf("Fullfiles in pack %s: %d\n", name, info.FullfileCount)
-			fmt.Printf("Deltas in pack %s: %d\n", name, info.DeltaCount)
+			log.Info(log.Mixer, "Fullfiles in pack %s: %d", name, info.FullfileCount)
+			log.Info(log.Mixer, "Deltas in pack %s: %d", name, info.DeltaCount)
 		}
 	}
 
@@ -336,7 +336,9 @@ func (b *Builder) signFile(fileName string) error {
 	cmd.Stderr = &out
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("failed to sign file:\n%s", out.String())
+		log.Debug(log.Ssl, out.String())
+		return fmt.Errorf("failed to sign file:\n%s", fileName)
 	}
+	log.Verbose(log.Ssl, out.String())
 	return nil
 }

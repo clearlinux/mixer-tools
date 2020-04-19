@@ -16,13 +16,13 @@ package builder
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"sync"
 
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/clearlinux/mixer-tools/swupd"
 	"github.com/pkg/errors"
 )
@@ -32,7 +32,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 	defer timer.WriteSummary(os.Stdout)
 	timer.Start("CREATE DELTA PACKS")
 
-	fmt.Printf("Creating delta packs from %d to %d\n", fromMoM.Header.Version, toMoM.Header.Version)
+	log.Info(log.Mixer, "Creating delta packs from %d to %d", fromMoM.Header.Version, toMoM.Header.Version)
 	bundlesToPack, err := swupd.FindBundlesToPack(fromMoM, toMoM)
 	if err != nil {
 		return err
@@ -50,7 +50,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 		packPath := filepath.Join(outputDir, fmt.Sprint(b.ToVersion), swupd.GetPackFilename(b.Name, b.FromVersion))
 		_, err = os.Lstat(packPath)
 		if err == nil {
-			fmt.Printf("  Delta pack already exists for %s from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+			log.Info(log.Mixer, "  Delta pack already exists for %s from %d to %d", b.Name, b.FromVersion, b.ToVersion)
 			// Remove so the goroutines don't try to make deltas for these
 			delete(bundlesToPack, name)
 			continue
@@ -73,17 +73,17 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 		go func() {
 			defer wg.Done()
 			for b := range bundleQueue {
-				fmt.Printf("  Creating delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
+				log.Info(log.Mixer, "  Creating delta pack for bundle %q from %d to %d", b.Name, b.FromVersion, b.ToVersion)
 				info, err := swupd.CreatePack(b.Name, b.FromVersion, b.ToVersion, outputDir, bundleDir)
 				if err != nil {
-					log.Printf("ERROR: Pack %q from %d to %d FAILED to be created: %s\n", b.Name, b.FromVersion, b.ToVersion, err)
+					log.Error(log.Mixer, "Pack %q from %d to %d FAILED to be created: %s", b.Name, b.FromVersion, b.ToVersion, err.Error())
 					// Do not exit on errors, we have logging for all other failures and deltas are optional
 					continue
 				}
 
 				if len(info.Warnings) > 0 {
 					for _, w := range info.Warnings {
-						fmt.Fprintf(os.Stderr, "    WARNING: Bundle %s: %s\n", b.Name, w)
+						log.Warning(log.Mixer, "    WARNING: Bundle %s: %s", b.Name, w)
 					}
 				}
 				report := fmt.Sprintf("  Finished delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)
@@ -102,7 +102,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 				}
 				report += fmt.Sprintf("    Fullfiles in pack: %d\n", info.FullfileCount)
 				report += fmt.Sprintf("    Deltas in pack: %d\n", info.DeltaCount)
-				fmt.Printf(report + "\n")
+				log.Info(log.Mixer, report)
 			}
 		}()
 	}

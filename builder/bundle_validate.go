@@ -15,7 +15,7 @@
 package builder
 
 import (
-	"fmt"
+	"github.com/clearlinux/mixer-tools/log"
 	"path/filepath"
 
 	"github.com/clearlinux/mixer-tools/helpers"
@@ -42,7 +42,7 @@ func (b *Builder) ValidateBundles(bundles []string, lvl ValidationLevel) error {
 
 		if err := validateBundleFile(path, lvl); err != nil {
 			invalid = true
-			fmt.Printf("Invalid: %q:\n%s\n\n", bundle, err)
+			log.Error(log.Mca, "Invalid: %q:\n%s\n", bundle, err)
 		}
 	}
 

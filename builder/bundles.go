@@ -18,7 +18,9 @@ import (
 	"time"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/clearlinux/mixer-tools/swupd"
+
 	"github.com/pkg/errors"
 )
 
@@ -174,10 +176,13 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 		for _, pkg := range pkgs {
 			queryString = append(queryString, pkg.name)
 		}
-		outBuf, err := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
+		outBuf, err := helpers.RunCommandOutputEnv(log.Dnf, queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err != nil {
-			return err
+			log.Error(log.Dnf, err.Error())
+			log.Debug(log.Dnf, outBuf.String())
+			return errors.Errorf("resolve files failed for bundle %s", bundle.Name)
 		}
+
 		for _, f := range strings.Split(outBuf.String(), "\n") {
 			if len(f) > 0 {
 				addFileAndPath(bundle.Files, bundle.UnExport, resolveFileName(f))
@@ -186,7 +191,8 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 	}
 
 	addFileAndPath(bundle.Files, bundle.UnExport, fmt.Sprintf("/usr/share/clear/bundles/%s", bundle.Name))
-	fmt.Printf("Bundle %s\t%d files\n", bundle.Name, len(bundle.Files))
+	log.Info(log.Mixer, "Bundle %s\t%d files", bundle.Name, len(bundle.Files))
+
 	return nil
 }
 
@@ -304,12 +310,12 @@ func queryRpmFullPath(packageCmd []string, pkgName string, repo string, repos ma
 		repo,
 	)
 	queryStringRpm = append(queryStringRpm, pkgName)
-	outBuf, _ := helpers.RunCommandOutputEnv(queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
+	outBuf, err := helpers.RunCommandOutputEnv(log.Dnf, queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
 
 	if outBuf.String() == "" {
+		log.Error(log.Dnf, err.Error())
 		return "", fmt.Errorf("rpm not found for pkg: %s", pkgName)
 	}
-
 	out := strings.Split(outBuf.String(), "\n")
 	pURL, err := url.Parse(out[0])
 	if err != nil {
@@ -339,7 +345,7 @@ var fileSystemInfo packageMetadata
 func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []string, validationResolve bool) (*sync.Map, error) {
 	var err error
 	var wg sync.WaitGroup
-	fmt.Printf("Resolving packages using %d workers\n", numWorkers)
+	log.Info(log.Mixer, "Resolving packages using %d workers", numWorkers)
 	wg.Add(numWorkers)
 	bundleCh := make(chan *bundle)
 	// bundleRepoPkgs is a map of bundles -> map of repos -> list of packageMetadata
@@ -359,7 +365,7 @@ func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []str
 		}()
 
 		for bundle := range bundleCh {
-			fmt.Printf("processing %s\n", bundle.Name)
+			log.Info(log.Mixer, "processing %s", bundle.Name)
 			queryString := merge(
 				packagerCmd,
 				"--installroot="+emptyDir,
@@ -376,16 +382,19 @@ func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []str
 			// exit status. This exit status is 1, which is the same as any other dnf install
 			// error. Fortunately if this is a different error than we expect, it should fail
 			// in the actual install to the full chroot.
-			outBuf, errStr := helpers.RunCommandOutputEnv(queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
+			outBuf, errStr := helpers.RunCommandOutputEnv(log.Dnf, queryString[0], queryString[1:], []string{"LC_ALL=en_US.UTF-8"})
 			rpm, e := repoPkgFromNoopInstall(outBuf.String())
+
 			if len(bundle.AllPackages) != 0 && e != nil {
+				if errStr != nil {
+					log.Error(log.Dnf, errStr.Error())
+					log.Debug(log.Dnf, outBuf.String())
+				}
 				e = errors.Wrapf(e, bundle.Name)
-				fmt.Println(e)
-				fmt.Println("error details:")
-				fmt.Println(errStr)
 				errorCh <- e
 				return
 			}
+
 			for _, pkgs := range rpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {
@@ -403,7 +412,7 @@ func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []str
 			// and skip file resolution
 			if validationResolve {
 				bundleRepoPkgs.Store(bundle.Name, rpm)
-				fmt.Printf("... done with %s\n", bundle.Name)
+				log.Debug(log.Mixer, "... done with %s", bundle.Name)
 			} else {
 				e = resolveFilesForBundle(bundle, rpm, packagerCmd)
 				if e != nil {
@@ -497,6 +506,7 @@ func installFilesystem(chrootDir string, packagerCmd []string, downloadRetries i
 	for i := 0; i < extractRetries; i++ {
 		err = extractRpm(chrootDir, rpmFullPath)
 		if err != nil {
+			log.Debug(log.Mixer, "RPM Extraction attempt %d failed. Maximum of %d attempts", i+1, extractRetries)
 			continue
 		}
 		break
@@ -531,7 +541,8 @@ func buildOsCore(b *Builder, packagerCmd []string, chrootDir, version string) er
 	}
 
 	if err := createVersionsFile(filepath.Dir(chrootDir), packagerCmd); err != nil {
-		return errors.Wrapf(err, "couldn't create the versions file")
+		log.Error(log.Dnf, err.Error())
+		return errors.New("couldn't create the versions file")
 	}
 
 	return nil
@@ -580,14 +591,16 @@ func downloadRpms(packagerCmd, rpmList []string, baseDir string, maxRetries int)
 	args = append(args, rpmList...)
 
 	for attempts := 0; attempts <= maxRetries; attempts++ {
-		out, downloadErr = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+		out, downloadErr = helpers.RunCommandOutputEnv(log.Dnf, args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if downloadErr == nil {
 			return out, downloadErr
 		}
-
-		fmt.Printf("RPM download attempt %d failed. Maximum of %d attempts.\n", attempts+1, maxRetries+1)
+		log.Error(log.Dnf, "RPM download attempt %d failed. Maximum of %d attempts.", attempts+1, maxRetries+1)
+		log.Debug(log.Dnf, downloadErr.Error())
+		log.Debug(log.Dnf, out.String())
 	}
-	return nil, downloadErr
+	log.Error(log.Dnf, downloadErr.Error())
+	return nil, errors.Errorf("download rpm failed for cmd %s", args)
 }
 
 func extractRpm(baseDir string, rpm string) error {
@@ -605,17 +618,19 @@ func extractRpm(baseDir string, rpm string) error {
 
 	err = rpm2Cmd.Run()
 	if err != nil {
-		return fmt.Errorf("rpm2archive cmd failed for %s with %s", file, err.Error())
+		log.Error(log.Rpm2Archive, err.Error())
+		return fmt.Errorf("rpm2archive cmd failed for %s", file)
 	}
 
 	err = tarCmd.Run()
 	if err != nil {
-		return fmt.Errorf("tarCmd failed for %s with %s", rpmTar, err.Error())
+		log.Error(log.Tar, err.Error())
+		return fmt.Errorf("tarCmd failed for %s", rpmTar)
 	}
 
 	err = os.Remove(dir + rpmTar)
 	if err != nil {
-		fmt.Println("failed to remove file", rpmTar)
+		log.Warning(log.Mixer, "failed to remove file", rpmTar)
 	}
 
 	return nil
@@ -645,9 +660,9 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 				if e == nil {
 					break
 				}
+				log.Debug(log.Mixer, "RPM Extraction attempt %d failed. Maximum of %d attempts.\n", i+1, extractRetries)
 			}
 			if e != nil {
-				fmt.Println(e)
 				errorCh <- e
 				return
 			}
@@ -735,7 +750,12 @@ func installBundleToFull(packagerCmd []string, baseDir string, bundle *bundle, d
 
 func clearDNFCache(packagerCmd []string) error {
 	args := merge(packagerCmd, "clean", "all")
-	_, err := helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+	out, err := helpers.RunCommandOutputEnv(log.Dnf, args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+	if err != nil {
+		log.Error(log.Dnf, err.Error())
+		log.Debug(log.Dnf, out.String())
+		return errors.New("failed to clear DNF cache")
+	}
 	return err
 }
 
@@ -775,13 +795,12 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 		_ = os.RemoveAll(dnfDownloadDir)
 	}()
 
-	fmt.Println("Available repos: ")
+	log.Info(log.Mixer, "Available repos: ")
 	err = b.ListRepos()
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Installing all bundles to full chroot")
+	log.Info(log.Mixer, "Installing all bundles to full chroot")
 	totalBundles := len(*set)
 
 	fullDir := filepath.Join(buildVersionDir, "full")
@@ -801,8 +820,7 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 
 	for _, bundle := range *set {
 		i++
-		fmt.Printf("[%d/%d] %s\n", i, totalBundles, bundle.Name)
-
+		log.Info(log.Mixer, "[%d/%d] %s", i, totalBundles, bundle.Name)
 		if err := installBundleToFull(packagerCmd, fullDir, bundle, downloadRetries, numWorkers, b.repos); err != nil {
 			return err
 		}
@@ -833,13 +851,13 @@ func installSpecialFilesToFull(b *Builder, packagerCmd []string, set *bundleSet,
 	}
 
 	// special handling for os-core
-	fmt.Println("... building special os-core content")
+	log.Info(log.Mixer, "building special os-core content")
 	if err := buildOsCore(b, packagerCmd, fullDir, version); err != nil {
 		return err
 	}
 
 	// special handling for update bundle
-	fmt.Printf("... Adding swupd default values to %s bundle\n", b.Config.Swupd.Bundle)
+	log.Info(log.Mixer, "Adding swupd default values to %s bundle", b.Config.Swupd.Bundle)
 	return genUpdateBundleSpecialFiles(fullDir, b)
 }
 
@@ -1015,10 +1033,10 @@ src=%s
 	// Mixer is used to create both Clear Linux or a mix of it.
 	var version string
 	if b.MixVer != "" {
-		fmt.Printf("Creating bundles for version %s based on Clear Linux %s\n", b.MixVer, b.UpstreamVer)
+		log.Info(log.Mixer, "Creating bundles for version %s based on Clear Linux %s", b.MixVer, b.UpstreamVer)
 		version = b.MixVer
 	} else {
-		fmt.Printf("Creating bundles for version %s\n", b.UpstreamVer)
+		log.Info(log.Mixer, "Creating bundles for version %s", b.UpstreamVer)
 		version = b.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
 		if version == "" {
@@ -1027,8 +1045,8 @@ src=%s
 	}
 
 	buildVersionDir := filepath.Join(bundleDir, version)
-	fmt.Printf("Preparing new %s\n", buildVersionDir)
-	fmt.Printf("  and dnf config: %s\n", b.Config.Builder.DNFConf)
+	log.Info(log.Mixer, "Preparing new %s", buildVersionDir)
+	log.Info(log.Mixer, "  and dnf config: %s", b.Config.Builder.DNFConf)
 
 	err = os.MkdirAll(buildVersionDir, 0755)
 	if err != nil {
@@ -1053,10 +1071,9 @@ src=%s
 		"--releasever=" + b.UpstreamVer,
 	}
 
-	fmt.Printf("Packager command-line: %s\n", strings.Join(packagerCmd, " "))
-
+	log.Info(log.Mixer, "Packager command-line: %s", strings.Join(packagerCmd, " "))
 	// Existing DNF cache content can cause incorrect queries with stale results
-	fmt.Println("Cleaning DNF cache")
+	log.Info(log.Mixer, "Cleaning DNF cache")
 	if err := clearDNFCache(packagerCmd); err != nil {
 		return err
 	}
@@ -1146,7 +1163,7 @@ func createVersionsFile(baseDir string, packagerCmd []string) error {
 	}
 	for scanner.Scan() {
 		text := scanner.Text()
-
+		log.Verbose(log.Dnf, text)
 		var skip bool
 		for _, p := range skippedPrefixes {
 			if strings.HasPrefix(text, p) {
@@ -1241,7 +1258,7 @@ func updateOSReleaseFile(b *Builder, filename, version string, homeURL string, u
 	defer func() {
 		_ = f.Close()
 	}()
-	fmt.Println("... updating os-release file")
+	log.Info(log.Mixer, "updating os-release file")
 
 	var newBuf bytes.Buffer
 	buildIDFlag := true
@@ -1298,8 +1315,7 @@ func getClosestAncestorOwner(path string) (int, int, error) {
 }
 
 func createOSReleaseFile(filename string, homeURL string, version string, upstreamVer string) error {
-	fmt.Println("... creating os-release file")
-
+	log.Info(log.Mixer, "... creating os-release file")
 	var f *os.File
 	err := os.MkdirAll(filepath.Dir(filename), 0655)
 	if err != nil {

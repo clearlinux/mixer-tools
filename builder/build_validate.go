@@ -14,7 +14,9 @@ import (
 	"sync"
 
 	"github.com/clearlinux/mixer-tools/helpers"
+	"github.com/clearlinux/mixer-tools/log"
 	"github.com/clearlinux/mixer-tools/swupd"
+
 	"github.com/olekukonko/tablewriter"
 	"github.com/pkg/errors"
 )
@@ -461,13 +463,16 @@ func (b *Builder) resolvePkgFiles(pkg *pkgInfo, downloadRetries int) ([]*fileInf
 	// Query RPM for file metadata lists
 	args := merge(rpmCmd, pkg.uri)
 	for attempts := 0; attempts <= downloadRetries; attempts++ {
-		out, err = helpers.RunCommandOutputEnv(args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
+		out, err = helpers.RunCommandOutputEnv(log.Dnf, args[0], args[1:], []string{"LC_ALL=en_US.UTF-8"})
 		if err == nil {
 			break
 		}
 		if attempts == downloadRetries {
-			return nil, err
+			log.Error(log.Dnf, err.Error(), "download retries: %d", downloadRetries)
+			log.Debug(log.Dnf, out.String())
+			return nil, errors.New("failed to resolve package metadata")
 		}
+		log.Debug(log.Dnf, err.Error(), "download retries: %d", downloadRetries)
 	}
 
 	pkgFiles := []*fileInfo{}
@@ -545,11 +550,12 @@ func resolveRpmURIs(pkgList []packageMetadata, repo, baseURI string, pkgInfoCach
 		queryStringRpm = append(queryStringRpm, rpmName)
 	}
 
-	outBuf, err := helpers.RunCommandOutputEnv(queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
+	outBuf, err := helpers.RunCommandOutputEnv(log.Dnf, queryStringRpm[0], queryStringRpm[1:], []string{"LC_ALL=en_US.UTF-8"})
 	if err != nil {
-		return err
+		log.Error(log.Dnf, err.Error())
+		log.Debug(log.Dnf, outBuf.String())
+		return errors.New("unable to resolve rpm URI")
 	}
-
 	repoURI, err := url.Parse(baseURI)
 	if err != nil {
 		return err
@@ -899,11 +905,11 @@ func getManFileDiffLists(fromFiles, toFiles map[string]*swupd.File, skipMap map[
 }
 
 func isFileMod(from, to *fileInfo) bool {
-	return ((from.hash != to.hash) ||
+	return (from.hash != to.hash) ||
 		(from.modes != to.modes) ||
 		(from.links != to.links) ||
 		(from.user != to.user) ||
-		(from.group != to.group))
+		(from.group != to.group)
 }
 
 func isPkgMod(key string, bundleDiff *mcaBundleDiff) bool {
@@ -916,9 +922,9 @@ func isManFileMod(from, to *swupd.File) bool {
 }
 
 func isMinversion(from, to *swupd.File) bool {
-	return ((from.Name == to.Name) &&
+	return (from.Name == to.Name) &&
 		(from.Hash == to.Hash) &&
-		(from.Version != to.Version))
+		(from.Version != to.Version)
 }
 
 // analyzeMcaResults compares manifest file changes against package file changes.
@@ -1165,39 +1171,37 @@ func (b *Builder) checkFormatsMatch(fromVer, toVer int) (bool, error) {
 func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBundleInfo, fromVer, toVer, tableWidth int, errorList, warningList []string) error {
 	// Print any warnings
 	for _, msg := range warningList {
-		fmt.Fprintf(os.Stderr, "%s", msg)
+		log.Warning(log.Mca, "%s", msg)
 	}
-	fmt.Print("\n")
-
 	// An overwhelming number of errors can be generated when this test
 	// identifies a manifest bug, so limit the error output to 50.
 	if len(errorList) > 0 {
 		for i, err := range errorList {
 			if i == 50 {
-				fmt.Print("WARNING: Error reporting is limited to 50, so additional errors were skipped.\n")
+				log.Warning(log.Mca, " Error reporting is limited to 50, so additional errors were skipped.")
 				break
 			}
-			fmt.Print(err)
+			log.Error(log.Mca, err)
 		}
-		return fmt.Errorf("Manifest errors were identified")
+		return errors.New("manifest errors were identified")
 	}
 
-	fmt.Printf("** Summary: No errors detected in manifests\n\n")
-	fmt.Printf("Stats for manifests, from build %d to %d\n\n", fromVer, toVer)
+	log.Info(log.Mca, "** Summary: No errors detected in manifests\n")
+	log.Info(log.Mca, "Stats for manifests, from build %d to %d\n", fromVer, toVer)
 
 	// Print bundle counts and lists of added/deleted bundles.
-	fmt.Printf("Added bundles: %d\n", len(results.addList))
+	log.Info(log.Mca, "Added bundles: %d", len(results.addList))
 	sort.Strings(results.addList)
 	for _, b := range results.addList {
-		fmt.Printf("  - %s\n", b)
+		log.Info(log.Mca, "  - %s", b)
 	}
 
-	fmt.Printf("Changed bundles: %d\n", len(results.modList))
+	log.Info(log.Mca, "Changed bundles: %d", len(results.modList))
 
-	fmt.Printf("Deleted bundles: %d\n", len(results.delList))
+	log.Info(log.Mca, "Deleted bundles: %d", len(results.delList))
 	sort.Strings(results.delList)
 	for _, b := range results.delList {
-		fmt.Printf("  - %s\n", b)
+		log.Info(log.Mca, "  - %s", b)
 	}
 
 	// No bundle information to print
@@ -1218,7 +1222,8 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 
 	// Create table with separator rows after each bundle entry. The table's text wrapping
 	// does not work well, so text wrapping is handled by the appendMcaTableEntry function.
-	table := tablewriter.NewWriter(os.Stdout)
+	var buf bytes.Buffer
+	table := tablewriter.NewWriter(&buf)
 	table.SetRowLine(true)
 	table.SetAutoWrapText(false)
 	table.SetHeader([]string{"BUNDLE", "CHANGES"})
@@ -1319,9 +1324,10 @@ func printMcaResults(results *mcaDiffResults, fromInfo, toInfo map[string]*mcaBu
 		table.Append([]string{bundleStr, changeStr})
 	}
 
-	fmt.Printf("\nFiles changed per manifest:\n\n")
+	log.Info(log.Mca, "Files changed per manifest:\n")
 
 	table.Render()
+	log.Info(log.Mca, buf.String())
 	return nil
 }
 

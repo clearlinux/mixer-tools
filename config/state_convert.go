@@ -16,7 +16,7 @@ package config
 
 import (
 	"bufio"
-	"fmt"
+	"github.com/clearlinux/mixer-tools/log"
 	"os"
 )
 
@@ -44,7 +44,7 @@ func (state *MixState) parseVersionAndConvert() error {
 		return nil
 	}
 
-	fmt.Printf("Converting state to version %s\n", CurrentStateVersion)
+	log.Info(log.Mixer, "Converting state to version %s", CurrentStateVersion)
 
 	return state.convertCurrent()
 }

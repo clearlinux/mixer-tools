@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/clearlinux/mixer-tools/log"
 	"net/url"
 	"strings"
 
@@ -121,7 +122,7 @@ func runExcludesRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Excluded packages from repo %s:\n%s\n", args[0], strings.Join(args[1:], "\n"))
+	log.Info(log.Mixer, "Excluded packages from repo %s:\n%s", args[0], strings.Join(args[1:], "\n"))
 }
 
 func runPriorityRepo(cmd *cobra.Command, args []string) {
@@ -134,7 +135,7 @@ func runPriorityRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Setting repo %s with priority %s\n", args[0], args[1])
+	log.Info(log.Mixer, "Setting repo %s with priority %s", args[0], args[1])
 }
 
 // repo add command ('mixer repo add')
@@ -165,7 +166,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	if err != nil {
 		fail(err)
 	}
-	fmt.Printf("Adding repo %s with url %s and priority %d\n", args[0], u.String(), repoAddFlags.priority)
+	log.Info(log.Mixer, "Adding repo %s with url %s and priority %d", args[0], u.String(), repoAddFlags.priority)
 }
 
 func runRemoveRepo(cmd *cobra.Command, args []string) {
@@ -223,5 +224,5 @@ func runSetURLRepo(cmd *cobra.Command, args []string) {
 		fail(err)
 	}
 
-	fmt.Printf("Setting repo %s with url %s\n", args[0], u.String())
+	log.Info(log.Mixer, "Setting repo %s with url %s", args[0], u.String())
 }

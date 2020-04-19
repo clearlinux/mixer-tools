@@ -19,10 +19,11 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/clearlinux/mixer-tools/log"
 )
 
 // debugFullfiles is a flag to turn on debug statements for fullfile creation.
@@ -246,8 +247,8 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo, comp
 	}
 
 	if debugFullfiles {
-		log.Printf("DEBUG: Creating fullfile %s for regular file %s (%d bytes)", name, input, fi.Size())
-		log.Printf("DEBUG: %s (%d bytes, uncompressed)", filepath.Base(output), uncompressedSize)
+		log.Debug(log.Mixer, "Creating fullfile %s for regular file %s (%d bytes)", name, input, fi.Size())
+		log.Debug("log.Mixer, %s (%d bytes, uncompressed)", filepath.Base(output), uncompressedSize)
 	}
 
 	// Pick the best compression option (or no compression) for that specific fullfile.
@@ -256,7 +257,7 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo, comp
 	for i, cName := range compression {
 		cFunc, ok := fullfileCompressors[cName]
 		if !ok {
-			log.Printf("WARNING: Unknown compression method: '" + cName + "' - Skipping")
+			log.Warning(log.Mixer, "Unknown compression method: '"+cName+"' - Skipping")
 			continue
 		}
 
@@ -269,19 +270,19 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo, comp
 		}
 		out, err := os.Create(candidate)
 		if err != nil {
-			log.Printf("WARNING: couldn't create output file for %q compressor: %s", cName, err)
+			log.Warning(log.Mixer, "couldn't create output file for %q compressor: %s", cName, err)
 			continue
 		}
 		err = cFunc(out, uncompressed)
 		if err != nil {
-			log.Printf("WARNING: couldn't compress %s using compressor %q: %s", input, cName, err)
+			log.Warning(log.Mixer, "couldn't compress %s using compressor %q: %s", input, cName, err)
 			_ = out.Close()
 			_ = os.RemoveAll(candidate)
 			continue
 		}
 		candidateSize, err = out.Seek(0, io.SeekEnd)
 		if err != nil {
-			log.Printf("WARNING: couldn't get size of %s: %s", candidate, err)
+			log.Warning(log.Mixer, "couldn't get size of %s: %s", candidate, err)
 			_ = out.Close()
 			_ = os.RemoveAll(candidate)
 			continue
@@ -299,7 +300,7 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo, comp
 		}
 
 		if debugFullfiles {
-			log.Printf("DEBUG: %s (%d bytes)", filepath.Base(candidate), candidateSize)
+			log.Debug(log.Mixer, "%s (%d bytes)", filepath.Base(candidate), candidateSize)
 		}
 	}
 
@@ -313,7 +314,7 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo, comp
 	}
 
 	if debugFullfiles {
-		log.Printf("DEBUG: best algorithm was %s", bestName)
+		log.Debug(log.Mixer, "best algorithm was %s", bestName)
 	}
 
 	if best != "" {

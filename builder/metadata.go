@@ -17,12 +17,13 @@ package builder
 import (
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/clearlinux/mixer-tools/log"
 
 	"github.com/pkg/errors"
 )
@@ -39,7 +40,7 @@ func (b *Builder) UpdateMixVer(version int) error {
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		log.Warning(log.Mixer, "'.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
 
 	b.MixVer = strconv.Itoa(version)
@@ -53,7 +54,7 @@ func (b *Builder) ReadVersions() error {
 	// Deprecate '.mixversion' --> 'mixversion'
 	if _, err := os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".mixversion")); err == nil {
 		b.MixVerFile = ".mixversion"
-		fmt.Println("Warning: '.mixversion' has been deprecated. Please rename file to 'mixversion'")
+		log.Warning(log.Mixer, "'.mixversion' has been deprecated. Please rename file to 'mixversion'")
 	}
 	ver, err := ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile))
 	if err != nil {
@@ -65,7 +66,7 @@ func (b *Builder) ReadVersions() error {
 	// Deprecate '.clearversion' --> 'upstreamversion'
 	if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearversion")); err == nil {
 		b.UpstreamVerFile = ".clearversion"
-		fmt.Println("Warning: '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
+		log.Warning(log.Mixer, " '.clearversion' has been deprecated. Please rename file to 'upstreamversion'")
 	}
 	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile))
 	if err != nil {
@@ -77,11 +78,11 @@ func (b *Builder) ReadVersions() error {
 	// Deprecate '.clearversion' --> 'upstreamurl'
 	if _, err = os.Stat(filepath.Join(b.Config.Builder.VersionPath, ".clearurl")); err == nil {
 		b.UpstreamURLFile = ".clearurl"
-		fmt.Println("Warning: '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
+		log.Warning(log.Mixer, " '.clearurl' has been deprecated. Please rename file to 'upstreamurl'")
 	}
 	ver, err = ioutil.ReadFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamURLFile))
 	if err != nil {
-		log.Printf("Warning: %s/%s does not exist, run mixer init to generate\n", b.Config.Builder.VersionPath, b.UpstreamURLFile)
+		log.Warning(log.Mixer, " %s/%s does not exist, run mixer init to generate", b.Config.Builder.VersionPath, b.UpstreamURLFile)
 		b.UpstreamURL = ""
 	} else {
 		b.UpstreamURL = strings.TrimSpace(string(ver))
@@ -214,7 +215,7 @@ func (b *Builder) ModifyBundles(action func([]string) error) error {
 	var deprecatedBundles []string
 	for _, bundle := range set {
 		if bundle.Header.Status == "Deprecated" {
-			fmt.Println("Found deprecated bundle: " + bundle.Name)
+			log.Info(log.Mixer, "Found deprecated bundle: "+bundle.Name)
 			deprecatedBundles = append(deprecatedBundles, bundle.Name)
 		}
 	}
@@ -235,7 +236,7 @@ func (b *Builder) PrintVersions() error {
 		return err
 	}
 
-	fmt.Printf(`
+	log.Info(log.Mixer, `
 Current mix:               %d
 Current upstream:          %d (format: %s)
 
@@ -247,7 +248,7 @@ Latest upstream in format: %d
 }
 
 func (b *Builder) printVersionsOffline() {
-	fmt.Printf(`
+	log.Info(log.Mixer, `
 Current mix:               %d
 Current upstream:          %d (format: %s)
 
@@ -301,7 +302,7 @@ func (b *Builder) UpdateVersions(nextMix, nextUpstream uint32, skipFormatCheck b
 		}
 	}
 
-	fmt.Printf(`Old mix:      %d
+	log.Info(log.Mixer, `Old mix:      %d
 Old upstream: %d (format: %s)
 
 New mix:      %d
@@ -325,14 +326,14 @@ New upstream: %d (format: %s)
 	if err != nil {
 		return errors.Wrap(err, "couldn't write updated mix version")
 	}
-	fmt.Printf("\nWrote %s.\n", b.MixVerFile)
+	log.Info(log.Mixer, "Wrote %s.", b.MixVerFile)
 
 	upstreamVerContents := []byte(nextUpstreamStr + "\n")
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), upstreamVerContents, 0644)
 	if err != nil {
 		return errors.Wrap(err, "couldn't write updated upstream version")
 	}
-	fmt.Printf("Wrote %s.\n", b.UpstreamVerFile)
+	log.Info(log.Mixer, "Wrote %s.", b.UpstreamVerFile)
 	b.UpstreamVerUint32 = nextUpstream
 	b.UpstreamVer = nextUpstreamStr
 

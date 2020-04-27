@@ -7,11 +7,11 @@ GO_PACKAGE_PREFIX := github.com/clearlinux/mixer-tools
 GOPATH ?= ${HOME}/go
 gopath = $(shell go env GOPATH)
 
-.PHONY: build install clean check
+.PHONY: build install clean check man
 
 .DEFAULT_GOAL := build
 
-build:
+build: man
 	go install -mod=vendor -ldflags="-X ${GO_PACKAGE_PREFIX}/builder.Version=${VERSION}" ${GO_PACKAGE_PREFIX}/mixer
 	go install -mod=vendor ${GO_PACKAGE_PREFIX}/swupd-extract
 	go install -mod=vendor ${GO_PACKAGE_PREFIX}/swupd-inspector
@@ -79,6 +79,6 @@ MANPAGES = \
 
 man: $(MANPAGES)
 
-% : %.rst
+$(MANPAGES): %: %.rst
 	mkdir -p "$$(dirname $@)"
 	rst2man.py "$<" > "$@.tmp" && mv -f "$@.tmp" "$@"

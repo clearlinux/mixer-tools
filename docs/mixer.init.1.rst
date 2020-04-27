@@ -44,6 +44,10 @@ more details), the following options are recognized.
 
    Supply a specific configuration file at `path` to use for mixing.
 
+-  ``--format {format}``
+
+   Supply the format version for the mix.
+
 -  ``--git``
 
    Track mixer's internal work directory with git.

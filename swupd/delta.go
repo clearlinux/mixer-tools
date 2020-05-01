@@ -257,14 +257,14 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 			if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
 				if status.ExitStatus() == 1 {
 					err = fmt.Errorf("bsdiff returned FULLDL, not using delta %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
-					log.Warning(log.BsDiff, err.Error())
+					log.Debug(log.BsDiff, err.Error())
 					return err
 				}
 			}
 		}
 		errStr := fmt.Sprintf("Failed to create delta for %s (%d-%s) -> %s (%d-%s)", delta.from.Name, delta.from.Version, delta.from.Hash, delta.to.Name, delta.to.Version, delta.to.Hash)
 		err = errors.Wrap(err, errStr)
-		log.Warning(log.BsDiff, err.Error())
+		log.Debug(log.BsDiff, err.Error())
 		return err
 	}
 
@@ -272,7 +272,7 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 	if deltaTooLarge(c, delta, newPath) {
 		_ = os.Remove(delta.Path)
 		errStr := fmt.Sprintf("Delta file larger than compressed full file %s (%d-%s) -> %s", delta.to.Name, delta.to.Version, delta.to.Hash, newPath)
-		log.Warning(log.BsDiff, "LARGER-DELTA: "+errStr)
+		log.Debug(log.BsDiff, "LARGER-DELTA: "+errStr)
 		return errors.New(errStr)
 	}
 
@@ -281,7 +281,7 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 	if err := helpers.RunCommandSilent(log.BsDiff, "bspatch", oldPath, testPath, delta.Path); err != nil {
 		log.Debug(log.BsDiff, err.Error())
 		errStr := fmt.Sprintf("Failed to apply delta %s", delta.Path)
-		log.Warning(log.BsDiff, "BSPATCH: "+errStr)
+		log.Debug(log.BsDiff, "BSPATCH: "+errStr)
 		return errors.Wrapf(err, errStr)
 	}
 	defer func() {
@@ -292,13 +292,13 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 	if err != nil {
 		_ = os.Remove(delta.Path)
 		err = errors.Wrap(err, "Failed to calculate hash for test file created applying delta")
-		log.Warning(log.BsDiff, err.Error())
+		log.Debug(log.BsDiff, err.Error())
 		return err
 	}
 	if testHash != delta.to.Hash {
 		_ = os.Remove(delta.Path)
 		err = errors.Errorf("Delta mismatch: %s -> %s via delta: %s", oldPath, newPath, delta.Path)
-		log.Warning(log.BsDiff, err.Error())
+		log.Debug(log.BsDiff, err.Error())
 		return err
 	}
 	return nil

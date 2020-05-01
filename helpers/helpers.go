@@ -359,17 +359,21 @@ func RunCommandTimeout(logType string, timeout int, cmdname string, args ...stri
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	err := cmd.Run()
-	if err != nil {
-		log.Debug(logType, errBuf.String())
-		log.Debug(logType, outBuf.String())
-	}
-	log.Verbose(logType, outBuf.String())
+
 	if ctx.Err() == context.DeadlineExceeded {
 		err = errors.Errorf("Command: %s timed out", cmdname)
 		log.Debug(logType, ctx.Err().Error())
 		return err
 	}
-	return err
+
+	if err != nil {
+		log.Debug(logType, errBuf.String())
+		log.Debug(logType, outBuf.String())
+		return err
+	}
+	log.Verbose(logType, outBuf.String())
+
+	return nil
 }
 
 // RunCommandOutput executes the command with arguments and stores its output in

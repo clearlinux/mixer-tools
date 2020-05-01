@@ -66,7 +66,7 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	// sign the Manifest.MoM file in place based on the Mix
 	// version read from builder.conf.
 	if !params.SkipSigning {
-		log.Info(log.Mixer, "Signing manifest.")
+		log.Info(log.Mixer, "Signing manifest")
 		err = b.signFile(filepath.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer, "Manifest.MoM"))
 		if err != nil {
 			return err
@@ -93,11 +93,11 @@ func (b *Builder) buildUpdateContent(params UpdateParameters, timer *stopWatch) 
 	errorChan := make(chan error, b.NumBundleWorkers)
 	defer close(errorChan)
 
-	log.Info(log.Mixer, "Compressing bundle manifests")
+	log.Info(log.Mixer, "Compressing bundle manifests...")
 	compWorker := func() {
 		defer wg.Done()
 		for bundle := range bundleChan {
-			log.Info(log.Mixer, "  %s", bundle.Name)
+			log.Info(log.Mixer, "- %s", bundle.Name)
 			f := filepath.Join(thisVersionDir, "Manifest."+bundle.Name)
 			err := createCompressedArchive(f+".tar", f)
 			if err != nil {

@@ -169,6 +169,7 @@ func addUpdateBundleSpecialFiles(b *Builder, bundle *bundle) {
 type repoPkgMap map[string][]packageMetadata
 
 func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []string) error {
+	log.Info(log.Mixer, "Resolving files for %s", bundle.Name)
 	bundle.Files = make(map[string]bool)
 
 	for repo, pkgs := range repoPkgs {
@@ -191,7 +192,7 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 	}
 
 	addFileAndPath(bundle.Files, bundle.UnExport, fmt.Sprintf("/usr/share/clear/bundles/%s", bundle.Name))
-	log.Info(log.Mixer, "Bundle %s\t%d files", bundle.Name, len(bundle.Files))
+	log.Debug(log.Mixer, "Total number of files for %s: %d", bundle.Name, len(bundle.Files))
 
 	return nil
 }
@@ -365,7 +366,7 @@ func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []str
 		}()
 
 		for bundle := range bundleCh {
-			log.Info(log.Mixer, "processing %s", bundle.Name)
+			log.Info(log.Mixer, "Resolving packages for %s", bundle.Name)
 			queryString := merge(
 				packagerCmd,
 				"--installroot="+emptyDir,
@@ -630,7 +631,7 @@ func extractRpm(baseDir string, rpm string) error {
 
 	err = os.Remove(dir + rpmTar)
 	if err != nil {
-		log.Warning(log.Mixer, "failed to remove file", rpmTar)
+		log.Warning(log.Mixer, "Failed to remove file", rpmTar)
 	}
 
 	return nil
@@ -800,7 +801,7 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 	if err != nil {
 		return err
 	}
-	log.Info(log.Mixer, "Installing all bundles to full chroot")
+	log.Info(log.Mixer, "Installing all bundles to full chroot...")
 	totalBundles := len(*set)
 
 	fullDir := filepath.Join(buildVersionDir, "full")
@@ -820,7 +821,7 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 
 	for _, bundle := range *set {
 		i++
-		log.Info(log.Mixer, "[%d/%d] %s", i, totalBundles, bundle.Name)
+		log.Info(log.Mixer, "%d/%d %s", i, totalBundles, bundle.Name)
 		if err := installBundleToFull(packagerCmd, fullDir, bundle, downloadRetries, numWorkers, b.repos); err != nil {
 			return err
 		}
@@ -851,7 +852,7 @@ func installSpecialFilesToFull(b *Builder, packagerCmd []string, set *bundleSet,
 	}
 
 	// special handling for os-core
-	log.Info(log.Mixer, "building special os-core content")
+	log.Info(log.Mixer, "Building special os-core content")
 	if err := buildOsCore(b, packagerCmd, fullDir, version); err != nil {
 		return err
 	}
@@ -1033,10 +1034,10 @@ src=%s
 	// Mixer is used to create both Clear Linux or a mix of it.
 	var version string
 	if b.MixVer != "" {
-		log.Info(log.Mixer, "Creating bundles for version %s based on Clear Linux %s", b.MixVer, b.UpstreamVer)
+		log.Info(log.Mixer, "Building bundles for mix version %s based on Clear Linux version %s", b.MixVer, b.UpstreamVer)
 		version = b.MixVer
 	} else {
-		log.Info(log.Mixer, "Creating bundles for version %s", b.UpstreamVer)
+		log.Info(log.Mixer, "Building bundles for mix version %s", b.UpstreamVer)
 		version = b.UpstreamVer
 		// TODO: This validation should happen when reading the configuration.
 		if version == "" {
@@ -1045,9 +1046,7 @@ src=%s
 	}
 
 	buildVersionDir := filepath.Join(bundleDir, version)
-	log.Info(log.Mixer, "Preparing new %s", buildVersionDir)
-	log.Info(log.Mixer, "  and dnf config: %s", b.Config.Builder.DNFConf)
-
+	log.Info(log.Mixer, "Preparing new image directory for mix version %s: %s", version, buildVersionDir)
 	err = os.MkdirAll(buildVersionDir, 0755)
 	if err != nil {
 		return err
@@ -1071,7 +1070,7 @@ src=%s
 		"--releasever=" + b.UpstreamVer,
 	}
 
-	log.Info(log.Mixer, "Packager command-line: %s", strings.Join(packagerCmd, " "))
+	log.Info(log.Mixer, "Using DNF command prefix: %s", strings.Join(packagerCmd, " "))
 	// Existing DNF cache content can cause incorrect queries with stale results
 	log.Info(log.Mixer, "Cleaning DNF cache")
 	if err := clearDNFCache(packagerCmd); err != nil {
@@ -1258,7 +1257,7 @@ func updateOSReleaseFile(b *Builder, filename, version string, homeURL string, u
 	defer func() {
 		_ = f.Close()
 	}()
-	log.Info(log.Mixer, "updating os-release file")
+	log.Info(log.Mixer, "Updating os-release file")
 
 	var newBuf bytes.Buffer
 	buildIDFlag := true

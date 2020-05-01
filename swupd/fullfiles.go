@@ -266,23 +266,23 @@ func createRegularFullfile(input, name, output string, info *FullfilesInfo, comp
 
 		_, err := uncompressed.Seek(0, io.SeekStart)
 		if err != nil {
-			return fmt.Errorf("couldn't seek in fullfile %s: %s", input, err)
+			return fmt.Errorf("Couldn't seek in fullfile %s: %s", input, err)
 		}
 		out, err := os.Create(candidate)
 		if err != nil {
-			log.Warning(log.Mixer, "couldn't create output file for %q compressor: %s", cName, err)
+			log.Warning(log.Mixer, "Couldn't create output file for %q compressor: %s", cName, err)
 			continue
 		}
 		err = cFunc(out, uncompressed)
 		if err != nil {
-			log.Warning(log.Mixer, "couldn't compress %s using compressor %q: %s", input, cName, err)
+			log.Warning(log.Mixer, "Couldn't compress %s using compressor %q: %s", input, cName, err)
 			_ = out.Close()
 			_ = os.RemoveAll(candidate)
 			continue
 		}
 		candidateSize, err = out.Seek(0, io.SeekEnd)
 		if err != nil {
-			log.Warning(log.Mixer, "couldn't get size of %s: %s", candidate, err)
+			log.Warning(log.Mixer, "Couldn't get size of %s: %s", candidate, err)
 			_ = out.Close()
 			_ = os.RemoveAll(candidate)
 			continue

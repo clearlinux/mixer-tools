@@ -242,7 +242,6 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 
 	// Generate the dnf config file if it does not exist.
 	// This takes the template and adds the relevant local rpm repo path if needed
-	log.Info(log.Mixer, "Building bundles...")
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 
@@ -269,7 +268,7 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 	// Clean existing image and output directories
 	mixImageDir := path.Join(b.Config.Builder.ServerStateDir, "image", b.MixVer)
 	if _, err := os.Stat(mixImageDir); err == nil {
-		log.Info(log.Mixer, "* Wiping away existing image directory for version %s...", b.MixVer)
+		log.Warning(log.Mixer, "Wiping away existing image directory for mix version %s...", b.MixVer)
 		if err = os.RemoveAll(mixImageDir); err != nil {
 			return err
 		}
@@ -279,7 +278,7 @@ func (b *Builder) BuildBundles(template *x509.Certificate, privkey *rsa.PrivateK
 
 	mixOutputDir := path.Join(b.Config.Builder.ServerStateDir, "www", b.MixVer)
 	if _, err := os.Stat(mixOutputDir); err == nil {
-		log.Info(log.Mixer, "* Wiping away existing output directory for version %s...", b.MixVer)
+		log.Warning(log.Mixer, "Wiping away existing output directory for mix version %s...", b.MixVer)
 		if err = os.RemoveAll(mixOutputDir); err != nil {
 			return err
 		}
@@ -381,7 +380,7 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 
 	// sign the latest_version file
 	if !params.SkipSigning {
-		log.Info(log.Mixer, "Signing latest_version file.")
+		log.Info(log.Mixer, "Signing latest_version file")
 		err = b.signFile(latestVerFilePath)
 		if err != nil {
 			return errors.Wrapf(err, "couldn't sign the latest_version file")
@@ -395,7 +394,7 @@ func (b *Builder) BuildUpdate(params UpdateParameters) error {
 	// sign the latest file in place based on the Mixed format
 	// read from builder.conf.
 	if !params.SkipSigning {
-		log.Info(log.Mixer, "Signing latest file.")
+		log.Info(log.Mixer, "Signing latest file")
 		err = b.signFile(filepath.Join(formatDir, "latest"))
 		if err != nil {
 			return errors.Wrapf(err, "couldn't sign the latest file")
@@ -466,7 +465,7 @@ func (b *Builder) BuildImage(format string, configFile string) error {
 			return fmt.Errorf("build configuration file '%s' must end in .yaml", configFile)
 		}
 	}
-	log.Info(log.Mixer, "Building image. Please wait...")
+	log.Info(log.Mixer, "Building image, please wait...")
 	clrLogFile := strings.Replace(configFile, ".yaml", ".log", 1)
 	content := "file://" + b.Config.Builder.ServerStateDir + "/www"
 	imagecmd := exec.Command("clr-installer", "-c", configFile, "--swupd-versionurl",
@@ -576,7 +575,6 @@ func (b *Builder) BuildDeltaPacks(from, to uint32, printReport bool) error {
 	}
 
 	bundleDir := filepath.Join(b.Config.Builder.ServerStateDir, "image")
-	log.Info(log.Mixer, "Using %d workers", b.NumDeltaWorkers)
 	// Create all deltas first
 
 	err = swupd.CreateAllDeltas(outputDir, int(fromManifest.Header.Version), int(toManifest.Header.Version), b.NumDeltaWorkers)
@@ -623,7 +621,7 @@ func (b *Builder) BuildDeltaPacksPreviousVersions(prev, to uint32, printReport b
 		// past the boundary anyways. Only check for inequality, if the format
 		// goes down that should be checked elsewhere.
 		if m.Header.Format != toManifest.Header.Format {
-			log.Warning(log.Mixer, "skipping delta-pack creation over format bump")
+			log.Warning(log.Mixer, "Skipping delta-pack creation over format bump")
 			continue
 		}
 		previousManifests = append(previousManifests, m)
@@ -769,7 +767,7 @@ func (b *Builder) BuildDeltaManifestsPreviousVersions(prev, to uint32) error {
 		// past the boundary anyways. Only check for inequality, if the format
 		// goes down that should be checked elsewhere.
 		if m.Header.Format != toManifest.Header.Format {
-			log.Warning(log.Mixer, "skipping delta-pack creation over format bump")
+			log.Warning(log.Mixer, "Skipping delta-pack creation over format bump")
 			break
 		}
 		previousManifests = append(previousManifests, m)

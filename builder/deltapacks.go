@@ -31,6 +31,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 	timer := &stopWatch{w: os.Stdout}
 	defer timer.WriteSummary(os.Stdout)
 	timer.Start("CREATE DELTA PACKS")
+	log.Info(log.Mixer, "Using %d workers", numWorkers)
 
 	log.Info(log.Mixer, "Creating delta packs from %d to %d", fromMoM.Header.Version, toMoM.Header.Version)
 	bundlesToPack, err := swupd.FindBundlesToPack(fromMoM, toMoM)
@@ -83,7 +84,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 
 				if len(info.Warnings) > 0 {
 					for _, w := range info.Warnings {
-						log.Warning(log.Mixer, "    WARNING: Bundle %s: %s", b.Name, w)
+						log.Warning(log.Mixer, "    Bundle %s: %s", b.Name, w)
 					}
 				}
 				report := fmt.Sprintf("  Finished delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)

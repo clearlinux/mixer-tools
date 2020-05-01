@@ -94,7 +94,7 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 				mux.Unlock()
 				continue
 			} else {
-				log.Info(log.Mixer, "  %s", bundleName)
+				log.Info(log.Mixer, "- %s", bundleName)
 				biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
 				if _, err = os.Stat(biPath); os.IsNotExist(err) {
 					err = syncToFull(ui.version, bundle.Name, c.imageBase)

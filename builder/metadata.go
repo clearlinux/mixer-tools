@@ -322,18 +322,18 @@ New upstream: %d (format: %s)
 	}
 
 	mixVerContents := []byte(fmt.Sprintf("%d\n", nextMix))
+	log.Info(log.Mixer, "Writing %s", b.MixVerFile)
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.MixVerFile), mixVerContents, 0644)
 	if err != nil {
 		return errors.Wrap(err, "couldn't write updated mix version")
 	}
-	log.Info(log.Mixer, "Wrote %s.", b.MixVerFile)
 
 	upstreamVerContents := []byte(nextUpstreamStr + "\n")
+	log.Info(log.Mixer, "Writing %s", b.UpstreamVerFile)
 	err = ioutil.WriteFile(filepath.Join(b.Config.Builder.VersionPath, b.UpstreamVerFile), upstreamVerContents, 0644)
 	if err != nil {
 		return errors.Wrap(err, "couldn't write updated upstream version")
 	}
-	log.Info(log.Mixer, "Wrote %s.", b.UpstreamVerFile)
 	b.UpstreamVerUint32 = nextUpstream
 	b.UpstreamVer = nextUpstreamStr
 

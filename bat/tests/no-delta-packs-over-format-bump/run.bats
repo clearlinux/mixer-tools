@@ -78,7 +78,7 @@ setup() {
   # redirect both stderr and stdout so we can check for the warning as well
   mixer-build-delta-packs 2 &> $LOGDIR/build_delta-packs30.log
   grep "Found 0 previous versions" $LOGDIR/build_delta-packs30.log
-  grep "skipping delta-pack creation over format bump" $LOGDIR/build_delta-packs30.log
+  grep "Skipping delta-pack creation over format bump" $LOGDIR/build_delta-packs30.log
   # check mixer didn't create them anyways
   [ ! -f update/www/30/pack-os-core-from-10.tar ]
   [ ! -f update/www/30/pack-os-core-from-20.tar ]

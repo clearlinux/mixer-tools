@@ -225,7 +225,7 @@ func (config *MixConfig) parseLegacy() error {
 			return err
 		}
 		config.Mixer.LocalBundleDir = filepath.Join(pwd, "local-bundles")
-		log.Warning(log.Mixer, "Warning: LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.", config.Mixer.LocalBundleDir)
+		log.Warning(log.Mixer, "LOCAL_BUNDLE_DIR not found in builder.conf. Falling back to %q.", config.Mixer.LocalBundleDir)
 		log.Info(log.Mixer, "Please set this value to the location you want local bundle definition files to be stored.")
 	}
 

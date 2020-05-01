@@ -129,7 +129,7 @@ func logTag(tag string, cmdTag, format string, a ...interface{}) {
 		format = strings.ReplaceAll(format, "%", "%%")
 	}
 
-	f := "[" + tag + "]" + "[" + cmdTag + "]" + format + "\n"
+	f := "[" + tag + "]" + "[" + cmdTag + "] " + format + "\n"
 	output := fmt.Sprintf(f, a...)
 
 	if level >= LevelVerbose {
@@ -171,14 +171,14 @@ func Debug(cmdTag, format string, a ...interface{}) {
 
 // Error prints an error log entry with ERR tag
 func Error(cmdTag, format string, a ...interface{}) {
-	fmt.Printf(format+"\n", a...)
+	fmt.Printf("Error: "+format+"\n", a...)
 	if !logging {
 		return
 	}
 	if _, ok := cmdMap[cmdTag]; !ok {
 		cmdTag = Mixer
 	}
-	logTag("ERR", cmdTag, "Error:"+format, a...)
+	logTag("ERR", cmdTag, format, a...)
 }
 
 // Info prints an info log entry with INF tag
@@ -195,14 +195,14 @@ func Info(cmdTag, format string, a ...interface{}) {
 
 // Warning prints an warning log entry with WRN tag
 func Warning(cmdTag, format string, a ...interface{}) {
-	fmt.Printf(format+"\n", a...)
+	fmt.Printf("Warning: "+format+"\n", a...)
 	if level < LevelWarning || !logging {
 		return
 	}
 	if _, ok := cmdMap[cmdTag]; !ok {
 		cmdTag = Mixer
 	}
-	logTag("WRN", cmdTag, "Warning:"+format, a...)
+	logTag("WRN", cmdTag, format, a...)
 }
 
 // Verbose prints a verbose log entry with VRB tag

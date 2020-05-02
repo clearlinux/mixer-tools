@@ -129,7 +129,12 @@ func logTag(tag string, cmdTag, format string, a ...interface{}) {
 		format = strings.ReplaceAll(format, "%", "%%")
 	}
 
-	f := "[" + tag + "]" + "[" + cmdTag + "] " + format + "\n"
+	var f string
+	if cmdTag == Mixer || cmdTag == "" {
+		f = "[" + tag + "] " + format + "\n"
+	} else { // Log command tags only for external applications
+		f = "[" + tag + "]" + "[" + cmdTag + "] " + format + "\n"
+	}
 	output := fmt.Sprintf(f, a...)
 
 	if level >= LevelVerbose {

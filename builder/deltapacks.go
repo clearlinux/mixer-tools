@@ -84,7 +84,7 @@ func createDeltaPacks(fromMoM *swupd.Manifest, toMoM *swupd.Manifest, printRepor
 
 				if len(info.Warnings) > 0 {
 					for _, w := range info.Warnings {
-						log.Warning(log.Mixer, "    Bundle %s: %s", b.Name, w)
+						log.Warning(log.Mixer, "Bundle %s: %s", b.Name, w)
 					}
 				}
 				report := fmt.Sprintf("  Finished delta pack for bundle %q from %d to %d\n", b.Name, b.FromVersion, b.ToVersion)

@@ -272,17 +272,17 @@ func createDelta(c *config, oldPath, newPath string, delta *Delta) error {
 	if deltaTooLarge(c, delta, newPath) {
 		_ = os.Remove(delta.Path)
 		errStr := fmt.Sprintf("Delta file larger than compressed full file %s (%d-%s) -> %s", delta.to.Name, delta.to.Version, delta.to.Hash, newPath)
-		log.Debug(log.BsDiff, "LARGER-DELTA: "+errStr)
+		log.Debug(log.BsDiff, errStr)
 		return errors.New(errStr)
 	}
 
 	// Check that the delta actually applies correctly.
 	testPath := delta.Path + ".testnewfile"
 	if err := helpers.RunCommandSilent(log.BsDiff, "bspatch", oldPath, testPath, delta.Path); err != nil {
-		log.Debug(log.BsDiff, err.Error())
-		errStr := fmt.Sprintf("Failed to apply delta %s", delta.Path)
-		log.Debug(log.BsDiff, "BSPATCH: "+errStr)
-		return errors.Wrapf(err, errStr)
+		_ = os.Remove(delta.Path)
+		err = errors.Wrapf(err, "Failed to apply delta %s", delta.Path)
+		log.Debug(log.BsPatch, err.Error())
+		return err
 	}
 	defer func() {
 		_ = os.Remove(testPath)

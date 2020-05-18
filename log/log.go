@@ -37,6 +37,7 @@ const (
 	Rpm2Archive = "RPM2ARCHIVE"
 	Tar         = "TAR"
 	BsDiff      = "BSDIFF"
+	BsPatch     = "BSPATCH"
 	Mca         = "MCA"
 	Ssl         = "SSL"
 	Git         = "GIT"

@@ -159,7 +159,7 @@ var buildUpstreamFormatCmd = &cobra.Command{
 	Use:    "upstream-format",
 	Short:  "Use to create the necessary builds to cross an upstream format",
 	Long:   `Use to create the necessary builds to cross an upstream format`,
-	Hidden: true,
+	Hidden: false,
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		if err := checkRoot(); err != nil {

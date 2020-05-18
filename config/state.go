@@ -135,8 +135,9 @@ func (state *MixState) Load(config MixConfig) error {
 	f, err := os.Open(state.filename)
 	if err != nil {
 		// If state does not exists, create a default state
-		log.Warning(log.Mixer, "Using FORMAT value from "+state.formatSource)
-		log.Warning(log.Mixer, "Using PREVIOUS_MIX_VERSION default value")
+		log.Warning(log.Mixer, "Mixer state does not exist; setting default state")
+		log.Debug(log.Mixer, "Default FORMAT: "+state.Mix.Format)
+		log.Debug(log.Mixer, "Default PREVIOUS_MIX_VERSION: "+state.Mix.PreviousMixVer)
 		return state.Save()
 	}
 	defer func() {

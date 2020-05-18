@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run linter and unit tests
         uses: ./
         with:
@@ -24,7 +24,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -38,7 +38,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -52,7 +52,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -66,7 +66,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -80,7 +80,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -94,7 +94,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -108,7 +108,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -122,7 +122,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -136,7 +136,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -150,7 +150,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -164,7 +164,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -178,7 +178,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -192,7 +192,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -206,7 +206,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -220,7 +220,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -234,7 +234,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -248,7 +248,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -262,7 +262,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -276,7 +276,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -290,7 +290,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -304,7 +304,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -318,7 +318,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -332,7 +332,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v2.1.0
       - name: Run bat test
         uses: ./
         env: 
@@ -346,7 +346,7 @@ jobs:
 #    timeout-minutes: 30
 #    steps:
 #      - name: Checkout
-#        uses: actions/checkout@v2
+#        uses: actions/checkout@v2.1.0
 #      - name: Run bat test
 #        uses: ./
 #        env:

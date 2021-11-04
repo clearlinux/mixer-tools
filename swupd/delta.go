@@ -21,6 +21,7 @@ import (
 	"path/filepath"
 	"sync"
 	"syscall"
+	"strings"
 
 	"github.com/clearlinux/mixer-tools/helpers"
 	"github.com/clearlinux/mixer-tools/log"
@@ -338,6 +339,13 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 		path := filepath.Join(dir, name)
 
 		if seen[path] {
+			continue
+		}
+
+		if strings.Contains(to.Name, "/usr/bin/") {
+			continue
+		}
+		if strings.Contains(to.Name, "/usr/lib64/") {
 			continue
 		}
 

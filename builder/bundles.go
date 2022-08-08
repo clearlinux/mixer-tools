@@ -837,22 +837,6 @@ func buildFullChroot(b *Builder, set *bundleSet, packagerCmd []string, buildVers
 	return installSpecialFilesToFull(b, packagerCmd, set, fullDir, version)
 }
 
-func getBundlePkgNames(b *bundle) []string {
-	keys := make([]string, len(b.AllRpms))
-	i := 0
-	for _, pkgInfo := range b.AllRpms {
-		keys[i] = pkgInfo.name
-		i++
-	}
-	return keys
-}
-
-func getBundlePkgNamesSorted(b *bundle) []string {
-	keys := getBundlePkgNames(b)
-	sort.Strings(keys)
-	return keys
-}
-
 // installSpecialFilesToFull installs the bundle tracking files and installs special case files for the
 // os-core and update bundles.
 func installSpecialFilesToFull(b *Builder, packagerCmd []string, set *bundleSet, fullDir, version string) error {
@@ -862,8 +846,7 @@ func installSpecialFilesToFull(b *Builder, packagerCmd []string, set *bundleSet,
 		return err
 	}
 	for _, bundle := range *set {
-		data := []byte(strings.Join(getBundlePkgNamesSorted(bundle), "\n") + "\n")
-		if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), data, 0644); err != nil {
+		if err := ioutil.WriteFile(filepath.Join(bundleDir, bundle.Name), nil, 0644); err != nil {
 			return err
 		}
 	}

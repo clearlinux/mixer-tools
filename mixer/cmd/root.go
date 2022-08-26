@@ -49,6 +49,15 @@ var RootCmd = &cobra.Command{
 			}
 		}
 
+		// When the logFile flag is not specified, try to initialize it
+		// from the config when available.
+		if rootCmdFlags.logFile == "" {
+			b, err := builder.NewFromConfig(configFile)
+			if err == nil {
+				rootCmdFlags.logFile = b.Config.Mixer.LogFilePath
+			}
+		}
+
 		if rootCmdFlags.logFile != "" {
 			// Configure logger
 			_, err := log.SetOutputFilename(rootCmdFlags.logFile)
@@ -109,15 +118,9 @@ func Execute() {
 }
 
 func init() {
-	defaultFile := ""
-	b, err := builder.NewFromConfig(configFile)
-	if err == nil {
-		defaultFile = b.Config.Mixer.LogFilePath
-	}
-
 	RootCmd.PersistentFlags().StringVar(&rootCmdFlags.cpuProfile, "cpu-profile", "", "write CPU profile to a file")
 	_ = RootCmd.PersistentFlags().MarkHidden("cpu-profile")
-	RootCmd.PersistentFlags().StringVar(&rootCmdFlags.logFile, "log", defaultFile, "Write logs to a file")
+	RootCmd.PersistentFlags().StringVar(&rootCmdFlags.logFile, "log", "", "Write logs to a file")
 	RootCmd.PersistentFlags().IntVar(&rootCmdFlags.logLevel, "log-level", 4, "Set the log level between 1-5")
 	// TODO: Remove this once we migrate to new implementation.
 	unusedBoolFlag := false

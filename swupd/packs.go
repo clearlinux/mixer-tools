@@ -296,7 +296,7 @@ func copyFromDelta(tw *tar.Writer, delta *Delta) (fallback bool, err error) {
 	f, err := os.Open(delta.Path)
 	if os.IsNotExist(err) {
 		log.Debug(log.Mixer, err.Error())
-		return true, nil
+		return true, err
 	} else if err != nil {
 		return true, err
 	}

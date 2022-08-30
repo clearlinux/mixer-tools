@@ -220,6 +220,10 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 			// fallback to use the fullfile later.
 			if fallback {
 				info.Warnings = append(info.Warnings, err.Error())
+				// if the hash has not changed, it's a rename and those don't need to be in the pack
+				if d.to.Hash == d.from.Hash {
+					hasDelta[d.to.Hash] = d
+				}
 				continue
 			}
 			return nil, err

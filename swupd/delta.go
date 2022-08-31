@@ -341,6 +341,11 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 			continue
 		}
 
+		// If from/to hashes are equal, this a pure rename case, so skip delta creation
+		if from.Hash == to.Hash {
+			continue
+		}
+
 		seen[path] = true
 		deltas = append(deltas, Delta{
 			Path: path,

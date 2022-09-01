@@ -334,7 +334,7 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 		from := nf.DeltaPeer
 		to := nf
 		dir := filepath.Join(c.outputDir, fmt.Sprint(to.Version), "delta")
-		name := fmt.Sprintf("%d-%d-%s-%s", from.Version, to.Version, from.Hash, to.Hash)
+		name := fmt.Sprintf("%d-%d-%s-%s", 10, 20, from.Hash, to.Hash)
 		path := filepath.Join(dir, name)
 
 		if seen[path] {

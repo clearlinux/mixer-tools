@@ -656,7 +656,7 @@ func TestPackRenames(t *testing.T) {
 	// Pack from 20->30 will contain a delta due to content change (and rename).
 	info = ts.createPack("os-core", 20, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 1)
-	checkFileInPack(t, ts.path("www/30/pack-os-core-from-20.tar"), fmt.Sprintf("delta/20-30-%s-%s", hashIn20, hashIn30))
+	checkFileInPack(t, ts.path("www/30/pack-os-core-from-20.tar"), fmt.Sprintf("delta/10-20-%s-%s", hashIn20, hashIn30))
 
 	// Pack from 10->30 will contain a delta due to content change (and rename).
 	info = ts.createPack("os-core", 10, 30, ts.path("image"))

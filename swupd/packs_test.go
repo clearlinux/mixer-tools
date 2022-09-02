@@ -304,19 +304,19 @@ func TestCreatePackNonConsecutiveDeltas(t *testing.T) {
 	info = ts.createPack("contents", 20, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 3)
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
-		fmt.Sprintf("delta/20-30-%s-%s", hashA1, hashA))
+		fmt.Sprintf("delta/10-20-%s-%s", hashA1, hashA))
 	// note that the from version is 10 since the B file did not change in 20
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
-		fmt.Sprintf("delta/10-30-%s-%s", hashB, hashB1))
+		fmt.Sprintf("delta/10-20-%s-%s", hashB, hashB1))
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-20.tar"),
-		fmt.Sprintf("delta/20-30-%s-%s", hashC1, hashC2))
+		fmt.Sprintf("delta/10-20-%s-%s", hashC1, hashC2))
 
 	info = ts.createPack("contents", 10, 30, ts.path("image"))
 	mustHaveDeltaCount(t, info, 2)
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-10.tar"),
-		fmt.Sprintf("delta/10-30-%s-%s", hashB, hashB1))
+		fmt.Sprintf("delta/10-20-%s-%s", hashB, hashB1))
 	checkFileInPack(t, ts.path("www/30/pack-contents-from-10.tar"),
-		fmt.Sprintf("delta/10-30-%s-%s", hashC, hashC2))
+		fmt.Sprintf("delta/10-20-%s-%s", hashC, hashC2))
 }
 
 func TestCreatePackWithDelta(t *testing.T) {

@@ -90,9 +90,41 @@ func renameDetection(manifest *Manifest, added []*File, removed []*File, c confi
 			rx++
 		}
 	}
+
+	//generate the pairs of *File and short name .. but now for hex renames
+	pahex := makePairedNamesHex(added)
+	prhex := makePairedNamesHex(removed)
+	// Merge where short names match
+	for ax, rx := 0, 0; ax < len(pa) && rx < len(pr); {
+		af := pahex[ax]
+		rf := prhex[rx]
+		switch {
+		case af.partialName < rf.partialName:
+			ax++
+		case af.partialName > rf.partialName:
+			rx++
+		default: // Equal truncated name
+			tryLinkRenamePair(af.f, rf.f)
+			ax++
+			rx++
+		}
+	}
 	return nil
 }
 
+// tryLinkRenamePair links two files together unless either is already linked
+func tryLinkRenamePair(renameTo, renameFrom *File) {
+	if renameTo.DeltaPeer != nil {
+		return
+	}
+	if renameFrom.DeltaPeer != nil {
+		 return
+	}
+	renameTo.DeltaPeer = renameFrom
+	renameFrom.DeltaPeer = renameTo
+	renameTo.Misc = MiscRename
+	renameFrom.Misc = MiscRename
+}
 // linkRenamePair links two files together
 func linkRenamePair(renameTo, renameFrom *File) {
 	renameTo.DeltaPeer = renameFrom
@@ -161,6 +193,18 @@ func stripVers(r rune) rune {
 	}
 	return r
 }
+func stripVersHex(r rune) rune {
+	// strings.Map removes negative values
+	switch {
+	case r >= '0' && r <= '9':
+		return -1
+	case r >= 'a' && r <= 'f':
+		return -1
+	case r == '.':
+		return -1
+	}
+	return r
+}
 
 // makePairedNames returns `a` sorted by name, disregarding digits.
 // The secondary sort key is the original name. This is mainly intended for
@@ -172,6 +216,27 @@ func makePairedNames(list []*File) []pairedNames {
 	for i, f := range list {
 		pairs[i].f = f
 		pairs[i].partialName = strings.Map(stripVers, f.Name)
+	}
+	sort.Slice(pairs, func(a, b int) bool {
+		if pairs[a].partialName == pairs[b].partialName { // Same stripped name, sort on original name
+			// mainly for python2.x vs 3.x
+			return pairs[a].f.Name < pairs[b].f.Name
+		}
+		return pairs[a].partialName < pairs[b].partialName
+	})
+	return pairs
+}
+
+// makePairedNamesHex returns `a` sorted by name, disregarding hex digits.
+// The secondary sort key is the original name. This is mainly intended for
+// cases like with python we have the same filename under both python3.6 and python2.7
+// it would look weird to rename the old python2.7/file1 to python3.6/file2 and at
+// the same time rename the old python3.6/file1 to python2.7/file2.
+func makePairedNamesHex(list []*File) []pairedNames {
+	pairs := make([]pairedNames, len(list))
+	for i, f := range list {
+		pairs[i].f = f
+		pairs[i].partialName = strings.Map(stripVersHex, f.Name)
 	}
 	sort.Slice(pairs, func(a, b int) bool {
 		if pairs[a].partialName == pairs[b].partialName { // Same stripped name, sort on original name

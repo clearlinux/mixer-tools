@@ -296,6 +296,72 @@ func ParseManifest(r io.Reader) (*Manifest, error) {
 	return m, nil
 }
 
+func (m *Manifest) removeOptNonFiles() {
+	seen := make(map[string]bool)
+	i := 0
+	for _, f := range m.Files {
+		if f.Type == TypeFile || !(strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4")) {
+			if f.Status == StatusDeleted {
+				if result := seen[f.Name]; result != false {
+					continue
+				}
+				seen[f.Name] = true
+			}
+			m.Files[i] = f
+			i++
+		}
+	}
+	for j := i; j < len(m.Files); j++ {
+		m.Files[j] = nil
+	}
+	m.Files = m.Files[:i]
+}
+
+func (m *Manifest) setupModifiers() error {
+	m.removeOptNonFiles()
+	allfiles := make(map[string][]*File)
+	optbin := make(map[string][]*File)
+	for _, f := range m.Files {
+		if f.Type != TypeFile {
+			continue
+		}
+		f.setModifierFromPathname()
+		allfiles[f.Name] = append(allfiles[f.Name], f)
+		if len(allfiles[f.Name]) > 1 || f.Modifier != SSE_0 {
+			optbin[f.Name] = allfiles[f.Name]
+		}
+	}
+
+	for k, v := range optbin {
+		var m uint64
+		ssebin := false
+		misc := MiscUnset
+		status := StatusUnset
+		for _, f := range v {
+			if f.Modifier == SSE_0 {
+				ssebin = true
+				misc = f.Misc
+				status = f.Status
+			}
+			m = m | modifierMasks[f.Modifier]
+		}
+		for _, f := range v {
+			if f.Modifier != SSE_0 {
+				f.Misc = misc
+				f.Status = status
+			}
+		}
+		if !ssebin {
+			return fmt.Errorf("%s missing non-SSE version of binary", k)
+		}
+		for _, f := range v {
+			f.setFullModifier(m)
+		}
+	}
+	m.sortFilesName()
+	return nil
+}
+
 // WriteManifest writes manifest to a given io.Writer.
 func (m *Manifest) WriteManifest(w io.Writer) error {
 	err := m.CheckHeaderIsValid()
@@ -303,6 +369,17 @@ func (m *Manifest) WriteManifest(w io.Writer) error {
 		return err
 	}
 	t := manifestTemplateForFormat(m.Header.Format)
+	// Last step before writing out the manifest
+	// the modifiers and files are finalized extremely late
+	// as the changes are cosmetic to the filename and are not
+	// to be used elsewhere.
+	// Some concern over comparing a chroot with paths that
+	// are different in the manifest file but otherwise this is
+	// low impact.
+	err = m.setupModifiers()
+	if err != nil {
+		return fmt.Errorf("Manifest.%s content error: %s", m.Name, err)
+	}
 	err = t.Execute(w, m)
 	if err != nil {
 		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)
@@ -463,7 +540,7 @@ func (m *Manifest) newDeleted(df *File) {
 	df.Version = m.Header.Version
 	df.Status = StatusDeleted
 	df.Type = TypeUnset
-	df.Modifier = ModifierUnset
+	df.Modifier = SSE_0
 	df.Hash = 0
 	// Add file to manifest
 	m.Files = append(m.Files, df)

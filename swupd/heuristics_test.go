@@ -4,148 +4,102 @@ import (
 	"testing"
 )
 
-func TestSetConfigFromPathname(t *testing.T) {
-	testCases := []struct {
-		file     File
-		expected ModifierFlag
-	}{
-		{File{Name: "/etc/something"}, ModifierConfig},
-		{File{Name: "/etc/a"}, ModifierConfig},
-		{File{Name: "/not/etc"}, ModifierUnset},
-		{File{Name: "/etc"}, ModifierUnset},
-		{File{Name: "/something/else/entirely"}, ModifierUnset},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.file.Name, func(t *testing.T) {
-			tc.file.setConfigFromPathname()
-			if tc.file.Modifier != tc.expected {
-				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.file.Name, tc.file.Modifier, tc.expected)
-			}
-		})
-	}
-}
-
-func TestSetStateFromPathname(t *testing.T) {
-	pathTestCases := []File{
-		{Name: "/usr/src/debug"},
-		{Name: "/dev"},
-		{Name: "/home"},
-		{Name: "/proc"},
-		{Name: "/root"},
-		{Name: "/run"},
-		{Name: "/sys"},
-		{Name: "/tmp"},
-		{Name: "/var"},
-	}
-
-	for _, tc := range pathTestCases {
-		t.Run(tc.Name, func(t *testing.T) {
-			// actual directories do not get their modifier set
-			tc.setStateFromPathname()
-			if tc.Modifier != ModifierUnset {
-				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.Name, tc.Modifier, ModifierUnset)
-			}
-
-			// now check children of the directory
-			tc.Name = tc.Name + "/a"
-			tc.setStateFromPathname()
-			if tc.Modifier != ModifierState {
-				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.Name, tc.Modifier, ModifierState)
-			}
-		})
-	}
-
-	allTestCases := []struct {
-		file     File
-		expected ModifierFlag
-	}{
-		{File{Name: "/lost+found/a"}, ModifierState},
-		{File{Name: "/a"}, ModifierUnset},
-		{File{Name: "/other"}, ModifierUnset},
-		{File{Name: "/usr/src/foo"}, ModifierState},
-	}
-
-	for _, tc := range allTestCases {
-		t.Run(tc.file.Name, func(t *testing.T) {
-			tc.file.setStateFromPathname()
-			if tc.file.Modifier != tc.expected {
-				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.file.Name, tc.file.Modifier, tc.expected)
-			}
-		})
-	}
-}
-
-func TestSetBootFromPathname(t *testing.T) {
-	testCases := []struct {
-		file     File
-		expected ModifierFlag
-	}{
-		{File{Name: "/boot/EFI"}, ModifierBoot},
-		{File{Name: "/usr/lib/modules/module"}, ModifierBoot},
-		{File{Name: "/usr/lib/kernel/file"}, ModifierBoot},
-		{File{Name: "/usr/kernel/bar"}, ModifierUnset},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.file.Name, func(t *testing.T) {
-			tc.file.setBootFromPathname()
-			if tc.file.Modifier != tc.expected {
-				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.file.Name, tc.file.Modifier, tc.expected)
-			}
-		})
-	}
-}
-
 func TestSetModifierFromPathname(t *testing.T) {
 	testCases := []struct {
 		file     File
-		expected ModifierFlag
+		newName string
+		newFlag ModifierFlag
 	}{
-		{File{Name: "/etc/file"}, ModifierConfig},
-		{File{Name: "/usr/src/debug"}, ModifierUnset},
-		{File{Name: "/dev/foo"}, ModifierState},
-		{File{Name: "/usr/src/file"}, ModifierState},
-		{File{Name: "/boot/EFI"}, ModifierBoot},
-		{File{Name: "/randomfile"}, ModifierUnset},
+		{File{Name: "/V3/etc/file"}, "/etc/file", AVX2_1},
+		{File{Name: "/V4/usr/src/debug"}, "/usr/src/debug", AVX512_2},
+		{File{Name: "/dev/foo"}, "/dev/foo", SSE_0},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.file.Name, func(t *testing.T) {
 			tc.file.setModifierFromPathname()
+			if tc.file.Name != tc.newName || tc.file.Modifier != tc.newFlag {
+				t.Errorf("file %v (%v) modifier %v (%v) did not match expected (value in parens)",
+					tc.file.Name, tc.newName, tc.file.Modifier, tc.newFlag)
+			}
+		})
+	}
+}
+
+func TestSetFullModifier(t *testing.T) {
+	testCases := []struct {
+		file     File
+		bits     uint64
+		expected ModifierFlag
+	}{
+		{File{Name: "/bin/file00", Modifier: SSE_0}, 0, SSE_0},
+		{File{Name: "/bin/file01", Modifier: SSE_0}, 1, SSE_1},
+		{File{Name: "/bin/file02", Modifier: SSE_0}, 2, SSE_2},
+		{File{Name: "/bin/file03", Modifier: SSE_0}, 3, SSE_3},
+		{File{Name: "/bin/file04", Modifier: AVX2_1}, 1, AVX2_1},
+		{File{Name: "/bin/file05", Modifier: AVX2_1}, 3, AVX2_3},
+		{File{Name: "/bin/file06", Modifier: AVX512_2}, 2, AVX512_2},
+		{File{Name: "/bin/file07", Modifier: AVX512_2}, 3, AVX512_3},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.file.Name, func(t *testing.T) {
+			tc.file.setFullModifier(tc.bits)
 			if tc.file.Modifier != tc.expected {
-				t.Errorf("file %v modifier %v did not match expected %v",
-					tc.file.Name, tc.file.Modifier, tc.expected)
+				t.Errorf("file %v modifier %v with bits %v did not match expected %v",
+					tc.file.Name, tc.file.Modifier, tc.bits, tc.expected)
+			}
+		})
+	}
+}
+
+func TestSetGhostedFromPathname(t *testing.T) {
+	testCases := []struct {
+		file     File
+		expected StatusFlag
+	}{
+		{File{Name: "/boot/file", Status: StatusDeleted}, StatusGhosted},
+		{File{Name: "/boot/file2", Status: StatusUnset}, StatusUnset},
+		{File{Name: "/usr/lib/modules/foo", Status: StatusDeleted}, StatusGhosted},
+		{File{Name: "/usr/lib/kernel/foo", Status: StatusDeleted}, StatusGhosted},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.file.Name, func(t *testing.T) {
+			tc.file.setGhostedFromPathname()
+			if tc.file.Status != tc.expected {
+				t.Errorf("file %v status %v did not match expected %v",
+					tc.file.Name, tc.file.Status, tc.expected)
 			}
 		})
 	}
 }
 
 func TestApplyHeuristics(t *testing.T) {
-	testCases := map[string]ModifierFlag{
-		"/etc/file":      ModifierConfig,
-		"/usr/src/debug": ModifierUnset,
-		"/dev/foo":       ModifierState,
-		"/usr/src/file":  ModifierState,
-		"/boot/EFI":      ModifierBoot,
-		"/randomfile":    ModifierUnset,
+	testCases := []struct {
+		file     File
+		expected StatusFlag
+	}{
+		{File{Name: "/boot/file", Status: StatusDeleted}, StatusGhosted},
+		{File{Name: "/boot/file2", Status: StatusUnset}, StatusUnset},
+		{File{Name: "/usr/lib/modules/foo", Status: StatusDeleted}, StatusGhosted},
+		{File{Name: "/usr/lib/kernel/foo", Status: StatusDeleted}, StatusGhosted},
+	}
+	testCaseMap := make(map[string]struct{file File; expected StatusFlag})
+	for _, tc := range testCases {
+		testCaseMap[tc.file.Name] = tc
 	}
 
 	m := Manifest{}
-	for key := range testCases {
-		m.Files = append(m.Files, &File{Name: key})
+	for _, val := range testCaseMap {
+		m.Files = append(m.Files, &val.file)
 	}
 
 	m.applyHeuristics()
 	for _, f := range m.Files {
-		if f.Modifier != testCases[f.Name] {
-			t.Errorf("file %v modifier %v did not match expected %v",
-				f.Name, f.Modifier, testCases[f.Name])
+		if f.Status != testCaseMap[f.Name].expected {
+			t.Errorf("file %v status %v did not match expected %v",
+				f.Name, f.Status, testCaseMap[f.Name].expected)
 		}
 	}
 }

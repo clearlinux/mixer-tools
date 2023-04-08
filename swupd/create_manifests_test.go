@@ -137,11 +137,6 @@ func TestCreateManifestGhosted(t *testing.T) {
 	ts.addFile(10, "test-bundle", "/usr/lib/kernel/bar", "bar")
 	ts.createManifests(10)
 
-	f := fileInManifest(t, ts.parseManifest(10, "full"), 10, "/usr/lib/kernel/bar")
-	if f.Modifier != ModifierBoot {
-		t.Errorf("%s not marked as boot", f.Name)
-	}
-
 	ts.addFile(20, "test-bundle", "/usr/lib/kernel/baz", "baz")
 	ts.createManifests(20)
 
@@ -150,15 +145,9 @@ func TestCreateManifestGhosted(t *testing.T) {
 	if f1.Status != StatusGhosted {
 		t.Errorf("%s present in 20 full but expected to be ghosted", f1.Name)
 	}
-	if f1.Modifier != ModifierBoot {
-		t.Errorf("%s not marked as boot", f1.Name)
-	}
 	f2 := fileInManifest(t, m20, 20, "/usr/lib/kernel/baz")
 	if f2.Status != StatusUnset {
 		t.Errorf("%s not present in 20 full but expected to be", f2.Name)
-	}
-	if f2.Modifier != ModifierBoot {
-		t.Errorf("%s not marked as boot", f2.Name)
 	}
 
 	ts.createManifests(30)
@@ -200,20 +189,6 @@ func TestCreateManifestDeletes(t *testing.T) {
 
 	deletedLine := ".d..\t" + AllZeroHash + "\t20\t/test"
 	checkManifestContains(t, ts.Dir, "20", "test-bundle", deletedLine)
-}
-
-func TestCreateManifestsState(t *testing.T) {
-	ts := newTestSwupd(t, "state")
-	defer ts.cleanup()
-	ts.addDir(10, "os-core", "/var/lib")
-	ts.addFile(10, "os-core", "/var/lib/test", "test")
-	ts.createManifests(10)
-
-	res := []*regexp.Regexp{
-		regexp.MustCompile("D\\.s\\.\t.*\t10\t/var/lib\n"),
-		regexp.MustCompile("F\\.s\\.\t.*\t10\t/var/lib/test\n"),
-	}
-	checkManifestMatches(t, ts.Dir, "10", "os-core", res...)
 }
 
 func TestCreateManifestsEmptyDir(t *testing.T) {

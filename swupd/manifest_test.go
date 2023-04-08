@@ -169,9 +169,9 @@ func TestReadManifestHeaderOptional(t *testing.T) {
 func TestReadManifestFileEntry(t *testing.T) {
 	validHash := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	validManifestLines := [][]string{
-		{"Fdbr", validHash, "10", "/usr/testfile"},
-		{"FgCr", validHash, "100", "/usr/bin/test"},
-		{"Ddsr", validHash, "99990", "/"},
+		{"Fdar", validHash, "10", "/usr/testfile"},
+		{"Fgcr", validHash, "100", "/usr/bin/test"},
+		{"Dddr", validHash, "99990", "/"},
 	}
 
 	t.Run("valid", func(t *testing.T) {
@@ -191,9 +191,8 @@ func TestReadManifestFileEntry(t *testing.T) {
 
 	invalidHash := "1234567890abcdef1234567890"
 	invalidManifestLines := [][]string{
-		{"..i.", validHash, "10", "/usr/testfile"},
 		{"...", validHash, "10", "/usr/testfile"},
-		{"FgCr", invalidHash, "100", "/usr/bin/test"},
+		{"Fg.r", invalidHash, "100", "/usr/bin/test"},
 		{"Ddsr", validHash, "i", "/"},
 	}
 
@@ -201,7 +200,7 @@ func TestReadManifestFileEntry(t *testing.T) {
 		t.Run("valid", func(t *testing.T) {
 			m := Manifest{}
 			if err := readManifestFileEntry(line, &m); err == nil {
-				t.Error("readManifestFileEntry did not fail with invalid input")
+				t.Errorf("readManifestFileEntry did not fail with invalid input (%v)", line)
 			}
 		})
 	}
@@ -328,6 +327,109 @@ func TestWriteManifestFile(t *testing.T) {
 		fmt.Println("FILE PERMISSIONS")
 		fmt.Printf("read: %v\n", info1.Mode())
 		fmt.Printf("gend: %v\n", info2.Mode())
+	}
+}
+
+func TestRemoveOptNonFiles(t *testing.T) {
+	testCases := []File {
+		{Name: "/V3/", Type: TypeLink},
+		{Name: "/V4", Type: TypeDirectory},
+		{Name: "/usr/bin/foo", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/usr/bin/foo", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V3/usr/bin/file00", Type: TypeFile},
+		{Name: "/V4/usr/bin/file01", Type: TypeFile},
+		{Name: "/usr/bin/", Type: TypeDirectory},
+	}
+
+	m := Manifest{}
+	for i := range testCases {
+		m.Files = append(m.Files, &testCases[i])
+	}
+	m.removeOptNonFiles()
+	if len(m.Files) != 4 {
+		t.Fatalf("Manifest files incorrectly pruned")
+	}
+	for i := range m.Files {
+		if m.Files[i].Name != testCases[i+3].Name {
+			t.Errorf("Manifest file incorrectly pruned, expected: %v | actual: %v",
+				testCases[i+2].Name, m.Files[i].Name)
+		}
+	}
+}
+
+func TestSetupModifiers(t *testing.T) {
+	testCases := []struct {
+		file File
+		expectedName string
+		expectedModifier ModifierFlag
+		expectedMisc MiscFlag
+		expectedStatus StatusFlag
+		used bool
+		skipped bool
+	}{
+		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", SSE_0, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX2_1, MiscUnset, StatusUnset, false, true},
+		{File{Name: "/V4/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX512_2, MiscUnset, StatusUnset, false, true},
+		{File{Name: "/usr/bin/file00", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file00", SSE_0, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/usr/bin/file01", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file01", SSE_1, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/usr/bin/file02", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file02", SSE_2, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/usr/bin/file03", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file03", SSE_3, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/V3/usr/bin/file01", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file01", AVX2_1, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/V3/usr/bin/file03", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file03", AVX2_3, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file02", AVX512_2, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file03", AVX512_3, MiscExportFile, StatusExperimental, false, false},
+	}
+	testCaseMap := make(map[string][]struct{file File; expectedName string; expectedModifier ModifierFlag; expectedMisc MiscFlag; expectedStatus StatusFlag; used bool; skipped bool})
+	for _, tc := range testCases {
+		testCaseMap[tc.expectedName] = append(testCaseMap[tc.expectedName], tc)
+	}
+
+	m := Manifest{}
+	for i := range testCases {
+		m.Files = append(m.Files, &testCases[i].file)
+	}
+	m.setupModifiers()
+
+	for _, f := range m.Files {
+		var tcs []struct{file File; expectedName string; expectedModifier ModifierFlag; expectedMisc MiscFlag; expectedStatus StatusFlag; used bool; skipped bool}
+		var errb bool
+		if tcs, errb = testCaseMap[f.Name]; errb == false {
+			t.Errorf("Error fixing up filenames for %v", f.Name)
+		}
+		found := false
+		for i := range tcs {
+			if f.Modifier == tcs[i].expectedModifier && f.Misc == tcs[i].expectedMisc && f.Status == tcs[i].expectedStatus{
+				found = true
+				tcs[i].used = true
+			}
+		}
+
+		if found == false {
+			t.Errorf("%v missing matching modifier flag %v",
+				f.Name, f.Modifier)
+		}
+	}
+	for _, tcs := range testCaseMap {
+		for i := range tcs {
+			if (tcs[i].used && tcs[i].skipped) || (!tcs[i].used && !tcs[i].skipped) {
+				t.Errorf("%v test item not used correctly in manifest", tcs[i])
+			}
+		}
+	}
+}
+
+func TestSetupModifiersMissingSSE(t *testing.T) {
+	testCases := []File {
+		{Name: "/V3/usr/bin/file00", Type: TypeFile, Modifier: AVX2_1},
+		{Name: "/V4/usr/bin/file01", Type: TypeFile, Modifier: AVX512_2},
+	}
+
+	for i := range testCases {
+		m := Manifest{}
+		m.Files = append(m.Files, &testCases[i])
+		if err := m.setupModifiers(); err == nil {
+			t.Errorf("Missing SSE file for %v not detected", testCases[i].Name)
+		}
 	}
 }
 

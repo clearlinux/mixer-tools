@@ -68,18 +68,183 @@ var statusBytes = map[StatusFlag]byte{
 type ModifierFlag uint8
 
 // Valid values for ModifierFlag.
+// Variable name style is optname_bitflagvalue.
+// This is append only, so when new bitflagvalues are added, make new combinations
+// from the bottom of the current list.
 const (
-	ModifierUnset ModifierFlag = iota
-	ModifierConfig
-	ModifierState
-	ModifierBoot
+	SSE_0 ModifierFlag = iota
+	SSE_1
+	SSE_2
+	SSE_3
+	AVX2_1
+	AVX2_3
+	AVX512_2
+	AVX512_3
 )
 
+// The three maps below were generated using the following:
+// a := ".acdefghijklmnopqrtuvwxyzABDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#^*"
+
+// fmt.Println("var modifierBytes = map[ModifierFlag]byte{")
+// for i, c := range a {
+// 	fmt.Printf("\t%d: '%c',\n", i, c)
+// }
+// fmt.Println("}\n")
+// fmt.Println("var byteModifiers = map[byte]ModifierFlag{")
+// for i, c := range a {
+// 	fmt.Printf("\t'%c': %d,\n", c, i)
+// }
+// fmt.Println("\t'b': 0,")
+// fmt.Println("\t's': 0,")
+// fmt.Println("\t'C': 0,")
+// fmt.Println("}\n")
+
+// fmt.Println("var modifierMasks = map[ModifierFlag]uint64{")
+// fmt.Println("\tSSE: 0,")
+// fmt.Println("\tAVX2: 1,")
+// fmt.Println("\tAVX512: 3,")
+// fmt.Println("}")
 var modifierBytes = map[ModifierFlag]byte{
-	ModifierUnset:  '.',
-	ModifierConfig: 'C',
-	ModifierState:  's',
-	ModifierBoot:   'b',
+	0: '.',
+	1: 'a',
+	2: 'c',
+	3: 'd',
+	4: 'e',
+	5: 'f',
+	6: 'g',
+	7: 'h',
+	8: 'i',
+	9: 'j',
+	10: 'k',
+	11: 'l',
+	12: 'm',
+	13: 'n',
+	14: 'o',
+	15: 'p',
+	16: 'q',
+	17: 'r',
+	18: 't',
+	19: 'u',
+	20: 'v',
+	21: 'w',
+	22: 'x',
+	23: 'y',
+	24: 'z',
+	25: 'A',
+	26: 'B',
+	27: 'D',
+	28: 'E',
+	29: 'F',
+	30: 'G',
+	31: 'H',
+	32: 'I',
+	33: 'J',
+	34: 'K',
+	35: 'L',
+	36: 'M',
+	37: 'N',
+	38: 'O',
+	39: 'P',
+	40: 'Q',
+	41: 'R',
+	42: 'S',
+	43: 'T',
+	44: 'U',
+	45: 'V',
+	46: 'W',
+	47: 'X',
+	48: 'Y',
+	49: 'Z',
+	50: '0',
+	51: '1',
+	52: '2',
+	53: '3',
+	54: '4',
+	55: '5',
+	56: '6',
+	57: '7',
+	58: '8',
+	59: '9',
+	60: '!',
+	61: '#',
+	62: '^',
+	63: '*',
+}
+
+var byteModifiers = map[byte]ModifierFlag{
+	'.': 0,
+	'a': 1,
+	'c': 2,
+	'd': 3,
+	'e': 4,
+	'f': 5,
+	'g': 6,
+	'h': 7,
+	'i': 8,
+	'j': 9,
+	'k': 10,
+	'l': 11,
+	'm': 12,
+	'n': 13,
+	'o': 14,
+	'p': 15,
+	'q': 16,
+	'r': 17,
+	't': 18,
+	'u': 19,
+	'v': 20,
+	'w': 21,
+	'x': 22,
+	'y': 23,
+	'z': 24,
+	'A': 25,
+	'B': 26,
+	'D': 27,
+	'E': 28,
+	'F': 29,
+	'G': 30,
+	'H': 31,
+	'I': 32,
+	'J': 33,
+	'K': 34,
+	'L': 35,
+	'M': 36,
+	'N': 37,
+	'O': 38,
+	'P': 39,
+	'Q': 40,
+	'R': 41,
+	'S': 42,
+	'T': 43,
+	'U': 44,
+	'V': 45,
+	'W': 46,
+	'X': 47,
+	'Y': 48,
+	'Z': 49,
+	'0': 50,
+	'1': 51,
+	'2': 52,
+	'3': 53,
+	'4': 54,
+	'5': 55,
+	'6': 56,
+	'7': 57,
+	'8': 58,
+	'9': 59,
+	'!': 60,
+	'#': 61,
+	'^': 62,
+	'*': 63,
+	'b': 0,
+	's': 0,
+	'C': 0,
+}
+
+var modifierMasks = map[ModifierFlag]uint64{
+	SSE_0: 0,
+	AVX2_1: 1<<0,
+	AVX512_2: 1<<1,
 }
 
 // MiscFlag is a placeholder for additional flags that can be used by swupd-client.
@@ -177,22 +342,6 @@ func (s StatusFlag) String() string {
 	return "?"
 }
 
-// modifierFromFlag return modifier from flag byte
-func modifierFromFlag(flag byte) (ModifierFlag, error) {
-	switch flag {
-	case 'C':
-		return ModifierConfig, nil
-	case 's':
-		return ModifierState, nil
-	case 'b':
-		return ModifierBoot, nil
-	case '.':
-		return ModifierUnset, nil
-	default:
-		return ModifierUnset, fmt.Errorf("invalid file modifier flag: %v", flag)
-	}
-}
-
 // miscFromFlag return misc flag from flag byte
 func miscFromFlag(flag byte) (MiscFlag, error) {
 	switch flag {
@@ -216,6 +365,7 @@ func (f *File) setFlags(flags string) error {
 	}
 
 	var err error
+	var errb bool
 	// set file type
 	if f.Type, err = typeFromFlag(flags[0]); err != nil {
 		return err
@@ -225,8 +375,8 @@ func (f *File) setFlags(flags string) error {
 		return err
 	}
 	// set modifier
-	if f.Modifier, err = modifierFromFlag(flags[2]); err != nil {
-		return err
+	if f.Modifier, errb = byteModifiers[flags[2]]; errb == false {
+		return fmt.Errorf("Invalid file modifier flag: %v", flags[2])
 	}
 	// set misc
 	if f.Misc, err = miscFromFlag(flags[3]); err != nil {
@@ -239,8 +389,7 @@ func (f *File) setFlags(flags string) error {
 // GetFlagString returns the flags in a format suitable for the Manifest
 func (f *File) GetFlagString() (string, error) {
 	if f.Type == TypeUnset &&
-		f.Status == StatusUnset &&
-		f.Modifier == ModifierUnset {
+		f.Status == StatusUnset {
 		return "", fmt.Errorf("no flags are set on file %s", f.Name)
 	}
 

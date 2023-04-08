@@ -16,72 +16,59 @@ package swupd
 
 import "strings"
 
-func (f *File) setConfigFromPathname() {
-	// TODO: make this list configurable
-	configPaths := []string{
-		"/etc/",
+func (f *File) setModifierFromPathname() {
+	temp := strings.TrimPrefix(f.Name, "/V4")
+	if temp != f.Name {
+		f.Modifier = AVX512_2
+		f.Name = temp
+		return
 	}
+	temp = strings.TrimPrefix(f.Name, "/V3")
+	if temp != f.Name {
+		f.Modifier = AVX2_1
+		f.Name = temp
+		return
+	}
+}
 
-	for _, path := range configPaths {
-		if strings.HasPrefix(f.Name, path) {
-			f.Modifier = ModifierConfig
-			return
+func (f *File) setFullModifier(bits uint64) {
+	switch f.Modifier {
+	case SSE_0:
+		switch bits {
+		case 0:
+			f.Modifier = SSE_0
+		case 1:
+			f.Modifier = SSE_1
+		case 2:
+			f.Modifier = SSE_2
+		case 3:
+			f.Modifier = SSE_3
+		}
+	case AVX2_1:
+		switch bits {
+		case 1:
+			f.Modifier = AVX2_1
+		case 3:
+			f.Modifier = AVX2_3
+		}
+	case AVX512_2:
+		switch bits {
+		case 2:
+			f.Modifier = AVX512_2
+		case 3:
+			f.Modifier = AVX512_3
 		}
 	}
 }
 
-func (f *File) setStateFromPathname() {
-	// TODO: make this list configurable
-	statePaths := []string{
-		"/usr/src/debug",
-		"/dev",
-		"/home",
-		"/proc",
-		"/root",
-		"/run",
-		"/sys",
-		"/tmp",
-		"/var",
-	}
-
-	for _, path := range statePaths {
-		// if no trailing / these are state directories that are actually shipped
-		// otherwise this is a non-shipped state file and the modifier should be
-		// set to state
-		if f.Name == path {
-			return
-		} else if strings.HasPrefix(f.Name, path+"/") {
-			f.Modifier = ModifierState
-			return
-		}
-	}
-
-	// TODO: make this list configurable
-	// these are paths that are not shipped directories
-	stateDirs := []string{
-		"/usr/src/",
-		"/lost+found",
-	}
-
-	for _, path := range stateDirs {
-		if strings.HasPrefix(f.Name, path) {
-			f.Modifier = ModifierState
-			return
-		}
-	}
-}
-
-func (f *File) setBootFromPathname() {
-	// TODO: make this list configurable
+func (f *File) setGhostedFromPathname() {
 	bootPaths := []string{
 		"/boot/",
 		"/usr/lib/modules/",
 		"/usr/lib/kernel/",
 	}
-
 	for _, path := range bootPaths {
 		if strings.HasPrefix(f.Name, path) {
-			f.Modifier = ModifierBoot
 			if f.Status == StatusDeleted {
 				f.Status = StatusGhosted
 			}
@@ -90,16 +77,8 @@ func (f *File) setBootFromPathname() {
 	}
 }
 
-func (f *File) setModifierFromPathname() {
-	// order here matters, first check for config, then state, finally boot
-	// more important modifiers must happen last to overwrite earlier ones
-	f.setConfigFromPathname()
-	f.setStateFromPathname()
-	f.setBootFromPathname()
-}
-
 func (m *Manifest) applyHeuristics() {
 	for _, f := range m.Files {
-		f.setModifierFromPathname()
+		f.setGhostedFromPathname()
 	}
 }

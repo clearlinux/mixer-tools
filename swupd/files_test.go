@@ -85,17 +85,77 @@ func TestModifierFromFlag(t *testing.T) {
 		flag     byte
 		expected ModifierFlag
 	}{
-		{'C', ModifierConfig},
-		{'s', ModifierState},
-		{'b', ModifierBoot},
-		{'.', ModifierUnset},
+		{'.', 0},
+		{'a', 1},
+		{'c', 2},
+		{'d', 3},
+		{'e', 4},
+		{'f', 5},
+		{'g', 6},
+		{'h', 7},
+		{'i', 8},
+		{'j', 9},
+		{'k', 10},
+		{'l', 11},
+		{'m', 12},
+		{'n', 13},
+		{'o', 14},
+		{'p', 15},
+		{'q', 16},
+		{'r', 17},
+		{'t', 18},
+		{'u', 19},
+		{'v', 20},
+		{'w', 21},
+		{'x', 22},
+		{'y', 23},
+		{'z', 24},
+		{'A', 25},
+		{'B', 26},
+		{'D', 27},
+		{'E', 28},
+		{'F', 29},
+		{'G', 30},
+		{'H', 31},
+		{'I', 32},
+		{'J', 33},
+		{'K', 34},
+		{'L', 35},
+		{'M', 36},
+		{'N', 37},
+		{'O', 38},
+		{'P', 39},
+		{'Q', 40},
+		{'R', 41},
+		{'S', 42},
+		{'T', 43},
+		{'U', 44},
+		{'V', 45},
+		{'W', 46},
+		{'X', 47},
+		{'Y', 48},
+		{'Z', 49},
+		{'0', 50},
+		{'1', 51},
+		{'2', 52},
+		{'3', 53},
+		{'4', 54},
+		{'5', 55},
+		{'6', 56},
+		{'7', 57},
+		{'8', 58},
+		{'9', 59},
+		{'!', 60},
+		{'#', 61},
+		{'^', 62},
+		{'*', 63},
 	}
 
 	for _, tc := range testCases {
 		t.Run(string(tc.flag), func(t *testing.T) {
 			f := File{}
-			var err error
-			if f.Modifier, err = modifierFromFlag(tc.flag); err != nil {
+			var errb bool
+			if f.Modifier, errb = byteModifiers[tc.flag]; errb == false {
 				t.Errorf("failed to set %v modifier flag on file", tc.flag)
 			}
 
@@ -108,12 +168,12 @@ func TestModifierFromFlag(t *testing.T) {
 	// space is never valid
 	t.Run("' '", func(t *testing.T) {
 		f := File{}
-		var err error
-		if f.Modifier, err = modifierFromFlag(' '); err == nil {
+		var errb bool
+		if f.Modifier, errb = byteModifiers[' ']; errb == true {
 			t.Error("setModifierFromFlag did not fail with invalid input")
 		}
 
-		if f.Modifier != ModifierUnset {
+		if f.Modifier != SSE_0 {
 			t.Errorf("file modifier was set to %v from invalid flag", f.Modifier)
 		}
 	})
@@ -200,7 +260,7 @@ func TestSetFlags(t *testing.T) {
 func TestGetFlagString(t *testing.T) {
 	f := File{}
 	var err error
-	if err = f.setFlags("F.br"); err != nil {
+	if err = f.setFlags("F.ar"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -209,8 +269,8 @@ func TestGetFlagString(t *testing.T) {
 		t.Error(err)
 	}
 
-	if flags != "F.b." {
-		t.Errorf("%s did not match expected F.b.", flags)
+	if flags != "F.a." {
+		t.Errorf("%s did not match expected F.a.", flags)
 	}
 }
 

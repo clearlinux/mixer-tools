@@ -100,21 +100,21 @@ const (
 // fmt.Println("}\n")
 
 // fmt.Println("var modifierMasks = map[ModifierFlag]uint64{")
-// fmt.Println("\tSSE: 0,")
-// fmt.Println("\tAVX2: 1,")
-// fmt.Println("\tAVX512: 3,")
+// fmt.Println("\tSSE_0: 0,")
+// fmt.Println("\tAVX2_1: 1 << 0,")
+// fmt.Println("\tAVX512_2: 1 << 1,")
 // fmt.Println("}")
 var modifierBytes = map[ModifierFlag]byte{
-	0: '.',
-	1: 'a',
-	2: 'c',
-	3: 'd',
-	4: 'e',
-	5: 'f',
-	6: 'g',
-	7: 'h',
-	8: 'i',
-	9: 'j',
+	0:  '.',
+	1:  'a',
+	2:  'c',
+	3:  'd',
+	4:  'e',
+	5:  'f',
+	6:  'g',
+	7:  'h',
+	8:  'i',
+	9:  'j',
 	10: 'k',
 	11: 'l',
 	12: 'm',
@@ -242,9 +242,9 @@ var byteModifiers = map[byte]ModifierFlag{
 }
 
 var modifierMasks = map[ModifierFlag]uint64{
-	SSE_0: 0,
-	AVX2_1: 1<<0,
-	AVX512_2: 1<<1,
+	SSE_0:    0,
+	AVX2_1:   1 << 0,
+	AVX512_2: 1 << 1,
 }
 
 // MiscFlag is a placeholder for additional flags that can be used by swupd-client.

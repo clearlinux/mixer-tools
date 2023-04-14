@@ -1,13 +1,21 @@
 module github.com/clearlinux/mixer-tools
 
-go 1.13
+go 1.18
 
 require (
-	github.com/BurntSushi/toml v0.3.1
-	github.com/go-ini/ini v1.42.0
-	github.com/olekukonko/tablewriter v0.0.4
-	github.com/pkg/errors v0.8.1
-	github.com/smartystreets/goconvey v1.6.4 // indirect
-	github.com/spf13/cobra v0.0.5
-	gopkg.in/ini.v1 v1.51.1 // indirect
+	github.com/BurntSushi/toml v1.2.1
+	github.com/go-ini/ini v1.67.0
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/pkg/errors v0.9.1
+	github.com/spf13/cobra v1.7.0
+)
+
+require (
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rivo/uniseg v0.4.4 // indirect
+	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/testify v1.2.2 // indirect
 )

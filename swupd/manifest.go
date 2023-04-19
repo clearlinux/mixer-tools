@@ -358,7 +358,7 @@ func (m *Manifest) setupModifiers() error {
 			f.setFullModifier(m)
 		}
 	}
-	m.sortFilesName()
+	m.sortFilesVersionName()
 	return nil
 }
 

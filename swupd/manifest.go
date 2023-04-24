@@ -401,6 +401,11 @@ func (m *Manifest) WriteManifest(w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("couldn't write Manifest.%s: %s", m.Name, err)
 	}
+	for _, f := range m.Files {
+		// Reset the prefix as the manifest struct might be used by other
+		// mixer processes and needs to have the path prefix in those cases.
+		f.setPrefixFromModifier()
+	}
 	return nil
 }
 

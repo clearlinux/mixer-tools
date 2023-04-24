@@ -169,9 +169,9 @@ func TestReadManifestHeaderOptional(t *testing.T) {
 func TestReadManifestFileEntry(t *testing.T) {
 	validHash := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
 	validManifestLines := [][]string{
-		{"Fdar", validHash, "10", "/usr/testfile"},
-		{"Fgcr", validHash, "100", "/usr/bin/test"},
-		{"Dddr", validHash, "99990", "/"},
+		{"Fdar", validHash, "10", "/usr/testfile", ""},
+		{"Fger", validHash, "100", "/usr/bin/test", "/V3"},
+		{"Ddgr", validHash, "99990", "/", "/V4"},
 	}
 
 	t.Run("valid", func(t *testing.T) {
@@ -182,7 +182,10 @@ func TestReadManifestFileEntry(t *testing.T) {
 			}
 		}
 
-		for _, f := range m.Files {
+		for i, f := range m.Files {
+			if f.Name != validManifestLines[i][4]+validManifestLines[i][3] {
+				t.Error("Failed to set filename from manifest line")
+			}
 			if f.Type == 0 || f.Status == 0 || f.Modifier == 0 || f.Misc == MiscUnset {
 				t.Error("failed to set flag from manifest line")
 			}
@@ -331,41 +334,50 @@ func TestWriteManifestFile(t *testing.T) {
 }
 
 func TestRemoveOptNonFiles(t *testing.T) {
-	testCases := []File {
+	testCases := []File{
 		{Name: "/V3/", Type: TypeLink},
 		{Name: "/V4", Type: TypeDirectory},
+		{Name: "/V4/usr/bin/f1", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/foo", Type: TypeUnset, Status: StatusDeleted},
-		{Name: "/usr/bin/foo", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/usr/bin/bar", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/usr/bin/f1", Type: TypeFile, Version: 10},
+		{Name: "/V3/usr/bin/f1", Type: TypeFile, Version: 10},
 		{Name: "/V3/usr/bin/file00", Type: TypeFile},
 		{Name: "/V4/usr/bin/file01", Type: TypeFile},
 		{Name: "/usr/bin/", Type: TypeDirectory},
 	}
 
 	m := Manifest{}
+	m.Header = ManifestHeader{}
+	m.Header.Version = 20
 	for i := range testCases {
 		m.Files = append(m.Files, &testCases[i])
 	}
 	m.removeOptNonFiles()
-	if len(m.Files) != 4 {
+	if len(m.Files) != 7 {
 		t.Fatalf("Manifest files incorrectly pruned")
 	}
 	for i := range m.Files {
 		if m.Files[i].Name != testCases[i+3].Name {
 			t.Errorf("Manifest file incorrectly pruned, expected: %v | actual: %v",
-				testCases[i+2].Name, m.Files[i].Name)
+				testCases[i+3].Name, m.Files[i].Name)
+		}
+		if m.Files[i].Version == 10 {
+			t.Errorf("Manifest file %v missing version update, expected 20",
+				m.Files[i])
 		}
 	}
 }
 
 func TestSetupModifiers(t *testing.T) {
 	testCases := []struct {
-		file File
-		expectedName string
+		file             File
+		expectedName     string
 		expectedModifier ModifierFlag
-		expectedMisc MiscFlag
-		expectedStatus StatusFlag
-		used bool
-		skipped bool
+		expectedMisc     MiscFlag
+		expectedStatus   StatusFlag
+		used             bool
+		skipped          bool
 	}{
 		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", SSE_0, MiscExportFile, StatusExperimental, false, false},
 		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX2_1, MiscUnset, StatusUnset, false, true},
@@ -379,7 +391,15 @@ func TestSetupModifiers(t *testing.T) {
 		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file02", AVX512_2, MiscExportFile, StatusExperimental, false, false},
 		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file03", AVX512_3, MiscExportFile, StatusExperimental, false, false},
 	}
-	testCaseMap := make(map[string][]struct{file File; expectedName string; expectedModifier ModifierFlag; expectedMisc MiscFlag; expectedStatus StatusFlag; used bool; skipped bool})
+	testCaseMap := make(map[string][]struct {
+		file             File
+		expectedName     string
+		expectedModifier ModifierFlag
+		expectedMisc     MiscFlag
+		expectedStatus   StatusFlag
+		used             bool
+		skipped          bool
+	})
 	for _, tc := range testCases {
 		testCaseMap[tc.expectedName] = append(testCaseMap[tc.expectedName], tc)
 	}
@@ -391,14 +411,22 @@ func TestSetupModifiers(t *testing.T) {
 	m.setupModifiers()
 
 	for _, f := range m.Files {
-		var tcs []struct{file File; expectedName string; expectedModifier ModifierFlag; expectedMisc MiscFlag; expectedStatus StatusFlag; used bool; skipped bool}
+		var tcs []struct {
+			file             File
+			expectedName     string
+			expectedModifier ModifierFlag
+			expectedMisc     MiscFlag
+			expectedStatus   StatusFlag
+			used             bool
+			skipped          bool
+		}
 		var errb bool
 		if tcs, errb = testCaseMap[f.Name]; errb == false {
 			t.Errorf("Error fixing up filenames for %v", f.Name)
 		}
 		found := false
 		for i := range tcs {
-			if f.Modifier == tcs[i].expectedModifier && f.Misc == tcs[i].expectedMisc && f.Status == tcs[i].expectedStatus{
+			if f.Modifier == tcs[i].expectedModifier && f.Misc == tcs[i].expectedMisc && f.Status == tcs[i].expectedStatus {
 				found = true
 				tcs[i].used = true
 			}
@@ -419,7 +447,7 @@ func TestSetupModifiers(t *testing.T) {
 }
 
 func TestSetupModifiersMissingSSE(t *testing.T) {
-	testCases := []File {
+	testCases := []File{
 		{Name: "/V3/usr/bin/file00", Type: TypeFile, Modifier: AVX2_1},
 		{Name: "/V4/usr/bin/file01", Type: TypeFile, Modifier: AVX512_2},
 	}

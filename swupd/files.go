@@ -82,6 +82,17 @@ const (
 	AVX512_3
 )
 
+var modifierPrefixes = map[ModifierFlag]string{
+	SSE_0:    "",
+	SSE_1:    "",
+	SSE_2:    "",
+	SSE_3:    "",
+	AVX2_1:   "/V3",
+	AVX2_3:   "/V3",
+	AVX512_2: "/V4",
+	AVX512_3: "/V4",
+}
+
 // The three maps below were generated using the following:
 // a := ".acdefghijklmnopqrtuvwxyzABDEFGHIJKLMNOPQRSTUVWXYZ0123456789!#^*"
 

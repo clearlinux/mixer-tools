@@ -31,6 +31,10 @@ func (f *File) setModifierFromPathname() {
 	}
 }
 
+func (f *File) setPrefixFromModifier() {
+	f.Name = modifierPrefixes[f.Modifier] + f.Name
+}
+
 func (f *File) setFullModifier(bits uint64) {
 	switch f.Modifier {
 	case SSE_0:

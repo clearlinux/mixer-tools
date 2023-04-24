@@ -170,6 +170,9 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 		return nil
 	}
 
+	// Reset the file prefix back what is in the chroot
+	file.setPrefixFromModifier()
+
 	// add file to manifest
 	m.Files = append(m.Files, file)
 
@@ -300,12 +303,17 @@ func (m *Manifest) removeOptNonFiles() {
 	seen := make(map[string]bool)
 	i := 0
 	for _, f := range m.Files {
-		if f.Type == TypeFile || !(strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4")) {
+		if f.Type == TypeFile || f.Type == TypeUnset || !(strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4")) {
 			if f.Status == StatusDeleted {
-				if result := seen[f.Name]; result != false {
+				if strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") {
+					// for non-SSE deleted files the versions on matching files need bumping
+					// so update will replace the deleted optimized file.
+					// Track these files for later
+					strippedName := strings.TrimPrefix(f.Name, "/V3")
+					strippedName = strings.TrimPrefix(strippedName, "/V4")
+					seen[strippedName] = true
 					continue
 				}
-				seen[f.Name] = true
 			}
 			m.Files[i] = f
 			i++
@@ -315,6 +323,15 @@ func (m *Manifest) removeOptNonFiles() {
 		m.Files[j] = nil
 	}
 	m.Files = m.Files[:i]
+	for _, f := range m.Files {
+		strippedName := strings.TrimPrefix(f.Name, "/V3")
+		strippedName = strings.TrimPrefix(strippedName, "/V4")
+		// Only SSE content or non-deleted optimized files should be added to the filelist
+		if result := seen[strippedName]; result {
+			// Now update any versions for matching files of newly deleted optimized files
+			f.Version = m.Header.Version
+		}
+	}
 }
 
 func (m *Manifest) setupModifiers() error {

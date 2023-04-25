@@ -17,6 +17,7 @@ package swupd
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 // TypeFlag describes the file type of a manifest entry.
@@ -457,4 +458,8 @@ func (f *File) isUnsupportedTypeChange() bool {
 // Present tells if a file is present. Returns false if the file is deleted or ghosted.
 func (f *File) Present() bool {
 	return f.Status != StatusDeleted && f.Status != StatusGhosted
+}
+
+func (f *File) hasOptPrefix() bool {
+	return strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4")
 }

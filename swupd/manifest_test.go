@@ -337,13 +337,20 @@ func TestRemoveOptNonFiles(t *testing.T) {
 	testCases := []File{
 		{Name: "/V3/", Type: TypeLink},
 		{Name: "/V4", Type: TypeDirectory},
-		{Name: "/V4/usr/bin/f1", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V3/usr/bin/f1", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V4/usr/bin/f2", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V3/usr/bin/f3-1", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V4/usr/bin/f3-2", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/foo", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/bar", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/f1", Type: TypeFile, Version: 10},
-		{Name: "/V3/usr/bin/f1", Type: TypeFile, Version: 10},
-		{Name: "/V3/usr/bin/file00", Type: TypeFile},
-		{Name: "/V4/usr/bin/file01", Type: TypeFile},
+		{Name: "/usr/bin/f2", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/f3-1", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/f3-2", Type: TypeFile, Version: 10},
+		{Name: "/V3/usr/bin/f3-2", Type: TypeFile, Version: 10},
+		{Name: "/V4/usr/bin/f3-1", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/aa1-mixer-test-canary-2", Type: TypeFile},
+		{Name: "/V4/usr/bin/aa1-mixer-test-canary-2", Type: TypeFile},
 		{Name: "/usr/bin/", Type: TypeDirectory},
 	}
 
@@ -354,13 +361,17 @@ func TestRemoveOptNonFiles(t *testing.T) {
 		m.Files = append(m.Files, &testCases[i])
 	}
 	m.removeOptNonFiles()
-	if len(m.Files) != 7 {
+	if len(m.Files) != 11 {
 		t.Fatalf("Manifest files incorrectly pruned")
 	}
 	for i := range m.Files {
-		if m.Files[i].Name != testCases[i+3].Name {
+		if m.Files[i].Name != testCases[i+6].Name {
 			t.Errorf("Manifest file incorrectly pruned, expected: %v | actual: %v",
 				testCases[i+3].Name, m.Files[i].Name)
+		}
+		if (m.Files[i].Name == "/V3/usr/bin/file00" || m.Files[i].Name == "/V4/usr/bin/file01") && m.Files[i].Version == 20 {
+			t.Errorf("Improperly updated version in %v",
+				m.Files[i])
 		}
 		if m.Files[i].Version == 10 {
 			t.Errorf("Manifest file %v missing version update, expected 20",
@@ -376,20 +387,29 @@ func TestSetupModifiers(t *testing.T) {
 		expectedModifier ModifierFlag
 		expectedMisc     MiscFlag
 		expectedStatus   StatusFlag
+		expectedVersion  uint32
 		used             bool
 		skipped          bool
 	}{
-		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", SSE_0, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX2_1, MiscUnset, StatusUnset, false, true},
-		{File{Name: "/V4/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX512_2, MiscUnset, StatusUnset, false, true},
-		{File{Name: "/usr/bin/file00", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file00", SSE_0, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/usr/bin/file01", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file01", SSE_1, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/usr/bin/file02", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file02", SSE_2, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/usr/bin/file03", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file03", SSE_3, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/V3/usr/bin/file01", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file01", AVX2_1, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/V3/usr/bin/file03", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file03", AVX2_3, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file02", AVX512_2, MiscExportFile, StatusExperimental, false, false},
-		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file03", AVX512_3, MiscExportFile, StatusExperimental, false, false},
+		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", SSE_0, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX2_1, MiscUnset, StatusUnset, 0, false, true},
+		{File{Name: "/V4/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX512_2, MiscUnset, StatusUnset, 0, false, true},
+		{File{Name: "/usr/bin/file00", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file00", SSE_0, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file01", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file01", SSE_1, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file02", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file02", SSE_2, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file03", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file03", SSE_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file01", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file01", AVX2_1, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file03", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file03", AVX2_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file02", AVX512_2, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file03", AVX512_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/dfile00", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile00", SSE_0, MiscExportFile, StatusUnset, 0, false, false},
+		{File{Name: "/usr/bin/dfile01", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile01", SSE_0, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V3/usr/bin/dfile01", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile01", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
+		{File{Name: "/usr/bin/dfile02", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile02", SSE_2, MiscExportFile, StatusUnset, 0, false, false},
+		{File{Name: "/V4/usr/bin/dfile02", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile02", AVX512_2, MiscExportFile, StatusUnset, 0, false, false},
+		{File{Name: "/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", SSE_1, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V3/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", AVX2_1, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V4/usr/bin/dfile03", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile03", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
 	}
 	testCaseMap := make(map[string][]struct {
 		file             File
@@ -397,6 +417,7 @@ func TestSetupModifiers(t *testing.T) {
 		expectedModifier ModifierFlag
 		expectedMisc     MiscFlag
 		expectedStatus   StatusFlag
+		expectedVersion  uint32
 		used             bool
 		skipped          bool
 	})
@@ -405,6 +426,8 @@ func TestSetupModifiers(t *testing.T) {
 	}
 
 	m := Manifest{}
+	m.Header = ManifestHeader{}
+	m.Header.Version = 20
 	for i := range testCases {
 		m.Files = append(m.Files, &testCases[i].file)
 	}
@@ -417,6 +440,7 @@ func TestSetupModifiers(t *testing.T) {
 			expectedModifier ModifierFlag
 			expectedMisc     MiscFlag
 			expectedStatus   StatusFlag
+			expectedVersion  uint32
 			used             bool
 			skipped          bool
 		}
@@ -426,15 +450,15 @@ func TestSetupModifiers(t *testing.T) {
 		}
 		found := false
 		for i := range tcs {
-			if f.Modifier == tcs[i].expectedModifier && f.Misc == tcs[i].expectedMisc && f.Status == tcs[i].expectedStatus {
+			if f.Modifier == tcs[i].expectedModifier && f.Misc == tcs[i].expectedMisc && f.Status == tcs[i].expectedStatus && f.Version == tcs[i].expectedVersion {
 				found = true
 				tcs[i].used = true
 			}
 		}
 
 		if found == false {
-			t.Errorf("%v missing matching modifier flag %v",
-				f.Name, f.Modifier)
+			t.Errorf("Missing match for item in modifiers list: %v",
+				f)
 		}
 	}
 	for _, tcs := range testCaseMap {
@@ -520,28 +544,37 @@ func TestSortFilesVersionName(t *testing.T) {
 func TestLinkPeersAndChange(t *testing.T) {
 	mOld := Manifest{
 		Files: []*File{
+			{Name: "/V3/a", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
+			{Name: "/V4/a", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
 			{Name: "1", Status: StatusUnset, Info: sizer(0)},
 			{Name: "2", Status: StatusDeleted, Info: sizer(0)},
 			{Name: "3", Status: StatusGhosted, Info: sizer(0)},
 			{Name: "4", Status: StatusUnset, Info: sizer(0)},
 			{Name: "5", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 			{Name: "7", Status: StatusDeleted, Info: sizer(0)},
+			{Name: "8", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
 		},
 	}
 
 	mNew := Manifest{
 		Files: []*File{
+			{Name: "/V3/a", Status: StatusUnset, Info: sizer(0)},
+			{Name: "/V4/a", Status: StatusUnset, Info: sizer(0)},
 			{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 			{Name: "2", Status: StatusUnset, Info: sizer(0)},
 			{Name: "3", Status: StatusUnset, Info: sizer(0)},
 			{Name: "5", Status: StatusUnset, Hash: 2, Info: sizer(0)},
 			{Name: "6", Status: StatusUnset, Info: sizer(0)},
+			{Name: "8", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile},
 		},
 	}
 
 	// 1: modified, 2: deleted->added, 3: ghosted->added, 4: newly deleted,
-	// 5: modified, 6: newly added, 7: previously deleted
+	// 5: modified, 6: newly added, 7: previously deleted, 8: unchanged,
+	// a-b: prefix but unchanged
 	expectedFiles := []*File{
+		{Name: "/V3/a", Status: StatusUnset, Info: sizer(0), Version: 10},
+		{Name: "/V4/a", Status: StatusUnset, Info: sizer(0), Version: 10},
 		{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 		{Name: "2", Status: StatusUnset, Info: sizer(0)},
 		{Name: "3", Status: StatusUnset, Info: sizer(0)},
@@ -549,6 +582,7 @@ func TestLinkPeersAndChange(t *testing.T) {
 		{Name: "5", Status: StatusUnset, Hash: 2, Info: sizer(0)},
 		{Name: "6", Status: StatusUnset, Info: sizer(0)},
 		{Name: "7", Status: StatusDeleted, Info: sizer(0)},
+		{Name: "8", Status: StatusUnset, Info: sizer(0), Version: 10},
 	}
 
 	testCases := map[string]struct {
@@ -596,12 +630,14 @@ func TestLinkPeersAndChange(t *testing.T) {
 			}
 		}
 
-		if f.Name != expectedFiles[i].Name && f.Status != expectedFiles[i].Status {
-			t.Errorf("file name: %s or file status: %s does not match expected name: %s or expected status: %s",
+		if f.Name != expectedFiles[i].Name || f.Status != expectedFiles[i].Status || f.Version != expectedFiles[i].Version {
+			t.Errorf("file name: %s, file status: %s, or file version %v does not match expected name: %s, expected status: %s or expected version %v",
 				f.Name,
 				f.Status,
+				f.Version,
 				expectedFiles[i].Name,
-				expectedFiles[i].Status)
+				expectedFiles[i].Status,
+				expectedFiles[i].Version)
 		}
 	}
 }

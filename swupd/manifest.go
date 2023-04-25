@@ -303,7 +303,9 @@ func (m *Manifest) removeOptNonFiles() {
 	seen := make(map[string]bool)
 	i := 0
 	for _, f := range m.Files {
-		if f.Type == TypeFile || f.Type == TypeUnset || !(strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4")) {
+		if f.Type == TypeFile || f.Type == TypeUnset || !f.hasOptPrefix() {
+			// Looking files files, deleted files or anything else that doesn't have an
+			// optimization prefix.
 			if f.Status == StatusDeleted {
 				if strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") {
 					// for non-SSE deleted files the versions on matching files need bumping
@@ -489,8 +491,10 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 				nx++
 				continue
 			}
-			if nf.Hash == of.Hash && of.Version >= minVersion && nf.Misc == of.Misc {
+			if nf.Hash == of.Hash && of.Version >= minVersion && (nf.hasOptPrefix() || nf.Misc == of.Misc) {
 				// same contents, version doesn't change.
+				// misc is ignored for files with an optimization prefix
+				// as that is setup elsewhere to match the base file
 				nf.Version = of.Version
 			} else {
 				// if the file isn't exactly the same, record the change

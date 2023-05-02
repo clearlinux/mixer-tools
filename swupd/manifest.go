@@ -371,7 +371,7 @@ func (m *Manifest) setupModifiers() error {
 			}
 		}
 		if !ssebin {
-			return fmt.Errorf("%s missing non-SSE version of binary", k)
+			return fmt.Errorf("%s missing SSE version of binary", k)
 		}
 		for _, f := range v {
 			f.setFullModifier(m)

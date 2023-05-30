@@ -545,7 +545,10 @@ func TestLinkPeersAndChange(t *testing.T) {
 	mOld := Manifest{
 		Files: []*File{
 			{Name: "/V3/a", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
+			{Name: "/V3/b", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
 			{Name: "/V4/a", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
+			{Name: "/V4/b", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
+			{Name: "/dir", Type: TypeDirectory, Status: StatusUnset, Info: sizer(0), Version: 10},
 			{Name: "1", Status: StatusUnset, Info: sizer(0)},
 			{Name: "2", Status: StatusDeleted, Info: sizer(0)},
 			{Name: "3", Status: StatusGhosted, Info: sizer(0)},
@@ -559,7 +562,12 @@ func TestLinkPeersAndChange(t *testing.T) {
 	mNew := Manifest{
 		Files: []*File{
 			{Name: "/V3/a", Status: StatusUnset, Info: sizer(0)},
+			{Name: "/V3/b", Status: StatusUnset, Hash: 1, Info: sizer(0)},
+			{Name: "/V3/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 1, Info: sizer(0)},
 			{Name: "/V4/a", Status: StatusUnset, Info: sizer(0)},
+			{Name: "/V4/b", Status: StatusUnset, Hash: 2, Info: sizer(0)},
+			{Name: "/V4/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 2, Info: sizer(0)},
+			{Name: "/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 3, Info: sizer(0)},
 			{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 			{Name: "2", Status: StatusUnset, Info: sizer(0)},
 			{Name: "3", Status: StatusUnset, Info: sizer(0)},
@@ -571,10 +579,16 @@ func TestLinkPeersAndChange(t *testing.T) {
 
 	// 1: modified, 2: deleted->added, 3: ghosted->added, 4: newly deleted,
 	// 5: modified, 6: newly added, 7: previously deleted, 8: unchanged,
-	// a-b: prefix but unchanged
+	// a: prefix but unchanged, b: prefix and changed,
+	// /dir's opt prefixes not considered
 	expectedFiles := []*File{
 		{Name: "/V3/a", Status: StatusUnset, Info: sizer(0), Version: 10},
+		{Name: "/V3/b", Status: StatusUnset, Hash: 1, Info: sizer(0)},
+		{Name: "/V3/dir", Hash: 1},
 		{Name: "/V4/a", Status: StatusUnset, Info: sizer(0), Version: 10},
+		{Name: "/V4/b", Status: StatusUnset, Hash: 2, Info: sizer(0)},
+		{Name: "/V4/dir", Hash: 2},
+		{Name: "/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 3, Info: sizer(0)},
 		{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 		{Name: "2", Status: StatusUnset, Info: sizer(0)},
 		{Name: "3", Status: StatusUnset, Info: sizer(0)},
@@ -589,11 +603,18 @@ func TestLinkPeersAndChange(t *testing.T) {
 		hasPeer  bool
 		expected string
 	}{
-		"1": {true, "1"},
-		"2": {false, ""},
-		"3": {false, ""},
-		"5": {true, "5"},
-		"6": {false, ""},
+		"1":       {true, "1"},
+		"2":       {false, ""},
+		"3":       {false, ""},
+		"5":       {true, "5"},
+		"6":       {false, ""},
+		"/V3/a":   {false, ""},
+		"/V4/a":   {false, ""},
+		"/V3/b":   {true, "/V3/b"},
+		"/V4/b":   {true, "/V4/b"},
+		"/V3/dir": {false, ""},
+		"/V4/dir": {false, ""},
+		"/dir":    {true, "/dir"},
 	}
 
 	// linkPeersAndChange requires mNew and mOld to have file lists sorted
@@ -601,8 +622,8 @@ func TestLinkPeersAndChange(t *testing.T) {
 	mNew.sortFilesName()
 	mOld.sortFilesName()
 	changed, added, deleted := mNew.linkPeersAndChange(&mOld, 0)
-	if changed != 2 {
-		t.Errorf("%v files detected as changed when 2 was expected", changed)
+	if changed != 5 {
+		t.Errorf("%v files detected as changed when 5 was expected", changed)
 	}
 	if added != 3 {
 		t.Errorf("%v files detected as added when 3 were expected", added)
@@ -617,7 +638,9 @@ func TestLinkPeersAndChange(t *testing.T) {
 	}
 
 	for i, f := range mNew.Files {
-		if testCases[f.Name].hasPeer {
+		if !testCases[f.Name].hasPeer && f.DeltaPeer != nil {
+			t.Fatalf("File %v with DeltaPeer set that shouldn't be", f.Name)
+		} else if testCases[f.Name].hasPeer {
 			if f.DeltaPeer == nil {
 				t.Fatalf("File %v does not have delta peer when expected", f.Name)
 			}

@@ -480,7 +480,10 @@ func (m *Manifest) linkPeersAndChange(oldManifest *Manifest, minVersion uint32) 
 	for nx < mFilesLen && ox < omFilesLen {
 		nf := m.Files[nx]
 		of := oldManifest.Files[ox]
-		if nf.Name == of.Name {
+		if nf.hasOptPrefix() && nf.Type == TypeDirectory {
+			// Directories with opt prefixes are ignored
+			nx++
+		} else if nf.Name == of.Name {
 			// if it is the same name check if anything about the file has changed.
 			// if something has changed update the version to current version and
 			// record that the file has changed

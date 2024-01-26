@@ -17,7 +17,13 @@ package swupd
 import "strings"
 
 func (f *File) setModifierFromPathname() {
-	temp := strings.TrimPrefix(f.Name, "/V4")
+	temp := strings.TrimPrefix(f.Name, "/V5")
+	if temp != f.Name {
+		f.Modifier = APX_4
+		f.Name = temp
+		return
+	}
+	temp = strings.TrimPrefix(f.Name, "/V4")
 	if temp != f.Name {
 		f.Modifier = AVX512_2
 		f.Name = temp
@@ -47,6 +53,14 @@ func (f *File) setFullModifier(bits uint64) {
 			f.Modifier = SSE_2
 		case 3:
 			f.Modifier = SSE_3
+		case 4:
+			f.Modifier = SSE_4
+		case 5:
+			f.Modifier = SSE_5
+		case 6:
+			f.Modifier = SSE_6
+		case 7:
+			f.Modifier = SSE_7
 		}
 	case AVX2_1:
 		switch bits {
@@ -54,6 +68,10 @@ func (f *File) setFullModifier(bits uint64) {
 			f.Modifier = AVX2_1
 		case 3:
 			f.Modifier = AVX2_3
+		case 5:
+			f.Modifier = AVX2_5
+		case 7:
+			f.Modifier = AVX2_7
 		}
 	case AVX512_2:
 		switch bits {
@@ -61,6 +79,21 @@ func (f *File) setFullModifier(bits uint64) {
 			f.Modifier = AVX512_2
 		case 3:
 			f.Modifier = AVX512_3
+		case 6:
+			f.Modifier = AVX512_6
+		case 7:
+			f.Modifier = AVX512_7
+		}
+	case APX_4:
+		switch bits {
+		case 4:
+			f.Modifier = APX_4
+		case 5:
+			f.Modifier = APX_5
+		case 6:
+			f.Modifier = APX_6
+		case 7:
+			f.Modifier = APX_7
 		}
 	}
 }

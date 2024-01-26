@@ -337,18 +337,24 @@ func TestRemoveOptNonFiles(t *testing.T) {
 	testCases := []File{
 		{Name: "/V3/", Type: TypeLink},
 		{Name: "/V4", Type: TypeDirectory},
+		{Name: "/V5", Type: TypeDirectory},
 		{Name: "/V3/usr/bin/f1", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/V4/usr/bin/f2", Type: TypeUnset, Status: StatusDeleted},
-		{Name: "/V3/usr/bin/f3-1", Type: TypeUnset, Status: StatusDeleted},
-		{Name: "/V4/usr/bin/f3-2", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V5/usr/bin/f3", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V3/usr/bin/f4-1", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V4/usr/bin/f4-2", Type: TypeUnset, Status: StatusDeleted},
+		{Name: "/V5/usr/bin/f4-3", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/foo", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/bar", Type: TypeUnset, Status: StatusDeleted},
 		{Name: "/usr/bin/f1", Type: TypeFile, Version: 10},
 		{Name: "/usr/bin/f2", Type: TypeFile, Version: 10},
-		{Name: "/usr/bin/f3-1", Type: TypeFile, Version: 10},
-		{Name: "/usr/bin/f3-2", Type: TypeFile, Version: 10},
-		{Name: "/V3/usr/bin/f3-2", Type: TypeFile, Version: 10},
-		{Name: "/V4/usr/bin/f3-1", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/f3", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/f4-1", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/f4-2", Type: TypeFile, Version: 10},
+		{Name: "/usr/bin/f4-3", Type: TypeFile, Version: 10},
+		{Name: "/V3/usr/bin/f4-1", Type: TypeFile, Version: 10},
+		{Name: "/V4/usr/bin/f4-2", Type: TypeFile, Version: 10},
+		{Name: "/V5/usr/bin/f4-3", Type: TypeFile, Version: 10},
 		{Name: "/usr/bin/aa1-mixer-test-canary-2", Type: TypeFile},
 		{Name: "/V4/usr/bin/aa1-mixer-test-canary-2", Type: TypeFile},
 		{Name: "/usr/bin/", Type: TypeDirectory},
@@ -361,15 +367,15 @@ func TestRemoveOptNonFiles(t *testing.T) {
 		m.Files = append(m.Files, &testCases[i])
 	}
 	m.removeOptNonFiles()
-	if len(m.Files) != 11 {
+	if len(m.Files) != 14 {
 		t.Fatalf("Manifest files incorrectly pruned")
 	}
 	for i := range m.Files {
-		if m.Files[i].Name != testCases[i+6].Name {
+		if m.Files[i].Name != testCases[i+9].Name {
 			t.Errorf("Manifest file incorrectly pruned, expected: %v | actual: %v",
 				testCases[i+3].Name, m.Files[i].Name)
 		}
-		if (m.Files[i].Name == "/V3/usr/bin/file00" || m.Files[i].Name == "/V4/usr/bin/file01") && m.Files[i].Version == 20 {
+		if (m.Files[i].Name == "/V3/usr/bin/f1" || m.Files[i].Name == "/V4/usr/bin/f2" || m.Files[i].Name == "/V5/usr/bin/f3") && m.Files[i].Version == 20 {
 			t.Errorf("Improperly updated version in %v",
 				m.Files[i])
 		}
@@ -394,14 +400,27 @@ func TestSetupModifiers(t *testing.T) {
 		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", SSE_0, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX2_1, MiscUnset, StatusUnset, 0, false, true},
 		{File{Name: "/V4/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX512_2, MiscUnset, StatusUnset, 0, false, true},
+		{File{Name: "/V5/usr/bin", Type: TypeDirectory}, "/usr/bin", APX_4, MiscUnset, StatusUnset, 0, false, true},
 		{File{Name: "/usr/bin/file00", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file00", SSE_0, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/usr/bin/file01", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file01", SSE_1, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/usr/bin/file02", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file02", SSE_2, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/usr/bin/file03", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file03", SSE_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file04", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file04", SSE_4, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file05", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file05", SSE_5, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file06", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file06", SSE_6, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file07", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file07", SSE_7, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/V3/usr/bin/file01", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file01", AVX2_1, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/V3/usr/bin/file03", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file03", AVX2_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file05", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file05", AVX2_5, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file07", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file07", AVX2_7, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file02", AVX512_2, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file03", AVX512_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file06", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file06", AVX512_6, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file07", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file07", AVX512_7, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file04", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file04", APX_4, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file05", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file05", APX_5, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file06", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file06", APX_6, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file07", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file07", APX_7, MiscExportFile, StatusExperimental, 0, false, false},
 		{File{Name: "/usr/bin/dfile00", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile00", SSE_0, MiscExportFile, StatusUnset, 0, false, false},
 		{File{Name: "/usr/bin/dfile01", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile01", SSE_0, MiscExportFile, StatusUnset, 20, false, false},
 		{File{Name: "/V3/usr/bin/dfile01", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile01", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
@@ -410,6 +429,9 @@ func TestSetupModifiers(t *testing.T) {
 		{File{Name: "/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", SSE_1, MiscExportFile, StatusUnset, 20, false, false},
 		{File{Name: "/V3/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", AVX2_1, MiscExportFile, StatusUnset, 20, false, false},
 		{File{Name: "/V4/usr/bin/dfile03", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile03", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
+		{File{Name: "/usr/bin/dfile04", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile04", SSE_2, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V4/usr/bin/dfile04", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile04", AVX512_2, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V5/usr/bin/dfile04", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile04", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
 	}
 	testCaseMap := make(map[string][]struct {
 		file             File
@@ -474,6 +496,7 @@ func TestSetupModifiersMissingSSE(t *testing.T) {
 	testCases := []File{
 		{Name: "/V3/usr/bin/file00", Type: TypeFile, Modifier: AVX2_1},
 		{Name: "/V4/usr/bin/file01", Type: TypeFile, Modifier: AVX512_2},
+		{Name: "/V5/usr/bin/file02", Type: TypeFile, Modifier: APX_4},
 	}
 
 	for i := range testCases {
@@ -548,6 +571,8 @@ func TestLinkPeersAndChange(t *testing.T) {
 			{Name: "/V3/b", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
 			{Name: "/V4/a", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
 			{Name: "/V4/b", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
+			{Name: "/V5/a", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
+			{Name: "/V5/b", Status: StatusUnset, Info: sizer(0), Misc: MiscExportFile, Version: 10},
 			{Name: "/dir", Type: TypeDirectory, Status: StatusUnset, Info: sizer(0), Version: 10},
 			{Name: "1", Status: StatusUnset, Info: sizer(0)},
 			{Name: "2", Status: StatusDeleted, Info: sizer(0)},
@@ -567,6 +592,9 @@ func TestLinkPeersAndChange(t *testing.T) {
 			{Name: "/V4/a", Status: StatusUnset, Info: sizer(0)},
 			{Name: "/V4/b", Status: StatusUnset, Hash: 2, Info: sizer(0)},
 			{Name: "/V4/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 2, Info: sizer(0)},
+			{Name: "/V5/a", Status: StatusUnset, Info: sizer(0)},
+			{Name: "/V5/b", Status: StatusUnset, Hash: 2, Info: sizer(0)},
+			{Name: "/V5/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 2, Info: sizer(0)},
 			{Name: "/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 3, Info: sizer(0)},
 			{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 			{Name: "2", Status: StatusUnset, Info: sizer(0)},
@@ -588,6 +616,9 @@ func TestLinkPeersAndChange(t *testing.T) {
 		{Name: "/V4/a", Status: StatusUnset, Info: sizer(0), Version: 10},
 		{Name: "/V4/b", Status: StatusUnset, Hash: 2, Info: sizer(0)},
 		{Name: "/V4/dir", Hash: 2},
+		{Name: "/V5/a", Status: StatusUnset, Info: sizer(0), Version: 10},
+		{Name: "/V5/b", Status: StatusUnset, Hash: 2, Info: sizer(0)},
+		{Name: "/V5/dir", Hash: 3},
 		{Name: "/dir", Type: TypeDirectory, Status: StatusUnset, Hash: 3, Info: sizer(0)},
 		{Name: "1", Status: StatusUnset, Hash: 1, Info: sizer(0)},
 		{Name: "2", Status: StatusUnset, Info: sizer(0)},
@@ -610,10 +641,13 @@ func TestLinkPeersAndChange(t *testing.T) {
 		"6":       {false, ""},
 		"/V3/a":   {false, ""},
 		"/V4/a":   {false, ""},
+		"/V5/a":   {false, ""},
 		"/V3/b":   {true, "/V3/b"},
 		"/V4/b":   {true, "/V4/b"},
+		"/V5/b":   {true, "/V5/b"},
 		"/V3/dir": {false, ""},
 		"/V4/dir": {false, ""},
+		"/V5/dir": {false, ""},
 		"/dir":    {true, "/dir"},
 	}
 
@@ -622,8 +656,8 @@ func TestLinkPeersAndChange(t *testing.T) {
 	mNew.sortFilesName()
 	mOld.sortFilesName()
 	changed, added, deleted := mNew.linkPeersAndChange(&mOld, 0)
-	if changed != 5 {
-		t.Errorf("%v files detected as changed when 5 was expected", changed)
+	if changed != 6 {
+		t.Errorf("%v files detected as changed when 6 was expected", changed)
 	}
 	if added != 3 {
 		t.Errorf("%v files detected as added when 3 were expected", added)

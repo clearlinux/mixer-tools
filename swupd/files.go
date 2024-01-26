@@ -81,6 +81,18 @@ const (
 	AVX2_3
 	AVX512_2
 	AVX512_3
+	SSE_4
+	SSE_5
+	SSE_6
+	SSE_7
+	AVX2_5
+	AVX2_7
+	AVX512_6
+	AVX512_7
+	APX_4
+	APX_5
+	APX_6
+	APX_7
 )
 
 var modifierPrefixes = map[ModifierFlag]string{
@@ -88,10 +100,19 @@ var modifierPrefixes = map[ModifierFlag]string{
 	SSE_1:    "",
 	SSE_2:    "",
 	SSE_3:    "",
+	SSE_4:    "",
 	AVX2_1:   "/V3",
 	AVX2_3:   "/V3",
+	AVX2_5:   "/V3",
+	AVX2_7:   "/V3",
 	AVX512_2: "/V4",
 	AVX512_3: "/V4",
+	AVX512_6: "/V4",
+	AVX512_7: "/V4",
+	APX_4:    "/V5",
+	APX_5:    "/V5",
+	APX_6:    "/V5",
+	APX_7:    "/V5",
 }
 
 // The three maps below were generated using the following:
@@ -115,6 +136,7 @@ var modifierPrefixes = map[ModifierFlag]string{
 // fmt.Println("\tSSE_0: 0,")
 // fmt.Println("\tAVX2_1: 1 << 0,")
 // fmt.Println("\tAVX512_2: 1 << 1,")
+// fmt.Println("\APX_4: 1 << 2,")
 // fmt.Println("}")
 var modifierBytes = map[ModifierFlag]byte{
 	0:  '.',
@@ -257,6 +279,7 @@ var modifierMasks = map[ModifierFlag]uint64{
 	SSE_0:    0,
 	AVX2_1:   1 << 0,
 	AVX512_2: 1 << 1,
+	APX_4:    1 << 2,
 }
 
 // MiscFlag is a placeholder for additional flags that can be used by swupd-client.
@@ -461,5 +484,5 @@ func (f *File) Present() bool {
 }
 
 func (f *File) hasOptPrefix() bool {
-	return strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4")
+	return strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") || strings.HasPrefix(f.Name, "/V5")
 }

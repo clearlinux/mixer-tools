@@ -12,6 +12,7 @@ func TestSetModifierFromPathname(t *testing.T) {
 	}{
 		{File{Name: "/V3/etc/file"}, "/etc/file", AVX2_1},
 		{File{Name: "/V4/usr/src/debug"}, "/usr/src/debug", AVX512_2},
+		{File{Name: "/V5/usr/bin/foo"}, "/usr/bin/foo", APX_4},
 		{File{Name: "/dev/foo"}, "/dev/foo", SSE_0},
 	}
 
@@ -36,10 +37,22 @@ func TestSetFullModifier(t *testing.T) {
 		{File{Name: "/bin/file01", Modifier: SSE_0}, 1, SSE_1},
 		{File{Name: "/bin/file02", Modifier: SSE_0}, 2, SSE_2},
 		{File{Name: "/bin/file03", Modifier: SSE_0}, 3, SSE_3},
-		{File{Name: "/bin/file04", Modifier: AVX2_1}, 1, AVX2_1},
-		{File{Name: "/bin/file05", Modifier: AVX2_1}, 3, AVX2_3},
-		{File{Name: "/bin/file06", Modifier: AVX512_2}, 2, AVX512_2},
-		{File{Name: "/bin/file07", Modifier: AVX512_2}, 3, AVX512_3},
+		{File{Name: "/bin/file04", Modifier: SSE_0}, 4, SSE_4},
+		{File{Name: "/bin/file05", Modifier: SSE_0}, 5, SSE_5},
+		{File{Name: "/bin/file06", Modifier: SSE_0}, 6, SSE_6},
+		{File{Name: "/bin/file07", Modifier: SSE_0}, 7, SSE_7},
+		{File{Name: "/bin/file08", Modifier: AVX2_1}, 1, AVX2_1},
+		{File{Name: "/bin/file09", Modifier: AVX2_1}, 3, AVX2_3},
+		{File{Name: "/bin/file10", Modifier: AVX2_1}, 5, AVX2_5},
+		{File{Name: "/bin/file11", Modifier: AVX2_1}, 7, AVX2_7},
+		{File{Name: "/bin/file12", Modifier: AVX512_2}, 2, AVX512_2},
+		{File{Name: "/bin/file13", Modifier: AVX512_2}, 3, AVX512_3},
+		{File{Name: "/bin/file14", Modifier: AVX512_2}, 6, AVX512_6},
+		{File{Name: "/bin/file15", Modifier: AVX512_2}, 7, AVX512_7},
+		{File{Name: "/bin/file16", Modifier: APX_4}, 4, APX_4},
+		{File{Name: "/bin/file17", Modifier: APX_4}, 5, APX_5},
+		{File{Name: "/bin/file18", Modifier: APX_4}, 6, APX_6},
+		{File{Name: "/bin/file19", Modifier: APX_4}, 7, APX_7},
 	}
 
 	for _, tc := range testCases {

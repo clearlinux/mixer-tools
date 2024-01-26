@@ -397,41 +397,41 @@ func TestSetupModifiers(t *testing.T) {
 		used             bool
 		skipped          bool
 	}{
-		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", SSE_0, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX2_1, MiscUnset, StatusUnset, 0, false, true},
-		{File{Name: "/V4/usr/bin", Type: TypeDirectory}, "/usr/bin", AVX512_2, MiscUnset, StatusUnset, 0, false, true},
-		{File{Name: "/V5/usr/bin", Type: TypeDirectory}, "/usr/bin", APX_4, MiscUnset, StatusUnset, 0, false, true},
-		{File{Name: "/usr/bin/file00", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file00", SSE_0, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file01", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file01", SSE_1, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file02", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file02", SSE_2, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file03", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file03", SSE_3, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file04", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file04", SSE_4, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file05", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file05", SSE_5, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file06", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file06", SSE_6, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/file07", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file07", SSE_7, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V3/usr/bin/file01", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file01", AVX2_1, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V3/usr/bin/file03", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file03", AVX2_3, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V3/usr/bin/file05", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file05", AVX2_5, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V3/usr/bin/file07", Type: TypeFile, Modifier: AVX2_1}, "/usr/bin/file07", AVX2_7, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file02", AVX512_2, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file03", AVX512_3, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V4/usr/bin/file06", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file06", AVX512_6, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V4/usr/bin/file07", Type: TypeFile, Modifier: AVX512_2}, "/usr/bin/file07", AVX512_7, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V5/usr/bin/file04", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file04", APX_4, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V5/usr/bin/file05", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file05", APX_5, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V5/usr/bin/file06", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file06", APX_6, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/V5/usr/bin/file07", Type: TypeFile, Modifier: APX_4}, "/usr/bin/file07", APX_7, MiscExportFile, StatusExperimental, 0, false, false},
-		{File{Name: "/usr/bin/dfile00", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile00", SSE_0, MiscExportFile, StatusUnset, 0, false, false},
-		{File{Name: "/usr/bin/dfile01", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile01", SSE_0, MiscExportFile, StatusUnset, 20, false, false},
-		{File{Name: "/V3/usr/bin/dfile01", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile01", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
-		{File{Name: "/usr/bin/dfile02", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile02", SSE_2, MiscExportFile, StatusUnset, 0, false, false},
-		{File{Name: "/V4/usr/bin/dfile02", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile02", AVX512_2, MiscExportFile, StatusUnset, 0, false, false},
-		{File{Name: "/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", SSE_1, MiscExportFile, StatusUnset, 20, false, false},
-		{File{Name: "/V3/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", AVX2_1, MiscExportFile, StatusUnset, 20, false, false},
-		{File{Name: "/V4/usr/bin/dfile03", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile03", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
-		{File{Name: "/usr/bin/dfile04", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile04", SSE_2, MiscExportFile, StatusUnset, 20, false, false},
-		{File{Name: "/V4/usr/bin/dfile04", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile04", AVX512_2, MiscExportFile, StatusUnset, 20, false, false},
-		{File{Name: "/V5/usr/bin/dfile04", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile04", SSE_0, MiscExportFile, StatusDeleted, 0, false, true},
+		{File{Name: "/usr/bin", Type: TypeDirectory, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin", Sse0, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin", Type: TypeDirectory}, "/usr/bin", Avx2_1, MiscUnset, StatusUnset, 0, false, true},
+		{File{Name: "/V4/usr/bin", Type: TypeDirectory}, "/usr/bin", Avx512_2, MiscUnset, StatusUnset, 0, false, true},
+		{File{Name: "/V5/usr/bin", Type: TypeDirectory}, "/usr/bin", Apx4, MiscUnset, StatusUnset, 0, false, true},
+		{File{Name: "/usr/bin/file00", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file00", Sse0, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file01", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file01", Sse1, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file02", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file02", Sse2, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file03", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file03", Sse3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file04", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file04", Sse4, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file05", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file05", Sse5, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file06", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file06", Sse6, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/file07", Type: TypeFile, Misc: MiscExportFile, Status: StatusExperimental}, "/usr/bin/file07", Sse7, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file01", Type: TypeFile, Modifier: Avx2_1}, "/usr/bin/file01", Avx2_1, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file03", Type: TypeFile, Modifier: Avx2_1}, "/usr/bin/file03", Avx2_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file05", Type: TypeFile, Modifier: Avx2_1}, "/usr/bin/file05", Avx2_5, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V3/usr/bin/file07", Type: TypeFile, Modifier: Avx2_1}, "/usr/bin/file07", Avx2_7, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file02", Type: TypeFile, Modifier: Avx512_2}, "/usr/bin/file02", Avx512_2, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file03", Type: TypeFile, Modifier: Avx512_2}, "/usr/bin/file03", Avx512_3, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file06", Type: TypeFile, Modifier: Avx512_2}, "/usr/bin/file06", Avx512_6, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V4/usr/bin/file07", Type: TypeFile, Modifier: Avx512_2}, "/usr/bin/file07", Avx512_7, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file04", Type: TypeFile, Modifier: Apx4}, "/usr/bin/file04", Apx4, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file05", Type: TypeFile, Modifier: Apx4}, "/usr/bin/file05", Apx5, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file06", Type: TypeFile, Modifier: Apx4}, "/usr/bin/file06", Apx6, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/V5/usr/bin/file07", Type: TypeFile, Modifier: Apx4}, "/usr/bin/file07", Apx7, MiscExportFile, StatusExperimental, 0, false, false},
+		{File{Name: "/usr/bin/dfile00", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile00", Sse0, MiscExportFile, StatusUnset, 0, false, false},
+		{File{Name: "/usr/bin/dfile01", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile01", Sse0, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V3/usr/bin/dfile01", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile01", Sse0, MiscExportFile, StatusDeleted, 0, false, true},
+		{File{Name: "/usr/bin/dfile02", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile02", Sse2, MiscExportFile, StatusUnset, 0, false, false},
+		{File{Name: "/V4/usr/bin/dfile02", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile02", Avx512_2, MiscExportFile, StatusUnset, 0, false, false},
+		{File{Name: "/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", Sse1, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V3/usr/bin/dfile03", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile03", Avx2_1, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V4/usr/bin/dfile03", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile03", Sse0, MiscExportFile, StatusDeleted, 0, false, true},
+		{File{Name: "/usr/bin/dfile04", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile04", Sse2, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V4/usr/bin/dfile04", Type: TypeFile, Misc: MiscExportFile, Status: StatusUnset}, "/usr/bin/dfile04", Avx512_2, MiscExportFile, StatusUnset, 20, false, false},
+		{File{Name: "/V5/usr/bin/dfile04", Type: TypeUnset, Misc: MiscExportFile, Status: StatusDeleted}, "/usr/bin/dfile04", Sse0, MiscExportFile, StatusDeleted, 0, false, true},
 	}
 	testCaseMap := make(map[string][]struct {
 		file             File
@@ -453,7 +453,9 @@ func TestSetupModifiers(t *testing.T) {
 	for i := range testCases {
 		m.Files = append(m.Files, &testCases[i].file)
 	}
-	m.setupModifiers()
+	if err := m.setupModifiers(); err != nil {
+		t.Errorf("setupModifiers failed %v", err)
+	}
 
 	for _, f := range m.Files {
 		var tcs []struct {
@@ -494,9 +496,9 @@ func TestSetupModifiers(t *testing.T) {
 
 func TestSetupModifiersMissingSSE(t *testing.T) {
 	testCases := []File{
-		{Name: "/V3/usr/bin/file00", Type: TypeFile, Modifier: AVX2_1},
-		{Name: "/V4/usr/bin/file01", Type: TypeFile, Modifier: AVX512_2},
-		{Name: "/V5/usr/bin/file02", Type: TypeFile, Modifier: APX_4},
+		{Name: "/V3/usr/bin/file00", Type: TypeFile, Modifier: Avx2_1},
+		{Name: "/V4/usr/bin/file01", Type: TypeFile, Modifier: Avx512_2},
+		{Name: "/V5/usr/bin/file02", Type: TypeFile, Modifier: Apx4},
 	}
 
 	for i := range testCases {

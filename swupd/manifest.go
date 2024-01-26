@@ -348,7 +348,7 @@ func (m *Manifest) setupModifiers() error {
 		}
 		f.setModifierFromPathname()
 		allfiles[f.Name] = append(allfiles[f.Name], f)
-		if len(allfiles[f.Name]) > 1 || f.Modifier != SSE_0 {
+		if len(allfiles[f.Name]) > 1 || f.Modifier != Sse0 {
 			optbin[f.Name] = allfiles[f.Name]
 		}
 	}
@@ -359,7 +359,7 @@ func (m *Manifest) setupModifiers() error {
 		misc := MiscUnset
 		status := StatusUnset
 		for _, f := range v {
-			if f.Modifier == SSE_0 {
+			if f.Modifier == Sse0 {
 				ssebin = true
 				misc = f.Misc
 				status = f.Status
@@ -367,7 +367,7 @@ func (m *Manifest) setupModifiers() error {
 			m = m | modifierMasks[f.Modifier]
 		}
 		for _, f := range v {
-			if f.Modifier != SSE_0 {
+			if f.Modifier != Sse0 {
 				f.Misc = misc
 				f.Status = status
 			}
@@ -571,7 +571,7 @@ func (m *Manifest) newDeleted(df *File) {
 	df.Version = m.Header.Version
 	df.Status = StatusDeleted
 	df.Type = TypeUnset
-	df.Modifier = SSE_0
+	df.Modifier = Sse0
 	df.Hash = 0
 	// Add file to manifest
 	m.Files = append(m.Files, df)

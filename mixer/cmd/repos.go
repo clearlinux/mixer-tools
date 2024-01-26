@@ -112,7 +112,7 @@ func init() {
 	addRepoCmd.Flags().Uint32Var(&repoAddFlags.priority, "priority", 1, "Repo priority between 1 and 99, where 1 is highest")
 }
 
-func runExcludesRepo(cmd *cobra.Command, args []string) {
+func runExcludesRepo(_ *cobra.Command, args []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -125,7 +125,7 @@ func runExcludesRepo(cmd *cobra.Command, args []string) {
 	log.Info(log.Mixer, "Excluded packages from repo %s:\n%s", args[0], strings.Join(args[1:], "\n"))
 }
 
-func runPriorityRepo(cmd *cobra.Command, args []string) {
+func runPriorityRepo(_ *cobra.Command, args []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -145,7 +145,7 @@ type repoAddCmdFlags struct {
 
 var repoAddFlags repoAddCmdFlags
 
-func runAddRepo(cmd *cobra.Command, args []string) {
+func runAddRepo(_ *cobra.Command, args []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -169,7 +169,7 @@ func runAddRepo(cmd *cobra.Command, args []string) {
 	log.Info(log.Mixer, "Adding repo %s with url %s and priority %d", args[0], u.String(), repoAddFlags.priority)
 }
 
-func runRemoveRepo(cmd *cobra.Command, args []string) {
+func runRemoveRepo(_ *cobra.Command, args []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -181,7 +181,7 @@ func runRemoveRepo(cmd *cobra.Command, args []string) {
 	}
 }
 
-func runListRepos(cmd *cobra.Command, args []string) {
+func runListRepos(_ *cobra.Command, _ []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -193,7 +193,7 @@ func runListRepos(cmd *cobra.Command, args []string) {
 	}
 }
 
-func runInitRepo(cmd *cobra.Command, args []string) {
+func runInitRepo(_ *cobra.Command, _ []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -205,7 +205,7 @@ func runInitRepo(cmd *cobra.Command, args []string) {
 	}
 }
 
-func runSetURLRepo(cmd *cobra.Command, args []string) {
+func runSetURLRepo(_ *cobra.Command, args []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)

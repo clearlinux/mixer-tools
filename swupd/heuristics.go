@@ -19,19 +19,19 @@ import "strings"
 func (f *File) setModifierFromPathname() {
 	temp := strings.TrimPrefix(f.Name, "/V5")
 	if temp != f.Name {
-		f.Modifier = APX_4
+		f.Modifier = Apx4
 		f.Name = temp
 		return
 	}
 	temp = strings.TrimPrefix(f.Name, "/V4")
 	if temp != f.Name {
-		f.Modifier = AVX512_2
+		f.Modifier = Avx512_2
 		f.Name = temp
 		return
 	}
 	temp = strings.TrimPrefix(f.Name, "/V3")
 	if temp != f.Name {
-		f.Modifier = AVX2_1
+		f.Modifier = Avx2_1
 		f.Name = temp
 		return
 	}
@@ -43,57 +43,57 @@ func (f *File) setPrefixFromModifier() {
 
 func (f *File) setFullModifier(bits uint64) {
 	switch f.Modifier {
-	case SSE_0:
+	case Sse0:
 		switch bits {
 		case 0:
-			f.Modifier = SSE_0
+			f.Modifier = Sse0
 		case 1:
-			f.Modifier = SSE_1
+			f.Modifier = Sse1
 		case 2:
-			f.Modifier = SSE_2
+			f.Modifier = Sse2
 		case 3:
-			f.Modifier = SSE_3
+			f.Modifier = Sse3
 		case 4:
-			f.Modifier = SSE_4
+			f.Modifier = Sse4
 		case 5:
-			f.Modifier = SSE_5
+			f.Modifier = Sse5
 		case 6:
-			f.Modifier = SSE_6
+			f.Modifier = Sse6
 		case 7:
-			f.Modifier = SSE_7
+			f.Modifier = Sse7
 		}
-	case AVX2_1:
+	case Avx2_1:
 		switch bits {
 		case 1:
-			f.Modifier = AVX2_1
+			f.Modifier = Avx2_1
 		case 3:
-			f.Modifier = AVX2_3
+			f.Modifier = Avx2_3
 		case 5:
-			f.Modifier = AVX2_5
+			f.Modifier = Avx2_5
 		case 7:
-			f.Modifier = AVX2_7
+			f.Modifier = Avx2_7
 		}
-	case AVX512_2:
+	case Avx512_2:
 		switch bits {
 		case 2:
-			f.Modifier = AVX512_2
+			f.Modifier = Avx512_2
 		case 3:
-			f.Modifier = AVX512_3
+			f.Modifier = Avx512_3
 		case 6:
-			f.Modifier = AVX512_6
+			f.Modifier = Avx512_6
 		case 7:
-			f.Modifier = AVX512_7
+			f.Modifier = Avx512_7
 		}
-	case APX_4:
+	case Apx4:
 		switch bits {
 		case 4:
-			f.Modifier = APX_4
+			f.Modifier = Apx4
 		case 5:
-			f.Modifier = APX_5
+			f.Modifier = Apx5
 		case 6:
-			f.Modifier = APX_6
+			f.Modifier = Apx6
 		case 7:
-			f.Modifier = APX_7
+			f.Modifier = Apx7
 		}
 	}
 }

@@ -52,7 +52,7 @@ func (sw *stopWatch) Stop() {
 	e.d = time.Since(sw.t)
 }
 
-func (sw *stopWatch) WriteSummary(w io.Writer) {
+func (sw *stopWatch) WriteSummary(_ io.Writer) {
 	if len(sw.entries) == 0 {
 		return
 	}

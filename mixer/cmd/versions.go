@@ -71,7 +71,7 @@ func init() {
 	versionsUpdateCmd.Flags().BoolVar(&versionsUpdateFlags.skipFormatCheck, "skip-format-check", false, "Skip format bump check")
 }
 
-func runVersions(cmd *cobra.Command, args []string) {
+func runVersions(_ *cobra.Command, _ []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)
@@ -82,7 +82,7 @@ func runVersions(cmd *cobra.Command, args []string) {
 	}
 }
 
-func runVersionsUpdate(cmd *cobra.Command, args []string) {
+func runVersionsUpdate(_ *cobra.Command, _ []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)

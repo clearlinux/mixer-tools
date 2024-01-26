@@ -218,7 +218,7 @@ func hasMarker(cmd *cobra.Command, marker string) bool {
 
 func checkRoot() error {
 	if uid := os.Geteuid(); uid != 0 {
-		return errors.Errorf("This command requires root (uid=%d)\n", uid)
+		return errors.Errorf("This command requires root (uid=%d)", uid)
 	}
 	return nil
 }

@@ -66,7 +66,7 @@ func (b *Builder) getUpstreamBundles() error {
 
 	// Make the folder to store upstream bundles if does not exist
 	if err := os.MkdirAll(upstreamBundlesBaseDir, 0777); err != nil {
-		return errors.Wrap(err, "Failed to create upstream-bundles dir.")
+		return errors.Wrap(err, "Failed to create upstream-bundles dir")
 	}
 
 	// Download the upstream bundles

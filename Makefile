@@ -47,10 +47,7 @@ lint:
 	--enable=ineffassign \
 	--enable=gofmt \
 	$${CYCLO_MAX:+--enable=gocyclo --cyclo-over=$${CYCLO_MAX}} \
-	--enable=golint \
-	--enable=deadcode \
-	--enable=varcheck \
-	--enable=structcheck \
+	--enable=revive \
 	--enable=unused \
 	--enable=vetshadow \
 	--enable=errcheck \

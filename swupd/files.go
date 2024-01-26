@@ -73,46 +73,46 @@ type ModifierFlag uint8
 // This is append only, so when new bitflagvalues are added, make new combinations
 // from the bottom of the current list.
 const (
-	SSE_0 ModifierFlag = iota
-	SSE_1
-	SSE_2
-	SSE_3
-	AVX2_1
-	AVX2_3
-	AVX512_2
-	AVX512_3
-	SSE_4
-	SSE_5
-	SSE_6
-	SSE_7
-	AVX2_5
-	AVX2_7
-	AVX512_6
-	AVX512_7
-	APX_4
-	APX_5
-	APX_6
-	APX_7
+	Sse0 ModifierFlag = iota
+	Sse1
+	Sse2
+	Sse3
+	Avx2_1
+	Avx2_3
+	Avx512_2
+	Avx512_3
+	Sse4
+	Sse5
+	Sse6
+	Sse7
+	Avx2_5
+	Avx2_7
+	Avx512_6
+	Avx512_7
+	Apx4
+	Apx5
+	Apx6
+	Apx7
 )
 
 var modifierPrefixes = map[ModifierFlag]string{
-	SSE_0:    "",
-	SSE_1:    "",
-	SSE_2:    "",
-	SSE_3:    "",
-	SSE_4:    "",
-	AVX2_1:   "/V3",
-	AVX2_3:   "/V3",
-	AVX2_5:   "/V3",
-	AVX2_7:   "/V3",
-	AVX512_2: "/V4",
-	AVX512_3: "/V4",
-	AVX512_6: "/V4",
-	AVX512_7: "/V4",
-	APX_4:    "/V5",
-	APX_5:    "/V5",
-	APX_6:    "/V5",
-	APX_7:    "/V5",
+	Sse0:     "",
+	Sse1:     "",
+	Sse2:     "",
+	Sse3:     "",
+	Sse4:     "",
+	Avx2_1:   "/V3",
+	Avx2_3:   "/V3",
+	Avx2_5:   "/V3",
+	Avx2_7:   "/V3",
+	Avx512_2: "/V4",
+	Avx512_3: "/V4",
+	Avx512_6: "/V4",
+	Avx512_7: "/V4",
+	Apx4:     "/V5",
+	Apx5:     "/V5",
+	Apx6:     "/V5",
+	Apx7:     "/V5",
 }
 
 // The three maps below were generated using the following:
@@ -276,10 +276,10 @@ var byteModifiers = map[byte]ModifierFlag{
 }
 
 var modifierMasks = map[ModifierFlag]uint64{
-	SSE_0:    0,
-	AVX2_1:   1 << 0,
-	AVX512_2: 1 << 1,
-	APX_4:    1 << 2,
+	Sse0:     0,
+	Avx2_1:   1 << 0,
+	Avx512_2: 1 << 1,
+	Apx4:     1 << 2,
 }
 
 // MiscFlag is a placeholder for additional flags that can be used by swupd-client.

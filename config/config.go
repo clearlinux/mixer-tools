@@ -245,7 +245,7 @@ func (config *MixConfig) expandEnv() error {
 
 			for _, s := range matches {
 				if _, ok := os.LookupEnv(s[1]); !ok {
-					return errors.Errorf("buildconf contains an undefined environment variable: %s\n", s[1])
+					return errors.Errorf("buildconf contains an undefined environment variable: %s", s[1])
 				}
 			}
 

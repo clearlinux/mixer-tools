@@ -206,14 +206,19 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 // Last metadata expiration check: 0:00:00 ago on Wed 07 Mar 2018 04:05:44 PM PS
 // Dependencies resolved.
 // =============================================================================
-//  Package                                   Arch                Version
+//
+//	Package                                   Arch                Version
+//
 // =============================================================================
 // Installing:
-//  systemd-boot                              x86_64              234-166
+//
+//	systemd-boot                              x86_64              234-166
+//
 // Installing dependencies:
-//  Linux-PAM                                 x86_64              1.2.1-33
-//  <more packages>
-//  zlib-lib                                  x86_64              1.2.8.jtkv4-43
+//
+//	Linux-PAM                                 x86_64              1.2.1-33
+//	<more packages>
+//	zlib-lib                                  x86_64              1.2.8.jtkv4-43
 //
 // Transaction Summary
 // =============================================================================
@@ -224,10 +229,13 @@ func resolveFilesForBundle(bundle *bundle, repoPkgs repoPkgMap, packagerCmd []st
 // Last metadata expiration check: 0:00:00 ago on Wed 07 Mar 2018 04:33:18 PM PS
 // Dependencies resolved.
 // =============================================================================
-//  Package                   Arch                        Version
+//
+//	Package                   Arch                        Version
+//
 // =============================================================================
 // Installing:
-//  shim                      x86_64                      12-10
+//
+//	shim                      x86_64                      12-10
 //
 // Transaction Summary
 // =============================================================================

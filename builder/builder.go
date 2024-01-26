@@ -197,7 +197,7 @@ func (b *Builder) InitMix(upstreamVer string, mixVer string, allLocal bool, allU
 
 	// Clean up the upstream bundles folder and its contents
 	if err := os.RemoveAll(upstreamBundlesBaseDir); err != nil {
-		return errors.Wrap(err, "Failed to delete upstream-bundles dir.")
+		return errors.Wrap(err, "Failed to delete upstream-bundles dir")
 	}
 
 	if err := b.AddBundles(bundles, allLocal, allUpstream, false); err != nil {
@@ -440,7 +440,7 @@ func (b *Builder) BuildImage(format string, configFile string) error {
 				// The previous ister.py configuration file exist,
 				// we need to migrate it to clr-installer YAML
 				log.Warning(log.Mixer, "Previous generation image config %s found", migrationFile)
-				if err = b.migrateConfigFile(migrationFile, configFile); err != nil {
+				if err = b.migrateConfigFile(migrationFile); err != nil {
 					return err
 				}
 			}
@@ -489,7 +489,7 @@ func (b *Builder) BuildImage(format string, configFile string) error {
 // migrateConfigFile will generate a clr-install YAML file based on the existing
 // ister JSON file. We will also rename the existing ister JSON to prevent it
 // from being migrated a second time.
-func (b *Builder) migrateConfigFile(migrationFile, configFile string) error {
+func (b *Builder) migrateConfigFile(migrationFile string) error {
 	log.Info(log.Mixer, "Migrating image config from %s to %s", migrationConfig, buildConfig)
 
 	convertCmd := exec.Command("clr-installer", "--json-yaml", migrationFile, "--iso", "--keep-image")

@@ -681,7 +681,7 @@ var buildDeltaManifestsFlags struct {
 	to               uint32
 }
 
-func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
+func runBuildDeltaPacks(cmd *cobra.Command, _ []string) error {
 	if err := checkRoot(); err != nil {
 		fail(err)
 	}
@@ -708,7 +708,7 @@ func runBuildDeltaPacks(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func runBuildDeltaManifests(cmd *cobra.Command, args []string) error {
+func runBuildDeltaManifests(cmd *cobra.Command, _ []string) error {
 	if err := checkRoot(); err != nil {
 		fail(err)
 	}

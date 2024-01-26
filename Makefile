@@ -39,7 +39,7 @@ checkcoverage:
 lint:
 	@if ! $(gopath)/bin/golangci-lint --version &>/dev/null; then \
 		echo "Installing linters..."; \
-		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(gopath)/bin v1.22.2; \
+		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(gopath)/bin v1.55.2; \
 	fi
 	@$(gopath)/bin/golangci-lint run --deadline=10m --tests --disable-all \
 	--enable=misspell \

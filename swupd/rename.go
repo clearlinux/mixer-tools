@@ -22,16 +22,16 @@ import (
 	"strings"
 )
 
-func renameDetection(manifest *Manifest, added []*File, removed []*File, c config) error {
+func renameDetection(_ *Manifest, added []*File, removed []*File, c config) error {
 	if len(added) == 0 || len(removed) == 0 {
 		return nil // nothing to rename
 	}
 	added = trimRenamed(added) // Make copies of input slices, tidy up whilst we are here
 	removed = trimRenamed(removed)
-	if err := fixupStatFields(removed, manifest, &c); err != nil {
+	if err := fixupStatFields(removed, &c); err != nil {
 		return err
 	}
-	if err := fixupStatFields(added, manifest, &c); err != nil {
+	if err := fixupStatFields(added, &c); err != nil {
 		return err
 	}
 	// Handle pure renames first, don't need to worry about size. Should we skip zero size?
@@ -118,13 +118,14 @@ func tryLinkRenamePair(renameTo, renameFrom *File) {
 		return
 	}
 	if renameFrom.DeltaPeer != nil {
-		 return
+		return
 	}
 	renameTo.DeltaPeer = renameFrom
 	renameFrom.DeltaPeer = renameTo
 	renameTo.Misc = MiscRename
 	renameFrom.Misc = MiscRename
 }
+
 // linkRenamePair links two files together
 func linkRenamePair(renameTo, renameFrom *File) {
 	renameTo.DeltaPeer = renameFrom
@@ -252,7 +253,7 @@ func makePairedNamesHex(list []*File) []pairedNames {
 // construct the path to the old chroot by Joining the c.imageBase
 // file.Previous, bundle name, and file.Name fields
 // Note this is horrible
-func fixupStatFields(needed []*File, m *Manifest, c *config) error {
+func fixupStatFields(needed []*File, c *config) error {
 	var bundleChroot string
 	for i := range needed {
 		if needed[i].Info != nil {

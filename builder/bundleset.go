@@ -42,9 +42,9 @@ type bundleSet map[string]*bundle
 // validateAndFillBundleSet will validate a bundleSet and fill in the Allpackage
 // fields in each bundle. Specifically, it will validate that a bundleSet meets
 // the following constraints:
-// 1) Completeness. For each bundle in the set, every bundle included by that
-//    bundle is also in the set.
-// 2) Cycle-Free. The set contains no bundle include cycles.
+//  1. Completeness. For each bundle in the set, every bundle included by that
+//     bundle is also in the set.
+//  2. Cycle-Free. The set contains no bundle include cycles.
 func validateAndFillBundleSet(bundles bundleSet) error {
 	// Sort the bundles so that all includes and optional (also-add) includes appear
 	// before a bundle, then calculate AllPackages for each bundle.

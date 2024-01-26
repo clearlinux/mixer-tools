@@ -18,7 +18,7 @@ func removeAllIgnoreErr(dir string) {
 	_ = os.RemoveAll(dir)
 }
 
-func mustInitStandardTest(t *testing.T, testDir, lastVer, ver string, bundles []string) {
+func mustInitStandardTest(t *testing.T, testDir, ver string, bundles []string) {
 	t.Helper()
 	mustInitTestDir(t, testDir)
 	mustInitServerINI(t, testDir)
@@ -334,11 +334,11 @@ func checkIncludes(t *testing.T, m *Manifest, includes ...string) {
 // used in places where filesystem is expected to work correctly and the subject of the test
 // is something else. Use it like
 //
-// func TestMyTest(t *testing.T) {
-// 	fs := newTestFileSystem(t, "my-test-")
-// 	defer fs.cleanup()
-// 	// ...
-// }
+//	func TestMyTest(t *testing.T) {
+//		fs := newTestFileSystem(t, "my-test-")
+//		defer fs.cleanup()
+//		// ...
+//	}
 //
 // See also testSwupd struct, that has a testFileSystem plus other swupd specific facilities.
 type testFileSystem struct {
@@ -716,18 +716,18 @@ func (fs *testFileSystem) checkNotContains(subpath, sub string) {
 // case errors of those operations are to be tested, use the data from the struct but not
 // the helper functions.
 //
-// Simple usage looks like
+// # Simple usage looks like
 //
-// func TestMyTest(t *testing.T) {
-// 	ts := newTestSwupd(t, "my-test-")
-// 	defer ts.cleanup()
+//	func TestMyTest(t *testing.T) {
+//		ts := newTestSwupd(t, "my-test-")
+//		defer ts.cleanup()
 //
-//	ts.Bundles = []string{"bundle"}
-//      ts.write("image/10/bundle/file", "content")
-//      ts.createManifests(10)
+//		ts.Bundles = []string{"bundle"}
+//	     ts.write("image/10/bundle/file", "content")
+//	     ts.createManifests(10)
 //
-//      // ...
-// }
+//	     // ...
+//	}
 //
 // For tests that require only filesystem operations, prefer testFileSystem.
 type testSwupd struct {

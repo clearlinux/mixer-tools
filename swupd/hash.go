@@ -115,11 +115,11 @@ type Hash struct {
 // Hash" of a given file. For historical reasons, the hash is
 // constructed as
 //
-//     stat     := file metadata
-//     contents := file contents
-//     HMAC(key, data)
+//	stat     := file metadata
+//	contents := file contents
+//	HMAC(key, data)
 //
-//     swupd hash = HMAC(HMAC(stat, nil), contents)
+//	swupd hash = HMAC(HMAC(stat, nil), contents)
 //
 // The data for the inner HMAC was used for file xattrs, but is not
 // used at the moment.

@@ -317,7 +317,7 @@ func (b *Builder) RemoveRepo(name string) error {
 	_, err = DNFConf.GetSection(name)
 	if err != nil {
 		log.Debug(log.Mixer, err.Error())
-		return errors.Errorf("unable to remove repo %s, does not exist.", name)
+		return errors.Errorf("unable to remove repo %s, does not exist", name)
 	}
 
 	DNFConf.DeleteSection(name)
@@ -411,7 +411,7 @@ func (b *Builder) AddRPMList(rpms []string) error {
 		if strings.HasSuffix(rpm, ".src.rpm") {
 			log.Info(log.Mixer, "Removing %s because source RPMs are not supported in mixes.", rpm)
 			if err := os.RemoveAll(filepath.Join(b.Config.Mixer.LocalRPMDir, rpm)); err != nil {
-				return errors.Wrapf(err, "Failed to remove %s, your mix will not generate properly with source RPMs included.", rpm)
+				return errors.Wrapf(err, "Failed to remove %s, your mix will not generate properly with source RPMs included", rpm)
 			}
 		}
 		log.Info(log.Mixer, "Hardlinking %s to repodir", rpm)

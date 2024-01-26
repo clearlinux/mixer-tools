@@ -186,7 +186,7 @@ func TestSetPackagesList(t *testing.T) {
 	}
 }
 
-func mustCreateTempBundleDirs(t *testing.T, b *Builder, d string) {
+func mustCreateTempBundleDirs(t *testing.T, b *Builder) {
 	t.Helper()
 
 	var err error
@@ -263,7 +263,7 @@ func TestGetBundlePath(t *testing.T) {
 	b.UpstreamVer = "10"
 	b.Config = config.MixConfig{}
 	b.Config.LoadDefaultsForPath(d)
-	mustCreateTempBundleDirs(t, b, d)
+	mustCreateTempBundleDirs(t, b)
 
 	testCases := []struct {
 		name   string

@@ -176,7 +176,6 @@ func TestFindBundlesToPack(t *testing.T) {
 			printBundles(tt.Expected)
 
 			t.Fatalf("mismatch between returned bundles to pack and expected bundles to pack in case %q", tt.Name)
-			continue
 		}
 	}
 }
@@ -338,7 +337,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 		t.Fatal("test contents sizes are invalid")
 	}
 
-	mustInitStandardTest(t, fs.Dir, "0", "10", []string{"contents"})
+	mustInitStandardTest(t, fs.Dir, "10", []string{"contents"})
 	fs.write("image/10/contents/small1", emptyContents)
 	fs.write("image/10/contents/small2", smallContents)
 	fs.write("image/10/contents/large1", largeContents)
@@ -349,7 +348,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 	// In version 20, swap the content of small files, and modify the large files
 	// changing one byte or all bytes.
 	//
-	mustInitStandardTest(t, fs.Dir, "10", "20", []string{"contents"})
+	mustInitStandardTest(t, fs.Dir, "20", []string{"contents"})
 	fs.write("image/20/contents/small1", smallContents)
 	fs.write("image/20/contents/small2", smallContents)
 	fs.write("image/20/contents/large1", strings.ToUpper(largeContents[:1])+largeContents[1:])
@@ -362,7 +361,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 	//
 	// In version 30, make a change to one large files from 20.
 	//
-	mustInitStandardTest(t, fs.Dir, "20", "30", []string{"contents"})
+	mustInitStandardTest(t, fs.Dir, "30", []string{"contents"})
 	fs.cp("image/20/contents", "image/30")
 	fs.write("image/30/contents/large1", strings.ToUpper(largeContents[:2])+largeContents[2:])
 	mustCreateManifests(t, 30, 20, minVer, format, fs.Dir)
@@ -380,7 +379,7 @@ func TestCreatePackWithIncompleteChrootDir(t *testing.T) {
 	fs := newTestFileSystem(t, "create-pack-")
 	defer fs.cleanup()
 
-	mustInitStandardTest(t, fs.Dir, "0", "10", []string{"editors"})
+	mustInitStandardTest(t, fs.Dir, "10", []string{"editors"})
 	fs.write("image/10/editors/emacs", "emacs contents")
 	fs.write("image/10/editors/joe", "joe contents")
 	fs.write("image/10/editors/vim", "vim contents")

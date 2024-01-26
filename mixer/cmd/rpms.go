@@ -42,7 +42,7 @@ func init() {
 	}
 }
 
-func runAddRPM(cmd *cobra.Command, args []string) {
+func runAddRPM(_ *cobra.Command, _ []string) {
 	b, err := builder.NewFromConfig(configFile)
 	if err != nil {
 		fail(err)

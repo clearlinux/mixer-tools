@@ -6,14 +6,14 @@ import (
 
 func TestSetModifierFromPathname(t *testing.T) {
 	testCases := []struct {
-		file     File
+		file    File
 		newName string
 		newFlag ModifierFlag
 	}{
-		{File{Name: "/V3/etc/file"}, "/etc/file", AVX2_1},
-		{File{Name: "/V4/usr/src/debug"}, "/usr/src/debug", AVX512_2},
-		{File{Name: "/V5/usr/bin/foo"}, "/usr/bin/foo", APX_4},
-		{File{Name: "/dev/foo"}, "/dev/foo", SSE_0},
+		{File{Name: "/V3/etc/file"}, "/etc/file", Avx2_1},
+		{File{Name: "/V4/usr/src/debug"}, "/usr/src/debug", Avx512_2},
+		{File{Name: "/V5/usr/bin/foo"}, "/usr/bin/foo", Apx4},
+		{File{Name: "/dev/foo"}, "/dev/foo", Sse0},
 	}
 
 	for _, tc := range testCases {
@@ -33,26 +33,26 @@ func TestSetFullModifier(t *testing.T) {
 		bits     uint64
 		expected ModifierFlag
 	}{
-		{File{Name: "/bin/file00", Modifier: SSE_0}, 0, SSE_0},
-		{File{Name: "/bin/file01", Modifier: SSE_0}, 1, SSE_1},
-		{File{Name: "/bin/file02", Modifier: SSE_0}, 2, SSE_2},
-		{File{Name: "/bin/file03", Modifier: SSE_0}, 3, SSE_3},
-		{File{Name: "/bin/file04", Modifier: SSE_0}, 4, SSE_4},
-		{File{Name: "/bin/file05", Modifier: SSE_0}, 5, SSE_5},
-		{File{Name: "/bin/file06", Modifier: SSE_0}, 6, SSE_6},
-		{File{Name: "/bin/file07", Modifier: SSE_0}, 7, SSE_7},
-		{File{Name: "/bin/file08", Modifier: AVX2_1}, 1, AVX2_1},
-		{File{Name: "/bin/file09", Modifier: AVX2_1}, 3, AVX2_3},
-		{File{Name: "/bin/file10", Modifier: AVX2_1}, 5, AVX2_5},
-		{File{Name: "/bin/file11", Modifier: AVX2_1}, 7, AVX2_7},
-		{File{Name: "/bin/file12", Modifier: AVX512_2}, 2, AVX512_2},
-		{File{Name: "/bin/file13", Modifier: AVX512_2}, 3, AVX512_3},
-		{File{Name: "/bin/file14", Modifier: AVX512_2}, 6, AVX512_6},
-		{File{Name: "/bin/file15", Modifier: AVX512_2}, 7, AVX512_7},
-		{File{Name: "/bin/file16", Modifier: APX_4}, 4, APX_4},
-		{File{Name: "/bin/file17", Modifier: APX_4}, 5, APX_5},
-		{File{Name: "/bin/file18", Modifier: APX_4}, 6, APX_6},
-		{File{Name: "/bin/file19", Modifier: APX_4}, 7, APX_7},
+		{File{Name: "/bin/file00", Modifier: Sse0}, 0, Sse0},
+		{File{Name: "/bin/file01", Modifier: Sse0}, 1, Sse1},
+		{File{Name: "/bin/file02", Modifier: Sse0}, 2, Sse2},
+		{File{Name: "/bin/file03", Modifier: Sse0}, 3, Sse3},
+		{File{Name: "/bin/file04", Modifier: Sse0}, 4, Sse4},
+		{File{Name: "/bin/file05", Modifier: Sse0}, 5, Sse5},
+		{File{Name: "/bin/file06", Modifier: Sse0}, 6, Sse6},
+		{File{Name: "/bin/file07", Modifier: Sse0}, 7, Sse7},
+		{File{Name: "/bin/file08", Modifier: Avx2_1}, 1, Avx2_1},
+		{File{Name: "/bin/file09", Modifier: Avx2_1}, 3, Avx2_3},
+		{File{Name: "/bin/file10", Modifier: Avx2_1}, 5, Avx2_5},
+		{File{Name: "/bin/file11", Modifier: Avx2_1}, 7, Avx2_7},
+		{File{Name: "/bin/file12", Modifier: Avx512_2}, 2, Avx512_2},
+		{File{Name: "/bin/file13", Modifier: Avx512_2}, 3, Avx512_3},
+		{File{Name: "/bin/file14", Modifier: Avx512_2}, 6, Avx512_6},
+		{File{Name: "/bin/file15", Modifier: Avx512_2}, 7, Avx512_7},
+		{File{Name: "/bin/file16", Modifier: Apx4}, 4, Apx4},
+		{File{Name: "/bin/file17", Modifier: Apx4}, 5, Apx5},
+		{File{Name: "/bin/file18", Modifier: Apx4}, 6, Apx6},
+		{File{Name: "/bin/file19", Modifier: Apx4}, 7, Apx7},
 	}
 
 	for _, tc := range testCases {
@@ -98,7 +98,10 @@ func TestApplyHeuristics(t *testing.T) {
 		{File{Name: "/usr/lib/modules/foo", Status: StatusDeleted}, StatusGhosted},
 		{File{Name: "/usr/lib/kernel/foo", Status: StatusDeleted}, StatusGhosted},
 	}
-	testCaseMap := make(map[string]struct{file File; expected StatusFlag})
+	testCaseMap := make(map[string]struct {
+		file     File
+		expected StatusFlag
+	})
 	for _, tc := range testCases {
 		testCaseMap[tc.file.Name] = tc
 	}

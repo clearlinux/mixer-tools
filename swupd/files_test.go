@@ -173,7 +173,7 @@ func TestModifierFromFlag(t *testing.T) {
 			t.Error("setModifierFromFlag did not fail with invalid input")
 		}
 
-		if f.Modifier != SSE_0 {
+		if f.Modifier != Sse0 {
 			t.Errorf("file modifier was set to %v from invalid flag", f.Modifier)
 		}
 	})

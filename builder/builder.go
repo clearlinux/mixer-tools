@@ -450,16 +450,15 @@ func (b *Builder) BuildImage(format string, configFile string) error {
 
 		// If the legacy JSON file exists, rename the old file to prevent migration
 		// each time we build and discourage the user from using the old JSON file.
-		if _, err := os.Stat(migrationFile); os.IsNotExist(err) {
-		} else if err != nil {
+		if _, err := os.Stat(migrationFile); err != nil && !os.IsNotExist(err) {
 			return err
-		} else {
-			renameFile := migrationFile + "-EOL"
-			log.Info(log.Mixer, " Renaming previous generation config %s to %s", migrationFile, renameFile)
-			if mvErr := os.Rename(migrationFile, renameFile); mvErr != nil {
-				log.Warning(log.Mixer, "Failed to rename %s: %v", migrationFile, mvErr)
-			}
 		}
+		renameFile := migrationFile + "-EOL"
+		log.Info(log.Mixer, " Renaming previous generation config %s to %s", migrationFile, renameFile)
+		if mvErr := os.Rename(migrationFile, renameFile); mvErr != nil {
+			log.Warning(log.Mixer, "Failed to rename %s: %v", migrationFile, mvErr)
+		}
+
 	} else {
 		if !strings.HasSuffix(configFile, "yaml") {
 			return fmt.Errorf("build configuration file '%s' must end in .yaml", configFile)

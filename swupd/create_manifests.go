@@ -93,22 +93,21 @@ func initBundles(ui UpdateInfo, c config, numWorkers int) ([]*Manifest, error) {
 				tmpManifests = append(tmpManifests, bundle)
 				mux.Unlock()
 				continue
-			} else {
-				log.Info(log.Mixer, "- %s", bundleName)
-				biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
-				if _, err = os.Stat(biPath); os.IsNotExist(err) {
-					err = syncToFull(ui.version, bundle.Name, c.imageBase)
-					if err != nil {
-						errorChan <- err
-						return
-					}
-				}
-
-				err = bundle.GetBundleInfo(c.stateDir, biPath)
+			}
+			log.Info(log.Mixer, "- %s", bundleName)
+			biPath := filepath.Join(c.imageBase, fmt.Sprint(ui.version), bundle.Name+"-info")
+			if _, err = os.Stat(biPath); os.IsNotExist(err) {
+				err = syncToFull(ui.version, bundle.Name, c.imageBase)
 				if err != nil {
 					errorChan <- err
 					return
 				}
+			}
+
+			err = bundle.GetBundleInfo(c.stateDir, biPath)
+			if err != nil {
+				errorChan <- err
+				return
 			}
 
 			mux.Lock()

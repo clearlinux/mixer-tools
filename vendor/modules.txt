@@ -21,7 +21,7 @@ github.com/olekukonko/tablewriter
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit
-# github.com/rivo/uniseg v0.4.4
+# github.com/rivo/uniseg v0.4.6
 ## explicit; go 1.18
 github.com/rivo/uniseg
 # github.com/spf13/cobra v1.8.0

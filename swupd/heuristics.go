@@ -17,7 +17,7 @@ package swupd
 import "strings"
 
 func (f *File) setModifierFromPathname() {
-	temp := strings.TrimPrefix(f.Name, "/V5")
+	temp := strings.TrimPrefix(f.Name, "/VA")
 	if temp != f.Name {
 		f.Modifier = Apx4
 		f.Name = temp

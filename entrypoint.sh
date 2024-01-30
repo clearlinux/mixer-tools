@@ -3,6 +3,8 @@ cd /home/clr/mixer-tools
 
 run_precheck() {
 	make && sudo -E make install
+	export CI_ONLY=1
+	export GOLANGCI_LINT_CACHE=/tmp/.golangci-lint
 	make lint && make check
 }
 

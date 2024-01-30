@@ -37,7 +37,7 @@ checkcoverage:
 
 .PHONY: lint
 lint:
-	@if ! $(gopath)/bin/golangci-lint --version &>/dev/null; then \
+	@if [ ! -z "${CI_ONLY}" ]; then \
 		echo "Installing linters..."; \
 		curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(gopath)/bin v1.55.2; \
 	fi

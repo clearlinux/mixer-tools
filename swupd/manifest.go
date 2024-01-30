@@ -307,13 +307,13 @@ func (m *Manifest) removeOptNonFiles() {
 			// Looking files files, deleted files or anything else that doesn't have an
 			// optimization prefix.
 			if f.Status == StatusDeleted {
-				if strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") || strings.HasPrefix(f.Name, "/V5") {
+				if strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") || strings.HasPrefix(f.Name, "/VA") {
 					// for non-SSE deleted files the versions on matching files need bumping
 					// so update will replace the deleted optimized file.
 					// Track these files for later
 					strippedName := strings.TrimPrefix(f.Name, "/V3")
 					strippedName = strings.TrimPrefix(strippedName, "/V4")
-					strippedName = strings.TrimPrefix(strippedName, "/V5")
+					strippedName = strings.TrimPrefix(strippedName, "/VA")
 					seen[strippedName] = true
 					continue
 				}
@@ -329,7 +329,7 @@ func (m *Manifest) removeOptNonFiles() {
 	for _, f := range m.Files {
 		strippedName := strings.TrimPrefix(f.Name, "/V3")
 		strippedName = strings.TrimPrefix(strippedName, "/V4")
-		strippedName = strings.TrimPrefix(strippedName, "/V5")
+		strippedName = strings.TrimPrefix(strippedName, "/VA")
 		// Only SSE content or non-deleted optimized files should be added to the filelist
 		if result := seen[strippedName]; result {
 			// Now update any versions for matching files of newly deleted optimized files

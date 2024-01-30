@@ -12,7 +12,7 @@ func TestSetModifierFromPathname(t *testing.T) {
 	}{
 		{File{Name: "/V3/etc/file"}, "/etc/file", Avx2_1},
 		{File{Name: "/V4/usr/src/debug"}, "/usr/src/debug", Avx512_2},
-		{File{Name: "/V5/usr/bin/foo"}, "/usr/bin/foo", Apx4},
+		{File{Name: "/VA/usr/bin/foo"}, "/usr/bin/foo", Apx4},
 		{File{Name: "/dev/foo"}, "/dev/foo", Sse0},
 	}
 

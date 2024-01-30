@@ -109,10 +109,10 @@ var modifierPrefixes = map[ModifierFlag]string{
 	Avx512_3: "/V4",
 	Avx512_6: "/V4",
 	Avx512_7: "/V4",
-	Apx4:     "/V5",
-	Apx5:     "/V5",
-	Apx6:     "/V5",
-	Apx7:     "/V5",
+	Apx4:     "/VA",
+	Apx5:     "/VA",
+	Apx6:     "/VA",
+	Apx7:     "/VA",
 }
 
 // The three maps below were generated using the following:
@@ -484,5 +484,5 @@ func (f *File) Present() bool {
 }
 
 func (f *File) hasOptPrefix() bool {
-	return strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") || strings.HasPrefix(f.Name, "/V5")
+	return strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") || strings.HasPrefix(f.Name, "/VA")
 }

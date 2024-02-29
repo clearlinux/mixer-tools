@@ -6,6 +6,10 @@ name: mixer-tools CI
 
 on: [push, pull_request]
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   pre-check:
     runs-on: ubuntu-latest

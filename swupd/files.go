@@ -459,6 +459,16 @@ func (f *File) findFileNameInSlice(fs []*File) *File {
 	return nil
 }
 
+func (f *File) findFileNameAndModifierInSlice(fs []*File) *File {
+	for _, file := range fs {
+		if file.Name == f.Name && file.Modifier == f.Modifier {
+			return file
+		}
+	}
+
+	return nil
+}
+
 func (f *File) isUnsupportedTypeChange() bool {
 	if f.DeltaPeer == nil {
 		// nothing to check, new or deleted file
@@ -488,4 +498,14 @@ func (f *File) Present() bool {
 
 func (f *File) hasOptPrefix() bool {
 	return strings.HasPrefix(f.Name, "/V3") || strings.HasPrefix(f.Name, "/V4") || strings.HasPrefix(f.Name, "/VA")
+}
+
+func (f *File) useInPack() bool {
+	// At this point SSE files that also have an AVX version
+	// aren't going to be added to packs, simalarly, APX systems
+	// aren't popular enough yet to add to packs
+	var sseWithAvxOptBin = f.Modifier == Sse1 || f.Modifier == Sse2 || f.Modifier == Sse3
+	var apx = f.Modifier == Apx4 || f.Modifier == Apx5 || f.Modifier == Apx6 || f.Modifier == Apx7
+	var useFile = !apx && !sseWithAvxOptBin
+	return useFile
 }

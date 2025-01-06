@@ -200,6 +200,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	ts.addFile(10, "shells", "/csh", "csh contents")
 	ts.addFile(10, "shells", "/fish", "fish contents")
 	ts.addFile(10, "shells", "/zsh", "zsh contents")
+	ts.addFile(10, "shells", "/V3/zsh", "zsh V3 contents")
 
 	ts.createManifests(10)
 
@@ -212,7 +213,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 
 	info = ts.createPack("shells", 0, 10, ts.path("image"))
 	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 4+emptyFile)
+	mustHaveFullfileCount(t, info, 5+emptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.shells"), ts.path("www/10/pack-shells-from-0.tar"))
 
@@ -224,6 +225,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	ts.addFile(20, "shells", "/csh", "csh contents")
 	ts.addFile(20, "shells", "/fish", "fish contents")
 	ts.addFile(20, "shells", "/zsh", "zsh contents")
+	ts.addFile(20, "shells", "/V3/zsh", "zsh V3 contents")
 	ts.addFile(20, "shells", "/ksh", "ksh contents")
 	ts.createManifests(20)
 
@@ -252,7 +254,7 @@ func TestCreatePackZeroPacks(t *testing.T) {
 	// Now we have all fullfiles for both versions.
 	info = ts.createPack("shells", 0, 20, "")
 	mustHaveNoWarnings(t, info)
-	mustHaveFullfileCount(t, info, 5+emptyFile)
+	mustHaveFullfileCount(t, info, 6+emptyFile)
 	mustHaveDeltaCount(t, info, 0)
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.shells"), ts.path("www/20/pack-shells-from-0.tar"))
 }
@@ -342,6 +344,8 @@ func TestCreatePackWithDelta(t *testing.T) {
 	fs.write("image/10/contents/small2", smallContents)
 	fs.write("image/10/contents/large1", largeContents)
 	fs.write("image/10/contents/large2", largeContents)
+	fs.write("image/10/contents/opttest", largeContents+"0opt")
+	fs.write("image/10/contents/V3/opttest", largeContents+"V3opt")
 	mustCreateManifests(t, 10, 0, minVer, format, fs.Dir)
 
 	//
@@ -353,10 +357,14 @@ func TestCreatePackWithDelta(t *testing.T) {
 	fs.write("image/20/contents/small2", smallContents)
 	fs.write("image/20/contents/large1", strings.ToUpper(largeContents[:1])+largeContents[1:])
 	fs.write("image/20/contents/large2", largeContents[:1]+strings.ToUpper(largeContents[1:]))
+	fs.write("image/20/contents/opttest", largeContents+"0OPT")
+	fs.write("image/20/contents/V3/opttest", largeContents+"V3OPT")
+
 	mustCreateManifests(t, 20, 10, minVer, format, fs.Dir)
 
 	info := mustCreatePack(t, "contents", 10, 20, fs.path("www"), fs.path("image"))
-	mustHaveDeltaCount(t, info, 2)
+	// 3 not 4 as the non-V3 opttest shouldn't have a delta added
+	mustHaveDeltaCount(t, info, 3)
 
 	//
 	// In version 30, make a change to one large files from 20.
@@ -372,7 +380,7 @@ func TestCreatePackWithDelta(t *testing.T) {
 
 	// Pack between 10 and 30 has both deltas.
 	info = mustCreatePack(t, "contents", 10, 30, fs.path("www"), fs.path("image"))
-	mustHaveDeltaCount(t, info, 2)
+	mustHaveDeltaCount(t, info, 3)
 }
 
 func TestCreatePackWithIncompleteChrootDir(t *testing.T) {

@@ -315,7 +315,7 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 
 	deltaCount := 0
 	for _, nf := range newManifest.Files {
-		if nf.DeltaPeer != nil {
+		if nf.DeltaPeer != nil && nf.useInPack() {
 			deltaCount++
 		}
 	}
@@ -327,7 +327,7 @@ func findDeltas(c *config, oldManifest, newManifest *Manifest) ([]Delta, error) 
 	seen := make(map[string]bool)
 
 	for _, nf := range newManifest.Files {
-		if nf.DeltaPeer == nil {
+		if nf.DeltaPeer == nil || !nf.useInPack() {
 			continue
 		}
 

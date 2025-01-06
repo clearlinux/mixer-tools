@@ -314,6 +314,43 @@ func TestFindFileNameInSlice(t *testing.T) {
 	}
 }
 
+func TestFindFileNameAndModifierInSlice(t *testing.T) {
+	fs := []*File{
+		{Name: "1", Modifier: Sse0},
+		{Name: "2", Modifier: Avx2_1},
+		{Name: "3", Modifier: Apx7},
+	}
+
+	testCases := []struct {
+		name        string
+		modifier    ModifierFlag
+		hasMatch    bool
+		expectedIdx int
+	}{
+		{"1", Sse0, true, 0},
+		{"2", Avx2_1, true, 1},
+		{"3", Apx7, true, 2},
+		{"1", Sse1, false, 9},
+		{"2", Avx2_3, false, 9},
+		{"3", Apx4, false, 9},
+		{"4", Sse0, false, 9},
+		{"notpresent", Avx512_2, false, 9},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := File{Name: tc.name}
+			found := f.findFileNameInSlice(fs)
+			if tc.hasMatch {
+				if found.Name != fs[tc.expectedIdx].Name {
+					t.Errorf("findFileNameInSlice returned %v when %v expected",
+						found.Name, fs[tc.expectedIdx].Name)
+				}
+			}
+		})
+	}
+}
+
 func TestTypeHasChanged(t *testing.T) {
 	testCases := []struct {
 		file     File

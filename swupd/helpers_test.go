@@ -124,7 +124,7 @@ func mustExist(t *testing.T, name string) {
 	}
 }
 
-func existDelta(t *testing.T, testDir, filename string, from, to uint32) string {
+func existDelta(t *testing.T, testDir, filename string, modifier ModifierFlag, from, to uint32) string {
 	t.Helper()
 	var fromFull *Manifest
 	var toFull *Manifest
@@ -136,22 +136,30 @@ func existDelta(t *testing.T, testDir, filename string, from, to uint32) string 
 		t.Fatalf("Failed to load to manifest to read hash from: %q", err)
 	}
 
-	var fileNeeded = &File{Name: filename}
-	fromHash := fileNeeded.findFileNameInSlice(fromFull.Files).Hash
-	toHash := fileNeeded.findFileNameInSlice(toFull.Files).Hash
+	var fileNeeded = &File{Name: filename, Modifier: modifier}
+	fromFile := fileNeeded.findFileNameAndModifierInSlice(fromFull.Files)
+	if fromFile == nil {
+		t.Fatal("Failed to find file in from manifest")
+	}
+	fromHash := fromFile.Hash
+	toFile := fileNeeded.findFileNameAndModifierInSlice(toFull.Files)
+	if toFile == nil {
+		t.Fatal("Failed to find file in to manifest")
+	}
+	toHash := toFile.Hash
 
 	suffix := fmt.Sprintf("%d-%d-%s-%s", from, to, fromHash, toHash)
 	deltafile := filepath.Join(testDir, "www", fmt.Sprintf("%d", to), "delta", suffix)
 	return deltafile
 }
 
-func mustExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
-	deltafile := existDelta(t, testDir, filename, from, to)
+func mustExistDelta(t *testing.T, testDir, filename string, modifier ModifierFlag, from, to uint32) {
+	deltafile := existDelta(t, testDir, filename, modifier, from, to)
 	mustExist(t, deltafile)
 }
 
-func mustNotExistDelta(t *testing.T, testDir, filename string, from, to uint32) {
-	deltafile := existDelta(t, testDir, filename, from, to)
+func mustNotExistDelta(t *testing.T, testDir, filename string, modifier ModifierFlag, from, to uint32) {
+	deltafile := existDelta(t, testDir, filename, modifier, from, to)
 	mustNotExist(t, deltafile)
 }
 

@@ -237,6 +237,10 @@ func WritePack(w io.Writer, fromManifest, toManifest *Manifest, outputDir, chroo
 		entry := &info.Entries[i]
 		entry.File = f
 
+		if fromVersion != 0 && !f.useInPack() {
+			entry.Reason = "skipping file type of already included file"
+			continue
+		}
 		if f.Version <= fromVersion || fileContentInManifest(f, fromManifest) {
 			entry.Reason = "already in from manifest"
 			continue

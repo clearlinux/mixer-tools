@@ -22,7 +22,7 @@ func TestCreateDeltas(t *testing.T) {
 	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
 
 	mustCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
-	mustExistDelta(t, ts.Dir, "/bar", 10, 20)
+	mustExistDelta(t, ts.Dir, "/bar", Sse0, 10, 20)
 }
 
 func TestCreateDeltaTooBig(t *testing.T) {
@@ -41,7 +41,7 @@ func TestCreateDeltaTooBig(t *testing.T) {
 	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
 
 	tryCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
-	mustNotExistDelta(t, ts.Dir, "/foo", 10, 20)
+	mustNotExistDelta(t, ts.Dir, "/foo", Sse0, 10, 20)
 }
 
 func TestCreateDeltaFULLDL(t *testing.T) {
@@ -61,7 +61,7 @@ m,cvnxcpowertw54lsi8ydoprf g,mdbng.c,mvnxb,.mxhstu;lwey5o;sdfjklgx;cnvjnxbasdfh`
 	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
 
 	tryCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
-	mustNotExistDelta(t, ts.Dir, "/foo", 10, 20)
+	mustNotExistDelta(t, ts.Dir, "/foo", Sse0, 10, 20)
 }
 
 // Imported from swupd-server/test/functional/no-delta.
@@ -145,4 +145,24 @@ func TestNoDeltasForTypeChangesOrDereferencedSymlinks(t *testing.T) {
 	if uint64(len(fis)) != info.DeltaCount {
 		t.Fatalf("found %d files in %s but expected %d", len(fis), ts.path("www/20/delta"), info.DeltaCount)
 	}
+}
+
+func TestOnlyUseInPackDeltas(t *testing.T) {
+	ts := newTestSwupd(t, "deltas")
+	defer ts.cleanup()
+	ts.Bundles = []string{"test-bundle1", "test-bundle2"}
+	ts.addFile(10, "test-bundle1", "/foo", strings.Repeat("foo", 100))
+	ts.addFile(10, "test-bundle2", "/bar", strings.Repeat("bar", 100))
+	ts.addFile(10, "test-bundle2", "/V3/bar", strings.Repeat("V3bar", 100))
+	ts.createManifests(10)
+
+	ts.addFile(20, "test-bundle1", "/foo", strings.Repeat("foo", 100))
+	ts.addFile(20, "test-bundle2", "/bar", strings.Repeat("bar", 100)+"testingdelta")
+	ts.addFile(20, "test-bundle2", "/V3/bar", strings.Repeat("V3bar", 100)+"testingdelta")
+	ts.createManifests(20)
+	mustMkdir(t, filepath.Join(ts.Dir, "www/20/delta"))
+
+	mustCreateAllDeltas(t, "Manifest.full", ts.Dir, 10, 20)
+	mustNotExistDelta(t, ts.Dir, "/bar", Sse1, 10, 20)
+	mustExistDelta(t, ts.Dir, "/V3/bar", Avx2_1, 10, 20)
 }

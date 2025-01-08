@@ -78,4 +78,4 @@ man: $(MANPAGES)
 
 $(MANPAGES): %: %.rst
 	mkdir -p "$$(dirname $@)"
-	rst2man.py "$<" > "$@.tmp" && mv -f "$@.tmp" "$@"
+	rst2man "$<" > "$@.tmp" && mv -f "$@.tmp" "$@"

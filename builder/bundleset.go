@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	validBundleNameRegex   = regexp.MustCompile(`^[A-Za-z0-9-_]+$`)
+	validBundleNameRegex   = regexp.MustCompile(`^[A-Za-z0-9-_+.]+$`)
 	validPackageNameRegex  = regexp.MustCompile(`^[A-Za-z0-9-_+.]+$`)
 	bundleHeaderFieldRegex = regexp.MustCompile(`^# \[([A-Z]+)\]:\s*(.*)$`)
 )

@@ -759,9 +759,19 @@ func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
 		for f := range m.BundleInfo.Files {
 			isIncluded := false
 			for _, inc := range includes {
-				if _, ok := inc.BundleInfo.Files[f]; ok {
-					isIncluded = true
-					break
+				// Handle cycles
+				if inc.Name == m.Name {
+					continue
+				}
+				chrootDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
+				fullPath := filepath.Join(chrootDir, f)
+				if fi, err := os.Lstat(fullPath); err == nil {
+					if !fi.IsDir() {
+						if _, ok := inc.BundleInfo.Files[f]; ok {
+							isIncluded = true
+							break
+						}
+					}
 				}
 			}
 			if !isIncluded {

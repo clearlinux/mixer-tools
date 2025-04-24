@@ -404,6 +404,24 @@ func resolvePackagesWithOptions(numWorkers int, set bundleSet, packagerCmd []str
 				return
 			}
 
+			if bundle.Header.Maintainer == "pundle" {
+				singlePkgMap := make(repoPkgMap)
+				for _, pkgs := range rpm {
+					for _, pkg := range pkgs {
+						if pkg.name == bundle.Name {
+							singlePkgMap[pkg.repo] = append(singlePkgMap[pkg.repo], pkg)
+							break
+						}
+					}
+					if len(singlePkgMap) > 0 {
+						break
+					}
+				}
+				if len(singlePkgMap) > 0 {
+					rpm = singlePkgMap
+				}
+			}
+
 			for _, pkgs := range rpm {
 				// Add packages to bundle's AllPackages
 				for _, pkg := range pkgs {

@@ -99,7 +99,7 @@ func TestFullRun(t *testing.T) {
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle"), ts.path("www/10/pack-test-bundle-from-0.tar"))
 	mustHaveDeltaCount(t, infoTestBundle, 0)
 	// Empty file (bundle file), "foo".
-	mustHaveFullfileCount(t, infoTestBundle, 2)
+	mustHaveFullfileCount(t, infoTestBundle, 3)
 
 	testBundle := ts.parseManifest(10, "test-bundle")
 	checkIncludes(t, testBundle, "os-core")
@@ -137,7 +137,7 @@ func TestFullRunDelta(t *testing.T) {
 
 	ts.createPack("os-core", 0, 10, ts.path("image"))
 	info := ts.createPack("test-bundle", 0, 10, ts.path("image"))
-	mustHaveFullfileCount(t, info, 4) // largefile, foo and foobarbaz and the test-bundle file.
+	mustHaveFullfileCount(t, info, 5) // largefile, foo and foobarbaz and the test-bundle file.
 
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.os-core"), ts.path("www/10/pack-os-core-from-0.tar"))
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle"), ts.path("www/10/pack-test-bundle-from-0.tar"))
@@ -164,7 +164,7 @@ func TestFullRunDelta(t *testing.T) {
 
 	ts.createPack("os-core", 0, 20, ts.path("image"))
 	info = ts.createPack("test-bundle", 0, 20, ts.path("image"))
-	mustHaveFullfileCount(t, info, 2) // largefile and the test-bundle file.
+	mustHaveFullfileCount(t, info, 3) // largefile and the test-bundle file.
 
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.os-core"), ts.path("www/20/pack-os-core-from-0.tar"))
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.test-bundle"), ts.path("www/20/pack-test-bundle-from-0.tar"))

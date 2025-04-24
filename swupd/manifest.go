@@ -187,18 +187,18 @@ func readManifestFileEntry(fields []string, m *Manifest) error {
 // CheckHeaderIsValid verifies that all header fields in the manifest are valid.
 func (m *Manifest) CheckHeaderIsValid() error {
 	if m.Header.Format == 0 {
-		return errors.New("manifest format not set")
+		return errors.Errorf("manifest format not set (%s)", m.Name)
 	}
 
 	if m.Header.Version == 0 {
-		return errors.New("manifest has version zero, version must be positive")
+		return errors.Errorf("manifest has version zero, version must be positive (%s)", m.Name)
 	}
 	if m.Header.FileCount == 0 {
-		return errors.New("manifest has a zero file count")
+		return fmt.Errorf("manifest has a zero file count (%s)", m.Name)
 	}
 
 	if m.Header.TimeStamp.IsZero() {
-		return errors.New("manifest timestamp not set")
+		return errors.Errorf("manifest timestamp not set (%s)", m.Name)
 	}
 
 	// Includes are not required.

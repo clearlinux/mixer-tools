@@ -17,7 +17,8 @@ setup() {
 }
 
 @test "List the bundles in the mix" {
-  mixer bundle create foo.bar           # 'bundle list' should work even if an invalid bundle is created
+  mixer bundle create foo^bar           # 'bundle list' should work even if an invalid bundle is created
+  mixer bundle add foo\^bar              # 'bundle add' will not add an invalid name but won't fail
 
   bundles=$(mixer $MIXARGS bundle list | grep -v "(included)")
   [[ $(echo "$bundles" | wc -l) -eq 4 ]] # Exactly 4 bundles in the mix
@@ -26,7 +27,7 @@ setup() {
   [[ "$bundles" =~ kernel-native ]]
   [[ "$bundles" =~ bootloader ]]
 
-  rm -f local-bundles/foo.bar           # Delete invalid bundle from local-bundles (test case clean up)
+  rm -f local-bundles/foo\^bar           # Delete invalid bundle from local-bundles (test case clean up)
 }
 
 @test "Add an upstream bundle to the mix" {
@@ -97,47 +98,47 @@ setup() {
 }
 
 @test "Skip invalid bundles from mix" {
-  mixer $MIXARGS bundle create foocar foo.car foojar --add      # Create and add valid as well as invalid bundles
+  mixer $MIXARGS bundle create foo.bar foo\^car foojar --add      # Create and add valid as well as invalid bundles
 
-  mixer $MIXARGS bundle list | grep -q foocar     # "foocar" bundle is in the mix
+  mixer $MIXARGS bundle list | grep -q foo\.bar     # "foo.car" bundle is in the mix
   mixer $MIXARGS bundle list | grep -q foojar     # "foojar" bundle is in the mix
 
-  run $(mixer $MIXARGS bundle list | grep foo.car)              # "foo.car" is an invalid bundle and is not in the mix
+  run $(mixer $MIXARGS bundle list | grep foo\^car)              # "foo^car" is an invalid bundle and is not in the mix
   [[ ${#lines[@]} -eq 0 ]]
 
   # Delete bundle from local-bundles and mix (test case clean up)
-  mixer $MIXARGS bundle remove foocar foojar
-  rm -f local-bundles/foocar local-bundles/foojar local-bundles/foo.car
+  mixer $MIXARGS bundle remove foo.bar foojar
+  rm -f local-bundles/foo.bar local-bundles/foojar local-bundles/foo\^car
 }
 
 @test "Validate a bundle" {
-  echo "package" >> $BATS_TEST_DIRNAME/local-bundles/foobar
-  mixer $MIXARGS bundle create foo.bar
+  echo "package" >> $BATS_TEST_DIRNAME/local-bundles/foo+bar
+  mixer $MIXARGS bundle create foo\^bar
 
-  run mixer $MIXARGS bundle validate foobar
+  run mixer $MIXARGS bundle validate foo+bar
   [[ "$status" -eq 0 ]]                        # basic validation should pass
 
-  run mixer $MIXARGS bundle validate foobar --strict
+  run mixer $MIXARGS bundle validate foo+bar --strict
   [[ "$status" -eq 1 ]]                        # strict validation should fail
   [[ "$output" =~ "Empty Description in bundle header" ]]
   [[ "$output" =~ "Empty Maintainer in bundle header" ]]
   [[ "$output" =~ "Empty Status in bundle header" ]]
   [[ "$output" =~ "Empty Capabilities in bundle header" ]]
 
-  run mixer $MIXARGS bundle validate foo.bar
+  run mixer $MIXARGS bundle validate foo\^bar
   [[ "$status" -eq 1 ]]                        # basic validation should fail
-  [[ "$output" =~ "Invalid bundle name \"foo.bar\" derived from file" ]]
+  [[ "$output" =~ "Invalid bundle name \"foo^bar\" derived from file" ]]
 
-  run mixer $MIXARGS bundle validate foo.bar --strict
+  run mixer $MIXARGS bundle validate foo\^bar --strict
   [[ "$status" -eq 1 ]]                        # strict validation should fail
-  [[ "$output" =~ "Invalid bundle name \"foo.bar\" derived from file" ]]
-  [[ "$output" =~ "Invalid bundle name \"foo.bar\" in bundle header Title" ]]
+  [[ "$output" =~ "Invalid bundle name \"foo^bar\" derived from file" ]]
+  [[ "$output" =~ "Invalid bundle name \"foo^bar\" in bundle header Title" ]]
   [[ "$output" =~ "Empty Description in bundle header" ]]
   [[ "$output" =~ "Empty Maintainer in bundle header" ]]
   [[ "$output" =~ "Empty Status in bundle header" ]]
   [[ "$output" =~ "Empty Capabilities in bundle header" ]]
 
-  rm -f local-bundles/foo.bar           # Delete invalid bundle from local-bundles (test case clean up)
+  rm -f local-bundles/foo\^bar           # Delete invalid bundle from local-bundles (test case clean up)
 }
 
 # vi: ft=sh ts=8 sw=2 sts=2 et tw=80

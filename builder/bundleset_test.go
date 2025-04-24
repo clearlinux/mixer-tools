@@ -534,11 +534,57 @@ func TestParseBundleSet(t *testing.T) {
 			},
 		},
 
-		{"cyclic error two bundles",
-			FilesMap{"a": "include(b)", "b": "include(a)"}, Error},
+		{
+			"cycles are fine, two bundles",
+			FilesMap{
+				"a": Lines("include(b) A"),
+				"b": Lines("include(a) B"),
+			},
+			CountsMap{
+				"a": 2,
+				"b": 2,
+			},
+		},
 
-		{"cyclic error three bundles",
-			FilesMap{"a": "include(b)", "b": "include(c)", "c": "include(a)"}, Error},
+		{
+			"cycles are fine, two pundles",
+			FilesMap{
+				"a": "# [MAINTAINER]: pundle\ninclude(b)\nA",
+				"b": "# [MAINTAINER]: pundle\ninclude(a)\nB",
+			},
+			CountsMap{
+				"a": 1,
+				"b": 1,
+			},
+		},
+
+		{
+			"cycles are fine, three bundles",
+			FilesMap{
+				"a": Lines("include(c) include(b) A"),
+				"b": Lines("include(c) include(a) B"),
+				"c": Lines("include(b) include(a) C"),
+			},
+			CountsMap{
+				"a": 3,
+				"b": 3,
+				"c": 3,
+			},
+		},
+
+		{
+			"cycles are fine, three pundles",
+			FilesMap{
+				"a": "# [MAINTAINER]: pundle\ninclude(c)\ninclude(b)\nA",
+				"b": "# [MAINTAINER]: pundle\ninclude(c)\ninclude(a)\nB",
+				"c": "# [MAINTAINER]: pundle\ninclude(b)\ninclude(a)\nC",
+			},
+			CountsMap{
+				"a": 1,
+				"b": 1,
+				"c": 1,
+			},
+		},
 
 		{"bundle not available",
 			FilesMap{"a": "include(c)"}, Error},

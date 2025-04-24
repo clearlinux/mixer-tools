@@ -44,11 +44,10 @@ type bundleSet map[string]*bundle
 // the following constraints:
 //  1. Completeness. For each bundle in the set, every bundle included by that
 //     bundle is also in the set.
-//  2. Cycle-Free. The set contains no bundle include cycles.
 func validateAndFillBundleSet(bundles bundleSet) error {
 	// Sort the bundles so that all includes and optional (also-add) includes appear
 	// before a bundle, then calculate AllPackages for each bundle.
-	// Cycles and missing bundles are identified as part of sorting the bundles.
+	// Missing bundles are identified as part of sorting the bundles.
 	sortedBundles, err := sortBundles(bundles)
 	if err != nil {
 		return err
@@ -58,9 +57,13 @@ func validateAndFillBundleSet(bundles bundleSet) error {
 		for k, v := range b.DirectPackages {
 			b.AllPackages[k] = v
 		}
-		for _, include := range b.DirectIncludes {
-			for k, v := range bundles[include].AllPackages {
-				b.AllPackages[k] = v
+	}
+	for _, b := range sortedBundles {
+		if b.Header.Maintainer != "pundle" {
+			for _, include := range b.DirectIncludes {
+				for k, v := range bundles[include].AllPackages {
+					b.AllPackages[k] = v
+				}
 			}
 		}
 	}
@@ -90,7 +93,8 @@ func sortBundles(bundles bundleSet) ([]*bundle, error) {
 	visit = func(b *bundle) error {
 		switch mark[b] {
 		case Visiting:
-			return fmt.Errorf("cycle found in bundles: %s -> %s", strings.Join(visiting, " -> "), b.Name)
+			// In a cycle, short circuit
+			return nil
 		case NotVisited:
 			mark[b] = Visiting
 			visiting = append(visiting, b.Name)
@@ -161,14 +165,21 @@ func validateBundleFile(filename string, lvl ValidationLevel) error {
 	}
 
 	// Strict Validation
-	err = validateBundle(b)
-	if err != nil {
-		errText += err.Error() + "\n"
-	}
+	if b.Header.Maintainer == "pundle" {
+		err = validatePundle(b)
+		if err != nil {
+			errText += err.Error() + "\n"
+		}
+	} else {
+		err = validateBundle(b)
+		if err != nil {
+			errText += err.Error() + "\n"
+		}
 
-	name := filepath.Base(filename)
-	if name != b.Header.Title {
-		errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+		name := filepath.Base(filename)
+		if name != b.Header.Title {
+			errText += fmt.Sprintf("Bundle name %q and bundle header Title %q do not match\n", name, b.Header.Title)
+		}
 	}
 
 	if errText != "" {
@@ -190,6 +201,31 @@ func validateBundleFilename(filename string) error {
 	name := filepath.Base(filename)
 	if err := validateBundleName(name); err != nil {
 		return fmt.Errorf("Invalid bundle name %q derived from file %q", name, filename)
+	}
+
+	return nil
+}
+
+func validatePundle(b *bundle) error {
+	var errText string
+
+	if b.Header.Title != "" {
+		errText = fmt.Sprintf("pundle name %q detected in pundle header Title (should be empty)\n", b.Header.Title)
+	}
+	if b.Header.Description != "" {
+		errText += "Non-empty Description in pundle header\n"
+	}
+	if b.Header.Maintainer != "pundle" {
+		errText += "Non-pundle Maintainer in bundle header\n"
+	}
+	if b.Header.Status == "" {
+		errText += "Non-empty Status in bundle header\n"
+	}
+	if b.Header.Capabilities == "" {
+		errText += "Non-empty Capabilities in bundle header\n"
+	}
+	if errText != "" {
+		return errors.New(strings.TrimSuffix(errText, "\n"))
 	}
 
 	return nil

@@ -99,7 +99,7 @@ func TestFullRun(t *testing.T) {
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle"), ts.path("www/10/pack-test-bundle-from-0.tar"))
 	mustHaveDeltaCount(t, infoTestBundle, 0)
 	// Empty file (bundle file), "foo".
-	mustHaveFullfileCount(t, infoTestBundle, 3)
+	mustHaveFullfileCount(t, infoTestBundle, 2)
 
 	testBundle := ts.parseManifest(10, "test-bundle")
 	checkIncludes(t, testBundle, "os-core")
@@ -112,7 +112,6 @@ func TestFullRun(t *testing.T) {
 	checkFileInManifest(t, osCore, 10, "/usr/share")
 	checkFileInManifest(t, osCore, 10, "/usr/share/clear")
 	checkFileInManifest(t, osCore, 10, "/usr/share/clear/bundles")
-	checkFileInManifest(t, osCore, 10, "/usr")
 }
 
 // Imported from swupd-server/test/functional/full-run-delta.
@@ -137,7 +136,7 @@ func TestFullRunDelta(t *testing.T) {
 
 	ts.createPack("os-core", 0, 10, ts.path("image"))
 	info := ts.createPack("test-bundle", 0, 10, ts.path("image"))
-	mustHaveFullfileCount(t, info, 5) // largefile, foo and foobarbaz and the test-bundle file.
+	mustHaveFullfileCount(t, info, 4) // largefile, foo and foobarbaz and the test-bundle file.
 
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.os-core"), ts.path("www/10/pack-os-core-from-0.tar"))
 	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle"), ts.path("www/10/pack-test-bundle-from-0.tar"))
@@ -164,7 +163,7 @@ func TestFullRunDelta(t *testing.T) {
 
 	ts.createPack("os-core", 0, 20, ts.path("image"))
 	info = ts.createPack("test-bundle", 0, 20, ts.path("image"))
-	mustHaveFullfileCount(t, info, 3) // largefile and the test-bundle file.
+	mustHaveFullfileCount(t, info, 2) // largefile and the test-bundle file.
 
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.os-core"), ts.path("www/20/pack-os-core-from-0.tar"))
 	mustValidateZeroPack(t, ts.path("www/20/Manifest.test-bundle"), ts.path("www/20/pack-test-bundle-from-0.tar"))
@@ -189,6 +188,83 @@ func TestFullRunDelta(t *testing.T) {
 
 	// NOTE: original test checked whether the packs had the manifests inside. This is
 	// not done by new swupd since it seems the client doesn't take advantage of them.
+}
+
+// Test an import cycle for includes subtraction
+func TestRunBundleCycle(t *testing.T) {
+	ts := newTestSwupd(t, "bundle-cycle-")
+	defer ts.cleanup()
+
+	// Version 10.
+	ts.Bundles = []string{"os-core", "test-bundle1", "test-bundle2"}
+
+	ts.mkdir("image/10/os-core/a")
+	ts.write("image/10/test-bundle1/a/b/t1", "t1")
+	ts.write("image/10/test-bundle2/a/b/t2", "t2")
+	ts.write("image/10/noship/test-bundle1-includes", "test-bundle2")
+	ts.write("image/10/noship/test-bundle2-includes", "test-bundle1")
+
+	ts.createManifestsFromChroots(10)
+	ts.createFullfiles(10)
+
+	ts.createPack("os-core", 0, 10, ts.path("image"))
+	info1 := ts.createPack("test-bundle1", 0, 10, ts.path("image"))
+	info2 := ts.createPack("test-bundle2", 0, 10, ts.path("image"))
+	mustHaveFullfileCount(t, info1, 3) // b dir, t1 file and the test-bundle1 file.
+	mustHaveFullfileCount(t, info2, 3) // b dir, t2 file and the test-bundle2 file.
+
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.os-core"), ts.path("www/10/pack-os-core-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle1"), ts.path("www/10/pack-test-bundle1-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle2"), ts.path("www/10/pack-test-bundle2-from-0.tar"))
+
+	osCore := ts.parseManifest(10, "os-core")
+	testBundle1 := ts.parseManifest(10, "test-bundle1")
+	testBundle2 := ts.parseManifest(10, "test-bundle2")
+	checkIncludes(t, testBundle1, "os-core", "test-bundle2")
+	checkIncludes(t, testBundle2, "os-core", "test-bundle1")
+	checkFileInManifest(t, osCore, 10, "/a")
+	checkFileInManifest(t, testBundle1, 10, "/a/b")
+	checkFileInManifest(t, testBundle1, 10, "/a/b/t1")
+	checkFileInManifest(t, testBundle2, 10, "/a/b")
+	checkFileInManifest(t, testBundle2, 10, "/a/b/t2")
+}
+
+// Test an import without cycle to see directory subtraction outside os-core
+func TestRunBundleIncludes(t *testing.T) {
+	ts := newTestSwupd(t, "bundle-includes-")
+	defer ts.cleanup()
+
+	// Version 10.
+	ts.Bundles = []string{"os-core", "test-bundle1", "test-bundle2"}
+
+	ts.write("image/10/test-bundle1/a/t1", "t1")
+	ts.write("image/10/test-bundle2/t2", "t2")
+	// this would have subtracted with a cycle too but
+	// keeping this test separate in case directory subtraction
+	// improves in the case of cycles.
+	ts.mkdir("image/10/test-bundle2/a")
+	ts.write("image/10/noship/test-bundle2-includes", "test-bundle1")
+
+	ts.createManifestsFromChroots(10)
+	ts.createFullfiles(10)
+
+	ts.createPack("os-core", 0, 10, ts.path("image"))
+	info1 := ts.createPack("test-bundle1", 0, 10, ts.path("image"))
+	info2 := ts.createPack("test-bundle2", 0, 10, ts.path("image"))
+	mustHaveFullfileCount(t, info1, 3) // a dir, t1 file and the test-bundle1 file.
+	mustHaveFullfileCount(t, info2, 2) // t2 file and the test-bundle2 file.
+
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.os-core"), ts.path("www/10/pack-os-core-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle1"), ts.path("www/10/pack-test-bundle1-from-0.tar"))
+	mustValidateZeroPack(t, ts.path("www/10/Manifest.test-bundle2"), ts.path("www/10/pack-test-bundle2-from-0.tar"))
+
+	testBundle1 := ts.parseManifest(10, "test-bundle1")
+	testBundle2 := ts.parseManifest(10, "test-bundle2")
+	checkIncludes(t, testBundle2, "os-core", "test-bundle1")
+	checkFileInManifest(t, testBundle1, 10, "/a")
+	fileNotInManifest(t, testBundle2, "/a")
+	checkFileInManifest(t, testBundle1, 10, "/a/t1")
+	checkFileInManifest(t, testBundle2, 10, "/t2")
 }
 
 func TestAddFilesToBundleInfo(t *testing.T) {

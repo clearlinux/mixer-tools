@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -757,20 +758,58 @@ func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
 		// Add files to manifest that do not exist in included bundles.
 		chrootDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
 		includes := m.GetRecursiveIncludes()
+		usedDirs := make(map[string]struct{})
+		bundleDirs := []string{}
+		bundleFiles := []string{}
 		for f := range m.BundleInfo.Files {
+			fullPath := filepath.Join(chrootDir, f)
+			if fi, err := os.Lstat(fullPath); err == nil {
+				if !fi.IsDir() {
+					usedDirs[filepath.Dir(f)] = struct{}{}
+					bundleFiles = append(bundleFiles, f)
+				} else {
+					bundleDirs = append(bundleDirs, f)
+				}
+			}
+		}
+		for _, f := range bundleFiles {
 			isIncluded := false
 			for _, inc := range includes {
 				// Handle cycles
 				if inc.Name == m.Name {
 					continue
 				}
-				fullPath := filepath.Join(chrootDir, f)
-				if fi, err := os.Lstat(fullPath); err == nil {
-					if !fi.IsDir() {
-						if _, ok := inc.BundleInfo.Files[f]; ok {
-							isIncluded = true
-							break
-						}
+				if _, ok := inc.BundleInfo.Files[f]; ok {
+					isIncluded = true
+					break
+				}
+			}
+			if !isIncluded {
+				if err := m.addFile(f, c, ui.version); err != nil {
+					return err
+				}
+			}
+		}
+		// Directories are sorted into reverse order to allow usedDirs
+		// to populate correctly (/a/b/c will be seen before /a/b which
+		// will allow /a to be set when /a/b is seen)
+		slices.Sort(bundleDirs)
+		slices.Reverse(bundleDirs)
+		for _, f := range bundleDirs {
+			if _, ok := usedDirs[f]; ok {
+				usedDirs[filepath.Dir(f)] = struct{}{}
+			}
+		}
+		for _, f := range bundleDirs {
+			isIncluded := false
+			for _, inc := range includes {
+				if _, ok := inc.BundleInfo.Files[f]; ok {
+					if inc.Name == "os-core" {
+						isIncluded = true
+						break
+					} else if _, ok := usedDirs[f]; !ok {
+						isIncluded = true
+						break
 					}
 				}
 			}

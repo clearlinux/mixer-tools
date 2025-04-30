@@ -755,6 +755,7 @@ func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
 		}
 	} else {
 		// Add files to manifest that do not exist in included bundles.
+		chrootDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
 		includes := m.GetRecursiveIncludes()
 		for f := range m.BundleInfo.Files {
 			isIncluded := false
@@ -763,7 +764,6 @@ func (m *Manifest) addManifestFiles(ui UpdateInfo, c config) error {
 				if inc.Name == m.Name {
 					continue
 				}
-				chrootDir := filepath.Join(c.imageBase, fmt.Sprint(ui.version), "full")
 				fullPath := filepath.Join(chrootDir, f)
 				if fi, err := os.Lstat(fullPath); err == nil {
 					if !fi.IsDir() {
